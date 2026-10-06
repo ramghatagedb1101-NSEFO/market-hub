@@ -1,5 +1,5 @@
 {
- "ts": "2026-10-06T19:24+05:30",
+ "ts": "2026-10-06T20:17+05:30",
  "errors": {},
  "fii_dii": [
   {
@@ -18,8 +18,8 @@
   }
  ],
  "fx": {
-  "date": "2026-10-05",
-  "usd_inr": 96.3,
+  "date": "2026-10-06",
+  "usd_inr": 96.43,
   "source": "ECB reference rates"
  },
  "global": {
@@ -52,19 +52,60 @@
   "Gold (MCX, ₹/10g)": {
    "contract": "GOLD26DECFUT",
    "expiry": "2026-12-04",
-   "last": 149946.0,
+   "last": 149909.0,
    "prev_close": 149316.0,
-   "change_pct": 0.42
+   "change_pct": 0.4
   },
   "Crude oil (MCX, ₹/bbl)": {
    "contract": "CRUDEOIL26OCTFUT",
    "expiry": "2026-10-19",
-   "last": 8490.0,
+   "last": 8488.0,
    "prev_close": 8669.0,
-   "change_pct": -2.06
+   "change_pct": -2.09
   }
  },
+ "india_vix": {
+  "last": 13.61,
+  "change_pct": -7.92
+ },
+ "wti": {
+  "date": "2026-09-29",
+  "last": 96.16,
+  "prev": 99.37,
+  "change_pct": -3.23,
+  "source": "Alpha Vantage"
+ },
  "headlines": [
+  {
+   "source": "BBC Business",
+   "title": "Paramount takes over Warner Bros in $110bn Hollywood merger",
+   "time": "2026-10-06T20:07+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "US stocks: US software shares scale fresh 2026 highs as AI disruption worries fade",
+   "time": "2026-10-06T20:05+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Top stocks in focus tomorrow: Investors must watch Titan, Utkarsh SFB, HCL Tech shares on Wed, 7 Oct | Triggers",
+   "time": "2026-10-06T20:02+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Google DeepMind's Lila Ibrahim, world's top AI 'readiness' officer, on preparing for what's to come",
+   "time": "2026-10-06T19:30+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Titan Q2FY27 update: Consumer businesses grow 25% YoY, jewellery up 21%",
+   "time": "2026-10-06T19:22+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Why US stocks are rising today: S&amp;P 500, Nasdaq hit records as easing yields and oil fuel AI rally",
+   "time": "2026-10-06T19:22+05:30"
+  },
   {
    "source": "CNBC Top News",
    "title": "Anduril lands $2.9 billion Navy submarine shipyard contract days after Luckey joins Pentagon weapons group",
@@ -76,19 +117,24 @@
    "time": "2026-10-06T19:22+05:30"
   },
   {
+   "source": "Economic Times Markets",
+   "title": "Private equity inflow in office assets rises 7 pc to USD 945 million in Apr-Sep: Anarock",
+   "time": "2026-10-06T19:19+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Investor awareness key to long-term wealth creation, technology double-edged sword: ANMI President Kamlesh Shroff",
+   "time": "2026-10-06T19:17+05:30"
+  },
+  {
    "source": "Livemint Markets",
    "title": "Despite 13% drop in 2026, Antique gives a 'buy' rating to this T&amp;D stock | check target, stop loss, rationale",
    "time": "2026-10-06T19:10+05:30"
   },
   {
-   "source": "BBC Business",
-   "title": "Paramount takes over Warner Bros in $110bn Hollywood merger",
-   "time": "2026-10-06T19:05+05:30"
-  },
-  {
    "source": "CNBC Top News",
-   "title": "Trump allows cheaper, dyed diesel on highways to blunt historic fuel cost spike ahead of midterms",
-   "time": "2026-10-06T18:56+05:30"
+   "title": "Treasury yields fall as oil prices slide",
+   "time": "2026-10-06T19:10+05:30"
   },
   {
    "source": "CNBC Top News",
@@ -141,11 +187,6 @@
    "time": "2026-10-06T18:29+05:30"
   },
   {
-   "source": "CNBC Top News",
-   "title": "DeepSeek considers doubling latest funding round to up to $15 billion, sources say",
-   "time": "2026-10-06T18:29+05:30"
-  },
-  {
    "source": "Economic Times Markets",
    "title": "India emerges as major investment destination with young, talented workforce: Singapore biz leaders",
    "time": "2026-10-06T18:26+05:30"
@@ -162,13 +203,13 @@
   },
   {
    "source": "Economic Times Markets",
-   "title": "Dow Jones| Nasdaq | US Stock Market Today | Live: US futures rise as Treasury yields cool, oil slips",
+   "title": "Dow Jones| Nasdaq | US Stock Market Today | Live: S&amp;P 500, Nasdaq scale records as easing yields and oil boost AI rally",
    "time": "2026-10-06T17:48+05:30"
   },
   {
    "source": "CNBC Top News",
-   "title": "Meta Muse gives AMD a boost as AI momentum shifts to personal agents",
-   "time": "2026-10-06T17:48+05:30"
+   "title": "Car buyers are stretching loans to afford payments — it's a 'potential warning light,' analyst says",
+   "time": "2026-10-06T17:45+05:30"
   },
   {
    "source": "Livemint Markets",
@@ -176,24 +217,9 @@
    "time": "2026-10-06T17:41+05:30"
   },
   {
-   "source": "Economic Times Markets",
-   "title": "HFCL among 4 stocks hitting 52-week highs; rallied up to 15% in a month",
-   "time": "2026-10-06T17:39+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Indian bonds rangebound as traders await a hawkish RBI verdict",
-   "time": "2026-10-06T17:30+05:30"
-  },
-  {
    "source": "Livemint Markets",
    "title": "TajGVK Hotels shares: Stock down 26% in 1 year, but Monarch sees 49% upside - Here's why | Check share price target",
    "time": "2026-10-06T17:29+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Market wrap: Trent, BSE, Coal India, Tech Mahindra top gainers and losers on Nifty and Sensex on Tuesday",
-   "time": "2026-10-06T17:28+05:30"
   },
   {
    "source": "Livemint Markets",
@@ -204,16 +230,6 @@
    "source": "Livemint Markets",
    "title": "Can IPO buzz boost CDSL and NSDL Q2 earnings? What the stocks investors need to know",
    "time": "2026-10-06T17:25+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Reliance Industries shares gain 3% as JIO IPO inches closer; Jefferies increases weight in conglomerate",
-   "time": "2026-10-06T16:56+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Bitcoin vs gold: Why Cathie Wood feels cryptocurrency's 'turn is in' against the precious metal",
-   "time": "2026-10-06T16:50+05:30"
   },
   {
    "source": "BBC Business",
@@ -254,11 +270,6 @@
    "source": "Livemint Markets",
    "title": "India is cheaper. Why are foreign investors still selling?",
    "time": "2026-10-06T14:40+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Best auto stocks to buy ahead of Q2 results: Eicher, Hyundai Motor, Tata Motors PV among Nuvama’s top picks | Full list",
-   "time": "2026-10-06T14:29+05:30"
   },
   {
    "source": "BBC Business",
@@ -307,52 +318,52 @@
   },
   {
    "source": "Investing.com News",
-   "title": "Equinor warns UK risks uninvestable label over North Sea projects",
+   "title": "GE Vernova and Palo Alto among market cap stock movers on Tuesday",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Why is Corteva stock rallying today?",
+   "title": "Google fights £1 billion UK lawsuit over app store fees in latest Big Tech case",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Mark Walter’s nonprofit now funded by firm in federal probe",
+   "title": "Most Americans support switch to Medicare for all health insurance",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Paramount wraps up mega Warner Bros merger to create Hollywood powerhouse Skydance",
+   "title": "SNAP investment outlook: bull and bear cases",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Citigroup raises AMD price target on agentic AI demand outlook",
+   "title": "Why is Molson Coors Beverage stock climbing 2% today?",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Wall Street opens higher, S&P 500 scales first record high since mid-August",
+   "title": "Marvell Technology near term bull and bear case",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Why is Geo stock climbing today?",
+   "title": "Why is BlackBerry stock rallying today?",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Best Application Software Stocks: Citi’s Latest Top Picks",
+   "title": "US software stocks scale fresh 2026 highs as AI disruption worries fade",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Why is Thyssenkrupp stock climbing today?",
+   "title": "Goldman Sachs shares may move 4.1% on Oct. 13 earnings report",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Amazon Prime Video to become exclusive global home of Emmy Awards",
+   "title": "Nasdaq 100 overbought near ATH with doji warning: Live levels",
    "time": null
   }
  ]
