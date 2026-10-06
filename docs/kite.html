@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Kite login</title>
+<style>
+  body { margin:0; padding:20px 16px; background:#0b1220; color:#e6edf7;
+         font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  @media (prefers-color-scheme: light) { body { background:#f5f7fb; color:#0f172a; } }
+  h1 { font-size:18px; margin:0 0 12px; }
+  .card { border:1px solid #22304a; border-radius:12px; padding:14px; margin-bottom:12px; }
+  code { word-break:break-all; font-size:13px; }
+  button { width:100%; padding:12px; border-radius:10px; border:0; background:#60a5fa;
+           color:#0b1220; font-size:15px; font-weight:600; }
+  .mut { color:#8aa0bf; font-size:13px; }
+</style>
+</head>
+<body>
+<h1>Kite daily login</h1>
+<div class="card" id="step"></div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const token = params.get("request_token");
+const status = params.get("status");
+
+// Works out this repo's Actions page from the GitHub Pages address (owner.github.io/repo/).
+const [owner] = location.hostname.split(".");
+const repo = location.pathname.split("/").filter(Boolean)[0] || "";
+const actionsUrl = `https://github.com/${owner}/${repo}/actions/workflows/kite-login.yml`;
+
+const el = document.getElementById("step");
+if (token && status !== "error") {
+  el.innerHTML = `
+    <p><b>Step 2:</b> copy this one-time token and paste it into the workflow.</p>
+    <p><code id="tok"></code></p>
+    <button id="copy">Copy token</button>
+    <p class="mut">Then open the workflow (below), tap <b>Run workflow</b>, paste the token into
+    <b>request_token</b>, and run it. The token expires within minutes, so do this now.</p>
+    <p><a href="${actionsUrl}" style="color:#60a5fa">Open kite-login workflow</a></p>`;
+  document.getElementById("tok").textContent = token;
+  document.getElementById("copy").onclick = async () => {
+    await navigator.clipboard.writeText(token);
+    document.getElementById("copy").textContent = "Copied";
+  };
+} else {
+  el.innerHTML = `
+    <p><b>Step 1:</b> open the Kite login link saved in your Kite developer console and log in
+    with your own password and 2FA. Kite then sends you back to this page with the token.</p>
+    <p class="mut">If you land here without a token, the login did not complete. Try again.</p>`;
+}
+</script>
+</body>
+</html>

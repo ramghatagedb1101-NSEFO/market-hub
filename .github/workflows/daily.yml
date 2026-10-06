@@ -1,0 +1,45 @@
+name: daily-forecast
+
+on:
+  schedule:
+    - cron: "45 10 * * 1-5"      # 10:15 UTC = 15:45 IST, weekdays (after the cash close)
+  workflow_dispatch:              # "Run workflow" button for a manual run, free
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-forecast
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30                 # first run backfills 5 years of NSE bhavcopies
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily job (refresh prices, settle, forecast, publish feed)
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
+        run: python -m hub
+
+      - name: Commit state and feed
+        run: |
+          git config user.name "forecast-bot"
+          git config user.email "forecast-bot@users.noreply.github.com"
+          git add state docs/data
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "daily forecast $(date -u +%F)"
+            git push
+          fi
