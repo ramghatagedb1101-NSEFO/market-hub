@@ -18,10 +18,14 @@ UNDERLYINGS = {"NIFTY": ("NSE:NIFTY 50", "NIFTY"), "BANKNIFTY": ("NSE:NIFTY BANK
 NEUTRAL_MOVE_PCT = 0.5
 WING_STRIKES = 2
 CHAIN_RANGE_PCT = 8.0
+MIN_CREDIT_TO_WIDTH = 0.10     # condor credit must be at least 10% of the wing width
+MIN_SHORT_PREMIUM = 5.0        # short strikes must trade for at least Rs 5
+MAX_DIRECTIONAL_HALF_WIDTH_PCT = 1.5   # directional calls only when the band is tight
 
 
 def _expiries(opts, today):
-    exps = sorted({i["expiry"] for i in opts if i["expiry"] >= today})
+    # Strictly after today: an expiry that closes today has no forecast band to trade against.
+    exps = sorted({i["expiry"] for i in opts if i["expiry"] > today})
     nearest = exps[0] if exps else None
     by_month = {}
     for e in exps:
@@ -62,6 +66,8 @@ def _suggest(spot, lo, hi, chain, lot):
     move = ((lo + hi) / 2 / spot - 1) * 100
     atm = min(strikes, key=lambda s: abs(s - spot))
 
+    half_width_pct = (hi - lo) / 2 / spot * 100
+
     if abs(move) < NEUTRAL_MOVE_PCT:
         ce_s = min((s for s in strikes if s >= hi), default=None)
         pe_s = max((s for s in strikes if s <= lo), default=None)
@@ -80,9 +86,16 @@ def _suggest(spot, lo, hi, chain, lot):
         width = WING_STRIKES * step
         if credit <= 0:
             return {"structure": None, "reason": "No net credit at these strikes."}
+        if credit < MIN_CREDIT_TO_WIDTH * width or min(legs[0]["price"], legs[2]["price"]) < MIN_SHORT_PREMIUM:
+            return {"structure": None,
+                    "reason": "Premiums too thin to trade (credit or short-strike price below the minimum)."}
         return _pack("Iron condor (sell outside the band)", legs, credit, width - credit,
                      [pe_s - credit, ce_s + credit], lot,
                      f"Band centred {move:+.2f}% from spot. Short strikes sit just outside the 80% band.")
+
+    if half_width_pct > MAX_DIRECTIONAL_HALF_WIDTH_PCT:
+        return {"structure": None,
+                "reason": f"Band is ±{half_width_pct:.1f}% wide, too wide for a directional call."}
 
     if move > 0:
         long_k = atm
