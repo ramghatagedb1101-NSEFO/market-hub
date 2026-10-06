@@ -81,7 +81,6 @@ function handleCheck_(p) {
     const v = props.getProperty(n) || '';
     set[n] = { set: v.length > 0, length: v.length };
   });
-  const relayKey = props.getProperty('RELAY_KEY') || '';
   return json_({
     today: todayIst_(),
     properties: set,
