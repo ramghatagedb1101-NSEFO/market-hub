@@ -29,6 +29,11 @@ def _summary(feed: dict, fno: dict | None) -> str:
         lines.append(f"{name}: last close {b['last_close']} on {b['last_date']}. "
                      f"Estimated close for {t.get('target')}: {t.get('pred')} "
                      f"(range {t.get('lo')}–{t.get('hi')}, {t.get('expected_move_pct')}% vs prior close).")
+        if t.get("actual") is not None and t.get("pred"):
+            miss = (t["actual"] / t["pred"] - 1) * 100
+            inside = t["lo"] <= t["actual"] <= t["hi"]
+            lines.append(f"  Actual close {t['actual']} on {t.get('target')}: {miss:+.2f}% vs the estimate, "
+                         f"{'inside' if inside else 'OUTSIDE'} the estimated range. Say this plainly in the brief.")
         m = b["horizons"]["month"]["forecast"]
         if m:
             lines.append(f"  Month-end range {m['lo']}–{m['hi']} (no point call; model does not beat baseline).")
