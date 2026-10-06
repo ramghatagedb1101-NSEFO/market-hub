@@ -1,9 +1,34 @@
 {
- "ts": "2026-10-06T23:08+05:30",
+ "ts": "2026-10-07T04:03+05:30",
  "universe": 400,
  "names_with_data": 400,
  "as_of_dates": 38,
  "observations": 0,
+ "diagnostics": {
+  "names_with_prices": 396,
+  "price_rows": 851177,
+  "price_http_status": {
+   "200": 986,
+   "404": 4
+  },
+  "price_field_names": [
+   "adjusted_close",
+   "adjustment_factor",
+   "close",
+   "delivery_pct",
+   "delivery_qty",
+   "high",
+   "low",
+   "num_trades",
+   "open",
+   "prev_close",
+   "trade_date",
+   "turnover_lakhs",
+   "volume"
+  ],
+  "price_errors": 0,
+  "first_error": null
+ },
  "by_score": {
   "0": {
    "n": 0
