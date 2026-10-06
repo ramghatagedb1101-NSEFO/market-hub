@@ -47,6 +47,12 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub
 
+      - name: Nifty 50 option-selling screen (writes docs/data/stocks.json)
+        continue-on-error: true
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        run: python -m hub.stocks
+
       - name: F&O suggestions from the option chain
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}

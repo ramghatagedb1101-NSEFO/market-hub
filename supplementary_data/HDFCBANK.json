@@ -1,0 +1,23 @@
+{
+  "symbol": "HDFCBANK",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 60.31,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 27.0,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 290571450,
+  "next_month_futures_oi": 107380000,
+  "last_updated": "2026-04-01 09:30:01.999404",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "16-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "14-Aug-2026: ESOP/ESOS/ESPS",
+    "13-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "05-Aug-2026: Shareholders meeting",
+    "31-Jul-2026: Copy of Newspaper Publication"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

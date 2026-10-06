@@ -1,0 +1,23 @@
+{
+  "symbol": "TATASTEEL",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 39.19,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 28.9,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 171990500,
+  "next_month_futures_oi": 69806000,
+  "last_updated": "2026-04-01 09:29:17.700380",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "14-Aug-2026: Copy of Newspaper Publication",
+    "14-Aug-2026: Diversification/Disinvestment",
+    "14-Aug-2026: Press Release",
+    "14-Aug-2026: Committee Meeting Updates",
+    "13-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}
