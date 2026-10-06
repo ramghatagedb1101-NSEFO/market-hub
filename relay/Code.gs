@@ -107,7 +107,11 @@ function handleQuote_() {
   const apiKey = props.getProperty('KITE_API_KEY');
   if (!token || date !== todayIst_() || !apiKey) return json_({ error: 'no token for today; log in with Kite first' });
 
-  const symbols = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX'];
+  const front = frontMonths_();   // nearest-expiry MCX gold and crude, and USD/INR (CDS)
+  const symbols = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX'];
+  if (front.gold) symbols.push('MCX:' + front.gold);
+  if (front.crude) symbols.push('MCX:' + front.crude);
+  if (front.usd) symbols.push('CDS:' + front.usd);
   const qs = symbols.map(s => 'i=' + encodeURIComponent(s)).join('&');
   const res = UrlFetchApp.fetch('https://api.kite.trade/quote/ohlc?' + qs, {
     method: 'get',
@@ -129,9 +133,48 @@ function handleQuote_() {
     ts: Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ssXXX"),
     indices: { NIFTY: pick('NSE:NIFTY 50', 'NIFTY 50'), BANKNIFTY: pick('NSE:NIFTY BANK', 'BANK NIFTY'),
                SENSEX: pick('BSE:SENSEX', 'SENSEX') },
+    india_vix: pick('NSE:INDIA VIX', 'INDIA VIX'),
+    extra: {},
   };
+  if (front.gold && d['MCX:' + front.gold]) out.extra.gold = Object.assign(pick('MCX:' + front.gold, 'GOLD'), { contract: front.gold });
+  if (front.crude && d['MCX:' + front.crude]) out.extra.crude = Object.assign(pick('MCX:' + front.crude, 'CRUDE'), { contract: front.crude });
+  if (front.usd && d['CDS:' + front.usd]) out.extra.usd_inr = Object.assign(pick('CDS:' + front.usd, 'USDINR'), { contract: front.usd });
   cache.put('quotes', JSON.stringify(out), 10);
   return json_(out);
+}
+
+
+/**
+ * Nearest unexpired monthly futures for MCX GOLD and CRUDEOIL, and CDS USDINR, from Kite's public
+ * instrument lists. Cached for 6 hours, so the lists are downloaded rarely.
+ */
+function frontMonths_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('front_months');
+  if (hit) return JSON.parse(hit);
+  const today = todayIst_();
+  const pickFront = (csv, name) => {
+    const rows = Utilities.parseCsv(csv);
+    const head = rows[0];
+    const iSym = head.indexOf('tradingsymbol'), iName = head.indexOf('name');
+    const iExp = head.indexOf('expiry'), iType = head.indexOf('instrument_type');
+    let best = null;
+    rows.slice(1).forEach(r => {
+      if (r[iName] !== name || r[iType] !== 'FUT' || !r[iExp] || r[iExp] < today) return;
+      if (!best || r[iExp] < best[iExp]) best = r;
+    });
+    return best ? best[iSym] : null;
+  };
+  const out = {};
+  try {
+    const mcx = UrlFetchApp.fetch('https://api.kite.trade/instruments/MCX', { muteHttpExceptions: true }).getContentText();
+    out.gold = pickFront(mcx, 'GOLD');
+    out.crude = pickFront(mcx, 'CRUDEOIL');
+    const cds = UrlFetchApp.fetch('https://api.kite.trade/instruments/CDS', { muteHttpExceptions: true }).getContentText();
+    out.usd = pickFront(cds, 'USDINR');
+  } catch (e) { /* leave missing: the page falls back to the daily snapshot */ }
+  cache.put('front_months', JSON.stringify(out), 21600);
+  return out;
 }
 
 function startDailyRun_() {

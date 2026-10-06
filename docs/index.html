@@ -237,6 +237,8 @@
   }
 
   // Brief tab: a graphic summary first (tiles and bars), the written brief behind a toggle.
+  // Gold, crude, rupee and VIX use the live quote when the relay supplies it, else the daily snapshot.
+  let BRIEF = null;
   function barRows(items){
     const max = Math.max(...items.map(i => Math.abs(i.v) || 0), 0.01);
     return items.map(i => {
@@ -259,63 +261,74 @@
         fetch("data/context.json", {cache:"no-store"}).then(r => r.json()).catch(() => ({})),
         fetch("data/stocks.json", {cache:"no-store"}).then(r => r.json()).catch(() => ({}))
       ]);
-      const failed = /could not be written/.test(B.text || "");
-      const plain = failed ? "" : (B.text || "").replace(/\*\*/g, "");
-
-      // Indices: live if we have it, else the last official close against the one before it
-      const idx = Object.keys((FEED && FEED.indices) || {}).map(n => {
-        const live = LIVE && LIVE.indices && LIVE.indices[n];
-        const b = FEED.indices[n];
-        const prev = b.history.length > 1 ? b.history[b.history.length - 2].c : null;
-        return { n, last: live ? live.last : b.last_close,
-                 chg: live ? live.change_pct : (prev ? (b.last_close / prev - 1) * 100 : null) };
-      });
-      const com = C.commodities || {};
-      const glob = C.global || {};
-      const fii = (C.fii_dii || []).reduce((a, r) => { a[r.category] = r.net; return a; }, {});
-      const gold = com["Gold (MCX, ₹/10g)"], crude = com["Crude oil (MCX, ₹/bbl)"];
-      const wti = glob["WTI crude (USD/bbl)"];
-      const fx = C.fx;
-      const vix = S.india_vix;
-
-      const sp = glob["S&P 500"];
-      const vixNow = C.india_vix || S.india_vix;
-      const tiles = [
-        tile("GOLD ₹/10g", gold ? f(gold.last, 0) : "–", gold ? chgTxt(gold.change_pct) : "no data", cls(gold && gold.change_pct)),
-        tile("USD/INR", C.usd_inr_live ? f(C.usd_inr_live.last, 2) : (fx ? f(fx.usd_inr, 2) : "–"),
-             C.usd_inr_live ? chgTxt(C.usd_inr_live.change_pct) + " · live" : (fx ? "ECB " + fx.date : "no data"),
-             cls(C.usd_inr_live && C.usd_inr_live.change_pct)),
-        tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) : "no data", cls(vixNow && vixNow.change_pct)),
-        tile("CRUDE US$", C.crude_usd ? f(C.crude_usd.last, 2) : "–", C.crude_usd ? chgTxt(C.crude_usd.change_pct) + " · same day" : "no data", cls(C.crude_usd && C.crude_usd.change_pct)),
-        tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) : "no data", cls(sp && sp.change_pct)),
-        tile("NIFTY EST.", (() => { const t = FEED && FEED.indices.NIFTY && FEED.indices.NIFTY.today; return t ? f(t.pred, 0) : "–"; })(),
-             (() => { const t = FEED && FEED.indices.NIFTY && FEED.indices.NIFTY.today; return t ? "close " + pct(t.expected_move_pct) : "no data"; })(), "")
-      ].join("");
-
-      const moves = barRows([
-        ...(gold ? [{ label: "Gold", v: gold.change_pct, txt: chgTxt(gold.change_pct) }] : []),
-        ...(C.crude_usd ? [{ label: "Crude US$", v: C.crude_usd.change_pct, txt: chgTxt(C.crude_usd.change_pct) }] : []),
-        ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(" (USD/bbl)", "").replace(" Composite", ""), v: glob[k].change_pct, txt: chgTxt(glob[k].change_pct) }))
-      ]);
-
-      const flows = barRows(Object.keys(fii).map(k => ({
-        label: k === "FII/FPI" ? "FII (cash)" : "DII (cash)", v: fii[k], txt: (fii[k] >= 0 ? "+" : "") + f(fii[k], 0) + " cr" })));
-
-      $("#brief-body").innerHTML = `
-        <div class="sec">At a glance · ${esc((B.ts || "").replace("T"," ").slice(0,16))} IST</div>
-        <div class="glance">${tiles}</div>
-        <div class="panel"><div class="ph"><span>Moves</span><span class="flag">% today</span></div>
-          <div class="pb">${moves || '<div class="mut">No market data yet.</div>'}</div></div>
-        <div class="sec">Institutional flows</div>
-        <div class="panel"><div class="ph"><span>FII and DII</span><span class="flag">cash, ₹ crore</span></div>
-          <div class="pb">${flows || '<div class="mut">Flow data not available today.</div>'}</div></div>
-        <div class="sec">Written brief</div>
-        <div class="panel"><div class="pb">
-          ${failed ? `<div class="amb">Brief pending: the AI service did not respond. It updates on the next daily run.</div>` :
-            `<details><summary>Show full brief</summary><div class="brief">${esc(plain)}</div></details>`}
-          <div class="note">${esc(B.source || "")}. Written from this dashboard's numbers and headlines. Not advice.</div>
-        </div></div>`;
+      BRIEF = {B, C, S};
+      drawBrief();
     }catch(e){ $("#brief-body").innerHTML = `<div class="panel"><div class="pb mut">Brief not available.</div></div>`; }
+  }
+
+  function drawBrief(){
+    if (!BRIEF) return;
+    const {B, C, S} = BRIEF;
+    const ex = (LIVE && LIVE.extra) || {};
+    const failed = /could not be written/.test(B.text || "");
+    const plain = failed ? "" : (B.text || "").replace(/\*\*/g, "");
+
+    const idx = Object.keys((FEED && FEED.indices) || {}).map(n => {
+      const live = LIVE && LIVE.indices && LIVE.indices[n];
+      const b = FEED.indices[n];
+      const prev = b.history.length > 1 ? b.history[b.history.length - 2].c : null;
+      return { n, last: live ? live.last : b.last_close,
+               chg: live ? live.change_pct : (prev ? (b.last_close / prev - 1) * 100 : null) };
+    });
+    const com = C.commodities || {};
+    const glob = C.global || {};
+    const fii = (C.fii_dii || []).reduce((a, r) => { a[r.category] = r.net; return a; }, {});
+
+    // Gold and crude in rupees: live if the relay has them, else the daily snapshot
+    const goldRaw = ex.gold || com["Gold (MCX, ₹/10g)"];
+    const crudeRaw = ex.crude || com["Crude oil (MCX, ₹/bbl)"];
+    const usd = ex.usd_inr || C.usd_inr_live || null;
+    const usdRate = usd ? usd.last : (C.fx ? C.fx.usd_inr : null);
+    const crudeUsd = crudeRaw && usdRate ? { last: crudeRaw.last / usdRate, change_pct: crudeRaw.change_pct } : null;
+    const vixNow = LIVE && LIVE.india_vix ? LIVE.india_vix : (C.india_vix || S.india_vix);
+    const sp = glob["S&P 500"];
+
+    const nifty = idx.find(i => i.n === "NIFTY");
+    const bank = idx.find(i => i.n === "BANKNIFTY");
+    const estimate = FEED && FEED.indices.NIFTY && FEED.indices.NIFTY.today;
+    const tiles = [
+      tile("GOLD ₹/10g", goldRaw ? f(goldRaw.last, 0) : "–", goldRaw ? chgTxt(goldRaw.change_pct) : "no data", cls(goldRaw && goldRaw.change_pct)),
+      tile("CRUDE US$", crudeUsd ? f(crudeUsd.last, 2) : "–", crudeUsd ? chgTxt(crudeUsd.change_pct) + " · same day" : "no data", cls(crudeUsd && crudeUsd.change_pct)),
+      tile("USD/INR", usd ? f(usd.last, 2) : (C.fx ? f(C.fx.usd_inr, 2) : "–"),
+           usd ? chgTxt(usd.change_pct) + " · live" : (C.fx ? "ECB " + C.fx.date : "no data"), cls(usd && usd.change_pct)),
+      tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) : "no data", cls(vixNow && vixNow.change_pct)),
+      tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) + " · " + sp.date : "no data", cls(sp && sp.change_pct)),
+      tile("NIFTY EST.", estimate ? f(estimate.pred, 0) : "–", estimate ? "close " + pct(estimate.expected_move_pct) : "no data", "")
+    ].join("");
+
+    const moves = barRows([
+      ...(goldRaw ? [{ label: "Gold", v: goldRaw.change_pct, txt: chgTxt(goldRaw.change_pct) }] : []),
+      ...(crudeUsd ? [{ label: "Crude US$", v: crudeUsd.change_pct, txt: chgTxt(crudeUsd.change_pct) }] : []),
+      ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(" Composite", ""), v: glob[k].change_pct, txt: chgTxt(glob[k].change_pct) }))
+    ]);
+    const flows = barRows(Object.keys(fii).map(k => ({
+      label: k === "FII/FPI" ? "FII (cash)" : "DII (cash)", v: fii[k], txt: (fii[k] >= 0 ? "+" : "") + f(fii[k], 0) + " cr" })));
+
+    const liveNote = LIVE && LIVE.ts ? "quotes " + LIVE.ts.replace("T"," ").slice(0,16) : "";
+    $("#brief-body").innerHTML = `
+      <div class="sec">At a glance · ${esc(liveNote || (B.ts || "").replace("T"," ").slice(0,16) + " IST")}</div>
+      <div class="glance">${tiles}</div>
+      <div class="panel"><div class="ph"><span>Moves</span><span class="flag">% today</span></div>
+        <div class="pb">${moves || '<div class="mut">No market data yet.</div>'}</div></div>
+      <div class="sec">Institutional flows</div>
+      <div class="panel"><div class="ph"><span>FII and DII</span><span class="flag">cash, ₹ crore</span></div>
+        <div class="pb">${flows || '<div class="mut">Flow data not available today.</div>'}</div></div>
+      <div class="sec">Written brief</div>
+      <div class="panel"><div class="pb">
+        ${failed ? `<div class="amb">Brief pending: the AI service did not respond. It updates on the next daily run.</div>` :
+          `<details><summary>Show full brief</summary><div class="brief">${esc(plain)}</div></details>`}
+        <div class="note">${esc(B.source || "")}. Written from this dashboard's numbers and headlines. Not advice.</div>
+      </div></div>`;
   }
 
   function viewBlock(v){
@@ -423,7 +436,7 @@
       const open = marketOpenIst();
       $("#dot").classList.toggle("stale", ageMin(L.ts) > 15 && open);
       $("#status").textContent = (open ? "quotes " : "last quotes ") + L.ts.replace("T"," ").slice(0,16) + " IST";
-      renderTape(); renderHome();
+      renderTape(); renderHome(); drawBrief();
     }catch(e){
       $("#dot").classList.add("stale");
       $("#status").textContent = "quotes unavailable · estimates still update daily";
