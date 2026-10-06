@@ -53,7 +53,7 @@ Data:
 {data}"""
 
 
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "mistralai/mistral-large-2-instruct")   # plain chat model
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 
 
@@ -61,11 +61,16 @@ def _write_nvidia(api_key: str, prompt: str) -> str:
     """NVIDIA NIM (OpenAI-compatible). Free credits on build.nvidia.com."""
     r = requests.post(NVIDIA_URL, headers={"Authorization": f"Bearer {api_key}"},
                       json={"model": NVIDIA_MODEL, "messages": [{"role": "user", "content": prompt}],
-                            "max_tokens": 700, "temperature": 0.3},
-                      timeout=90)
+                            "max_tokens": 3000, "temperature": 0.3},
+                      timeout=120)
     if r.status_code != 200:
         raise RuntimeError(f"NVIDIA returned {r.status_code}: {r.text[:300]}")
-    return r.json()["choices"][0]["message"]["content"].strip()
+    msg = r.json()["choices"][0]["message"]
+    # Reasoning models may put the answer in content, or leave it empty and only fill reasoning_content.
+    text = (msg.get("content") or "").strip() or (msg.get("reasoning_content") or "").strip()
+    if not text:
+        raise RuntimeError("NVIDIA returned an empty answer")
+    return text
 
 
 def main() -> dict:
