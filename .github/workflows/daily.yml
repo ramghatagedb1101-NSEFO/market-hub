@@ -31,9 +31,14 @@ jobs:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
         run: |
-          RESP=$(curl -fsSL -G "$RELAY_URL" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY")
-          TOKEN=$(echo "$RESP" | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))')
-          if [ -z "$TOKEN" ]; then echo "No Kite token for today: $RESP"; exit 1; fi
+          # Diagnostics first: names, lengths and presence only. No values are printed.
+          echo "RELAY_URL length ${#RELAY_URL}, ends with /exec: $(case "$RELAY_URL" in */exec) echo yes;; *) echo no;; esac)"
+          echo "RELAY_KEY length ${#RELAY_KEY}"
+          CHECK=$(curl -sS -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=check" --data-urlencode "key=$RELAY_KEY" || true)
+          echo "Relay setup check: $CHECK"
+          RESP=$(curl -sS -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
+          TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today. Relay answered: $RESP"; exit 1; fi
           echo "::add-mask::$TOKEN"
           echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
