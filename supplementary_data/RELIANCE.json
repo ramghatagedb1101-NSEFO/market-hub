@@ -1,0 +1,23 @@
+{
+  "symbol": "RELIANCE",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 46.84,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 26.2,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 104679000,
+  "next_month_futures_oi": 37246500,
+  "last_updated": "2026-04-01 09:30:52.235852",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "18-Aug-2026: Updates",
+    "18-Aug-2026: News Verification",
+    "17-Aug-2026: News Verification",
+    "14-Aug-2026: Updates",
+    "13-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

@@ -1,0 +1,23 @@
+{
+  "symbol": "LT",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 57.18,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 23.3,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 9886100,
+  "next_month_futures_oi": 3011400,
+  "last_updated": "2026-04-01 09:28:54.101914",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "17-Aug-2026: Bagging/Receiving of orders/contracts",
+    "13-Aug-2026: Bagging/Receiving of orders/contracts",
+    "11-Aug-2026: General Updates",
+    "11-Aug-2026: General Updates",
+    "07-Aug-2026: Bagging/Receiving of orders/contracts"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

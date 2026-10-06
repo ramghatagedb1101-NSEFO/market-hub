@@ -1,0 +1,23 @@
+{
+  "symbol": "EICHERMOT",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 44.03,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 17.5,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 3098000,
+  "next_month_futures_oi": 656800,
+  "last_updated": "2026-04-01 09:30:17.012712",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "19-Aug-2026: General Updates",
+    "18-Aug-2026: Press Release",
+    "14-Aug-2026: Press Release",
+    "04-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "01-Aug-2026: Monthly Business Updates"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

@@ -1,0 +1,23 @@
+{
+  "symbol": "TCS",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 51.74,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 11.6,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 30658500,
+  "next_month_futures_oi": 4007025,
+  "last_updated": "2026-04-01 09:29:26.928285",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "17-Aug-2026: Updates",
+    "14-Aug-2026: Updates",
+    "13-Aug-2026: Updates",
+    "12-Aug-2026: News Verification",
+    "12-Aug-2026: News Verification"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

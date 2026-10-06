@@ -1,0 +1,23 @@
+{
+  "symbol": "KOTAKBANK",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 49.38,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 23.2,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 148174000,
+  "next_month_futures_oi": 44758000,
+  "last_updated": "2026-04-01 09:30:09.567281",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "19-Aug-2026: ESOP/ESOS/ESPS",
+    "18-Aug-2026: General Updates",
+    "17-Aug-2026: ESOP/ESOS/ESPS",
+    "17-Aug-2026: Investor Presentation",
+    "14-Aug-2026: Credit Rating- New"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}
