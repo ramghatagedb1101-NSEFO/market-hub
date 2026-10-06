@@ -1,0 +1,57 @@
+name: live-quotes
+
+# Every 5 minutes during Indian market hours (08:30–16:30 IST, Mon–Fri).
+on:
+  schedule:
+    - cron: "*/5 3-11 * * 1-5"    # 03:00–11:55 UTC = 08:30–17:25 IST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-quotes
+  cancel-in-progress: true
+
+jobs:
+  quotes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch today's Kite access token from the relay
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          RESP=$(curl -fsSL -G "$RELAY_URL" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY")
+          TOKEN=$(echo "$RESP" | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))')
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today"; exit 1; fi
+          echo "::add-mask::$TOKEN"
+          echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
+      - name: Write live quotes
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        run: python -m hub.live
+
+      - name: Commit live quotes
+        run: |
+          git config user.name "forecast-bot"
+          git config user.email "forecast-bot@users.noreply.github.com"
+          git add docs/data/live.json
+          if git diff --cached --quiet; then
+            echo "No change"
+          else
+            git commit -m "live quotes $(date -u +%FT%TZ)"
+            git pull -q --rebase origin main
+            git push -q origin main
+          fi
