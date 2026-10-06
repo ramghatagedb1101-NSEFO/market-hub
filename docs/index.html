@@ -168,6 +168,7 @@
 <script>
 (function(){
   const $ = s => document.querySelector(s);
+  const RELAY_URL = "https://script.google.com/macros/s/AKfycbye12r6sWmdKQhSA6cpFnKnSUFjBhKDUm9BF5mGXsFmqeWer8-F0uVOoZ6NVPXF4SZ1ww/exec";
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const f = (x, d=0) => x == null ? "–" : Number(x).toLocaleString("en-IN", {minimumFractionDigits:d, maximumFractionDigits:d});
   const pct = (x, d=2) => x == null ? "–" : (x >= 0 ? "+" : "") + f(x, d) + "%";
@@ -387,7 +388,14 @@
   }
   async function liveTick(){
     try{
-      const L = await (await fetch("data/live.json", {cache:"no-store"})).json();
+      // Fresh quotes from the relay on every refresh; fall back to the saved file if the relay is unavailable.
+      let L;
+      try{
+        L = await (await fetch(RELAY_URL + "?mode=quote&t=" + Date.now(), {cache:"no-store"})).json();
+        if (L.error || !L.indices) throw new Error(L.error || "no quotes");
+      }catch(e){
+        L = await (await fetch("data/live.json", {cache:"no-store"})).json();
+      }
       const item = (name, x) => `<div class="it"><span class="mut">${name}</span><b>${f(x.last,2)}</b>
         <span class="${cls(x.change)}" style="font-size:12.5px">${x.change >= 0 ? "+" : ""}${f(x.change,2)} (${pct(x.change_pct)})</span></div>`;
       const open = marketOpenIst();

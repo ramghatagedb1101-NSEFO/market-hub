@@ -20,6 +20,7 @@
 function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.mode === 'token') return handleToken_(p);
+  if (p.mode === 'quote') return handleQuote_();
   if (p.request_token) return handleLogin_(p.request_token);
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
 }
@@ -56,6 +57,48 @@ function handleToken_(p) {
   const date = props.getProperty('KITE_TOKEN_DATE');
   if (!token || date !== todayIst_()) return json_({ error: 'no token for today; log in with Kite first' });
   return json_({ access_token: token, date: date });
+}
+
+/**
+ * Live index quotes for the phone page. Public on purpose: it returns only three index prices,
+ * never the token. Cached for 10 seconds so many visitors cost one Kite call.
+ */
+function handleQuote_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('quotes');
+  if (hit) return json_(JSON.parse(hit));
+
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('KITE_ACCESS_TOKEN');
+  const date = props.getProperty('KITE_TOKEN_DATE');
+  const apiKey = props.getProperty('KITE_API_KEY');
+  if (!token || date !== todayIst_() || !apiKey) return json_({ error: 'no token for today; log in with Kite first' });
+
+  const symbols = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX'];
+  const qs = symbols.map(s => 'i=' + encodeURIComponent(s)).join('&');
+  const res = UrlFetchApp.fetch('https://api.kite.trade/quote/ohlc?' + qs, {
+    method: 'get',
+    muteHttpExceptions: true,
+    headers: { 'X-Kite-Version': '3', 'Authorization': 'token ' + apiKey + ':' + token },
+  });
+  const body = JSON.parse(res.getContentText());
+  if (body.status !== 'success') return json_({ error: 'Kite: ' + (body.message || 'quote failed') });
+
+  const d = body.data;
+  const pick = (sym, name) => {
+    const q = d[sym];
+    const last = q.last_price, prev = q.ohlc.close;
+    return { name: name, last: Math.round(last * 100) / 100, prev_close: Math.round(prev * 100) / 100,
+             change: Math.round((last - prev) * 100) / 100,
+             change_pct: Math.round((last / prev - 1) * 10000) / 100 };
+  };
+  const out = {
+    ts: Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    indices: { NIFTY: pick('NSE:NIFTY 50', 'NIFTY 50'), BANKNIFTY: pick('NSE:NIFTY BANK', 'BANK NIFTY'),
+               SENSEX: pick('BSE:SENSEX', 'SENSEX') },
+  };
+  cache.put('quotes', JSON.stringify(out), 10);
+  return json_(out);
 }
 
 function startDailyRun_() {
