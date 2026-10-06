@@ -41,6 +41,21 @@ def main() -> dict:
     return out
 
 
+def usd_inr() -> dict:
+    """Live USD/INR from the nearest NSE currency future (CDS segment). Futures track spot closely."""
+    k = kite.client()
+    rows = k.instruments("CDS")
+    today = date.today()
+    r = _front_month(rows, "USDINR", today)
+    if not r:
+        raise RuntimeError("no open USDINR currency futures found")
+    q = k.quote([f"CDS:{r['tradingsymbol']}"])[f"CDS:{r['tradingsymbol']}"]
+    last = float(q["last_price"])
+    prev = float(q["ohlc"]["close"])
+    return {"contract": r["tradingsymbol"], "expiry": r["expiry"].isoformat(), "last": round(last, 4),
+            "prev_close": round(prev, 4), "change_pct": round((last / prev - 1) * 100, 2) if prev else None}
+
+
 if __name__ == "__main__":
     import json
     print(json.dumps(main(), indent=2, ensure_ascii=False))
