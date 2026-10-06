@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-06T14:20:07+00:00",
+  "generated_at": "2026-10-06T23:12:15+00:00",
   "universe": "NIFTY 50",
   "mode": "live",
   "replay_date": null,
@@ -12,22 +12,22 @@
     {
       "symbol": "ADANIENT",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-27..2026-11-10 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-04 \u00b15 sessions)"
+      "detail": "put-side short strike not beyond OI wall"
     },
     {
       "symbol": "ADANIPORTS",
       "status": "REJECTED",
-      "detail": "IV rank 16 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 30 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "APOLLOHOSP",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-29..2026-11-12 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-06 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-38.90 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.28.20); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "ASIANPAINT",
       "status": "REJECTED",
-      "detail": "IV rank 26 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 21 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "AXISBANK",
@@ -52,12 +52,12 @@
     {
       "symbol": "BEL",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-23..2026-11-06 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-31 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-0.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.32); work it as a combo limit order or stand aside; call-side worst-case credit 5% of width < 15%"
     },
     {
       "symbol": "BHARTIARTL",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-26..2026-11-09 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-03 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-0.45 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.22); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.75 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.23); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "BSE",
@@ -72,7 +72,7 @@
     {
       "symbol": "COALINDIA",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-21..2026-11-04 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-29 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-2.90 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.20); work it as a combo limit order or stand aside; call-side worst-case credit 1% of width < 15%"
     },
     {
       "symbol": "DRREDDY",
@@ -82,17 +82,17 @@
     {
       "symbol": "EICHERMOT",
       "status": "REJECTED",
-      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 25 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "ETERNAL",
       "status": "REJECTED",
-      "detail": "IV rank 20 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 26 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "GRASIM",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-28..2026-11-11 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-05 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-21.40 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.7.25); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "HCLTECH",
@@ -117,7 +117,7 @@
     {
       "symbol": "HINDUNILVR",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-15..2026-10-29 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-23 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.0.00 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.4.50); work it as a combo limit order or stand aside; call-side worst-case credit 12% of width < 15%"
     },
     {
       "symbol": "ICICIBANK",
@@ -127,7 +127,7 @@
     {
       "symbol": "INDIGO",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-27..2026-11-10 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-04 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-27.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.75); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "INFY",
@@ -137,12 +137,12 @@
     {
       "symbol": "ITC",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-22..2026-11-05 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-30 \u00b15 sessions)"
+      "detail": "put-side worst-case credit 10% of width < 15%; call-side worst-case credit Rs.-0.20 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.27); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "JIOFIN",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-08..2026-10-22 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-16 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-0.25 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.63); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.89 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.31); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "JSWSTEEL",
@@ -152,27 +152,27 @@
     {
       "symbol": "KOTAKBANK",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-19..2026-11-02 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-27 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-0.95 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.15); work it as a combo limit order or stand aside; call-side worst-case credit 10% of width < 15%"
     },
     {
       "symbol": "LT",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-21..2026-11-04 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-29 \u00b15 sessions)"
+      "detail": "call-side bid-ask 999.0% > 2.5%"
     },
     {
       "symbol": "M&M",
       "status": "REJECTED",
-      "detail": "IV rank 29 < 30 (premium too cheap to sell)"
+      "detail": "earnings date unverifiable (only 0 quarter(s) of filing history) \u2014 cannot confirm the cycle is clear"
     },
     {
       "symbol": "MARUTI",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-23..2026-11-06 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-31 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-1.60 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.43.12); work it as a combo limit order or stand aside; call-side worst-case credit 4% of width < 15%"
     },
     {
       "symbol": "MAXHEALTH",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-11-06..2026-11-20 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-14 \u00b15 sessions)"
+      "detail": "call-side worst-case credit Rs.-9.95 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.38); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "NESTLEIND",
@@ -182,12 +182,12 @@
     {
       "symbol": "NTPC",
       "status": "REJECTED",
-      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
+      "detail": "put-side worst-case credit Rs.-2.80 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.80); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "ONGC",
       "status": "REJECTED",
-      "detail": "IV rank 10 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 12 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "POWERGRID",
@@ -197,32 +197,32 @@
     {
       "symbol": "RELIANCE",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-09..2026-10-23 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-17 \u00b15 sessions)"
+      "detail": "put-side bid-ask 3.1% > 2.5%; call-side worst-case credit 9% of width < 15%"
     },
     {
       "symbol": "SBILIFE",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-16..2026-10-30 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-24 \u00b15 sessions)"
+      "detail": "IV rank 27 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "SBIN",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-27..2026-11-10 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-04 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-0.45 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.2.40); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.20 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.90); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "SHRIRAMFIN",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-23..2026-11-06 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-31 \u00b15 sessions)"
+      "detail": "put-side bid-ask 7.5% > 2.5%; call-side worst-case credit Rs.-0.65 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.20); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "SUNPHARMA",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-28..2026-11-11 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-05 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-8.45 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.93); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-15.60 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.18); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "TATACONSUM",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-26..2026-11-09 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-03 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-7.80 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.4.30); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-6.75 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.35); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "TATASTEEL",
@@ -242,12 +242,12 @@
     {
       "symbol": "TITAN",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-10-26..2026-11-09 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-03 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-8.55 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.7.53); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-22.80 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.02); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "TMPV",
       "status": "REJECTED",
-      "detail": "estimated earnings 2026-11-06..2026-11-20 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-14 \u00b15 sessions)"
+      "detail": "put-side worst-case credit Rs.-0.10 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.20); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.55 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.67); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "TRENT",
