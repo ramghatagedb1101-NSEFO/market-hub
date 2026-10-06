@@ -2,8 +2,11 @@
 Incremental daily-close store. Keeps state/prices.json growing by new sessions only.
 
 Per index, in order:
-  1. Kite, if KITE_ACCESS_TOKEN is set and the index has a Kite mapping.
-  2. NSE's free bhavcopy, if the index has an nse_csv mapping (NIFTY).
+  1. NSE's official index bhavcopy, if the index has an nse_csv mapping (NIFTY, BANKNIFTY).
+     This is the exchange's own closing value. A day is only taken once NSE has published it,
+     so a session still in progress is never stored.
+  2. Kite daily candles, if KITE_ACCESS_TOKEN is set and the index has a Kite mapping (SENSEX).
+     Kite's candle for today can be a mid-session value, so the daily job runs after the close.
   3. Otherwise the index is left empty and the caller fails loudly.
 """
 import json
@@ -39,12 +42,12 @@ def refresh(path: Path = config.PRICES_FILE) -> dict:
             else today - timedelta(days=config.HISTORY_DAYS)
         if start > today:
             continue
-        if k is not None and "kite" in spec:
+        if "nse_csv" in spec:
+            have.update(nse.fetch_range(start, today, spec["nse_csv"]))
+        elif k is not None and "kite" in spec:
             exchange, symbol = spec["kite"]
             token = kite.instrument_token(k, exchange, symbol)
             have.update(kite.daily_closes(k, token, start, today))
-        elif "nse_csv" in spec:
-            have.update(nse.fetch_range(start, today, spec["nse_csv"]))
 
     _save(path, raw)
     return raw

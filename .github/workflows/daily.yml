@@ -2,7 +2,7 @@ name: daily-forecast
 
 on:
   schedule:
-    - cron: "45 10 * * 1-5"      # 10:15 UTC = 15:45 IST, weekdays (after the cash close)
+    - cron: "0 11 * * 1-5"       # 11:00 UTC = 16:30 IST, weekdays (after the close and NSE's bhavcopy)
   workflow_dispatch:              # "Run workflow" button for a manual run, free
 
 permissions:
