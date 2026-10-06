@@ -43,11 +43,38 @@ def _summary(feed: dict, fno: dict | None) -> str:
     return "\n".join(lines)
 
 
-PROMPT = """You are writing a short daily brief for a private market dashboard.
-Use only the numbers below. Do not invent news, events or causes.
-Write 5 to 8 plain sentences: where the indices stand, what the estimated closes imply,
-what the F&O suggestions are (state they are model suggestions with no track record yet),
-and one clear risk note. Do not give personal financial advice.
+def _context_summary(ctx: dict | None) -> str:
+    """FII/DII flows, FX and headlines from hub/context.py. Lists what is missing too."""
+    if not ctx:
+        return "Market context file missing: FII/DII, FX and news are not available today."
+    lines = []
+    for r in ctx.get("fii_dii") or []:
+        lines.append(f"{r['category']} cash flow on {r['date']}: buy {r['buy']}, sell {r['sell']}, net {r['net']} crore.")
+    fx = ctx.get("fx")
+    if fx:
+        lines.append(f"USD/INR {fx['usd_inr']} (ECB reference, {fx['date']}).")
+    for h in (ctx.get("headlines") or [])[:40]:
+        lines.append(f"Headline ({h['source']}): {h['title']}")
+    for k, msg in (ctx.get("errors") or {}).items():
+        lines.append(f"Not available today, {k}: {msg}")
+    lines.append("Not available in this brief: global index closes (S&P 500, Dow, Nasdaq), gold and crude prices.")
+    return "\n".join(lines)
+
+
+PROMPT = """You are writing the daily market brief for a private dashboard used by one active trader
+who trades NIFTY and BANKNIFTY options. Write in plain English, in these sections with short headings:
+
+1. Where the markets stand: NIFTY, BANKNIFTY, SENSEX closes and the model's estimates for today's close.
+2. Global backdrop: only what the headlines or data below support. Say plainly where that is missing.
+3. Gold, crude, dollar and rupee: use the USD/INR figure. If gold or crude data is missing, say so.
+4. Institutional flows: FII and DII cash flows, and what the net numbers suggest. Say they are provisional.
+5. India news and economy: the most relevant India headlines, one line each. Do not add facts that are not in them.
+6. F&O: the model's suggestions, the expiry, the band width, and that they have no track record yet.
+7. Risks and what to watch: concrete events or levels from the data, not generic warnings.
+
+Rules: use only the data below. Do not invent news, causes, prices or events. Quote a number only if it is in the data.
+If something is missing, say "not available today" in that section. No personal financial advice.
+Keep it under 600 words.
 
 Data:
 {data}"""
@@ -61,7 +88,7 @@ def _write_nvidia(api_key: str, prompt: str) -> str:
     """NVIDIA NIM (OpenAI-compatible). Free credits on build.nvidia.com."""
     r = requests.post(NVIDIA_URL, headers={"Authorization": f"Bearer {api_key}"},
                       json={"model": NVIDIA_MODEL, "messages": [{"role": "user", "content": prompt}],
-                            "max_tokens": 3000, "temperature": 0.3},
+                            "max_tokens": 6000, "temperature": 0.3},
                       timeout=120)
     if r.status_code != 200:
         raise RuntimeError(f"NVIDIA returned {r.status_code}: {r.text[:300]}")
@@ -73,18 +100,24 @@ def _write_nvidia(api_key: str, prompt: str) -> str:
     return text
 
 
+def _data(feed: dict, fno: dict | None, ctx: dict | None) -> str:
+    return _summary(feed, fno) + "\n" + _context_summary(ctx)
+
+
 def main() -> dict:
     nv_key = os.getenv("NVIDIA_API_KEY")
     key = os.getenv("GEMINI_API_KEY")
     feed = json.loads(config.FEED_FILE.read_text(encoding="utf-8"))
     fno_path = config.SITE_DIR / "data" / "fno.json"
     fno = json.loads(fno_path.read_text(encoding="utf-8")) if fno_path.exists() else None
+    ctx_path = config.SITE_DIR / "data" / "context.json"
+    ctx = json.loads(ctx_path.read_text(encoding="utf-8")) if ctx_path.exists() else None
     out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "text": "", "source": ""}
 
     if nv_key:
         out["source"] = f"NVIDIA · {NVIDIA_MODEL}"
         try:
-            out["text"] = _write_nvidia(nv_key, PROMPT.format(data=_summary(feed, fno)))
+            out["text"] = _write_nvidia(nv_key, PROMPT.format(data=_data(feed, fno, ctx)))
         except Exception as exc:
             out["text"] = f"Daily brief could not be written ({NVIDIA_MODEL}). {exc}"
     elif not key:
@@ -93,7 +126,7 @@ def main() -> dict:
     else:
         out["source"] = f"Gemini · {MODEL}"
         try:
-            body = {"contents": [{"parts": [{"text": PROMPT.format(data=_summary(feed, fno))}]}]}
+            body = {"contents": [{"parts": [{"text": PROMPT.format(data=_data(feed, fno, ctx))}]}]}
             for attempt in range(4):   # Gemini returns 429/503 under load; back off and retry
                 r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key}, json=body, timeout=60)
                 if r.status_code not in (429, 503):
