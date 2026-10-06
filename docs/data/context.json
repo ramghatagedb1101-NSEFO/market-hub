@@ -1,0 +1,317 @@
+{
+ "ts": "2026-10-06T17:32+05:30",
+ "errors": {},
+ "fii_dii": [
+  {
+   "category": "DII",
+   "date": "05-Oct-2026",
+   "buy": 20492.93,
+   "sell": 15311.31,
+   "net": 5181.62
+  },
+  {
+   "category": "FII/FPI",
+   "date": "05-Oct-2026",
+   "buy": 15674.61,
+   "sell": 20373.75,
+   "net": -4699.14
+  }
+ ],
+ "fx": {
+  "date": "2026-10-05",
+  "usd_inr": 96.3,
+  "source": "ECB reference rates"
+ },
+ "headlines": [
+  {
+   "source": "Livemint Markets",
+   "title": "TajGVK Hotels shares: Stock down 26% in 1 year, but Monarch sees 49% upside - Here's why | Check share price target",
+   "time": "2026-10-06T17:29+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Hang Seng index rallies 1%, extends gains for second day as tech stocks support sentiment - What to watch next",
+   "time": "2026-10-06T17:27+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Can IPO buzz boost CDSL and NSDL Q2 earnings? What the stocks investors need to know",
+   "time": "2026-10-06T17:25+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "SpaceX stock is taking off again, but with one key difference this time",
+   "time": "2026-10-06T17:14+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Trump allows cheaper, dyed diesel on highways to blunt historic fuel-cost spike ahead of midterms",
+   "time": "2026-10-06T17:02+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Reliance Industries shares gain 3% as JIO IPO inches closer; Jefferies increases weight in conglomerate",
+   "time": "2026-10-06T16:56+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Bitcoin vs gold: Why Cathie Wood feels cryptocurrency's 'turn is in' against the precious metal",
+   "time": "2026-10-06T16:50+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Sebi says Jane Street’s appeal for more details a delaying ploy",
+   "time": "2026-10-06T16:46+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Treasury yields fall as oil prices slide",
+   "time": "2026-10-06T16:34+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Meta Muse gives AMD a boost as AI momentum shifts to personal agents",
+   "time": "2026-10-06T16:30+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "CAS sent Nifty soaring 300 points in a minute to breach 23,000 on expiry day",
+   "time": "2026-10-06T16:21+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Rupee hits two-month low on outflows, investors await RBI outcome with hike priced in",
+   "time": "2026-10-06T16:20+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Bitcoin holds near $86,000 as weak US jobs data lowers October Fed rate hike expectations",
+   "time": "2026-10-06T16:08+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "ASOS app users receive push notifications apparently sent by hackers",
+   "time": "2026-10-06T16:07+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Why Kotak Mahindra Bank shares are outperforming Nifty 50 and Bank Nifty in the last two months? Experts explain",
+   "time": "2026-10-06T16:05+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Gold-Silver ratio hits 68: What it means? Should investors switch from gold to silver? Here's what experts suggest",
+   "time": "2026-10-06T16:05+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Swara Baby gets Sebi nod for Rs 1,000 crore IPO as hygiene products maker eyes expansion",
+   "time": "2026-10-06T15:49+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Stock market prediction for tomorrow: Sensex, Nifty outlook for Wednesday | Kospi, Taiwan cues to watch | 7 Oct 2026",
+   "time": "2026-10-06T15:49+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "World Bank flags oil, El Niño and global market risks to growth",
+   "time": "2026-10-06T15:45+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Barbie maker Mattel faces investor pressure to consider a sale amid stagnating growth",
+   "time": "2026-10-06T15:37+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Global Market: Eurozone energy inflation has yet to spread to broader prices, ECB's Rehn says",
+   "time": "2026-10-06T15:35+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Why deep-red Kansas has become an unexpected Senate battleground",
+   "time": "2026-10-06T15:30+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Paramount's hard-fought takeover of Warner Bros. Discovery closes Tuesday. Here's how we got here",
+   "time": "2026-10-06T15:30+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Student riots engulf France as far-right presidential frontrunner Le Pen vows fiscal turnaround",
+   "time": "2026-10-06T15:16+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Global Market: AMD to increase AI chip supply substantially in 2027 to meet rising demand",
+   "time": "2026-10-06T15:01+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Gold corrects 26% from January record high | Is this a buying opportunity ahead of Diwali?",
+   "time": "2026-10-06T14:59+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Global Market: European shares rally as healthcare gains offset eurozone fiscal concerns",
+   "time": "2026-10-06T14:41+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "India is cheaper. Why are foreign investors still selling?",
+   "time": "2026-10-06T14:40+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Best auto stocks to buy ahead of Q2 results: Eicher, Hyundai Motor, Tata Motors PV among Nuvama’s top picks | Full list",
+   "time": "2026-10-06T14:29+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "LIC mints Rs 531 crore in one day as Trent shares rally 13%; insurance behemoth’s stake value nears Rs 4,700 cr",
+   "time": "2026-10-06T14:26+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Yemen forces reclaim key Red Sea port city from Iran-backed Houthis in major counteroffensive",
+   "time": "2026-10-06T14:23+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Up to 52% upside - Jindal SAW, SBI Life, ICICI Bank shares | 360 ONE's 21 biggest bets for investors - Check full list",
+   "time": "2026-10-06T14:19+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Q2 business updates: Experts tell best banking stocks to buy ahead of Q2 results FY27?",
+   "time": "2026-10-06T14:19+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Sensex, Nifty up today: Why is Indian stock market rising ahead of RBI MPC meeting outcome? Explained with 3 reasons",
+   "time": "2026-10-06T14:15+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "We're saving £100 a month for our kids but they won't get it until they're 57",
+   "time": "2026-10-06T13:46+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Britain is on 'thin ice,' warns ex-Bank of England chief economist — and it must act to 'appease financial markets'",
+   "time": "2026-10-06T13:23+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Lego fraudster among last year's most high-profile insurance scammers",
+   "time": "2026-10-06T12:33+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "How quant funds beat the market by being 'early, contrarian and right'",
+   "time": "2026-10-06T12:27+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "OpenAI admits response to Australian government hacks 'not good enough'",
+   "time": "2026-10-06T12:23+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Last call for the mall? How shopping centres are reinventing themselves",
+   "time": "2026-10-06T10:58+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Wood Group offshore workers launch 48-hour strike in row over pay",
+   "time": "2026-10-06T10:27+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Pentagon says Trump approves Army firing squad execution of Fort Hood killer Nidal Hasan",
+   "time": "2026-10-06T07:53+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Five reasons India's stock market is sinking even when its economy is growing",
+   "time": "2026-10-06T04:43+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Shadow chancellor vows to cut at least one tax in every Tory budget",
+   "time": "2026-10-05T22:53+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Pentagon stops using Anthropic AI tools after blacklisting company, BBC told",
+   "time": "2026-10-05T21:43+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "BT agrees rescue deal to buy broadband operator TalkTalk",
+   "time": "2026-10-05T15:55+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Trump chooses top spy boss to run new AI taskforce",
+   "time": "2026-10-05T15:33+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Average five-year mortgage rate hits 6% for first time in three years",
+   "time": "2026-10-05T15:24+05:30"
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Wells Fargo upgrades Cleveland-Cliffs to $14 on hidden 2027 upside",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Deutsche upgrades Penn, Boyd on improving gaming demand outlook",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Why is Western Digital stock sliding today?",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Factbox-Global healthcare companies invest billions to boost US presence",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Why is Seagate Technology stock sliding today?",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Barclays cautious on European airport stocks as airlines curb winter capacity",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Snowflake stock falls after Asos hack notification",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Why is ASOS stock plunging today?",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Factbox-French far-right presidential candidate Marine Le Pen’s main budget proposals",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Premarket movers: Constellation, Zscaler rise while Nike falls",
+   "time": null
+  }
+ ]
+}

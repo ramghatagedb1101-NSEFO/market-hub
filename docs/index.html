@@ -271,6 +271,7 @@
   function renderStatus(){
     const built = FEED.generated_at.replace("T"," ").slice(0,16);
     $("#status").title = "Forecasts built " + built + " IST";
+    $("#status").textContent = "Forecasts built " + built + " IST · quotes loading";
   }
 
   function renderTrack(){
@@ -407,6 +408,7 @@
         item("SENSEX", L.indices.SENSEX) +
         `<span class="ts">Forecasts built ${esc(FEED.generated_at.replace("T"," ").slice(0,16))} IST</span>`;
     }catch(e){
+      $("#status").textContent = "Quotes unavailable right now · forecasts below still update daily";
       $("#live").innerHTML = `<span class="mut">Live quotes unavailable right now. The forecasts below still update daily.</span>`;
     }
   }
