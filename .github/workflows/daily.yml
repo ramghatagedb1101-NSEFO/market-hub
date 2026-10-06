@@ -53,12 +53,6 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.stocks
 
-      - name: Multi-bagger screen (BharatStock financials; derived scores only)
-        continue-on-error: true
-        env:
-          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
-        run: python -m hub.multibagger
-
       - name: F&O suggestions from the option chain
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
@@ -97,4 +91,29 @@ jobs:
             # Fail the step if nothing reached main, so a missed save is never reported as success.
             git fetch -q origin
             git merge-base --is-ancestor HEAD origin/main || { echo "save failed: commit did not reach main"; exit 1; }
+          fi
+
+      # Slow (about 10 minutes), so it runs after the main save: the brief and prices reach the phone first.
+      - name: Multi-bagger screen (BharatStock financials; derived scores only)
+        continue-on-error: true
+        env:
+          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
+        run: python -m hub.multibagger
+
+      - name: Commit multi-bagger
+        if: always()
+        run: |
+          git config user.name "forecast-bot"
+          git config user.email "forecast-bot@users.noreply.github.com"
+          git add docs/data/multibagger.json
+          if git diff --cached --quiet; then
+            echo "No multi-bagger changes to commit"
+          else
+            git commit -m "multi-bagger $(date -u +%F)"
+            for i in 1 2 3; do
+              git pull --rebase --autostash -q origin main && git push && break
+              sleep 5
+            done
+            git fetch -q origin
+            git merge-base --is-ancestor HEAD origin/main || { echo "save failed: multi-bagger commit did not reach main"; exit 1; }
           fi
