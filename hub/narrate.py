@@ -60,6 +60,9 @@ def _context_summary(ctx: dict | None) -> str:
         lines.append(f"USD/INR {fx['usd_inr']} (ECB reference, {fx['date']}).")
     for name, g in (ctx.get("global") or {}).items():
         lines.append(f"{name} close {g['last']} on {g['date']}, {g['change_pct']}% vs the prior close {g['prev']}.")
+    if ctx.get("india_vix"):
+        v = ctx["india_vix"]
+        lines.append(f"India VIX {v['last']} ({v['change_pct']}% on the day).")
     for name, c in (ctx.get("commodities") or {}).items():
         chg = f"{c['change_pct']}% vs the prior close {c['prev_close']}" if c.get("change_pct") is not None else ""
         lines.append(f"{name}: {c['contract']} (expiry {c['expiry']}) last {c['last']}, {chg}.")
