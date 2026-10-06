@@ -53,16 +53,40 @@ Data:
 {data}"""
 
 
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+
+
+def _write_nvidia(api_key: str, prompt: str) -> str:
+    """NVIDIA NIM (OpenAI-compatible). Free credits on build.nvidia.com."""
+    r = requests.post(NVIDIA_URL, headers={"Authorization": f"Bearer {api_key}"},
+                      json={"model": NVIDIA_MODEL, "messages": [{"role": "user", "content": prompt}],
+                            "max_tokens": 700, "temperature": 0.3},
+                      timeout=90)
+    if r.status_code != 200:
+        raise RuntimeError(f"NVIDIA returned {r.status_code}: {r.text[:300]}")
+    return r.json()["choices"][0]["message"]["content"].strip()
+
+
 def main() -> dict:
+    nv_key = os.getenv("NVIDIA_API_KEY")
     key = os.getenv("GEMINI_API_KEY")
     feed = json.loads(config.FEED_FILE.read_text(encoding="utf-8"))
     fno_path = config.SITE_DIR / "data" / "fno.json"
     fno = json.loads(fno_path.read_text(encoding="utf-8")) if fno_path.exists() else None
-    out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "text": "", "source": "Gemini"}
+    out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "text": "", "source": ""}
 
-    if not key:
-        out["text"] = "Daily brief is off: GEMINI_API_KEY is not set in the repository secrets."
+    if nv_key:
+        out["source"] = f"NVIDIA · {NVIDIA_MODEL}"
+        try:
+            out["text"] = _write_nvidia(nv_key, PROMPT.format(data=_summary(feed, fno)))
+        except Exception as exc:
+            out["text"] = f"Daily brief could not be written ({NVIDIA_MODEL}). {exc}"
+    elif not key:
+        out["source"] = "none"
+        out["text"] = "Daily brief is off: no AI key is set in the repository secrets (NVIDIA_API_KEY or GEMINI_API_KEY)."
     else:
+        out["source"] = f"Gemini · {MODEL}"
         try:
             body = {"contents": [{"parts": [{"text": PROMPT.format(data=_summary(feed, fno))}]}]}
             for attempt in range(4):   # Gemini returns 429/503 under load; back off and retry
