@@ -133,6 +133,7 @@
   <section class="pane on" id="home"><div class="grid" id="home-body"></div></section>
   <section class="pane" id="brief"><div id="brief-body"></div></section>
   <section class="pane" id="fno"><div id="fno-body"></div></section>
+  <section class="pane" id="mb"><div id="mb-body"></div></section>
   <section class="pane" id="desk"><div id="desk-body"></div></section>
 </main>
 
@@ -140,6 +141,7 @@
   <button class="on" data-pane="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg><span>Home</span></button>
   <button data-pane="brief"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.5"/></svg><span>Brief</span></button>
   <button data-pane="fno"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16V11M12 16V7M17 16v-3"/></svg><span>F&amp;O</span></button>
+  <button data-pane="mb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8"/><path d="M15 7h5v5"/></svg><span>Multi-bagger</span></button>
   <button data-pane="desk"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg><span>Desk</span></button>
 </nav>
 
@@ -175,6 +177,7 @@
     document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === b.dataset.pane));
     document.querySelector("main").scrollTop = 0;
     if (b.dataset.pane === "desk") drawChart();
+    if (b.dataset.pane === "mb") renderMultibagger();
   });
   $("#gear").onclick = () => $("#settings").classList.add("on");
   $("#set-close").onclick = () => $("#settings").classList.remove("on");
@@ -408,6 +411,48 @@
     }
   }
 
+  // Multi-bagger tab: derived scores, gates and signals (no raw financials or fund names are published).
+  async function renderMultibagger(){
+    const el = $("#mb-body");
+    try{
+      const M = await (await fetch("data/multibagger.json", {cache:"no-store"})).json();
+      let B = null;
+      try { B = await (await fetch("data/backtest_multibagger.json", {cache:"no-store"})).json(); } catch(e) { B = null; }
+      const top = (M.ranked || []).slice(0, 30);
+      const gateTxt = g => Object.entries(g || {}).map(([k, v]) =>
+        `<span class="flag ${v === true ? "g" : v === false ? "r" : ""}">${esc(k.replace(/_/g, " "))}</span>`).join(" ");
+      const rows = top.map(r => {
+        const m = r.measures || {};
+        const pr = r.promoter || {};
+        const mf = r.mutual_funds || {};
+        const flag = pr.flag ? `<span class="flag ${pr.flag === "promoter buying" ? "g" : pr.flag === "promoter selling" ? "r" : ""}">${esc(pr.flag)}</span>` : `<span class="flag">no promoter trades</span>`;
+        return `<div class="panel" style="margin-bottom:8px"><div class="ph"><span>#${r.rank} ${esc(r.symbol)}</span><span class="flag">${r.score}/4 gates</span></div>
+          <div class="pb">
+            <div class="row"><span class="l">Revenue growth YoY</span><span class="r">${m.revenue_growth_yoy_pct != null ? pct(m.revenue_growth_yoy_pct, 1) : "–"}</span></div>
+            <div class="row"><span class="l">Profit growth YoY</span><span class="r">${m.profit_growth_yoy_pct != null ? pct(m.profit_growth_yoy_pct, 1) : "–"}</span></div>
+            <div class="row"><span class="l">Profitable quarters (last 8)</span><span class="r">${m.profit_growth_quarters_of_last_8 ?? "–"}</span></div>
+            <div class="row"><span class="l">Promoter</span><span class="r">${flag}</span></div>
+            <div class="row"><span class="l">Mutual funds</span><span class="r">${mf.schemes_holding != null ? `${mf.schemes_holding} hold · +${mf.schemes_added} · −${mf.schemes_reduced}` : "–"}</span></div>
+            <div style="margin-top:6px">${gateTxt(r.gates)}</div>
+            ${(r.gaps || []).length ? `<div class="note">Not tested: ${esc(r.gaps.join(", "))}</div>` : ""}
+          </div></div>`;
+      }).join("");
+      const bt = B && B.by_score ? `<div class="panel" style="margin-bottom:8px"><div class="ph"><span>Back-test (summary)</span><span class="flag">${B.observations || 0} observations</span></div>
+          <div class="pb">${Object.entries(B.by_score).map(([k, v]) => `<div class="row"><span class="l">Score ${esc(k)}</span><span class="r">${v.n ? `n ${v.n} · 1y beat median ${v.beat_median_1y_pct}% · 3y ${v.beat_median_3y_pct}%` : "no data"}</span></div>`).join("")}
+          <div class="note">Survivorship bias: today's index members only, so results are optimistic.</div></div></div>` : `<div class="panel" style="margin-bottom:8px"><div class="pb mut">Back-test not run yet.</div></div>`;
+      el.innerHTML = `<div class="glance">
+          ${tile("UNIVERSE", String(M.universe || 0), "midcap 150 + smallcap 250", "")}
+          ${tile("SCORED", String(M.scored || 0), "with financials", "")}
+          ${tile("ALL 4 GATES", String(M.passing_all_gates_tested || 0), "tested and passed", "up")}
+        </div>
+        <div class="sec">Back-test</div>${bt}
+        <div class="sec">Top 30 by score</div>${rows || '<div class="panel"><div class="pb mut">No scores yet.</div></div>'}
+        <div class="foot">Derived scores and signals only. Not advice. Gates with missing data are shown as not tested, never as passed.</div>`;
+    }catch(e){
+      el.innerHTML = `<div class="panel"><div class="pb mut">The multi-bagger screen appears after its first daily run.</div></div>`;
+    }
+  }
+
   function renderDesk(){
     if (!FEED) return;
     const outcomes = Object.keys(FEED.indices).map(n => {
@@ -511,7 +556,7 @@
     });
   })();
 
-  init().then(renderBrief); renderFno(); liveTick();
+  init().then(renderBrief); renderFno(); renderMultibagger(); liveTick();
   setInterval(liveTick, 60000);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 })();
