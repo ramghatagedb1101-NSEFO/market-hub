@@ -1,5 +1,6 @@
-// Network-first for the feed (always fresh), cache-first for the shell (works offline).
-const CACHE = "market-hub-v6";
+// Network-first everywhere: the phone always gets the latest page and feed when online.
+// The cache is only a fallback for when the network is unavailable.
+const CACHE = "market-hub-v7";
 const SHELL = ["./", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -14,10 +15,14 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
-  if (url.pathname.includes("/data/")) {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-    return;
-  }
-  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request)));
+  if (e.request.method !== "GET") return;
+  e.respondWith(
+    fetch(e.request, { cache: "no-store" })
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        return res;
+      })
+      .catch(() => caches.match(e.request))
+  );
 });
