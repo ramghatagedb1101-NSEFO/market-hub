@@ -37,7 +37,7 @@
   .tile{background:var(--pnl2);border:1px solid var(--ln);border-radius:3px;padding:8px 9px;min-width:0}
   .tile .k{color:var(--mut);font:700 9.5px var(--sans);letter-spacing:.8px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tile .v{font:600 15px var(--mono);margin-top:3px;white-space:nowrap}
-  .tile .s{font:11px var(--mono);margin-top:1px;white-space:nowrap}
+  .tile .s{font:11px var(--mono);margin-top:1px;white-space:normal;overflow-wrap:anywhere;line-height:1.3}
   .brow{display:grid;grid-template-columns:86px 1fr 74px;align-items:center;gap:8px;margin:7px 0;font:11.5px var(--mono)}
   .brow .bl{color:var(--txt);font:600 11px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .btrack{position:relative;height:10px;background:var(--ln);border-radius:1px}
@@ -167,7 +167,7 @@
   const LABEL = {day:"Next session", expiry:"Next expiry", month:"Month close"};
   const HZ = ["day","expiry","month"];        // year-end is not shown
   const NAMES = {NIFTY:"NIFTY 50", BANKNIFTY:"BANK NIFTY", SENSEX:"SENSEX"};
-  let FEED = null, LIVE = null, chart = null;
+  let FEED = null, LIVE = null, chart = null, BTC = null;
 
   // Panes and settings
   document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
@@ -295,7 +295,6 @@
 
     const nifty = idx.find(i => i.n === "NIFTY");
     const bank = idx.find(i => i.n === "BANKNIFTY");
-    const estimate = FEED && FEED.indices.NIFTY && FEED.indices.NIFTY.today;
     const tiles = [
       tile("GOLD ₹/10g", goldRaw ? f(goldRaw.last, 0) : "–", goldRaw ? chgTxt(goldRaw.change_pct) : "no data", cls(goldRaw && goldRaw.change_pct)),
       tile("CRUDE US$", crudeUsd ? f(crudeUsd.last, 2) : "–", crudeUsd ? chgTxt(crudeUsd.change_pct) + " · same day" : "no data", cls(crudeUsd && crudeUsd.change_pct)),
@@ -303,7 +302,7 @@
            usd ? chgTxt(usd.change_pct) + " · live" : (C.fx ? "ECB " + C.fx.date : "no data"), cls(usd && usd.change_pct)),
       tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) : "no data", cls(vixNow && vixNow.change_pct)),
       tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) + " · " + sp.date : "no data", cls(sp && sp.change_pct)),
-      tile("NIFTY EST.", estimate ? f(estimate.pred, 0) : "–", estimate ? "close " + pct(estimate.expected_move_pct) : "no data", "")
+      tile("BITCOIN US$", BTC ? f(BTC.usd, 0) : "–", BTC ? chgTxt(BTC.chg) + " · 24h" : "no data", cls(BTC && BTC.chg))
     ].join("");
 
     const moves = barRows([
@@ -423,7 +422,14 @@
     const day = d.getUTCDay(), mins = d.getUTCHours() * 60 + d.getUTCMinutes();
     return day >= 1 && day <= 5 && mins >= 9 * 60 + 15 && mins <= 15 * 60 + 30;
   }
+  async function fetchBitcoin(){
+    try{
+      const j = await (await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true", {cache:"no-store"})).json();
+      BTC = { usd: j.bitcoin.usd, chg: j.bitcoin.usd_24h_change };
+    }catch(e){ /* keep the last value */ }
+  }
   async function liveTick(){
+    fetchBitcoin();
     try{
       let L;
       try{
