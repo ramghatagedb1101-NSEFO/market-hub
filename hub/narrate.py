@@ -10,6 +10,7 @@ separate free news source, which is a later step.
 """
 import json
 import os
+import time
 from datetime import datetime
 
 import requests
@@ -63,9 +64,12 @@ def main() -> dict:
         out["text"] = "Daily brief is off: GEMINI_API_KEY is not set in the repository secrets."
     else:
         try:
-            r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key},
-                              json={"contents": [{"parts": [{"text": PROMPT.format(data=_summary(feed, fno))}]}]},
-                              timeout=60)
+            body = {"contents": [{"parts": [{"text": PROMPT.format(data=_summary(feed, fno))}]}]}
+            for attempt in range(4):   # Gemini returns 429/503 under load; back off and retry
+                r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key}, json=body, timeout=60)
+                if r.status_code not in (429, 503):
+                    break
+                time.sleep(15 * (attempt + 1))
             if r.status_code != 200:
                 raise RuntimeError(f"Gemini returned {r.status_code}: {r.text[:300]}")
             out["text"] = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
