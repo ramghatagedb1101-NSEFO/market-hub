@@ -155,6 +155,14 @@ def main() -> dict:
         opts = [i for i in instruments if i["name"] == root and i["instrument_type"] in ("CE", "PE")]
         nearest, monthly = _expiries(opts, today)
         block = {"spot": round(spot, 2), "views": []}
+
+        # Data only: the chain for an expiry that settles today (no trade suggestion).
+        todays = next((i["expiry"] for i in opts if i["expiry"] == today), None)
+        if todays is not None:
+            chain, _ = _chain(k, opts, todays, spot)
+            rows = [{"strike": s, "ce_ltp": v["CE"], "ce_oi": v["ce_oi"], "pe_ltp": v["PE"], "pe_oi": v["pe_oi"]}
+                    for s, v in sorted(chain.items()) if abs(s / spot - 1) * 100 <= 3.0]
+            block["expiring_today"] = {"expiry": todays.isoformat(), "pcr": _pcr(chain), "rows": rows}
         for label, expiry, hz in (("Nearest expiry", nearest, "expiry"), ("Monthly expiry", monthly, "month")):
             if expiry is None:
                 continue
