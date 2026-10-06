@@ -29,17 +29,25 @@ AS_OF_START = date(2016, 3, 31)
 HORIZONS = (365, 1095)   # 1 and 3 years
 
 
+# Diagnostics only: status counts, field names (never values) and error counts, so an empty run explains itself.
+DIAG = {"price_http_status": {}, "price_field_names": [], "price_errors": 0, "first_error": None}
+
+
 def prices(symbol: str, key: str) -> list[tuple[date, float]]:
     out, page = [], 1
     while True:
         r = requests.get(PRICES.format(t=symbol),
                          params={"from": "2010-01-01", "page": page, "page_size": 1000},
                          headers={"X-API-Key": key, **UA}, timeout=30)
+        code = str(r.status_code)
+        DIAG["price_http_status"][code] = DIAG["price_http_status"].get(code, 0) + 1
         if r.status_code == 404:
             break
         r.raise_for_status()
         body = r.json()
         rows = body.get("data", [])
+        if rows and not DIAG["price_field_names"]:
+            DIAG["price_field_names"] = sorted(rows[0].keys())
         for x in rows:
             c = x.get("adjusted_close") or x.get("close")
             if c is None or not x.get("trade_date"):
@@ -79,7 +87,9 @@ def main() -> dict:
         try:
             fin[s] = fetch(s, key)
             px[s] = prices(s, key)
-        except Exception:
+        except Exception as exc:
+            DIAG["price_errors"] += 1
+            DIAG["first_error"] = DIAG["first_error"] or str(exc)[:120]
             continue
     dates = list(quarter_ends())
     obs = []   # (score, excess_1y, excess_3y, passed_all)
@@ -135,6 +145,8 @@ def main() -> dict:
         "names_with_data": len(fin),
         "as_of_dates": len(dates),
         "observations": len(obs),
+        "diagnostics": {"names_with_prices": sum(1 for v in px.values() if v),
+                        "price_rows": sum(len(v) for v in px.values()), **DIAG},
         "by_score": by,
         "caveats": [
             "Survivorship bias: the universe is today's Midcap 150 and Smallcap 250, so past winners that later left the index are missing. Results are optimistic.",

@@ -2,6 +2,36 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-06 (late)
+
+Changes since the night entry. Commit references are on `main`.
+
+### Multi-bagger (hub/multibagger.py, docs/data/multibagger.json)
+- New screen for Midcap 150 and Smallcap 250 names, on BharatStock quarterly financials. Gates: revenue growth above 10%, profit growth above 15%, profit growth in at least 6 of the last 8 quarters, operating cash at least 0.8 times profit. A gate with missing data is listed as a gap, never a pass. Publishes derived scores and gates only. (`f46f6e8`)
+- Derived promoter trade signal from insider trades (signal only, not a gate). (`2da32a3`)
+- Mutual fund counts per stock: schemes holding, added, reduced. No scheme names are published. (`26966bc`)
+- Multi-bagger tab in the phone app. (`1e529c0`)
+- Back-test: manual workflow, summary statistics only (`e6df6f7`, summary in `f2c43c7`). Financials are used 60 days after quarter-end, so no later information leaks in. Caveat: survivorship bias from today's index members.
+- BharatStock test workflow removed once the screen was verified (`e3476b1`).
+
+### Indicator test (hub/indicator_test.py, manual workflow)
+- Tests NIFTY and BANK NIFTY direction signals over five sessions. The first 60% of history selects, the last 40% tests. A signal is listed as shown to work only if it beats the baseline on both halves with a z above 1.64 on the test half. (`a0e2595`, summary `63f6e68`)
+- Kite history is fetched in chunks under the 2000-day limit. (`dfd7e16`)
+
+### IV-rank threshold test (hub/threshold_test.py, IV history)
+- IV history extended: Aug 2023 to Jul 2025 prepended (`9b5a30b`), and 20 Aug to 6 Oct 2026 appended from NSE bhavcopy (`89e2609`). Both list and dict file formats are read.
+- Threshold test: breach rates and average premium by IV-rank band and threshold (20, 30, 40, 50, 60), selection and test halves. Summary only. (`1832fa2`, `02705e4`, `e3ca6c0`)
+
+### Nifty 50 option screen (rg/, F&O tab)
+- The delivery-rule rejection now states the exact reason for each name. (`a186fe2`)
+- Estimated results dates no longer block a trade; they are shown as "results date not confirmed". Confirmed dates still block. (`5e354cc`)
+
+### Daily job (.github/workflows/daily.yml)
+- Save step rebases and retries if main moved during the run. (`d9a29f3`)
+
+### Option-close research (not in the repo)
+- Spread simulation on NSE option closes, Aug 2023 to Oct 2026: 4,521 trades, average return on risk −5.1%, win rate 57.6%. The IV-rank 30 gate did not separate outcomes. Put spreads are the weak side. Results are in the scratchpad, not published. Limits: closing prices, assumed 10% slippage, one structure, overlapping trades.
+
 ## 2026-10-06 (night)
 
 Changes since the evening entry. Commit references are on `main` unless noted.
