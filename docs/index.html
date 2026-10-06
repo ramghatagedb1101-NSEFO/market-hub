@@ -127,7 +127,7 @@
     <button data-tab="mb">Multi-bagger</button>
   </nav>
 
-  <section class="tab on" id="overview"><div id="ov"></div></section>
+  <section class="tab on" id="overview"><div id="brief"></div><div id="ov"></div></section>
 
   <section class="tab" id="charts">
     <div class="grid2">
@@ -436,7 +436,17 @@
       el.innerHTML = `<div class="card mut">F&amp;O suggestions are not available yet. They appear after the daily job runs.</div>`;
     }
   }
-  async function refreshAll(){ await init(); await renderFno(); await liveTick(); }
+  async function renderBrief(){
+    try{
+      const B = await (await fetch("data/brief.json", {cache:"no-store"})).json();
+      $("#brief").innerHTML = `<div class="card" style="margin-bottom:14px">
+        <h3><span>Daily brief</span><span class="mut" style="text-transform:none;letter-spacing:0">${esc(B.source || "")} · ${esc((B.ts||"").replace("T"," "))} IST</span></h3>
+        <div style="white-space:pre-wrap;font-size:14px;line-height:1.55">${esc(B.text)}</div>
+        <div class="note">Written from this dashboard's numbers only. Not advice.</div></div>`;
+    }catch(e){ $("#brief").innerHTML = ""; }
+  }
+
+  async function refreshAll(){ await init(); await renderFno(); await renderBrief(); await liveTick(); }
 
   // Pull-to-refresh: drag down from the top of the page, release past the threshold.
   (function pullToRefresh(){
@@ -466,6 +476,7 @@
 
   init();
   renderFno();
+  renderBrief();
   liveTick();
   setInterval(liveTick, 60000);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");

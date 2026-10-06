@@ -47,6 +47,11 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.fno
 
+      - name: Daily brief (Gemini, free tier)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python -m hub.narrate
+
       - name: Commit state and feed
         run: |
           git config user.name "forecast-bot"
