@@ -2,185 +2,356 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#0b1220">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a0e17">
+<meta name="robots" content="noindex">
 <title>Market Hub</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-512.png">
 <style>
-  :root { --bg:#0b1220; --card:#131c2e; --line:#22304a; --txt:#e6edf7; --mut:#8aa0bf;
-          --up:#22c55e; --dn:#ef4444; --acc:#60a5fa; --warn:#f59e0b; }
-  @media (prefers-color-scheme: light) {
-    :root { --bg:#f5f7fb; --card:#ffffff; --line:#dbe2ee; --txt:#0f172a; --mut:#516079; }
+  :root{
+    --bg:#0a0e17; --panel:#0f1624; --panel2:#131c2e; --line:#1e2a40; --line2:#2a3a57;
+    --txt:#e8edf6; --mut:#8193b0; --dim:#56657f;
+    --acc:#5aa9ff; --up:#2fd27a; --dn:#ff5d6c; --warn:#f5b546; --cyan:#37d4e0;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--txt);
-         font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
-  header { padding:14px 16px 6px; }
-  h1 { font-size:18px; margin:0; }
-  .sub { color:var(--mut); font-size:12px; margin-top:2px; }
-  nav { display:flex; gap:6px; overflow-x:auto; padding:8px 16px; border-bottom:1px solid var(--line); }
-  nav button { flex:0 0 auto; background:none; color:var(--mut); border:1px solid var(--line);
-               border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer; }
-  nav button.on { color:var(--txt); border-color:var(--acc); background:var(--card); }
-  main { padding:12px 16px 40px; max-width:900px; margin:0 auto; }
-  section { display:none; } section.on { display:block; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
-          padding:14px; margin-bottom:12px; }
-  .grid { display:grid; grid-template-columns:1fr; gap:12px; }
-  @media (min-width:640px) { .grid { grid-template-columns:1fr 1fr; } }
-  .row { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
-  .big { font-size:22px; font-weight:600; }
-  .mut { color:var(--mut); font-size:12px; }
-  .up { color:var(--up); } .dn { color:var(--dn); } .warn { color:var(--warn); }
-  .tag { display:inline-block; font-size:11px; border:1px solid var(--line); border-radius:6px;
-         padding:1px 6px; color:var(--mut); }
-  table { width:100%; border-collapse:collapse; font-size:13px; }
-  th, td { text-align:right; padding:6px 4px; border-bottom:1px solid var(--line); }
-  th:first-child, td:first-child { text-align:left; }
-  .scroll { overflow-x:auto; }
-  canvas { max-height:260px; }
-  .empty { color:var(--mut); padding:30px 0; text-align:center; }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f3f5f9; --panel:#ffffff; --panel2:#f7f9fc; --line:#dde3ee; --line2:#c7d1e2;
+           --txt:#0d1626; --mut:#5b6b85; --dim:#8a97ad; --acc:#1e63c8; --up:#0f9d58; --dn:#d93040; --warn:#b7791f; --cyan:#0b8fa0; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px 56px}
+
+  /* header */
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+         padding:16px 0 12px;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand img{width:34px;height:34px;border-radius:8px}
+  .brand b{font-size:16px;letter-spacing:.2px}
+  .brand small{display:block;color:var(--mut);font-size:11px;letter-spacing:.6px;text-transform:uppercase}
+  .status{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:12px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--up);box-shadow:0 0 0 3px color-mix(in srgb,var(--up) 22%,transparent)}
+  .dot.stale{background:var(--warn);box-shadow:0 0 0 3px color-mix(in srgb,var(--warn) 22%,transparent)}
+
+  nav{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:4px;overflow-x:auto;
+      padding:10px 0;border-bottom:1px solid var(--line);scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav button{flex:0 0 auto;background:transparent;border:0;color:var(--mut);font:600 13px var(--sans);
+             padding:8px 12px;border-radius:8px;cursor:pointer}
+  nav button.on{color:var(--txt);background:var(--panel2);box-shadow:inset 0 -2px 0 var(--acc)}
+  section.tab{display:none;padding-top:16px}
+  section.tab.on{display:block}
+
+  /* panels */
+  .grid2{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:900px){.grid2{grid-template-columns:1fr 1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h3{margin:0 0 12px;font:600 12px var(--sans);letter-spacing:.8px;text-transform:uppercase;color:var(--mut);
+           display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:640px){.kpis{grid-template-columns:repeat(4,1fr)}}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .kpi .l{color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+  .kpi .v{font:600 20px var(--mono);margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .s{color:var(--mut);font-size:12px;margin-top:2px}
+
+  .up{color:var(--up)} .dn{color:var(--dn)} .mut{color:var(--mut)} .warn{color:var(--warn)}
+  .tag{display:inline-block;font:600 11px var(--sans);padding:3px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--mut)}
+  .tag.ok{color:var(--up);border-color:color-mix(in srgb,var(--up) 45%,transparent)}
+  .tag.bad{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+
+  /* tables */
+  .tbl{width:100%;border-collapse:collapse}
+  .tbl th{font:600 11px var(--sans);color:var(--mut);text-transform:uppercase;letter-spacing:.5px;text-align:right;
+          padding:8px 6px;border-bottom:1px solid var(--line2);white-space:nowrap}
+  .tbl td{padding:10px 6px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tbl th:first-child,.tbl td:first-child{text-align:left}
+  .tbl tr:last-child td{border-bottom:0}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* range bar */
+  .range{position:relative;height:8px;border-radius:6px;background:linear-gradient(90deg,color-mix(in srgb,var(--dn) 35%,transparent),var(--line2) 50%,color-mix(in srgb,var(--up) 35%,transparent));min-width:140px}
+  .range .pin{position:absolute;top:-4px;width:2px;height:16px;background:var(--txt);border-radius:1px;transform:translateX(-1px)}
+  .range .pin.base{background:var(--acc);width:1px;opacity:.9}
+  .range .lbl{position:absolute;top:12px;font:11px var(--mono);color:var(--mut);transform:translateX(-50%);white-space:nowrap}
+  .rwrap{position:relative;padding:16px 0 14px}
+
+  .note{color:var(--mut);font-size:12px;margin-top:10px}
+  .chartbox{position:relative;height:260px}
+  .verdict{display:flex;align-items:flex-start;gap:10px;background:var(--panel2);border:1px solid var(--line);
+           border-radius:10px;padding:12px;margin-bottom:12px}
+  .verdict .i{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:0 0 8px}
+  .verdict b{display:block;font-size:13px;margin-bottom:2px}
+  .verdict span{color:var(--mut);font-size:12.5px}
+
+  .soon{display:grid;gap:12px}
+  .soon .c{border:1px dashed var(--line2);border-radius:12px;padding:16px;color:var(--mut)}
+  .soon b{color:var(--txt)}
+  footer{margin-top:26px;color:var(--dim);font-size:11.5px;line-height:1.55;border-top:1px solid var(--line);padding-top:14px}
 </style>
 </head>
 <body>
-<header>
-  <h1>Market Hub</h1>
-  <div class="sub" id="updated">Loading…</div>
-</header>
-<nav>
-  <button class="on" data-tab="forecast">Forecasts</button>
-  <button data-tab="charts">Charts</button>
-  <button data-tab="track">Track record</button>
-  <button data-tab="fno">F&amp;O</button>
-  <button data-tab="mb">Multi-baggers</button>
-</nav>
-<main>
-  <section id="forecast" class="on"><div id="forecast-body"></div></section>
-  <section id="charts">
-    <div class="card"><div class="row"><b id="chart-title">NIFTY 50</b>
-      <select id="idx-pick"></select></div>
-      <canvas id="price-chart"></canvas></div>
-    <div class="card"><b>Predicted vs actual</b>
-      <div class="mut" id="track-title"></div>
-      <canvas id="track-chart"></canvas></div>
-    <div class="card"><b>Tool weights (learned)</b>
-      <canvas id="tool-chart"></canvas></div>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <img src="icon-512.png" alt="">
+      <div><b>Market Hub</b><small>Index forecasts · track record · F&amp;O · multi-bagger</small></div>
+    </div>
+    <div class="status"><span class="dot" id="dot"></span><span id="status">Loading feed…</span></div>
+  </header>
+
+  <nav id="nav">
+    <button class="on" data-tab="overview">Overview</button>
+    <button data-tab="charts">Charts</button>
+    <button data-tab="track">Track record</button>
+    <button data-tab="method">Method</button>
+    <button data-tab="fno">F&amp;O</button>
+    <button data-tab="mb">Multi-bagger</button>
+  </nav>
+
+  <section class="tab on" id="overview"><div id="ov"></div></section>
+
+  <section class="tab" id="charts">
+    <div class="grid2">
+      <div class="card"><h3><span id="ct1">NIFTY 50 · 250 sessions</span></h3><div class="chartbox"><canvas id="cPrice"></canvas></div></div>
+      <div class="card"><h3><span id="ct2">Month-close: predicted vs actual</span></h3><div class="chartbox"><canvas id="cTrack"></canvas></div></div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div class="card"><h3>Tool weights (learned, NIFTY · next session)</h3><div class="chartbox"><canvas id="cTools"></canvas></div></div>
+      <div class="card"><h3>Band calibration</h3><div id="cal"></div></div>
+    </div>
   </section>
-  <section id="track"><div id="track-body"></div></section>
-  <section id="fno"><div class="card empty">F&amp;O picks are not connected yet.<br>
-    The free core is live; the Kite and Claude-based trade engines need a decision on paid
-    services before they can run here. See the README.</div></section>
-  <section id="mb"><div class="card empty">Multi-bagger screen is not connected yet.<br>
-    It will read quarterly results and ownership data once the fundamentals source is wired in.</div></section>
-</main>
+
+  <section class="tab" id="track"><div id="tr"></div></section>
+
+  <section class="tab" id="method">
+    <div class="card" id="method-body"></div>
+  </section>
+
+  <section class="tab" id="fno">
+    <div class="soon">
+      <div class="c"><b>F&amp;O desk — not connected yet.</b><br>
+        Will show ranked trade ideas (buy/sell, strike, expiry, max loss, breakevens) with the same
+        track-record discipline as the index forecasts. It needs the Kite option-chain feed, which is
+        already in your subscription. Each trade is logged on entry and settled on expiry, so the desk shows
+        realised hit rate, not just ideas.</div>
+    </div>
+  </section>
+
+  <section class="tab" id="mb">
+    <div class="soon">
+      <div class="c"><b>Multi-bagger screen — not connected yet.</b><br>
+        Will rank NSE/BSE stocks on quarterly results history (revenue, profit, margins, return on equity,
+        debt, promoter holding changes) and track each pick against its benchmark over time.
+        Source choice is still open.</div>
+    </div>
+  </section>
+
+  <footer>
+    Forecasts are statistical estimates from published index closes and are not investment advice.
+    A forecast only earns trust if it beats the naive baseline (tomorrow = today) on the Track record tab.
+    Past performance does not guarantee future results.
+  </footer>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
-const $ = (s) => document.querySelector(s);
-const fmt = (x, d = 2) => (x === null || x === undefined) ? "–" :
-  Number(x).toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d });
-const sign = (x) => x > 0 ? "up" : x < 0 ? "dn" : "";
-const LABEL = { day: "Next session", expiry: "Next expiry", month: "Month close", year: "Year close" };
-let FEED = null, charts = {};
+(function(){
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const f = (x, d=0) => x == null ? "–" : Number(x).toLocaleString("en-IN", {minimumFractionDigits:d, maximumFractionDigits:d});
+  const pct = (x, d=2) => x == null ? "–" : (x >= 0 ? "+" : "") + f(x, d) + "%";
+  const cls = x => x == null ? "" : (x > 0 ? "up" : x < 0 ? "dn" : "");
+  const LABEL = {day:"Next session", expiry:"Next expiry", month:"Month close", year:"Year close"};
+  const HZ = ["day","expiry","month","year"];
+  let FEED = null;
+  const charts = {};
 
-document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
-  document.querySelectorAll("section").forEach(s => s.classList.toggle("on", s.id === b.dataset.tab));
-  if (b.dataset.tab === "charts") drawCharts();
-});
+  // Tabs
+  document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+    document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+    document.querySelectorAll("section.tab").forEach(s => s.classList.toggle("on", s.id === b.dataset.tab));
+    if (b.dataset.tab === "charts") drawCharts();
+  });
 
-function forecastCard(idx, h, block) {
-  const f = block.horizons[h].forecast;
-  if (!f) return `<div class="card"><b>${idx}</b> · ${LABEL[h]}<div class="empty">No forecast yet</div></div>`;
-  const st = block.horizons[h].stats;
-  const verdict = st.n ? (st.mae_model_pct < st.mae_naive_pct
-      ? `<span class="tag up">beats naive (${st.n} settled)</span>`
-      : `<span class="tag warn">not beating naive yet (${st.n} settled)</span>`)
-    : `<span class="tag">no settled outcomes yet</span>`;
-  return `<div class="card">
-    <div class="row"><b>${idx}</b><span class="mut">${LABEL[h]} · ${f.target}</span></div>
-    <div class="big">${fmt(f.pred, 0)} <span class="mut" style="font-size:13px">predicted</span></div>
-    <div class="row ${sign(f.expected_move_pct)}"><span>${f.expected_move_pct >= 0 ? "+" : ""}${fmt(f.expected_move_pct)}% vs ${fmt(f.base, 0)}</span>
-      <span class="mut">range ${fmt(f.lo, 0)} – ${fmt(f.hi, 0)}</span></div>
-    <div style="margin-top:8px">${verdict}</div></div>`;
-}
+  function ageDays(iso){ return (Date.now() - new Date(iso).getTime()) / 86400000; }
 
-function renderForecast() {
-  const parts = [];
-  for (const idx of Object.keys(FEED.indices)) {
-    const b = FEED.indices[idx];
-    parts.push(`<div class="row" style="margin:14px 0 6px"><b>${idx}</b>
-      <span class="mut">last close ${fmt(b.last_close, 2)} · ${b.last_date}</span></div>`);
-    parts.push(`<div class="grid">` + Object.keys(b.horizons).map(h => forecastCard(idx, h, b)).join("") + `</div>`);
+  function rangeBar(base, pred, lo, hi){
+    const span = Math.max(hi - lo, 1e-9);
+    const p = Math.min(Math.max((pred - lo) / span * 100, 0), 100);
+    const b = Math.min(Math.max((base - lo) / span * 100, 0), 100);
+    return `<div class="rwrap"><div class="range">
+      <div class="pin base" style="left:${b}%" title="last close"></div>
+      <div class="pin" style="left:${p}%" title="predicted"></div>
+      <span class="lbl" style="left:0%;transform:none">${f(lo)}</span>
+      <span class="lbl" style="left:100%;transform:translateX(-100%)">${f(hi)}</span>
+    </div></div>`;
   }
-  parts.push(`<p class="mut">Forecasts are shown with their track record. A forecast is only useful if it
-    beats the naive baseline ("tomorrow = today") on the Track record tab. Not investment advice.</p>`);
-  $("#forecast-body").innerHTML = parts.join("");
-}
 
-function renderTrack() {
-  const parts = [];
-  for (const idx of Object.keys(FEED.indices)) {
-    for (const h of Object.keys(FEED.indices[idx].horizons)) {
-      const H = FEED.indices[idx].horizons[h], s = H.stats;
-      parts.push(`<div class="card"><div class="row"><b>${idx} · ${LABEL[h]}</b>
-        <span class="mut">${s.n || 0} settled</span></div>`);
-      if (!s.n) { parts.push(`<div class="mut">Waiting for the first outcomes.</div></div>`); continue; }
-      parts.push(`<div class="scroll"><table>
-        <tr><th>Direction hit</th><th>Band coverage</th><th>MAE model</th><th>MAE naive</th></tr>
-        <tr><td>${fmt(s.direction_hit_pct, 1)}%</td><td>${fmt(s.coverage_pct, 1)}% (target 80%)</td>
-        <td>${fmt(s.mae_model_pct, 3)}%</td><td>${fmt(s.mae_naive_pct, 3)}%</td></tr></table></div>`);
-      const recent = H.history.slice(-12).reverse();
-      parts.push(`<div class="scroll" style="margin-top:8px"><table>
-        <tr><th>Target</th><th>Predicted</th><th>Actual</th><th>Error</th><th>In band</th></tr>` +
-        recent.map(r => `<tr><td>${r.target}</td><td>${fmt(r.pred, 0)}</td><td>${fmt(r.actual, 0)}</td>
-          <td class="${sign(-r.err_pct)}">${fmt(r.err_pct, 2)}%</td><td>${r.in_band ? "✓" : "✗"}</td></tr>`).join("") +
-        `</table></div></div>`);
+  function overviewIndex(idx, b){
+    const hist = b.history;
+    const prev = hist.length > 1 ? hist[hist.length-2].c : null;
+    const chg = prev ? (b.last_close / prev - 1) * 100 : null;
+    const rows = HZ.map(h => {
+      const H = b.horizons[h], fc = H.forecast, st = H.stats;
+      if (!fc) return `<tr><td>${LABEL[h]}</td><td colspan="4" class="mut">no forecast yet</td></tr>`;
+      const trust = st.n
+        ? (st.mae_model_pct < st.mae_naive_pct
+            ? `<span class="tag ok">beats naive · n=${st.n}</span>`
+            : `<span class="tag bad">below naive · n=${st.n}</span>`)
+        : `<span class="tag">no outcomes yet</span>`;
+      return `<tr>
+        <td><div style="font-weight:600">${LABEL[h]}</div><div class="mut" style="font-size:11.5px">${esc(fc.target)}</div></td>
+        <td class="num"><b>${f(fc.pred)}</b><div class="${cls(fc.expected_move_pct)}" style="font-size:12px">${pct(fc.expected_move_pct)}</div></td>
+        <td style="min-width:170px;text-align:left">${rangeBar(fc.base, fc.pred, fc.lo, fc.hi)}</td>
+        <td class="num mut" style="font-size:12px">${f(fc.lo)} – ${f(fc.hi)}</td>
+        <td>${trust}</td>
+      </tr>`;
+    }).join("");
+    return `<div class="card">
+      <h3><span>${esc(idx)}</span><span class="mut" style="text-transform:none;letter-spacing:0">close ${f(b.last_close,2)} · ${esc(b.last_date)}</span></h3>
+      <div class="kpis" style="margin-bottom:14px">
+        <div class="kpi"><div class="l">Last close</div><div class="v">${f(b.last_close,2)}</div>
+          <div class="s ${cls(chg)}">${chg == null ? "" : pct(chg)} vs prior</div></div>
+        <div class="kpi"><div class="l">Session forecast</div><div class="v">${H_(b,"day")}</div><div class="s">${LABEL.day}</div></div>
+        <div class="kpi"><div class="l">Month-close forecast</div><div class="v">${H_(b,"month")}</div><div class="s">${LABEL.month}</div></div>
+        <div class="kpi"><div class="l">Year-close forecast</div><div class="v">${H_(b,"year")}</div><div class="s">${LABEL.year}</div></div>
+      </div>
+      <div class="scroll"><table class="tbl">
+        <tr><th>Horizon</th><th>Predicted</th><th>Position in band</th><th>80% band</th><th>Track record</th></tr>
+        ${rows}
+      </table></div>
+      <div class="note">Band: the range the close should land in 80% of the time (calibrated on past outcomes). Blue tick = last close.</div>
+    </div>`;
+  }
+  function H_(b, h){ const fc = b.horizons[h].forecast; return fc ? f(fc.pred) : "–"; }
+
+  function renderOverview(){
+    const idxs = Object.keys(FEED.indices);
+    $("#ov").innerHTML = `<div class="grid2">` + idxs.map(i => overviewIndex(i, FEED.indices[i])).join("") + `</div>`;
+  }
+
+  function renderStatus(){
+    const gen = FEED.generated_at;
+    const days = ageDays(gen);
+    $("#dot").classList.toggle("stale", days > 2);
+    $("#status").textContent = (days > 2 ? "Stale · " : "Live · ") + "updated " + gen.replace("T"," ").slice(0,16) + " IST";
+  }
+
+  function renderTrack(){
+    const blocks = Object.keys(FEED.indices).map(idx => {
+      const b = FEED.indices[idx];
+      const cards = HZ.map(h => {
+        const H = b.horizons[h], s = H.stats;
+        if (!s.n) return `<div class="card"><h3>${idx} · ${LABEL[h]}</h3><div class="mut">No settled outcomes yet. The first results arrive when each target date closes.</div></div>`;
+        const beats = s.mae_model_pct < s.mae_naive_pct;
+        const rows = H.history.slice(-12).reverse().map(r => `<tr>
+          <td>${esc(r.target)}</td><td class="num">${f(r.pred)}</td><td class="num">${f(r.actual)}</td>
+          <td class="num ${cls(-r.err_pct)}">${pct(r.err_pct,2)}</td>
+          <td>${r.in_band ? '<span class="tag ok">in</span>' : '<span class="tag bad">out</span>'}</td></tr>`).join("");
+        return `<div class="card">
+          <h3><span>${idx} · ${LABEL[h]}</span>${beats ? '<span class="tag ok">beats naive</span>' : '<span class="tag bad">below naive</span>'}</h3>
+          <div class="kpis">
+            <div class="kpi"><div class="l">Outcomes</div><div class="v">${s.n}</div></div>
+            <div class="kpi"><div class="l">Direction hit</div><div class="v">${f(s.direction_hit_pct,1)}%</div><div class="s">50% = coin toss</div></div>
+            <div class="kpi"><div class="l">Band coverage</div><div class="v">${f(s.coverage_pct,1)}%</div><div class="s">target 80%</div></div>
+            <div class="kpi"><div class="l">Error vs naive</div><div class="v">${f(s.mae_model_pct,2)}%</div><div class="s">naive ${f(s.mae_naive_pct,2)}%</div></div>
+          </div>
+          <div class="scroll" style="margin-top:12px"><table class="tbl">
+            <tr><th>Target</th><th>Predicted</th><th>Actual</th><th>Error</th><th>Band</th></tr>${rows}</table></div>
+        </div>`;
+      }).join("");
+      return `<h3 style="margin:18px 0 10px;font:600 13px var(--sans);color:var(--mut);text-transform:uppercase;letter-spacing:.8px">${idx}</h3>
+              <div class="grid2">${cards}</div>`;
+    }).join("");
+    const verdict = anyBeat() ? "" : `<div class="verdict"><div class="i" style="background:var(--warn)"></div><div>
+      <b>No horizon beats the naive baseline yet.</b>
+      <span>The bands are calibrated, but point forecasts have not earned trust. Each horizon is shown with its
+      outcomes, so the record speaks for itself as data accumulates.</span></div></div>`;
+    $("#tr").innerHTML = verdict + blocks;
+  }
+  function anyBeat(){
+    return Object.values(FEED.indices).some(b => HZ.some(h => {
+      const s = b.horizons[h].stats; return s.n && s.mae_model_pct < s.mae_naive_pct; }));
+  }
+
+  function drawCharts(){
+    const idx = Object.keys(FEED.indices)[0];
+    const b = FEED.indices[idx];
+    $("#ct1").textContent = idx + " · last 250 sessions";
+    charts.price?.destroy();
+    charts.price = new Chart($("#cPrice"), {
+      type:"line",
+      data:{ labels:b.history.map(x=>x.d), datasets:[{ label:"Close", data:b.history.map(x=>x.c),
+        borderColor:"#5aa9ff", backgroundColor:"rgba(90,169,255,.08)", fill:true, pointRadius:0, borderWidth:1.6, tension:.2 }]},
+      options:{ maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{ x:{ticks:{maxTicksLimit:6,color:"#8193b0"},grid:{display:false}}, y:{ticks:{color:"#8193b0"},grid:{color:"rgba(130,147,176,.12)"}} } }});
+
+    const rows = b.horizons.month.history;
+    $("#ct2").textContent = idx + " · month close: predicted vs actual";
+    charts.track?.destroy();
+    charts.track = new Chart($("#cTrack"), {
+      type:"line",
+      data:{ labels:rows.map(r=>r.target), datasets:[
+        {label:"Actual", data:rows.map(r=>r.actual), borderColor:"#2fd27a", pointRadius:2, borderWidth:1.6},
+        {label:"Predicted", data:rows.map(r=>r.pred), borderColor:"#5aa9ff", borderDash:[5,4], pointRadius:0, borderWidth:1.6},
+        {label:"Band high", data:rows.map(r=>r.hi), borderColor:"rgba(130,147,176,.35)", pointRadius:0, borderWidth:1},
+        {label:"Band low", data:rows.map(r=>r.lo), borderColor:"rgba(130,147,176,.35)", pointRadius:0, borderWidth:1}]},
+      options:{ maintainAspectRatio:false, plugins:{legend:{labels:{color:"#8193b0",boxWidth:10}}},
+        scales:{ x:{ticks:{maxTicksLimit:6,color:"#8193b0"},grid:{display:false}}, y:{ticks:{color:"#8193b0"},grid:{color:"rgba(130,147,176,.12)"}} } }});
+
+    const tools = b.horizons.day.tools;
+    charts.tool?.destroy();
+    charts.tool = new Chart($("#cTools"), {
+      type:"bar",
+      data:{ labels:tools.map(t=>t.tool), datasets:[{label:"Weight", data:tools.map(t=>t.weight), backgroundColor:"#5aa9ff", borderRadius:4}]},
+      options:{ indexAxis:"y", maintainAspectRatio:false, plugins:{legend:{display:false}},
+        scales:{ x:{ticks:{color:"#8193b0"},grid:{color:"rgba(130,147,176,.12)"}}, y:{ticks:{color:"#8193b0"},grid:{display:false}} } }});
+
+    $("#cal").innerHTML = Object.keys(FEED.indices).map(i =>
+      `<div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px"><div class="kpi" style="grid-column:1/-1">
+        <div class="l">${esc(i)} band multiplier (k)</div>
+        ${HZ.map(h => `<div class="s" style="display:flex;justify-content:space-between"><span>${LABEL[h]}</span><span class="num">${f(FEED.indices[i].horizons[h].band_k,3)}</span></div>`).join("")}
+      </div></div>`).join("") +
+      `<div class="note">k is the half-width of the band in standard deviations. It is adjusted after every outcome so that about 80% of closes land inside.</div>`;
+  }
+
+  function renderMethod(){
+    $("#method-body").innerHTML = `
+      <h3 style="font:600 12px var(--sans);color:var(--mut);text-transform:uppercase;letter-spacing:.8px;margin:0 0 10px">How a forecast is made</h3>
+      <div class="scroll"><table class="tbl" style="text-align:left">
+        <tr><th>Stage</th><th style="text-align:left">What it does</th></tr>
+        <tr><td>Data</td><td style="text-align:left;white-space:normal">Daily index closes. NIFTY from NSE's official bhavcopy (Kite once connected). SENSEX from Kite.</td></tr>
+        <tr><td>Tools</td><td style="text-align:left;white-space:normal">Six analytical tools each score the next move from −1 to +1: trend vs 20/50-day averages, RSI reversion, short-term reversal, 5-day range position, one-year drift, and target-weekday bias.</td></tr>
+        <tr><td>Blend</td><td style="text-align:left;white-space:normal">Tools are blended using learned weights. A tool that has been wrong loses weight after each outcome.</td></tr>
+        <tr><td>Band</td><td style="text-align:left;white-space:normal">An 80% range scaled by recent volatility and the horizon length. Its width is calibrated on past outcomes.</td></tr>
+        <tr><td>Scoring</td><td style="text-align:left;white-space:normal">Each forecast is compared with the actual close and with a naive "tomorrow = today" baseline.</td></tr>
+      </table></div>
+      <h3 style="font:600 12px var(--sans);color:var(--mut);text-transform:uppercase;letter-spacing:.8px;margin:18px 0 10px">Horizons</h3>
+      <div class="note" style="margin:0">Next session: the next trading day's close. Next expiry: the next weekly expiry close (NIFTY Tuesday, SENSEX Monday, per the parent project's settings).
+      Month close: last trading day of the month. Year close: last trading day of the calendar year. Targets absorb exchange holidays.</div>`;
+  }
+
+  function render(){
+    renderStatus(); renderOverview(); renderTrack(); renderMethod();
+  }
+
+  async function init(){
+    try{
+      FEED = await (await fetch("data/feed.json", {cache:"no-store"})).json();
+      render();
+    }catch(e){
+      $("#status").textContent = "Could not load the feed";
+      $("#dot").classList.add("stale");
     }
   }
-  $("#track-body").innerHTML = parts.join("") || `<div class="empty">No track record yet.</div>`;
-}
-
-function drawCharts() {
-  const idx = $("#idx-pick").value || Object.keys(FEED.indices)[0];
-  const b = FEED.indices[idx];
-  $("#chart-title").textContent = idx + " · last 250 sessions";
-  const hist = b.history;
-  charts.price?.destroy();
-  charts.price = new Chart($("#price-chart"), {
-    type: "line", data: { labels: hist.map(x => x.d),
-      datasets: [{ label: "Close", data: hist.map(x => x.c), borderColor: "#60a5fa", pointRadius: 0, borderWidth: 1.5 }] },
-    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } } });
-
-  const H = b.horizons.month;
-  $("#track-title").textContent = idx + " · month close: predicted vs actual (settled)";
-  const rows = H.history;
-  charts.track?.destroy();
-  charts.track = new Chart($("#track-chart"), {
-    type: "line", data: { labels: rows.map(r => r.target), datasets: [
-      { label: "Actual", data: rows.map(r => r.actual), borderColor: "#22c55e", pointRadius: 2, borderWidth: 1.5 },
-      { label: "Predicted", data: rows.map(r => r.pred), borderColor: "#60a5fa", borderDash: [4,3], pointRadius: 0, borderWidth: 1.5 },
-      { label: "Band high", data: rows.map(r => r.hi), borderColor: "rgba(138,160,191,.3)", pointRadius: 0, borderWidth: 1 },
-      { label: "Band low", data: rows.map(r => r.lo), borderColor: "rgba(138,160,191,.3)", pointRadius: 0, borderWidth: 1 }] },
-    options: { plugins: { legend: { labels: { boxWidth: 10 } } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } } });
-
-  const tools = b.horizons.day.tools;
-  charts.tool?.destroy();
-  charts.tool = new Chart($("#tool-chart"), {
-    type: "bar", data: { labels: tools.map(t => t.tool), datasets: [{ label: "Weight", data: tools.map(t => t.weight), backgroundColor: "#60a5fa" }] },
-    options: { indexAxis: "y", plugins: { legend: { display: false } } } });
-}
-
-async function init() {
-  FEED = await (await fetch("data/feed.json", { cache: "no-store" })).json();
-  $("#updated").textContent = "Updated " + FEED.generated_at.replace("T", " ") + " IST";
-  $("#idx-pick").innerHTML = Object.keys(FEED.indices).map(i => `<option>${i}</option>`).join("");
-  $("#idx-pick").onchange = drawCharts;
-  renderForecast(); renderTrack();
-}
-init().catch(e => { $("#updated").textContent = "Could not load feed: " + e; });
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+  init();
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+})();
 </script>
 </body>
 </html>

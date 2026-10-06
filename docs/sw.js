@@ -1,5 +1,5 @@
 // Network-first for the feed (always fresh), cache-first for the shell (works offline).
-const CACHE = "market-hub-v1";
+const CACHE = "market-hub-v2";
 const SHELL = ["./", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (e) => {
