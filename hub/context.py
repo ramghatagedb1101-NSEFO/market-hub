@@ -92,6 +92,12 @@ def _fred() -> dict:
     return out
 
 
+def _commodities() -> dict:
+    """MCX gold and crude futures from Kite. Needs KITE_API_KEY and KITE_ACCESS_TOKEN."""
+    from .sources import commodities
+    return commodities.main()
+
+
 def _headlines() -> list[dict]:
     """Recent headlines from each feed. Titles and links only; the brief quotes at most a few."""
     cutoff = datetime.now(config.IST) - timedelta(days=NEWS_MAX_AGE_DAYS)
@@ -131,7 +137,8 @@ def _headlines() -> list[dict]:
 
 def main() -> dict:
     out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "errors": {}}
-    for key, fn in (("fii_dii", _fii_dii), ("fx", _fx), ("global", _fred), ("headlines", _headlines)):
+    for key, fn in (("fii_dii", _fii_dii), ("fx", _fx), ("global", _fred), ("commodities", _commodities),
+                    ("headlines", _headlines)):
         try:
             out[key] = fn()
         except Exception as exc:

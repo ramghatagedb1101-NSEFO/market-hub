@@ -120,6 +120,7 @@
 
   <nav id="nav">
     <button class="on" data-tab="overview">Overview</button>
+    <button data-tab="brief">Daily brief</button>
     <button data-tab="charts">Charts</button>
     <button data-tab="track">Track record</button>
     <button data-tab="method">Method</button>
@@ -127,7 +128,9 @@
     <button data-tab="mb">Multi-bagger</button>
   </nav>
 
-  <section class="tab on" id="overview"><div id="brief"></div><div id="ov"></div></section>
+  <section class="tab on" id="overview"><div id="ov"></div></section>
+
+  <section class="tab" id="brief"><div id="brief-text"></div></section>
 
   <section class="tab" id="charts">
     <div class="grid2">
@@ -461,11 +464,11 @@
   async function renderBrief(){
     try{
       const B = await (await fetch("data/brief.json", {cache:"no-store"})).json();
-      $("#brief").innerHTML = `<div class="card" style="margin-bottom:14px">
+      $("#brief-text").innerHTML = `<div class="card" style="margin-bottom:14px">
         <h3><span>Daily brief</span><span class="mut" style="text-transform:none;letter-spacing:0">${esc(B.source || "")} · ${esc((B.ts||"").replace("T"," "))} IST</span></h3>
         <div style="white-space:pre-wrap;font-size:14px;line-height:1.55">${esc(/could not be written/.test(B.text || "") ? "Brief pending: the AI service is busy. It will update on the next daily run." : B.text)}</div>
         <div class="note">Written from this dashboard's numbers only. Not advice.</div></div>`;
-    }catch(e){ $("#brief").innerHTML = ""; }
+    }catch(e){ $("#brief-text").innerHTML = ""; }
   }
 
   async function refreshAll(){ await init(); await renderFno(); await renderBrief(); await liveTick(); }
