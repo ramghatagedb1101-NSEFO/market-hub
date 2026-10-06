@@ -11,7 +11,7 @@ from . import config
 from .sources import kite
 
 LIVE_FILE = config.SITE_DIR / "data" / "live.json"
-SYMBOLS = {"NIFTY": "NSE:NIFTY 50", "SENSEX": "BSE:SENSEX"}
+SYMBOLS = {"NIFTY": "NSE:NIFTY 50", "BANKNIFTY": "NSE:NIFTY BANK", "SENSEX": "BSE:SENSEX"}
 
 
 def main() -> dict:
