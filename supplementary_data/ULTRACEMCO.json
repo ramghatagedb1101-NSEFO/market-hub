@@ -1,0 +1,23 @@
+{
+  "symbol": "ULTRACEMCO",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 37.27,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 21.9,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 1674200,
+  "next_month_futures_oi": 469100,
+  "last_updated": "2026-04-01 09:31:06.661014",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "18-Aug-2026: Shareholders meeting",
+    "17-Aug-2026: Credit Rating",
+    "17-Aug-2026: Updates",
+    "17-Aug-2026: Shareholders meeting",
+    "14-Aug-2026: Updates"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

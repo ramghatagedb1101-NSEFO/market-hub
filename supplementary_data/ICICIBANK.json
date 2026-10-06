@@ -1,0 +1,23 @@
+{
+  "symbol": "ICICIBANK",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 39.21,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 22.3,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 81893700,
+  "next_month_futures_oi": 23457000,
+  "last_updated": "2026-04-01 09:31:58.230910",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "18-Aug-2026: Credit Rating",
+    "18-Aug-2026: General Updates",
+    "17-Aug-2026: ESOP/ESOS/ESPS",
+    "13-Aug-2026: General Updates",
+    "13-Aug-2026: ESOP/ESOS/ESPS"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

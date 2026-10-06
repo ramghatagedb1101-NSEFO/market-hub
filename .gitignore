@@ -3,3 +3,8 @@ __pycache__/
 *.tmp
 .env
 *.log
+rg/data/chain_cache/
+rg/data/risk_flags.json
+rg/data/macro_briefing.json
+rg/data/positions.json
+rg/reports/

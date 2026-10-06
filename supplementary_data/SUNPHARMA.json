@@ -1,0 +1,23 @@
+{
+  "symbol": "SUNPHARMA",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 56.94,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 27.5,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 14065450,
+  "next_month_futures_oi": 5333650,
+  "last_updated": "2026-04-01 09:32:05.362035",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "17-Aug-2026: General Updates",
+    "06-Aug-2026: General Updates",
+    "06-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "05-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "05-Aug-2026: Credit Rating"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}
