@@ -1,5 +1,5 @@
 {
- "ts": "2026-10-06T18:50+05:30",
+ "ts": "2026-10-06T19:50+05:30",
  "errors": {},
  "fii_dii": [
   {
@@ -18,8 +18,8 @@
   }
  ],
  "fx": {
-  "date": "2026-10-05",
-  "usd_inr": 96.3,
+  "date": "2026-10-06",
+  "usd_inr": 96.43,
   "source": "ECB reference rates"
  },
  "global": {
@@ -52,23 +52,68 @@
   "Gold (MCX, ₹/10g)": {
    "contract": "GOLD26DECFUT",
    "expiry": "2026-12-04",
-   "last": 150140.0,
+   "last": 149785.0,
    "prev_close": 149316.0,
-   "change_pct": 0.55
+   "change_pct": 0.31
   },
   "Crude oil (MCX, ₹/bbl)": {
    "contract": "CRUDEOIL26OCTFUT",
    "expiry": "2026-10-19",
-   "last": 8494.0,
+   "last": 8508.0,
    "prev_close": 8669.0,
-   "change_pct": -2.02
+   "change_pct": -1.86
   }
  },
  "headlines": [
   {
+   "source": "BBC Business",
+   "title": "Paramount takes over Warner Bros in $110bn Hollywood merger",
+   "time": "2026-10-06T19:35+05:30"
+  },
+  {
    "source": "CNBC Top News",
-   "title": "Anduril lands $2.9 billion Navy submarine shipyard contract days after CEO joins Pentagon weapons group",
-   "time": "2026-10-06T18:48+05:30"
+   "title": "Google DeepMind's Lila Ibrahim, world's top AI 'readiness' officer, on preparing for what's to come",
+   "time": "2026-10-06T19:30+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Titan Q2FY27 update: Consumer businesses grow 25% YoY, jewellery up 21%",
+   "time": "2026-10-06T19:22+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "US stocks: S&amp;P 500 hits intraday record high as AI rally continues",
+   "time": "2026-10-06T19:22+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Anduril lands $2.9 billion Navy submarine shipyard contract days after Luckey joins Pentagon weapons group",
+   "time": "2026-10-06T19:22+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Russian lab worker's suspected plague death leaves experts puzzled",
+   "time": "2026-10-06T19:22+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Private equity inflow in office assets rises 7 pc to USD 945 million in Apr-Sep: Anarock",
+   "time": "2026-10-06T19:19+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Investor awareness key to long-term wealth creation, technology double-edged sword: ANMI President Kamlesh Shroff",
+   "time": "2026-10-06T19:17+05:30"
+  },
+  {
+   "source": "Livemint Markets",
+   "title": "Despite 13% drop in 2026, Antique gives a 'buy' rating to this T&amp;D stock | check target, stop loss, rationale",
+   "time": "2026-10-06T19:10+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Trump allows cheaper, dyed diesel on highways to blunt historic fuel cost spike ahead of midterms",
+   "time": "2026-10-06T18:56+05:30"
   },
   {
    "source": "CNBC Top News",
@@ -76,9 +121,9 @@
    "time": "2026-10-06T18:47+05:30"
   },
   {
-   "source": "BBC Business",
-   "title": "Paramount takes over Warner Bros in $110bn Hollywood merger",
-   "time": "2026-10-06T18:46+05:30"
+   "source": "Economic Times Markets",
+   "title": "Utkarsh Small Finance Bank Q2 disbursements jump 55% YoY to Rs 3,525 crore; loan portfolio rises over 7%",
+   "time": "2026-10-06T18:38+05:30"
   },
   {
    "source": "CNBC Top News",
@@ -89,6 +134,11 @@
    "source": "CNBC Top News",
    "title": "Trade deficit hits $105.6 billion, widest since just before Trump tariffs enacted last year",
    "time": "2026-10-06T18:37+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Toronto home sales post steepest decline since February on economic uncertainty",
+   "time": "2026-10-06T18:35+05:30"
   },
   {
    "source": "CNBC Top News",
@@ -102,7 +152,7 @@
   },
   {
    "source": "BBC Business",
-   "title": "Films and streaming prices - how the Warner Bros deal could affect you",
+   "title": "From films to streaming prices - how the Warner Bros deal could affect you",
    "time": "2026-10-06T18:30+05:30"
   },
   {
@@ -121,11 +171,6 @@
    "time": "2026-10-06T18:26+05:30"
   },
   {
-   "source": "CNBC Top News",
-   "title": "Trump allows cheaper, dyed diesel on highways to blunt historic fuel cost spike ahead of midterms",
-   "time": "2026-10-06T18:12+05:30"
-  },
-  {
    "source": "Livemint Markets",
    "title": "Sebi vs Jane Street: 'Dilatory tactic; ulta chor kotwal ko daante' - What the markets regulator's lawyer said in hearing",
    "time": "2026-10-06T18:07+05:30"
@@ -137,13 +182,13 @@
   },
   {
    "source": "Economic Times Markets",
-   "title": "Dow Jones| Nasdaq | US Stock Market Today | Live: US futures rise as Treasury yields cool, oil slips",
+   "title": "Dow Jones| Nasdaq | US Stock Market Today | Live: S&amp;P 500 hits intraday record as AI-fuelled rally continues",
    "time": "2026-10-06T17:48+05:30"
   },
   {
    "source": "CNBC Top News",
-   "title": "Meta Muse gives AMD a boost as AI momentum shifts to personal agents",
-   "time": "2026-10-06T17:48+05:30"
+   "title": "Car buyers are stretching loans to afford payments — it's a 'potential warning light,' analyst says",
+   "time": "2026-10-06T17:45+05:30"
   },
   {
    "source": "Livemint Markets",
@@ -156,19 +201,9 @@
    "time": "2026-10-06T17:39+05:30"
   },
   {
-   "source": "Economic Times Markets",
-   "title": "Indian bonds rangebound as traders await a hawkish RBI verdict",
-   "time": "2026-10-06T17:30+05:30"
-  },
-  {
    "source": "Livemint Markets",
    "title": "TajGVK Hotels shares: Stock down 26% in 1 year, but Monarch sees 49% upside - Here's why | Check share price target",
    "time": "2026-10-06T17:29+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Market wrap: Trent, BSE, Coal India, Tech Mahindra top gainers and losers on Nifty and Sensex on Tuesday",
-   "time": "2026-10-06T17:28+05:30"
   },
   {
    "source": "Livemint Markets",
@@ -179,31 +214,6 @@
    "source": "Livemint Markets",
    "title": "Can IPO buzz boost CDSL and NSDL Q2 earnings? What the stocks investors need to know",
    "time": "2026-10-06T17:25+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Reliance Industries shares gain 3% as JIO IPO inches closer; Jefferies increases weight in conglomerate",
-   "time": "2026-10-06T16:56+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Bitcoin vs gold: Why Cathie Wood feels cryptocurrency's 'turn is in' against the precious metal",
-   "time": "2026-10-06T16:50+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Sebi says Jane Street’s appeal for more details a delaying ploy",
-   "time": "2026-10-06T16:46+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Unsure how long this AI bull has? Bonds now offer a cushion at the best values in years",
-   "time": "2026-10-06T16:38+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "CAS sent Nifty soaring 300 points in a minute to breach 23,000 on expiry day",
-   "time": "2026-10-06T16:21+05:30"
   },
   {
    "source": "BBC Business",
@@ -251,19 +261,9 @@
    "time": "2026-10-06T14:29+05:30"
   },
   {
-   "source": "Livemint Markets",
-   "title": "Up to 52% upside - Jindal SAW, SBI Life, ICICI Bank shares | 360 ONE's 21 biggest bets for investors - Check full list",
-   "time": "2026-10-06T14:19+05:30"
-  },
-  {
    "source": "BBC Business",
    "title": "We're saving £100 a month for our kids but they won't get it until they're 57",
    "time": "2026-10-06T13:46+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Britain is on 'thin ice,' warns ex-Bank of England chief economist — and it must act to 'appease financial markets'",
-   "time": "2026-10-06T13:23+05:30"
   },
   {
    "source": "BBC Business",
@@ -307,52 +307,52 @@
   },
   {
    "source": "Investing.com News",
-   "title": "Why is Allegiant Travel stock climbing today?",
+   "title": "Why is Astera Labs stock surging today?",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Why is JetBlue Airways stock climbing today?",
+   "title": "Blaize shares plunge as guidance cut and DOJ subpoenas prompt Wall St downgrades",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "European stocks rise 1% as French debt calms and ECB’s Lane tempers hawks",
+   "title": "Toshiba and Seagate seek to acquire TDK’s magnetic head unit, Goldman comments",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Uber to buy US catering platform ezCater for $2.3 billion",
+   "title": "Factbox-Global healthcare companies invest billions to boost US presence",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Paramount wraps up mega Warner Bros merger to create Hollywood powerhouse Skydance",
+   "title": "Factbox-David Ellison’s leadership team for new Paramount-Warner Bros Discovery",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Why is Netlist stock surging today?",
+   "title": "Micron enters $600 million settlement of Netlist patent dispute",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Saudi Arabia stocks higher at close of trade; Tadawul All Share up 1.05%",
+   "title": "Why is Ermenegildo Zegna stock climbing today?",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Why is Arrivent Biopharma stock collapsing today?",
+   "title": "Why is AST SpaceMobile stock surging today?",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Why is Nike stock sliding today?",
+   "title": "Why is Vistra stock surging today?",
    "time": null
   },
   {
    "source": "Investing.com News",
-   "title": "Truist Securities Highlights Two Machinery Names To Own",
+   "title": "Jefferies sees strong Wodgina output, mixed iron ore results",
    "time": null
   }
  ]

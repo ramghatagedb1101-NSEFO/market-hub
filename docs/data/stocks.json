@@ -1,0 +1,264 @@
+{
+  "generated_at": "2026-10-06T14:20:07+00:00",
+  "universe": "NIFTY 50",
+  "mode": "live",
+  "replay_date": null,
+  "symbol_count": 50,
+  "india_vix": 13.61,
+  "macro_source": "deterministic",
+  "recommendation_count": 0,
+  "recommendations": [],
+  "diagnostics": [
+    {
+      "symbol": "ADANIENT",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-27..2026-11-10 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-04 \u00b15 sessions)"
+    },
+    {
+      "symbol": "ADANIPORTS",
+      "status": "REJECTED",
+      "detail": "IV rank 16 < 30 (premium too cheap to sell)"
+    },
+    {
+      "symbol": "APOLLOHOSP",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-29..2026-11-12 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-06 \u00b15 sessions)"
+    },
+    {
+      "symbol": "ASIANPAINT",
+      "status": "REJECTED",
+      "detail": "IV rank 26 < 30 (premium too cheap to sell)"
+    },
+    {
+      "symbol": "AXISBANK",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-17 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "BAJAJ-AUTO",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-27 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "BAJAJFINSV",
+      "status": "REJECTED",
+      "detail": "earnings 2026-11-03 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "BAJFINANCE",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-19 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "BEL",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-23..2026-11-06 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-31 \u00b15 sessions)"
+    },
+    {
+      "symbol": "BHARTIARTL",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-26..2026-11-09 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-03 \u00b15 sessions)"
+    },
+    {
+      "symbol": "BSE",
+      "status": "REJECTED",
+      "detail": "IV rank not measurable [estimated_insufficient_history] \u2014 0 clean sample(s), 0 dropped as implausible; run backfill_iv_history.py for BSE"
+    },
+    {
+      "symbol": "CIPLA",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-27 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "COALINDIA",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-21..2026-11-04 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-29 \u00b15 sessions)"
+    },
+    {
+      "symbol": "DRREDDY",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-23 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "EICHERMOT",
+      "status": "REJECTED",
+      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
+    },
+    {
+      "symbol": "ETERNAL",
+      "status": "REJECTED",
+      "detail": "IV rank 20 < 30 (premium too cheap to sell)"
+    },
+    {
+      "symbol": "GRASIM",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-28..2026-11-11 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-05 \u00b15 sessions)"
+    },
+    {
+      "symbol": "HCLTECH",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-12 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "HDFCBANK",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-17 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "HDFCLIFE",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-15 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "HINDALCO",
+      "status": "REJECTED",
+      "detail": "earnings 2026-11-06 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "HINDUNILVR",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-15..2026-10-29 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-23 \u00b15 sessions)"
+    },
+    {
+      "symbol": "ICICIBANK",
+      "status": "REJECTED",
+      "detail": "5d delivery 39% < 40%"
+    },
+    {
+      "symbol": "INDIGO",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-27..2026-11-10 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-04 \u00b15 sessions)"
+    },
+    {
+      "symbol": "INFY",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-23 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "ITC",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-22..2026-11-05 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-30 \u00b15 sessions)"
+    },
+    {
+      "symbol": "JIOFIN",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-08..2026-10-22 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-16 \u00b15 sessions)"
+    },
+    {
+      "symbol": "JSWSTEEL",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-23 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "KOTAKBANK",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-19..2026-11-02 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-27 \u00b15 sessions)"
+    },
+    {
+      "symbol": "LT",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-21..2026-11-04 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-29 \u00b15 sessions)"
+    },
+    {
+      "symbol": "M&M",
+      "status": "REJECTED",
+      "detail": "IV rank 29 < 30 (premium too cheap to sell)"
+    },
+    {
+      "symbol": "MARUTI",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-23..2026-11-06 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-31 \u00b15 sessions)"
+    },
+    {
+      "symbol": "MAXHEALTH",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-11-06..2026-11-20 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-14 \u00b15 sessions)"
+    },
+    {
+      "symbol": "NESTLEIND",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-15 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "NTPC",
+      "status": "REJECTED",
+      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
+    },
+    {
+      "symbol": "ONGC",
+      "status": "REJECTED",
+      "detail": "IV rank 10 < 30 (premium too cheap to sell)"
+    },
+    {
+      "symbol": "POWERGRID",
+      "status": "REJECTED",
+      "detail": "earnings date unverifiable (only 3 quarter(s) of filing history) \u2014 cannot confirm the cycle is clear"
+    },
+    {
+      "symbol": "RELIANCE",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-09..2026-10-23 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-17 \u00b15 sessions)"
+    },
+    {
+      "symbol": "SBILIFE",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-16..2026-10-30 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-24 \u00b15 sessions)"
+    },
+    {
+      "symbol": "SBIN",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-27..2026-11-10 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-04 \u00b15 sessions)"
+    },
+    {
+      "symbol": "SHRIRAMFIN",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-23..2026-11-06 overlaps contract cycle (expiry 2026-11-23, projected from 2025-10-31 \u00b15 sessions)"
+    },
+    {
+      "symbol": "SUNPHARMA",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-28..2026-11-11 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-05 \u00b15 sessions)"
+    },
+    {
+      "symbol": "TATACONSUM",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-26..2026-11-09 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-03 \u00b15 sessions)"
+    },
+    {
+      "symbol": "TATASTEEL",
+      "status": "REJECTED",
+      "detail": "5d delivery 39% < 40%"
+    },
+    {
+      "symbol": "TCS",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-08 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "TECHM",
+      "status": "REJECTED",
+      "detail": "earnings 2026-10-15 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+    },
+    {
+      "symbol": "TITAN",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-10-26..2026-11-09 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-03 \u00b15 sessions)"
+    },
+    {
+      "symbol": "TMPV",
+      "status": "REJECTED",
+      "detail": "estimated earnings 2026-11-06..2026-11-20 overlaps contract cycle (expiry 2026-11-23, projected from 2025-11-14 \u00b15 sessions)"
+    },
+    {
+      "symbol": "TRENT",
+      "status": "REJECTED",
+      "detail": "IV rank 14 < 30 (premium too cheap to sell)"
+    },
+    {
+      "symbol": "ULTRACEMCO",
+      "status": "REJECTED",
+      "detail": "5d delivery 37% < 40%"
+    }
+  ],
+  "portfolio_caps": []
+}
