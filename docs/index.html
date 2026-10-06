@@ -278,20 +278,20 @@
       const fx = C.fx;
       const vix = S.india_vix;
 
+      const sp = glob["S&P 500"];
+      const vixNow = C.india_vix || S.india_vix;
       const tiles = [
-        tile("NIFTY 50", f(idx.find(i => i.n === "NIFTY")?.last, 0), chgTxt(idx.find(i => i.n === "NIFTY")?.chg), cls(idx.find(i => i.n === "NIFTY")?.chg)),
-        tile("BANK NIFTY", f(idx.find(i => i.n === "BANKNIFTY")?.last, 0), chgTxt(idx.find(i => i.n === "BANKNIFTY")?.chg), cls(idx.find(i => i.n === "BANKNIFTY")?.chg)),
         tile("GOLD ₹/10g", gold ? f(gold.last, 0) : "–", gold ? chgTxt(gold.change_pct) : "no data", cls(gold && gold.change_pct)),
-        tile("CRUDE ₹/bbl", crude ? f(crude.last, 0) : "–", crude ? chgTxt(crude.change_pct) : "no data", cls(crude && crude.change_pct)),
-        tile("USD/INR", fx ? f(fx.usd_inr, 2) : "–", fx ? fx.date : "no data", ""),
-        tile("INDIA VIX", vix != null ? f(vix, 2) : "–", vix != null ? "volatility" : "no data", "")
+        tile("USD/INR", fx ? f(fx.usd_inr, 2) : "–", fx ? "ECB " + fx.date : "no data", ""),
+        tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) : "no data", cls(vixNow && vixNow.change_pct)),
+        tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) : "no data", cls(sp && sp.change_pct)),
+        tile("NIFTY EST.", (() => { const t = FEED && FEED.indices.NIFTY && FEED.indices.NIFTY.today; return t ? f(t.pred, 0) : "–"; })(),
+             (() => { const t = FEED && FEED.indices.NIFTY && FEED.indices.NIFTY.today; return t ? "close " + pct(t.expected_move_pct) : "no data"; })(), "")
       ].join("");
 
       const moves = barRows([
-        ...idx.map(i => ({ label: i.n === "BANKNIFTY" ? "BANK NIFTY" : i.n, v: i.chg, txt: chgTxt(i.chg) })),
         ...(gold ? [{ label: "Gold", v: gold.change_pct, txt: chgTxt(gold.change_pct) }] : []),
-        ...(crude ? [{ label: "Crude MCX", v: crude.change_pct, txt: chgTxt(crude.change_pct) }] : []),
-        ...Object.keys(glob).map(k => ({ label: k.replace(" (USD/bbl)", "").replace(" Composite", ""), v: glob[k].change_pct, txt: chgTxt(glob[k].change_pct) }))
+        ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(" (USD/bbl)", "").replace(" Composite", ""), v: glob[k].change_pct, txt: chgTxt(glob[k].change_pct) }))
       ]);
 
       const flows = barRows(Object.keys(fii).map(k => ({
