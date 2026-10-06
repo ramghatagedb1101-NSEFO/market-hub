@@ -402,7 +402,7 @@
       const stale = ageDays(L.ts) * 24 * 60 > 15 && open;   // more than 15 min old while the market is open
       $("#dot").classList.toggle("stale", stale);
       $("#status").textContent = (open ? "Quotes" : "Last quotes") + " as of " +
-        L.ts.replace("T"," ").slice(0,16) + " IST · refreshed about every 5 min, not tick-by-tick";
+        L.ts.replace("T"," ").slice(0,16) + " IST · pull down or reload for the latest";
       $("#live").innerHTML = item("NIFTY 50", L.indices.NIFTY) + item("BANK NIFTY", L.indices.BANKNIFTY) +
         item("SENSEX", L.indices.SENSEX) +
         `<span class="ts">Forecasts built ${esc(FEED.generated_at.replace("T"," ").slice(0,16))} IST</span>`;
