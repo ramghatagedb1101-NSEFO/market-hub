@@ -30,7 +30,17 @@ INDEXES = {"NIFTY": "NIFTY 50", "BANKNIFTY": "NIFTY BANK"}
 
 def candles(k, name: str, start: date, end: date):
     inst = kite.instrument_token(k, "NSE", name)
-    rows = k.historical_data(inst, start, end, "day")
+    rows, a = [], start
+    while a <= end:                      # Kite allows at most 2000 days per daily request
+        b = min(end, a + timedelta(days=1900))
+        rows += k.historical_data(inst, a, b, "day")
+        a = b + timedelta(days=1)
+    seen = set(); uniq = []
+    for r in sorted(rows, key=lambda r: r["date"]):
+        key = str(r["date"])[:10]
+        if key not in seen:
+            seen.add(key); uniq.append(r)
+    rows = uniq
     close = np.array([float(r["close"]) for r in rows])
     vol = np.array([float(r.get("volume") or 0) for r in rows])
     return [r["date"] for r in rows], close, vol
