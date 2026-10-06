@@ -29,9 +29,11 @@
   .up{color:var(--grn)} .dn{color:var(--red)} .mut{color:var(--mut)} .amb{color:var(--amb)}
 
   /* top bar */
-  .top{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--ln);background:var(--pnl)}
-  .top .name{font:700 12px var(--sans);letter-spacing:1.4px;text-transform:uppercase}
-  .top .stat{flex:1;min-width:0;color:var(--mut);font:11px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .top{display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--ln);background:var(--pnl)}
+  .top img{width:22px;height:22px;border-radius:5px;flex:0 0 22px}
+  .top .name{font:700 12px var(--sans);letter-spacing:1.4px;text-transform:uppercase;white-space:nowrap}
+  .top .stat{flex:1;min-width:0;color:var(--txt);font:500 11.5px var(--sans);line-height:1.35}
+  .top .btn{flex:0 0 auto}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--grn);flex:0 0 7px}
   .dot.stale{background:var(--amb)}
   .btn{background:transparent;border:1px solid var(--ln2);color:var(--txt);font:600 11px var(--sans);letter-spacing:.6px;
@@ -83,8 +85,10 @@
 
   /* tab bar */
   .tabs{display:flex;border-top:1px solid var(--ln);background:var(--pnl);padding-bottom:env(safe-area-inset-bottom)}
-  .tabs button{flex:1;background:transparent;border:0;color:var(--mut);font:700 10.5px var(--sans);letter-spacing:1px;
-               text-transform:uppercase;padding:11px 0 10px;cursor:pointer;border-top:2px solid transparent}
+  .tabs button{flex:1;background:transparent;border:0;color:var(--mut);font:600 11px var(--sans);
+               display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 7px;cursor:pointer;border-top:2px solid transparent}
+  .tabs button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .tabs button span{letter-spacing:.2px}
   .tabs button.on{color:var(--txt);border-top-color:var(--amb)}
 
   /* settings */
@@ -100,6 +104,7 @@
 <body>
 
 <header class="top">
+  <img src="icon-512.png" alt="">
   <span class="name">Market Hub</span>
   <span class="stat"><span class="dot" id="dot"></span> <span id="status">loading feed</span></span>
   <button class="btn" id="gear" aria-label="Settings">Settings</button>
@@ -117,10 +122,10 @@
 </main>
 
 <nav class="tabs" id="tabs">
-  <button class="on" data-pane="home">Home</button>
-  <button data-pane="brief">Brief</button>
-  <button data-pane="fno">F&amp;O</button>
-  <button data-pane="desk">Desk</button>
+  <button class="on" data-pane="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg><span>Home</span></button>
+  <button data-pane="brief"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.5"/></svg><span>Brief</span></button>
+  <button data-pane="fno"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16V11M12 16V7M17 16v-3"/></svg><span>F&amp;O</span></button>
+  <button data-pane="desk"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg><span>Desk</span></button>
 </nav>
 
 <div class="sheet-bg" id="settings">
