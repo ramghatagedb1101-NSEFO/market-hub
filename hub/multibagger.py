@@ -96,6 +96,44 @@ def insider_signal(rows: list[dict], months: int = 6) -> dict:
                                        ("promoter selling" if sells > buys else "neutral")}
 
 
+MFH = "https://bharatstockapi.com/v1/stocks/{t}/mf-holdings"
+
+
+def fetch_mf(symbol: str, key: str) -> list[dict]:
+    r = requests.get(MFH.format(t=symbol), headers={"X-API-Key": key}, timeout=30)
+    if r.status_code == 404:
+        return []
+    r.raise_for_status()
+    body = r.json()
+    return body.get("data", body if isinstance(body, list) else [])
+
+
+def mf_counts(rows: list[dict]) -> dict:
+    """Counts only, published. Named schemes are used in memory and never written out."""
+    held = set()
+    added = reduced = 0
+    net = 0.0
+    usable = 0
+    for x in rows:
+        name = x.get("scheme_name") or x.get("scheme") or x.get("scheme_code")
+        chg = x.get("quantity_change")
+        if name is None:
+            continue
+        held.add(name)
+        if chg is None:
+            continue
+        usable += 1
+        chg = float(chg)
+        net += chg
+        if chg > 0: added += 1
+        elif chg < 0: reduced += 1
+    if not held:
+        return {"status": "no mutual fund holdings returned"}
+    return {"status": "ok" if usable else "holdings found, no month-on-month change field",
+            "schemes_holding": len(held), "schemes_added": added, "schemes_reduced": reduced,
+            "net_quantity_change": net if usable else None}
+
+
 def _consolidated(rows: list[dict]) -> list[dict]:
     rows = [x for x in rows if (x.get("consolidation_type") or "consolidated") == "consolidated"]
     return sorted(rows, key=lambda x: x["period_end_date"], reverse=True)
@@ -173,6 +211,7 @@ def main() -> dict:
                     print("insider fields (names only):", sorted(ins[0].keys()), flush=True)
                     main._logged = True
                 res["promoter"] = insider_signal(ins)
+                res["mutual_funds"] = mf_counts(fetch_mf(sym, key))
             except Exception as exc:
                 res["promoter"] = {"status": f"insider fetch failed: {str(exc)[:80]}"}
             results.append(res)
