@@ -30,7 +30,22 @@
 
   /* top bar */
   .top{display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;border-bottom:1px solid var(--ln);background:var(--pnl)}
-  .top img{width:22px;height:22px;border-radius:5px;flex:0 0 22px}
+  .top img{width:44px;height:44px;border-radius:9px;flex:0 0 44px;image-rendering:auto}
+  .top .gear{width:40px;height:40px;padding:0;display:flex;align-items:center;justify-content:center}
+  .top .gear svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+  .glance{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+  .tile{background:var(--pnl2);border:1px solid var(--ln);border-radius:3px;padding:8px 9px;min-width:0}
+  .tile .k{color:var(--mut);font:700 9.5px var(--sans);letter-spacing:.8px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tile .v{font:600 15px var(--mono);margin-top:3px;white-space:nowrap}
+  .tile .s{font:11px var(--mono);margin-top:1px;white-space:nowrap}
+  .brow{display:grid;grid-template-columns:86px 1fr 74px;align-items:center;gap:8px;margin:7px 0;font:11.5px var(--mono)}
+  .brow .bl{color:var(--txt);font:600 11px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .btrack{position:relative;height:10px;background:var(--ln);border-radius:1px}
+  .bfill{position:absolute;top:0;bottom:0;border-radius:1px}
+  .bfill.pos{background:var(--grn);left:50%}
+  .bfill.neg{background:var(--red);right:50%}
+  .bzero{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--mut)}
+  .brow .bv{text-align:right;white-space:nowrap}
   .top .name{font:700 12px var(--sans);letter-spacing:1.4px;text-transform:uppercase;white-space:nowrap}
   .top .stat{flex:1;min-width:0;color:var(--txt);font:500 11.5px var(--sans);line-height:1.35}
   .top .btn{flex:0 0 auto}
@@ -44,8 +59,8 @@
   .tape .t{flex:1;min-width:0;padding:6px 10px;border-right:1px solid var(--ln)}
   .tape .t:last-child{border-right:0}
   .tape .k{color:var(--mut);font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap}
-  .tape .v{font:600 14px var(--mono);white-space:nowrap}
-  .tape .c{font:11px var(--mono);white-space:nowrap}
+  .tape .v{font:700 16px var(--mono);white-space:nowrap;color:var(--txt)}
+  .tape .c{font:600 12px var(--mono);white-space:nowrap}
 
   /* panes */
   main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:10px 10px 18px}
@@ -107,7 +122,7 @@
   <img src="icon-512.png" alt="">
   <span class="name">Market Hub</span>
   <span class="stat"><span class="dot" id="dot"></span> <span id="status">loading feed</span></span>
-  <button class="btn" id="gear" aria-label="Settings">Settings</button>
+  <button class="btn gear" id="gear" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/><circle cx="12" cy="12" r="7.5"/></svg></button>
 </header>
 
 <div class="tape" id="tape"><div class="t"><span class="k">NIFTY 50</span><div class="v">–</div></div>
@@ -221,21 +236,80 @@
     $("#status").textContent = "forecast built " + built + " IST";
   }
 
+  // Brief tab: a graphic summary first (tiles and bars), the written brief behind a toggle.
+  function barRows(items){
+    const max = Math.max(...items.map(i => Math.abs(i.v) || 0), 0.01);
+    return items.map(i => {
+      const w = Math.min(Math.abs(i.v || 0) / max * 50, 50);
+      const pos = (i.v || 0) >= 0;
+      return `<div class="brow"><span class="bl">${esc(i.label)}</span>
+        <div class="btrack"><div class="bfill ${pos ? "pos" : "neg"}" style="width:${w}%"></div><div class="bzero"></div></div>
+        <span class="bv ${pos ? "up" : "dn"}">${esc(i.txt)}</span></div>`;
+    }).join("");
+  }
+  function tile(k, v, s, c){
+    return `<div class="tile"><div class="k">${esc(k)}</div><div class="v ${c || ""}">${v}</div><div class="s ${c || "mut"}">${s}</div></div>`;
+  }
+  const chgTxt = x => x == null ? "–" : pct(x);
+
   async function renderBrief(){
     try{
-      const B = await (await fetch("data/brief.json", {cache:"no-store"})).json();
+      const [B, C, S] = await Promise.all([
+        fetch("data/brief.json", {cache:"no-store"}).then(r => r.json()),
+        fetch("data/context.json", {cache:"no-store"}).then(r => r.json()).catch(() => ({})),
+        fetch("data/stocks.json", {cache:"no-store"}).then(r => r.json()).catch(() => ({}))
+      ]);
       const failed = /could not be written/.test(B.text || "");
       const plain = failed ? "" : (B.text || "").replace(/\*\*/g, "");
-      const lines = plain.split("\n").map(s => s.trim()).filter(Boolean);
-      const headline = lines.filter(l => !/:$/.test(l)).slice(0, 5);
-      $("#brief-body").innerHTML = `<div class="panel">
-        <div class="ph"><span>Daily brief</span><span class="flag">${esc(B.source || "no source")}</span></div>
-        <div class="pb">
-          <div class="mut" style="margin-bottom:8px">${esc((B.ts || "").replace("T"," "))} IST</div>
+
+      // Indices: live if we have it, else the last official close against the one before it
+      const idx = Object.keys((FEED && FEED.indices) || {}).map(n => {
+        const live = LIVE && LIVE.indices && LIVE.indices[n];
+        const b = FEED.indices[n];
+        const prev = b.history.length > 1 ? b.history[b.history.length - 2].c : null;
+        return { n, last: live ? live.last : b.last_close,
+                 chg: live ? live.change_pct : (prev ? (b.last_close / prev - 1) * 100 : null) };
+      });
+      const com = C.commodities || {};
+      const glob = C.global || {};
+      const fii = (C.fii_dii || []).reduce((a, r) => { a[r.category] = r.net; return a; }, {});
+      const gold = com["Gold (MCX, ₹/10g)"], crude = com["Crude oil (MCX, ₹/bbl)"];
+      const wti = glob["WTI crude (USD/bbl)"];
+      const fx = C.fx;
+      const vix = S.india_vix;
+
+      const tiles = [
+        tile("NIFTY 50", f(idx.find(i => i.n === "NIFTY")?.last, 0), chgTxt(idx.find(i => i.n === "NIFTY")?.chg), cls(idx.find(i => i.n === "NIFTY")?.chg)),
+        tile("BANK NIFTY", f(idx.find(i => i.n === "BANKNIFTY")?.last, 0), chgTxt(idx.find(i => i.n === "BANKNIFTY")?.chg), cls(idx.find(i => i.n === "BANKNIFTY")?.chg)),
+        tile("GOLD ₹/10g", gold ? f(gold.last, 0) : "–", gold ? chgTxt(gold.change_pct) : "no data", cls(gold && gold.change_pct)),
+        tile("CRUDE ₹/bbl", crude ? f(crude.last, 0) : "–", crude ? chgTxt(crude.change_pct) : "no data", cls(crude && crude.change_pct)),
+        tile("USD/INR", fx ? f(fx.usd_inr, 2) : "–", fx ? fx.date : "no data", ""),
+        tile("INDIA VIX", vix != null ? f(vix, 2) : "–", vix != null ? "volatility" : "no data", "")
+      ].join("");
+
+      const moves = barRows([
+        ...idx.map(i => ({ label: i.n === "BANKNIFTY" ? "BANK NIFTY" : i.n, v: i.chg, txt: chgTxt(i.chg) })),
+        ...(gold ? [{ label: "Gold", v: gold.change_pct, txt: chgTxt(gold.change_pct) }] : []),
+        ...(crude ? [{ label: "Crude MCX", v: crude.change_pct, txt: chgTxt(crude.change_pct) }] : []),
+        ...Object.keys(glob).map(k => ({ label: k.replace(" (USD/bbl)", "").replace(" Composite", ""), v: glob[k].change_pct, txt: chgTxt(glob[k].change_pct) }))
+      ]);
+
+      const flows = barRows(Object.keys(fii).map(k => ({
+        label: k === "FII/FPI" ? "FII (cash)" : "DII (cash)", v: fii[k], txt: (fii[k] >= 0 ? "+" : "") + f(fii[k], 0) + " cr" })));
+
+      $("#brief-body").innerHTML = `
+        <div class="sec">At a glance · ${esc((B.ts || "").replace("T"," ").slice(0,16))} IST</div>
+        <div class="glance">${tiles}</div>
+        <div class="panel"><div class="ph"><span>Moves</span><span class="flag">% today</span></div>
+          <div class="pb">${moves || '<div class="mut">No market data yet.</div>'}</div></div>
+        <div class="sec">Institutional flows</div>
+        <div class="panel"><div class="ph"><span>FII and DII</span><span class="flag">cash, ₹ crore</span></div>
+          <div class="pb">${flows || '<div class="mut">Flow data not available today.</div>'}</div></div>
+        <div class="sec">Written brief</div>
+        <div class="panel"><div class="pb">
           ${failed ? `<div class="amb">Brief pending: the AI service did not respond. It updates on the next daily run.</div>` :
-            `<ul class="brief-sum" style="margin:0;padding:0;list-style:none">${headline.map(l => `<li>${esc(l)}</li>`).join("")}</ul>
-             <details><summary>Full brief</summary><div class="brief">${esc(plain)}</div></details>`}
-          <div class="note">Written from this dashboard's numbers and public headlines. Not advice.</div>
+            `<details><summary>Show full brief</summary><div class="brief">${esc(plain)}</div></details>`}
+          <div class="note">${esc(B.source || "")}. Written from this dashboard's numbers and headlines. Not advice.</div>
         </div></div>`;
     }catch(e){ $("#brief-body").innerHTML = `<div class="panel"><div class="pb mut">Brief not available.</div></div>`; }
   }
@@ -366,7 +440,7 @@
     });
   })();
 
-  init(); renderFno(); renderBrief(); liveTick();
+  init().then(renderBrief); renderFno(); liveTick();
   setInterval(liveTick, 60000);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 })();
