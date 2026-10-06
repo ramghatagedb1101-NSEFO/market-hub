@@ -1,20 +1,20 @@
 {
- "ts": "2026-10-06T18:32+05:30",
+ "ts": "2026-10-06T18:50+05:30",
  "errors": {},
  "fii_dii": [
   {
    "category": "DII",
-   "date": "05-Oct-2026",
-   "buy": 20492.93,
-   "sell": 15311.31,
-   "net": 5181.62
+   "date": "06-Oct-2026",
+   "buy": 20146.4,
+   "sell": 15057.48,
+   "net": 5088.92
   },
   {
    "category": "FII/FPI",
-   "date": "05-Oct-2026",
-   "buy": 15674.61,
-   "sell": 20373.75,
-   "net": -4699.14
+   "date": "06-Oct-2026",
+   "buy": 11258.72,
+   "sell": 14220.02,
+   "net": -2961.3
   }
  ],
  "fx": {
@@ -48,7 +48,58 @@
    "change_pct": -3.23
   }
  },
+ "commodities": {
+  "Gold (MCX, ₹/10g)": {
+   "contract": "GOLD26DECFUT",
+   "expiry": "2026-12-04",
+   "last": 150140.0,
+   "prev_close": 149316.0,
+   "change_pct": 0.55
+  },
+  "Crude oil (MCX, ₹/bbl)": {
+   "contract": "CRUDEOIL26OCTFUT",
+   "expiry": "2026-10-19",
+   "last": 8494.0,
+   "prev_close": 8669.0,
+   "change_pct": -2.02
+  }
+ },
  "headlines": [
+  {
+   "source": "CNBC Top News",
+   "title": "Anduril lands $2.9 billion Navy submarine shipyard contract days after CEO joins Pentagon weapons group",
+   "time": "2026-10-06T18:48+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Rebounding oil exports through Strait of Hormuz are vulnerable to stepped-up Iranian tanker attacks",
+   "time": "2026-10-06T18:47+05:30"
+  },
+  {
+   "source": "BBC Business",
+   "title": "Paramount takes over Warner Bros in $110bn Hollywood merger",
+   "time": "2026-10-06T18:46+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Paramount's hard-fought takeover of Warner Bros. Discovery closed Tuesday. Here's how we got here",
+   "time": "2026-10-06T18:38+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "Trade deficit hits $105.6 billion, widest since just before Trump tariffs enacted last year",
+   "time": "2026-10-06T18:37+05:30"
+  },
+  {
+   "source": "CNBC Top News",
+   "title": "This startup wants to reduce liquidation risk from margin calls on prediction markets",
+   "time": "2026-10-06T18:31+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Max Estates sales bookings surge over 13-fold to Rs 2,100 crore in Q2",
+   "time": "2026-10-06T18:30+05:30"
+  },
   {
    "source": "BBC Business",
    "title": "Films and streaming prices - how the Warner Bros deal could affect you",
@@ -56,28 +107,18 @@
   },
   {
    "source": "CNBC Top News",
-   "title": "Rebounding oil exports through Strait of Hormuz are vulnerable to stepped-up Iranian tanker attacks",
+   "title": "Mistral unveils new AI model it says rivals best open systems from China",
    "time": "2026-10-06T18:30+05:30"
   },
   {
-   "source": "CNBC Top News",
-   "title": "Anduril lands $2.9 billion Navy submarine shipyard contract days after CEO joins Pentagon weapons group",
-   "time": "2026-10-06T18:30+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "Paramount takes over Warner Bros in $110bn Hollywood merger",
+   "source": "Economic Times Markets",
+   "title": "India's data centre sector attracted USD 173 bn since 2021, capacity seen 2 GW by year-end: CBRE",
    "time": "2026-10-06T18:29+05:30"
   },
   {
-   "source": "CNBC Top News",
-   "title": "Russian lab worker's suspected plague death leaves experts puzzled",
-   "time": "2026-10-06T18:29+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Paramount's hard-fought takeover of Warner Bros. Discovery closed Tuesday. Here's how we got here",
-   "time": "2026-10-06T18:25+05:30"
+   "source": "Economic Times Markets",
+   "title": "India emerges as major investment destination with young, talented workforce: Singapore biz leaders",
+   "time": "2026-10-06T18:26+05:30"
   },
   {
    "source": "CNBC Top News",
@@ -88,11 +129,6 @@
    "source": "Livemint Markets",
    "title": "Sebi vs Jane Street: 'Dilatory tactic; ulta chor kotwal ko daante' - What the markets regulator's lawyer said in hearing",
    "time": "2026-10-06T18:07+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Russia’s neighbor backs push to lift ban on nuclear weapons, prompting outcry from Moscow",
-   "time": "2026-10-06T17:58+05:30"
   },
   {
    "source": "Economic Times Markets",
@@ -145,11 +181,6 @@
    "time": "2026-10-06T17:25+05:30"
   },
   {
-   "source": "CNBC Top News",
-   "title": "SpaceX stock is taking off again, but with one key difference this time",
-   "time": "2026-10-06T17:14+05:30"
-  },
-  {
    "source": "Economic Times Markets",
    "title": "Reliance Industries shares gain 3% as JIO IPO inches closer; Jefferies increases weight in conglomerate",
    "time": "2026-10-06T16:56+05:30"
@@ -175,16 +206,6 @@
    "time": "2026-10-06T16:21+05:30"
   },
   {
-   "source": "Economic Times Markets",
-   "title": "Rupee hits two-month low on outflows, investors await RBI outcome with hike priced in",
-   "time": "2026-10-06T16:20+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Bitcoin holds near $86,000 as weak US jobs data lowers October Fed rate hike expectations",
-   "time": "2026-10-06T16:08+05:30"
-  },
-  {
    "source": "BBC Business",
    "title": "ASOS app users receive push notifications apparently sent by hackers",
    "time": "2026-10-06T16:07+05:30"
@@ -198,11 +219,6 @@
    "source": "Livemint Markets",
    "title": "Gold-Silver ratio hits 68: What it means? Should investors switch from gold to silver? Here's what experts suggest",
    "time": "2026-10-06T16:05+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Swara Baby gets Sebi nod for Rs 1,000 crore IPO as hygiene products maker eyes expansion",
-   "time": "2026-10-06T15:49+05:30"
   },
   {
    "source": "Livemint Markets",
