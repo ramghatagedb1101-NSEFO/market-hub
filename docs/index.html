@@ -268,10 +268,8 @@
   }
 
   function renderStatus(){
-    const gen = FEED.generated_at;
-    const days = ageDays(gen);
-    $("#dot").classList.toggle("stale", days > 2);
-    $("#status").textContent = (days > 2 ? "Stale · " : "Live · ") + "updated " + gen.replace("T"," ").slice(0,16) + " IST";
+    const built = FEED.generated_at.replace("T"," ").slice(0,16);
+    $("#status").title = "Forecasts built " + built + " IST";
   }
 
   function renderTrack(){
@@ -393,8 +391,12 @@
       const item = (name, x) => `<div class="it"><span class="mut">${name}</span><b>${f(x.last,2)}</b>
         <span class="${cls(x.change)}" style="font-size:12.5px">${x.change >= 0 ? "+" : ""}${f(x.change,2)} (${pct(x.change_pct)})</span></div>`;
       const open = marketOpenIst();
+      const stale = ageDays(L.ts) * 24 * 60 > 15 && open;   // more than 15 min old while the market is open
+      $("#dot").classList.toggle("stale", stale);
+      $("#status").textContent = (open ? (stale ? "Quotes delayed" : "Live") : "Market closed") +
+        " · quotes as of " + L.ts.replace("T"," ").slice(0,16) + " IST";
       $("#live").innerHTML = item("NIFTY 50", L.indices.NIFTY) + item("SENSEX", L.indices.SENSEX) +
-        `<span class="ts">${open ? "Market open" : "Market closed"} · quotes as of ${esc(L.ts.replace("T"," ").slice(0,16))} IST</span>`;
+        `<span class="ts">Forecasts built ${esc(FEED.generated_at.replace("T"," ").slice(0,16))} IST</span>`;
     }catch(e){
       $("#live").innerHTML = `<span class="mut">Live quotes unavailable right now. The forecasts below still update daily.</span>`;
     }
