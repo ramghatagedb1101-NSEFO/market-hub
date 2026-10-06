@@ -101,8 +101,10 @@ def main() -> dict:
             rows = [x for x in fin[s] if x.get("period_end_date") and
                     date.fromisoformat(str(x["period_end_date"])[:10]) <= cutoff]
             sc = score(s, rows)
-            if sc.get("score") is None:
+            if not sc.get("gates"):          # fewer than five quarters: nothing to score
                 continue
+            # Score = gates passed (0 to 4). A failed gate is kept, not dropped, so every bucket is populated.
+            passed = sum(1 for v in sc["gates"].values() if v)
             base = price_on(px.get(s, []), asof)
             if not base:
                 continue
@@ -113,7 +115,7 @@ def main() -> dict:
                     rets[h][s] = end[1] / base[1] - 1
                 else:
                     ok = False
-            scores[s] = (sc["score"], ok)
+            scores[s] = (passed, ok)
         for s, (scr, ok) in scores.items():
             if not ok:
                 continue
