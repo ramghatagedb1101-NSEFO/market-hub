@@ -53,6 +53,12 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.stocks
 
+      - name: Multi-bagger screen (BharatStock financials; derived scores only)
+        continue-on-error: true
+        env:
+          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
+        run: python -m hub.multibagger
+
       - name: F&O suggestions from the option chain
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
