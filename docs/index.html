@@ -402,6 +402,17 @@
       $("#live").innerHTML = `<span class="mut">Live quotes unavailable right now. The forecasts below still update daily.</span>`;
     }
   }
+  function todayChain(u, t){
+    const rows = t.rows.map(r => `<tr><td class="num">${f(r.strike)}</td>
+      <td class="num">${r.ce_ltp == null ? "–" : f(r.ce_ltp, 2)}</td><td class="num mut">${f(r.ce_oi)}</td>
+      <td class="num">${r.pe_ltp == null ? "–" : f(r.pe_ltp, 2)}</td><td class="num mut">${f(r.pe_oi)}</td></tr>`).join("");
+    return `<div class="card" style="margin-bottom:14px">
+      <h3><span>${esc(u)} · chain for ${esc(t.expiry)} (expires today)</span><span class="tag">data only</span></h3>
+      <div class="scroll"><table class="tbl">
+        <tr><th>Strike</th><th>CE premium</th><th>CE OI</th><th>PE premium</th><th>PE OI</th></tr>${rows}</table></div>
+      <div class="note">PCR ${t.pcr == null ? "–" : f(t.pcr, 2)}. Last traded prices, ±3% of spot. Shown as data, not as a trade.</div></div>`;
+  }
+
   async function renderFno(){
     const el = $("#fno-body");
     try{
@@ -428,6 +439,7 @@
       el.innerHTML = Object.keys(D.underlyings).map(u => {
         const b = D.underlyings[u];
         return `<h3 style="margin:18px 0 10px;font:600 13px var(--sans);color:var(--mut);text-transform:uppercase;letter-spacing:.8px">${esc(u)} · spot ${f(b.spot,2)}</h3>
+          ${b.expiring_today ? todayChain(u, b.expiring_today) : ""}
           <div class="stack">${b.views.map(view).join("")}</div>`;
       }).join("") + `<div class="verdict" style="margin-top:14px"><div class="i" style="background:var(--warn)"></div><div>
         <b>Model suggestions, not advice.</b><span>${esc(D.disclaimer)} The suggestions have no track record yet.
