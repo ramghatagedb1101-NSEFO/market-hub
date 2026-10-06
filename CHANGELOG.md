@@ -2,6 +2,56 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-06 (night)
+
+Changes since the evening entry. Commit references are on `main` unless noted.
+
+### Phone app (docs/index.html)
+- Brief tab rebuilt as a graphic summary: six tiles (gold, crude US$, USD/INR, India VIX, S&P 500, Bitcoin US$), bars for moves, bars for FII and DII cash flows, and the written brief behind a toggle. Index figures are not repeated, since the ticker shows them. (`e425bd7`, `7688e84`, `08d582f`)
+- Settings is a gear icon only. The logo is larger (44 px). The top bar clears the phone's status bar. Quote figures are bolder. (`e425bd7`, `16221e5`)
+- Tab bar: icons with labels (Home, Brief, F&O, Desk). (`16221e5`)
+- F&O tab now shows the Nifty 50 stock option screen under the index suggestions: a summary, the trades (if any), why names were rejected, and the rejected names grouped by reason. (`5d1919a`)
+- Gold, crude, USD/INR and India VIX redraw on each live quote, using the relay values when present and the daily snapshot otherwise. (`1027f76`)
+- Bitcoin US$ from CoinGecko's public API (no key), refreshed with the quotes. (`08d582f`)
+- Tile text wraps, so dates are not clipped. (`08d582f`)
+
+### Market data (hub/context.py, hub/sources/commodities.py)
+- USD/INR live from Kite's nearest currency future (CDS), with the ECB reference rate as fallback. (`95df99d`)
+- India VIX from Kite. (`7688e84`)
+- WTI from Alpha Vantage (`a72fc4c`). Its latest price is 29 Sep 2026, so it is no longer on the page.
+- Crude in US$ for today, derived as MCX crude (₹/bbl) divided by the live USD/INR rate. It is labelled as derived. (`027d32a`)
+- Alpha Vantage free tier: 25 requests a day and 5 a minute. The daily run uses one request. Each manual run also uses one.
+
+### Relay (Apps Script)
+- Quote endpoint now also returns gold, crude and USD/INR contracts (nearest expiry, from Kite's public instrument lists, cached 6 h) and India VIX. (`1027f76`)
+- New version deployed by the owner (version 5, Manage deployments). Checked: the live quote returns the extra fields.
+- The web address is unchanged.
+
+### Nifty 50 option screen
+- Merged from `stocks-port` into `main` (`5c5419c`), after resolving conflicts in the daily workflow, `.gitignore` and the generated data files (main's versions kept).
+- Live run on `stocks-port` (run 37477650063): all steps passed; 0 trades; most names blocked by earnings inside the contract window.
+- Open: the IV history still ends on 19 Aug 2026, so the IV-rank check uses old data. The August 2025 to today pass is still to do.
+
+### Multi-bagger screen (not on `main`)
+- Still ranks on data to March 2025. The NSE structured results feed stops at December 2024, so the June 2026 quarter must come from the result PDFs.
+- Pilot: ACC's June-quarter board outcome is a readable text PDF. The pilot (20 names) is running in the background; the match rate will be reported when it finishes.
+- The dedicated agent was rate-limited and is now resumed with the June 2026 target, the pilot, and a management-direction section (board and shareholder meeting outcomes).
+
+### Owner decisions recorded
+- Earnings gate on the Nifty 50 screen: kept.
+- Multi-bagger Core rule: loosened version kept (no failed gate and at least four passes).
+- Multi-bagger local data: excluded from git (`7c69a8f`).
+- Crude: real time from MCX, converted at the live rupee rate. No free same-day WTI source yet.
+
+### Still open
+- Multi-bagger: June 2026 parser, pilot match rate, Screener cross-check, then all 401 names.
+- Nifty 50 screen: IV history from Aug 2025 to today, and the backtest on it.
+- Same-day WTI: no free source yet.
+- US indices: one day old (FRED).
+- Kite login each morning, before the 16:30 run (owner).
+- Confirm the relay setup check with the real key in the next daily run.
+- Confirm the trade-row fields in the F&O tab against the first real trade.
+
 ## 2026-10-06 (evening)
 
 Five changes since the last changelog update.
