@@ -355,7 +355,7 @@
       const t = (x.detail || "").toLowerCase();
       if (t.includes("earnings")) g.earnings.push(x.symbol);
       else if (t.includes("iv rank")) g.iv.push(x.symbol);
-      else g.other.push(x.symbol);
+      else g.other.push(`${x.symbol}: ${x.detail}`);
     });
     return g;
   }
@@ -377,7 +377,7 @@
     const recRows = recs.map(r => `<div class="row"><span class="l">${esc(r.symbol)} · ${esc(r.strategy || "")}${r.earnings_basis === "estimated" ? ' <span class="amb">· results date not confirmed</span>' : ""}</span>
       <span class="r">${esc(r.expiry || "")} · credit ${r.credit != null ? f(r.credit,2) : "–"} · POP ${r.pop != null ? f(r.pop,1) + "%" : "–"}</span></div>`).join("");
     const rej = Object.entries({ "Earnings inside the contract window": g.earnings,
-                                 "IV rank below the 30 gate": g.iv, "Other rules": g.other })
+                                 "IV rank below the 30 gate": g.iv, "Delivery below the 40% gate": g.other })
       .filter(([, v]) => v.length)
       .map(([k, v]) => `<details><summary>${esc(k)} · ${v.length}</summary><div class="note" style="margin:4px 0 8px">${v.map(esc).join(" · ")}</div></details>`).join("");
     return `<div class="sec">NIFTY 50 stocks · option screen · ${esc((d.generated_at || "").replace("T"," ").slice(0,16))} UTC</div>
