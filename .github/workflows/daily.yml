@@ -47,8 +47,10 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.fno
 
-      - name: Market context (FII/DII, FX, headlines)
+      - name: Market context (FII/DII, FX, US markets, headlines)
         continue-on-error: true
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: python -m hub.context
 
       - name: Daily brief (NVIDIA, Gemini fallback)
