@@ -2,6 +2,33 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-06 (evening)
+
+Five changes since the last changelog update.
+
+### Phone app (docs/index.html)
+- Bottom tab bar now has icons with labels (Home, Brief, F&O, Desk). The icons are inline SVG, so nothing new loads.
+- The header clears the phone's status bar and notch (`env(safe-area-inset-top)`), so the top bar is no longer partly hidden.
+- The logo is back in the header.
+- The status line is readable normal text, not small grey monospace, and it can wrap.
+
+### Relay (Apps Script)
+- Setup check (`mode=check`) now requires the key. Without it, the relay returns only `{"error":"forbidden"}`. Commit `814e291`; a duplicate `relayKey` declaration was fixed in `5831f83`.
+- The new code was pasted into the Apps Script editor and deployed as a new version, by the owner, through Manage deployments. The URL is unchanged. Checked: the relay returns "forbidden" without a key and still serves quotes.
+
+### Nifty 50 option screen (stocks-port branch)
+- Pushed to `stocks-port` (`cd10281`) by the owner from the agent's worktree. `main` is unaffected.
+- Live run on `stocks-port` (run 37477650063) passed every step. Mode: live, India VIX 13.61, universe 50 names.
+- Result: 0 recommendations, 50 rejected. Most rejections come from earnings falling inside the contract window (results season, expiry 23 Nov 2026). The screen's rule is to avoid earnings inside the cycle.
+- Open: the IV history still ends on 19 Aug 2026, so the IV-rank check uses old data.
+- Decision for the owner: keep the earnings gate as it is, or loosen it.
+
+### Still open
+- IV history from August 2025 to today.
+- Multi-bagger screen: owner decisions on the Core rule (loosened, kept), PDF parsing for results after December 2024, and excluding the 105 MB data folder from git.
+- Kite login each morning (owner).
+- Confirm the relay's setup-check output with the real key in the next daily run.
+
 ## 2026-10-06 (later in the day)
 
 ### Prices and the daily job
