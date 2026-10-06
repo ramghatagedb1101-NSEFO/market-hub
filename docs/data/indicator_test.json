@@ -1,5 +1,5 @@
 {
- "ts": "2026-10-07T04:00+05:30",
+ "ts": "2026-10-07T04:02+05:30",
  "horizon_sessions": 5,
  "split": "first 60% selection, last 40% test",
  "indexes": {
@@ -13,12 +13,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 50.6,
-      "z_vs_coin": 0.49
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -6.65
      },
      "test": {
       "n": 986,
       "hit_pct": 52.8,
-      "z_vs_coin": 1.78
+      "baseline_pct": 54.2,
+      "z_vs_baseline": -0.83
      },
      "shown_to_work": false
     },
@@ -26,12 +28,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 52.7,
-      "z_vs_coin": 2.1
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -5.01
      },
      "test": {
       "n": 986,
       "hit_pct": 51.3,
-      "z_vs_coin": 0.83
+      "baseline_pct": 54.2,
+      "z_vs_baseline": -1.79
      },
      "shown_to_work": false
     },
@@ -39,12 +43,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 54.0,
-      "z_vs_coin": 3.09
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -4.01
      },
      "test": {
       "n": 986,
       "hit_pct": 50.3,
-      "z_vs_coin": 0.19
+      "baseline_pct": 54.2,
+      "z_vs_baseline": -2.43
      },
      "shown_to_work": false
     },
@@ -52,12 +58,14 @@
      "selection": {
       "n": 238,
       "hit_pct": 41.6,
-      "z_vs_coin": -2.59
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -5.5
      },
      "test": {
       "n": 110,
       "hit_pct": 55.5,
-      "z_vs_coin": 1.14
+      "baseline_pct": 54.2,
+      "z_vs_baseline": 0.27
      },
      "shown_to_work": false
     },
@@ -65,12 +73,14 @@
      "selection": {
       "n": 1100,
       "hit_pct": 53.7,
-      "z_vs_coin": 2.47
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -3.64
      },
      "test": {
       "n": 729,
       "hit_pct": 52.1,
-      "z_vs_coin": 1.15
+      "baseline_pct": 54.2,
+      "z_vs_baseline": -1.1
      },
      "shown_to_work": false
     },
@@ -78,12 +88,14 @@
      "selection": {
       "n": 1484,
       "hit_pct": 50.3,
-      "z_vs_coin": 0.26
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -6.89
      },
      "test": {
       "n": 986,
       "hit_pct": 50.0,
-      "z_vs_coin": 0.0
+      "baseline_pct": 54.2,
+      "z_vs_baseline": -2.62
      },
      "shown_to_work": false
     },
@@ -91,12 +103,14 @@
      "selection": {
       "n": 155,
       "hit_pct": 46.5,
-      "z_vs_coin": -0.88
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -3.21
      },
      "test": {
       "n": 94,
       "hit_pct": 58.5,
-      "z_vs_coin": 1.65
+      "baseline_pct": 54.2,
+      "z_vs_baseline": 0.85
      },
      "shown_to_work": false
     },
@@ -114,12 +128,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 52.0,
-      "z_vs_coin": 1.53
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -5.6
      },
      "test": {
       "n": 986,
       "hit_pct": 50.6,
-      "z_vs_coin": 0.38
+      "baseline_pct": 54.2,
+      "z_vs_baseline": -2.24
      },
      "shown_to_work": false
     },
@@ -127,12 +143,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 48.0,
-      "z_vs_coin": -1.53
+      "baseline_pct": 59.1,
+      "z_vs_baseline": -8.71
      },
      "test": {
       "n": 986,
       "hit_pct": 49.4,
-      "z_vs_coin": -0.38
+      "baseline_pct": 54.2,
+      "z_vs_baseline": -3.0
      },
      "shown_to_work": false
     }
@@ -148,12 +166,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 52.5,
-      "z_vs_coin": 1.89
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -2.72
      },
      "test": {
       "n": 986,
       "hit_pct": 51.2,
-      "z_vs_coin": 0.76
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -2.56
      },
      "shown_to_work": false
     },
@@ -161,12 +181,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 51.9,
-      "z_vs_coin": 1.43
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -3.19
      },
      "test": {
       "n": 986,
       "hit_pct": 51.5,
-      "z_vs_coin": 0.96
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -2.37
      },
      "shown_to_work": false
     },
@@ -174,12 +196,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 51.0,
-      "z_vs_coin": 0.8
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -3.82
      },
      "test": {
       "n": 986,
       "hit_pct": 48.9,
-      "z_vs_coin": -0.7
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -4.04
      },
      "shown_to_work": false
     },
@@ -187,12 +211,14 @@
      "selection": {
       "n": 208,
       "hit_pct": 45.2,
-      "z_vs_coin": -1.39
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -3.13
      },
      "test": {
       "n": 93,
       "hit_pct": 51.6,
-      "z_vs_coin": 0.31
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -0.71
      },
      "shown_to_work": false
     },
@@ -200,12 +226,14 @@
      "selection": {
       "n": 1125,
       "hit_pct": 53.3,
-      "z_vs_coin": 2.24
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -1.77
      },
      "test": {
       "n": 699,
       "hit_pct": 50.4,
-      "z_vs_coin": 0.19
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -2.61
      },
      "shown_to_work": false
     },
@@ -213,12 +241,14 @@
      "selection": {
       "n": 1484,
       "hit_pct": 49.2,
-      "z_vs_coin": -0.62
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -5.25
      },
      "test": {
       "n": 986,
       "hit_pct": 51.8,
-      "z_vs_coin": 1.15
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -2.18
      },
      "shown_to_work": false
     },
@@ -226,12 +256,14 @@
      "selection": {
       "n": 185,
       "hit_pct": 42.2,
-      "z_vs_coin": -2.13
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -3.78
      },
      "test": {
       "n": 117,
       "hit_pct": 48.7,
-      "z_vs_coin": -0.28
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -1.43
      },
      "shown_to_work": false
     },
@@ -249,12 +281,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 50.8,
-      "z_vs_coin": 0.65
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -3.97
      },
      "test": {
       "n": 986,
       "hit_pct": 50.0,
-      "z_vs_coin": 0.0
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -3.33
      },
      "shown_to_work": false
     },
@@ -262,12 +296,14 @@
      "selection": {
       "n": 1485,
       "hit_pct": 49.2,
-      "z_vs_coin": -0.65
+      "baseline_pct": 56.0,
+      "z_vs_baseline": -5.28
      },
      "test": {
       "n": 986,
       "hit_pct": 50.0,
-      "z_vs_coin": 0.0
+      "baseline_pct": 55.3,
+      "z_vs_baseline": -3.33
      },
      "shown_to_work": false
     }
