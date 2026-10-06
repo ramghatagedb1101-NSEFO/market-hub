@@ -83,14 +83,18 @@ jobs:
         run: |
           git config user.name "forecast-bot"
           git config user.email "forecast-bot@users.noreply.github.com"
-          git add state docs/data
+          git add state docs/data rg/data/sector_map.json rg/data/index_membership.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit -m "daily forecast $(date -u +%F)"
             # Another push may have landed during this run: rebase onto it and retry.
+            # --autostash keeps any other rewritten tracked file from blocking the rebase.
             for i in 1 2 3; do
-              git pull --rebase -q origin main && git push && break
+              git pull --rebase --autostash -q origin main && git push && break
               sleep 5
             done
+            # Fail the step if nothing reached main, so a missed save is never reported as success.
+            git fetch -q origin
+            git merge-base --is-ancestor HEAD origin/main || { echo "save failed: commit did not reach main"; exit 1; }
           fi
