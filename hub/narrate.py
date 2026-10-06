@@ -53,7 +53,7 @@ Data:
 {data}"""
 
 
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "mistralai/mistral-large-2-instruct")   # plain chat model
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 
 
