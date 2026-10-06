@@ -25,8 +25,8 @@ from . import config
 from .sources import kite
 
 OUT_FILE = config.SITE_DIR / "data" / "threshold_test.json"
-IV_DIR = config.PKG_DIR / "iv_history"
-NAMES_FILE = config.PKG_DIR / "rg" / "data" / "nifty50.json"
+IV_DIR = config.REPO / "iv_history"
+NAMES_FILE = config.REPO / "rg" / "data" / "nifty50.json"
 H = 21
 WARM = 252
 THRESHOLDS = (20, 30, 40, 50, 60)
