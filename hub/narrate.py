@@ -66,9 +66,6 @@ def _context_summary(ctx: dict | None) -> str:
     if ctx.get("crude_usd"):
         cu = ctx["crude_usd"]
         lines.append(f"Crude in US$ (same day, derived): about {cu['last']} per barrel ({cu['basis']}).")
-    if ctx.get("wti"):
-        w = ctx["wti"]
-        lines.append(f"WTI crude {w['last']} US$/bbl on {w['date']} ({w['change_pct']}% vs the prior session).")
     if ctx.get("india_vix"):
         v = ctx["india_vix"]
         lines.append(f"India VIX {v['last']} ({v['change_pct']}% on the day).")

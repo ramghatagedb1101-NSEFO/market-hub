@@ -201,9 +201,12 @@ def main() -> dict:
         raise RuntimeError("BHARATSTOCK_API_KEY is not set")
     names = universe()
     results, failures = [], []
+    fin_fields = []   # field names only (never values), so a missing gate input can be traced
     for sym in names:
         try:
             rows = fetch(sym, key)
+            if rows and not fin_fields:
+                fin_fields = sorted(rows[0].keys())
             res = score(sym, rows)
             try:
                 ins = fetch_insider(sym, key)
@@ -228,6 +231,7 @@ def main() -> dict:
         "scored": len(results),
         "passing_all_gates_tested": sum(1 for r in ranked if r["score"] == 4),
         "failures": failures,
+        "financial_field_names": fin_fields,
         "ranked": ranked,
         "note": "Derived scores and gates only. Gates with missing data are listed as gaps, never passed.",
     }
