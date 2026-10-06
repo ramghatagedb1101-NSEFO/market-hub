@@ -53,11 +53,13 @@ def _context_summary(ctx: dict | None) -> str:
     fx = ctx.get("fx")
     if fx:
         lines.append(f"USD/INR {fx['usd_inr']} (ECB reference, {fx['date']}).")
+    for name, g in (ctx.get("global") or {}).items():
+        lines.append(f"{name} close {g['last']} on {g['date']}, {g['change_pct']}% vs the prior close {g['prev']}.")
     for h in (ctx.get("headlines") or [])[:40]:
         lines.append(f"Headline ({h['source']}): {h['title']}")
     for k, msg in (ctx.get("errors") or {}).items():
         lines.append(f"Not available today, {k}: {msg}")
-    lines.append("Not available in this brief: global index closes (S&P 500, Dow, Nasdaq), gold and crude prices.")
+    lines.append("Not available in this brief: gold prices.")
     return "\n".join(lines)
 
 

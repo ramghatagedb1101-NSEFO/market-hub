@@ -61,6 +61,37 @@ def _fx() -> dict:
     return {"date": day, "usd_inr": round(rate["INR"] / rate["USD"], 2), "source": "ECB reference rates"}
 
 
+FRED_SERIES = {
+    "S&P 500": "SP500",
+    "Dow Jones": "DJIA",
+    "Nasdaq Composite": "NASDAQCOM",
+    "WTI crude (USD/bbl)": "DCOILWTICO",
+}
+
+
+def _fred() -> dict:
+    """Latest daily closes from FRED (St. Louis Fed). Needs FRED_API_KEY. US prices lag India by a session."""
+    import os
+    key = os.getenv("FRED_API_KEY")
+    if not key:
+        raise RuntimeError("FRED_API_KEY is not set")
+    out = {}
+    for name, sid in FRED_SERIES.items():
+        r = requests.get("https://api.stlouisfed.org/fred/series/observations",
+                         params={"series_id": sid, "api_key": key, "file_type": "json",
+                                 "sort_order": "desc", "limit": 10}, headers=UA, timeout=20)
+        r.raise_for_status()
+        obs = [o for o in r.json()["observations"] if o["value"] not in (".", "")]
+        if len(obs) < 2:
+            continue
+        last, prev = float(obs[0]["value"]), float(obs[1]["value"])
+        out[name] = {"date": obs[0]["date"], "last": last, "prev": prev,
+                     "change_pct": round((last / prev - 1) * 100, 2)}
+    if not out:
+        raise RuntimeError("FRED returned no recent observations")
+    return out
+
+
 def _headlines() -> list[dict]:
     """Recent headlines from each feed. Titles and links only; the brief quotes at most a few."""
     cutoff = datetime.now(config.IST) - timedelta(days=NEWS_MAX_AGE_DAYS)
@@ -100,7 +131,7 @@ def _headlines() -> list[dict]:
 
 def main() -> dict:
     out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "errors": {}}
-    for key, fn in (("fii_dii", _fii_dii), ("fx", _fx), ("headlines", _headlines)):
+    for key, fn in (("fii_dii", _fii_dii), ("fx", _fx), ("global", _fred), ("headlines", _headlines)):
         try:
             out[key] = fn()
         except Exception as exc:
