@@ -2,6 +2,53 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-06 (later in the day)
+
+### Prices and the daily job
+- **Official closes.** NIFTY and BANK NIFTY closes now come from NSE's official daily index file. Kite is used only for SENSEX and for live quotes. The old source used Kite's day candle, which could hold a mid-session value.
+- **Wrong closes corrected.** The job had stored 22,687.0 (NIFTY) and 55,179.45 (BANK NIFTY) for 6 Oct. Official closes are 22,776.10 and 55,128.40. The wrong closes and the predictions built on them were removed, and the next run rebuilt them.
+- **Run time moved to 16:30 IST** (cron `0 11 * * 1-5`), after the close and after NSE publishes the file. It was 15:45 IST before.
+- **Relay token step fixed.** An edit had dropped `-L` from curl, so the relay's 302 redirect was not followed and the run failed. Restored in commit `1e7700f`. Run 37469038868 failed for this reason.
+
+### Brief
+- Adds FII/DII cash flows (NSE), USD/INR (ECB reference rate), S&P 500, Dow, Nasdaq and WTI crude (FRED, needs the `FRED_API_KEY` secret), MCX gold and crude futures (Kite), and news headlines (RSS).
+- New prompt with fixed sections. It says "not available today" rather than filling gaps.
+- Each index's estimate is compared with the actual close, and the brief says whether the close fell inside the range.
+- The brief now has its own tab.
+- Model output limit raised to 6,000 tokens (`max_tokens`).
+
+### Relay (Apps Script)
+- Added `mode=check`, a setup check that reports which script properties are set, their lengths, and whether the key matches. It never returns values.
+- The token response now names the exact failure: RELAY_KEY not set, key mismatch with both lengths, or no token for today with the stored date.
+- The token step in `daily.yml` prints the same diagnostics (names, lengths and HTTP codes only) before fetching the token.
+- **Open:** `mode=check` is public. It reveals which properties exist and their lengths, not their values. It should require the key. This is not yet fixed in the deployed script.
+
+### Phone app (docs/index.html)
+- Settings gear on the home page. It holds the Kite login link and a note on the 2FA step. The 2FA code is not entered in the app, and no password is stored.
+- Layout rebuilt as a desk-style app: ticker strip, one panel per index, four bottom tabs (Home, Brief, F&O, Desk), no horizontal scrolling.
+- Track record, method and the NIFTY chart moved to the Desk tab. Band-multiplier and tool-weight charts removed.
+
+### Research
+- **IV-rank test (copied history, Aug 2025 to Aug 2026).** Breach rate, the share of 21-day moves beyond one standard deviation of implied, was 35% at IV rank below 30 and 13% at 70 and above. One year only, overlapping windows, and ATM IV rather than spread prices. Not conclusive.
+- **IV backfill** for 1 Aug 2023 to 31 Jul 2025 from NSE bhavcopy, running in scratch space. Not yet merged into the live `iv_history/`. A final pass from Aug 2025 to today is still needed.
+
+### Nifty 50 option screen (not pushed)
+- Ported from `rg_option_selling` into `rg/`, with `hub/stocks.py` and `STOCKS.md`. Lives in worktree `agent-adbbfe36a8ef347ea`, branch `worktree-agent-adbbfe36a8ef347ea`, uncommitted.
+- Offline replay on the 19 Aug 2026 chain ran cleanly: 2 recommendations from 50 names. The live Kite path has not run.
+- The push to `stocks-port` was blocked by the safety check (copied data folders flagged). Waiting on the owner.
+- The copied IV and price history end 19 Aug 2026, so the screen is not on current data yet.
+
+### Multi-bagger screen (in progress, not pushed)
+- Worktree `agent-aeb30a28c5495613a`. Has `hub/multibagger/` with collection, NSE client, screen and Screener cross-check modules. No method note or test report yet.
+- Parameters changed to a two-list design: a core list with practical gates, and an early list for inflection signals. The back-test is still to run.
+
+### Still open
+- Push the brief, settings and layout changes (on `main`, pushed).
+- Paste the relay setup-check change into Apps Script and deploy a new version.
+- Require the key for `mode=check`.
+- Confirm the redirect URL in the Kite developer console.
+- Start a run to check gold and crude and the new closes.
+
 ## 2026-10-06
 
 ### Login (Kite) changes, in order
