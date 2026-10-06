@@ -73,6 +73,8 @@ function handleToken_(p) {
  */
 function handleCheck_(p) {
   const props = PropertiesService.getScriptProperties();
+  const relayKey = props.getProperty('RELAY_KEY') || '';
+  if (!relayKey || !p.key || p.key !== relayKey) return json_({ error: 'forbidden' });
   const names = ['KITE_API_KEY', 'KITE_API_SECRET', 'RELAY_KEY', 'GH_PAT', 'GH_REPO', 'KITE_ACCESS_TOKEN', 'KITE_TOKEN_DATE'];
   const set = {};
   names.forEach(n => {
