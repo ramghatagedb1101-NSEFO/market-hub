@@ -286,7 +286,7 @@
              C.usd_inr_live ? chgTxt(C.usd_inr_live.change_pct) + " · live" : (fx ? "ECB " + fx.date : "no data"),
              cls(C.usd_inr_live && C.usd_inr_live.change_pct)),
         tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) : "no data", cls(vixNow && vixNow.change_pct)),
-        tile("CRUDE WTI US$", C.wti ? f(C.wti.last, 2) : "–", C.wti ? chgTxt(C.wti.change_pct) + " · " + C.wti.date : "no data", cls(C.wti && C.wti.change_pct)),
+        tile("CRUDE US$", C.crude_usd ? f(C.crude_usd.last, 2) : "–", C.crude_usd ? chgTxt(C.crude_usd.change_pct) + " · same day" : "no data", cls(C.crude_usd && C.crude_usd.change_pct)),
         tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) : "no data", cls(sp && sp.change_pct)),
         tile("NIFTY EST.", (() => { const t = FEED && FEED.indices.NIFTY && FEED.indices.NIFTY.today; return t ? f(t.pred, 0) : "–"; })(),
              (() => { const t = FEED && FEED.indices.NIFTY && FEED.indices.NIFTY.today; return t ? "close " + pct(t.expected_move_pct) : "no data"; })(), "")
@@ -294,7 +294,7 @@
 
       const moves = barRows([
         ...(gold ? [{ label: "Gold", v: gold.change_pct, txt: chgTxt(gold.change_pct) }] : []),
-        ...(C.wti ? [{ label: "WTI crude", v: C.wti.change_pct, txt: chgTxt(C.wti.change_pct) }] : []),
+        ...(C.crude_usd ? [{ label: "Crude US$", v: C.crude_usd.change_pct, txt: chgTxt(C.crude_usd.change_pct) }] : []),
         ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(" (USD/bbl)", "").replace(" Composite", ""), v: glob[k].change_pct, txt: chgTxt(glob[k].change_pct) }))
       ]);
 
