@@ -17,7 +17,7 @@ import requests
 from . import config
 
 BRIEF_FILE = config.SITE_DIR / "data" / "brief.json"
-MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")   # Google's alias for the current Flash model
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
 
 
