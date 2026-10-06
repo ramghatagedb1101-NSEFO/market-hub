@@ -436,6 +436,34 @@
       el.innerHTML = `<div class="card mut">F&amp;O suggestions are not available yet. They appear after the daily job runs.</div>`;
     }
   }
+  async function refreshAll(){ await init(); await renderFno(); await liveTick(); }
+
+  // Pull-to-refresh: drag down from the top of the page, release past the threshold.
+  (function pullToRefresh(){
+    const ind = document.createElement("div");
+    ind.textContent = "Pull to refresh";
+    ind.style.cssText = "position:fixed;left:0;right:0;top:-40px;text-align:center;font:12px var(--sans);" +
+      "color:var(--mut);padding:10px;transition:top .2s;z-index:9;pointer-events:none";
+    document.body.appendChild(ind);
+    let y0 = null;
+    addEventListener("touchstart", e => { if (scrollY === 0) y0 = e.touches[0].clientY; }, {passive:true});
+    addEventListener("touchmove", e => {
+      if (y0 == null) return;
+      const d = e.touches[0].clientY - y0;
+      if (d > 0) {
+        ind.style.top = Math.min(d / 2 - 40, 10) + "px";
+        ind.textContent = d >= 100 ? "Release to refresh" : "Pull to refresh";
+      }
+    }, {passive:true});
+    addEventListener("touchend", async () => {
+      if (y0 == null) return;
+      const shown = parseFloat(ind.style.top) >= 10;
+      y0 = null;
+      if (shown) { ind.textContent = "Refreshing…"; await refreshAll(); }
+      ind.style.top = "-40px";
+    });
+  })();
+
   init();
   renderFno();
   liveTick();
