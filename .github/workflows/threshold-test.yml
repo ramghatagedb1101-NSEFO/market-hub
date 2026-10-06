@@ -1,0 +1,39 @@
+name: threshold-test
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Fetch today's Kite access token from the relay
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
+          TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today"; exit 1; fi
+          echo "::add-mask::$TOKEN"
+          echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: IV-rank threshold test (summary statistics only)
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        run: python -m hub.threshold_test
+      - name: Commit the summary
+        run: |
+          git config user.name "forecast-bot"
+          git config user.email "forecast-bot@users.noreply.github.com"
+          git add docs/data/threshold_test.json
+          if git diff --cached --quiet; then echo "nothing to commit"; else
+            git commit -m "threshold test summary"
+            for i in 1 2 3; do git pull --rebase -q origin main && git push && break; sleep 5; done
+          fi
