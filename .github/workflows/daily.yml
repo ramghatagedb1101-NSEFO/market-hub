@@ -47,9 +47,10 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.fno
 
-      - name: Daily brief (Gemini, free tier)
+      - name: Daily brief (NVIDIA, Gemini fallback)
         continue-on-error: true
         env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python -m hub.narrate
 
