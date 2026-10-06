@@ -63,6 +63,9 @@ def _context_summary(ctx: dict | None) -> str:
         lines.append(f"USD/INR {fx['usd_inr']} (ECB reference, {fx['date']}).")
     for name, g in (ctx.get("global") or {}).items():
         lines.append(f"{name} close {g['last']} on {g['date']}, {g['change_pct']}% vs the prior close {g['prev']}.")
+    if ctx.get("crude_usd"):
+        cu = ctx["crude_usd"]
+        lines.append(f"Crude in US$ (same day, derived): about {cu['last']} per barrel ({cu['basis']}).")
     if ctx.get("wti"):
         w = ctx["wti"]
         lines.append(f"WTI crude {w['last']} US$/bbl on {w['date']} ({w['change_pct']}% vs the prior session).")

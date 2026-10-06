@@ -133,6 +133,22 @@ def _wti() -> dict:
             "change_pct": round((last / prev - 1) * 100, 2), "source": "Alpha Vantage"}
 
 
+def _crude_usd_derived(commodities: dict, live_fx: dict | None, ecb: dict | None) -> dict | None:
+    """Same-day crude in US$/bbl: MCX crude (₹/bbl) divided by the live USD/INR rate.
+    Falls back to the ECB rate when the live rate is missing. Labelled as derived, not a quote."""
+    crude = (commodities or {}).get("Crude oil (MCX, ₹/bbl)")
+    if not crude:
+        return None
+    if live_fx and live_fx.get("last"):
+        rate, src = live_fx["last"], "live USD/INR"
+    elif ecb and ecb.get("usd_inr"):
+        rate, src = ecb["usd_inr"], "ECB USD/INR " + str(ecb.get("date"))
+    else:
+        return None
+    return {"last": round(crude["last"] / rate, 2), "change_pct": crude.get("change_pct"),
+            "basis": f"MCX crude ₹{crude['last']:.0f} ÷ {rate} ({src})", "contract": crude.get("contract")}
+
+
 def _headlines() -> list[dict]:
     """Recent headlines from each feed. Titles and links only; the brief quotes at most a few."""
     cutoff = datetime.now(config.IST) - timedelta(days=NEWS_MAX_AGE_DAYS)
@@ -179,6 +195,7 @@ def main() -> dict:
         except Exception as exc:
             out[key] = None
             out["errors"][key] = str(exc)[:200]
+    out["crude_usd"] = _crude_usd_derived(out.get("commodities"), out.get("usd_inr_live"), out.get("fx"))
     CONTEXT_FILE.parent.mkdir(parents=True, exist_ok=True)
     CONTEXT_FILE.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     return out
