@@ -575,9 +575,12 @@ def _symbol_reject_reason(chain):
             if status == "confirmed":
                 return (f"earnings {win['date']} inside contract cycle "
                         f"(expiry {chain['expiry']}, confirmed filing)")
-            return (f"estimated earnings {win['lo']}..{win['hi']} overlaps contract "
-                    f"cycle (expiry {chain['expiry']}, projected from "
-                    f"{win['anchor']} ±{win['buffer_td']} sessions)")
+            if config.BLOCK_ON_ESTIMATED_EARNINGS:
+                return (f"estimated earnings {win['lo']}..{win['hi']} overlaps contract "
+                        f"cycle (expiry {chain['expiry']}, projected from "
+                        f"{win['anchor']} ±{win['buffer_td']} sessions)")
+            # Not blocked: the trade carries earnings_basis="estimated" so the page can say so.
+            return None
         if status in ("confirmed", "estimated"):
             return None                   # window resolved and sits clear
         # (iii) Genuinely unverifiable — no filing and no usable periodic history.

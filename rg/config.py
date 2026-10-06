@@ -266,7 +266,11 @@ SETTLE_WITH_HISTORICAL = True      # settle tracker P&L on the expiry-day close 
 REQUIRE_WALL_PROTECTION = True     # blueprint: short strike must sit beyond the OI wall
 MAX_BID_ASK_PCT    = 2.5           # blueprint: reject legs with bid-ask > 2.5% of premium
 MIN_DELIVERY_5D    = 40.0          # blueprint: underlying 5d avg delivery >= 40%
-BLOCK_EARNINGS_IN_CYCLE = True     # blueprint: no short premium over an earnings date
+BLOCK_EARNINGS_IN_CYCLE = True
+# Owner decision (6 Oct 2026): an ESTIMATED results date that overlaps the expiry does not block the
+# trade. It is shown as "results date not confirmed". A CONFIRMED date still blocks. Set True to block
+# on estimates again.
+BLOCK_ON_ESTIMATED_EARNINGS = False     # blueprint: no short premium over an earnings date
 
 # ── Estimated earnings window (see earnings.py) ────────────────────────
 # BLOCK_EARNINGS_IN_CYCLE can only block a date it can SEE, and a FORMALLY
