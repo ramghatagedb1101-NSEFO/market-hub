@@ -91,6 +91,13 @@
   .soon{display:grid;gap:12px}
   .soon .c{border:1px dashed var(--line2);border-radius:12px;padding:16px;color:var(--mut)}
   .soon b{color:var(--txt)}
+  .heroes{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px}
+  @media(min-width:900px){.heroes{grid-template-columns:1fr 1fr}}
+  .hero{background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 10%,var(--panel)),var(--panel));
+        border:1px solid color-mix(in srgb,var(--acc) 40%,var(--line));border-radius:14px;padding:18px}
+  .hero .hl{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .hero .hv{font:700 44px var(--mono);letter-spacing:-.5px;margin:8px 0 4px;font-variant-numeric:tabular-nums}
+  .hero .hs{font-size:13.5px;margin-top:2px}
   .livebar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}
   .livebar .it{display:flex;gap:8px;align-items:baseline}
   .livebar .it b{font:600 15px var(--mono);font-variant-numeric:tabular-nums}
@@ -236,9 +243,28 @@
   }
   function H_(b, h){ const fc = b.horizons[h].forecast; return fc ? f(fc.pred) : "–"; }
 
+  function todayIst(){ return new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10); }
+
+  function heroCard(idx, b){
+    const fc = b.horizons.day.forecast;
+    if (!fc) return "";
+    const isToday = fc.target === todayIst();
+    const label = isToday ? "Today's predicted close" : "Predicted close · next session";
+    const st = b.horizons.day.stats;
+    const trust = st.n ? (st.mae_model_pct < st.mae_naive_pct ? "beats naive" : "below naive") : "no outcomes yet";
+    return `<div class="hero">
+      <div class="hl"><span class="mut">${esc(idx)}</span><span class="tag">${esc(label)}</span></div>
+      <div class="hv num">${f(fc.pred, 0)}</div>
+      <div class="hs ${cls(fc.expected_move_pct)}">${pct(fc.expected_move_pct)} vs last close ${f(b.last_close, 2)}</div>
+      <div class="hs mut">Likely range ${f(fc.lo, 0)} – ${f(fc.hi, 0)} · target ${esc(fc.target)} · ${trust}</div>
+    </div>`;
+  }
+
   function renderOverview(){
     const idxs = Object.keys(FEED.indices);
-    $("#ov").innerHTML = `<div class="grid2">` + idxs.map(i => overviewIndex(i, FEED.indices[i])).join("") + `</div>`;
+    const heroes = idxs.map(i => heroCard(i, FEED.indices[i])).join("");
+    $("#ov").innerHTML = (heroes ? `<div class="heroes">${heroes}</div>` : "") +
+      `<div class="grid2">` + idxs.map(i => overviewIndex(i, FEED.indices[i])).join("") + `</div>`;
   }
 
   function renderStatus(){
