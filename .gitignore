@@ -3,3 +3,7 @@ __pycache__/
 *.tmp
 .env
 *.log
+
+# Multi-bagger local data (about 105 MB, reproducible from NSE; not for git)
+hub/multibagger/data/
+hub/multibagger/output/
