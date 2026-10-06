@@ -1,0 +1,30 @@
+{
+ "ts": "2026-10-06T23:08+05:30",
+ "universe": 400,
+ "names_with_data": 400,
+ "as_of_dates": 38,
+ "observations": 0,
+ "by_score": {
+  "0": {
+   "n": 0
+  },
+  "1": {
+   "n": 0
+  },
+  "2": {
+   "n": 0
+  },
+  "3": {
+   "n": 0
+  },
+  "4": {
+   "n": 0
+  }
+ },
+ "caveats": [
+  "Survivorship bias: the universe is today's Midcap 150 and Smallcap 250, so past winners that later left the index are missing. Results are optimistic.",
+  "Gates use results reported at least 60 days before each as-of date.",
+  "Returns are on adjusted closes against the median of the same universe on the same dates.",
+  "Shareholding, insider and fund-holding signals are not back-tested: their history is not point-in-time in this run."
+ ]
+}
