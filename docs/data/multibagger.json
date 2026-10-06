@@ -1,0 +1,2810 @@
+{
+ "ts": "2026-10-07T04:52+05:30",
+ "universe": 400,
+ "scored": 400,
+ "passing_all_gates_tested": 0,
+ "failures": [],
+ "ranked": [
+  {
+   "symbol": "PTCIL",
+   "quarters": 13,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 97.4,
+    "profit_growth_yoy_pct": 466.2,
+    "eps_growth_yoy_pct": 466.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 15.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 6,
+    "schemes_reduced": 2,
+    "net_quantity_change": -4267.0
+   },
+   "rank": 1
+  },
+  {
+   "symbol": "MTARTECH",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 130.4,
+    "profit_growth_yoy_pct": 364.5,
+    "eps_growth_yoy_pct": 363.9,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 13.9,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 6,
+    "schemes_reduced": 1,
+    "net_quantity_change": 136543.0
+   },
+   "rank": 2
+  },
+  {
+   "symbol": "SOBHA",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 50.0,
+    "profit_growth_yoy_pct": 273.4,
+    "eps_growth_yoy_pct": 274.0,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 4.0,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 1,
+    "net_quantity_change": -286472.0
+   },
+   "rank": 3
+  },
+  {
+   "symbol": "NYKAA",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 29.1,
+    "profit_growth_yoy_pct": 226.0,
+    "eps_growth_yoy_pct": 250.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 2.9,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 4,
+    "net_quantity_change": -7728535.0
+   },
+   "rank": 4
+  },
+  {
+   "symbol": "MINDACORP",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 33.2,
+    "profit_growth_yoy_pct": 215.8,
+    "eps_growth_yoy_pct": 214.7,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 11.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 1,
+    "net_quantity_change": -137331.0
+   },
+   "rank": 5
+  },
+  {
+   "symbol": "AEGISLOG",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 37.1,
+    "profit_growth_yoy_pct": 210.7,
+    "eps_growth_yoy_pct": 269.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 23.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 12,
+    "schemes_reduced": 1,
+    "net_quantity_change": 17236.0
+   },
+   "rank": 6
+  },
+  {
+   "symbol": "LLOYDSME",
+   "quarters": 13,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 208.6,
+    "profit_growth_yoy_pct": 170.2,
+    "eps_growth_yoy_pct": 153.1,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 23.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 7,
+    "schemes_reduced": 4,
+    "net_quantity_change": -475207.0
+   },
+   "rank": 7
+  },
+  {
+   "symbol": "HINDCOPPER",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 81.4,
+    "profit_growth_yoy_pct": 162.5,
+    "eps_growth_yoy_pct": 161.9,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 37.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 12,
+    "schemes_reduced": 2,
+    "net_quantity_change": 1078107.0
+   },
+   "rank": 8
+  },
+  {
+   "symbol": "DIXON",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 21.1,
+    "profit_growth_yoy_pct": 156.3,
+    "eps_growth_yoy_pct": 153.9,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 4.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 2,
+    "net_quantity_change": 64816.0
+   },
+   "rank": 9
+  },
+  {
+   "symbol": "RRKABEL",
+   "quarters": 12,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 53.9,
+    "profit_growth_yoy_pct": 128.6,
+    "eps_growth_yoy_pct": 128.5,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 6.5,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 8,
+    "net_quantity_change": -765357.0
+   },
+   "rank": 10
+  },
+  {
+   "symbol": "LAURUSLABS",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 29.1,
+    "profit_growth_yoy_pct": 123.9,
+    "eps_growth_yoy_pct": 125.5,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 17.9,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 5,
+    "schemes_reduced": 6,
+    "net_quantity_change": -1672664.0
+   },
+   "rank": 11
+  },
+  {
+   "symbol": "OFSS",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 68.7,
+    "profit_growth_yoy_pct": 120.5,
+    "eps_growth_yoy_pct": 120.1,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 45.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 3,
+    "net_quantity_change": 1937.0
+   },
+   "rank": 12
+  },
+  {
+   "symbol": "SYRMA",
+   "quarters": 16,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 68.3,
+    "profit_growth_yoy_pct": 111.7,
+    "eps_growth_yoy_pct": 86.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 6.7,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 3,
+    "net_quantity_change": -422548.0
+   },
+   "rank": 13
+  },
+  {
+   "symbol": "NAVINFLUOR",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 44.1,
+    "profit_growth_yoy_pct": 107.7,
+    "eps_growth_yoy_pct": 100.8,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 23.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 4,
+    "schemes_reduced": 0,
+    "net_quantity_change": 253167.0
+   },
+   "rank": 14
+  },
+  {
+   "symbol": "LODHA",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 43.1,
+    "profit_growth_yoy_pct": 103.4,
+    "eps_growth_yoy_pct": 103.1,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 27.5,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 11,
+    "schemes_reduced": 4,
+    "net_quantity_change": -35768.0
+   },
+   "rank": 15
+  },
+  {
+   "symbol": "CGCL",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 57.1,
+    "profit_growth_yoy_pct": 102.0,
+    "eps_growth_yoy_pct": 79.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 22.4,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 8,
+    "schemes_reduced": 5,
+    "net_quantity_change": -6508264.0
+   },
+   "rank": 16
+  },
+  {
+   "symbol": "REDINGTON",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 34.6,
+    "profit_growth_yoy_pct": 94.6,
+    "eps_growth_yoy_pct": 76.7,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 1.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 8,
+    "schemes_reduced": 0,
+    "net_quantity_change": 1815862.0
+   },
+   "rank": 17
+  },
+  {
+   "symbol": "POLICYBZR",
+   "quarters": 18,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 40.1,
+    "profit_growth_yoy_pct": 92.5,
+    "eps_growth_yoy_pct": 90.8,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 8.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 2,
+    "net_quantity_change": 1240101.0
+   },
+   "rank": 18
+  },
+  {
+   "symbol": "ATUL",
+   "quarters": 18,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 25.0,
+    "profit_growth_yoy_pct": 91.8,
+    "eps_growth_yoy_pct": 92.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 13.7,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 0,
+    "schemes_reduced": 1,
+    "net_quantity_change": -49804.0
+   },
+   "rank": 19
+  },
+  {
+   "symbol": "NATIONALUM",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 39.3,
+    "profit_growth_yoy_pct": 90.9,
+    "eps_growth_yoy_pct": 91.1,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 37.8,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 4,
+    "net_quantity_change": -2849443.0
+   },
+   "rank": 20
+  },
+  {
+   "symbol": "IPCALAB",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 20.8,
+    "profit_growth_yoy_pct": 82.2,
+    "eps_growth_yoy_pct": 72.4,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 15.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 2,
+    "net_quantity_change": -284613.0
+   },
+   "rank": 21
+  },
+  {
+   "symbol": "APARINDS",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 29.1,
+    "profit_growth_yoy_pct": 77.8,
+    "eps_growth_yoy_pct": 77.8,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 7.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 6,
+    "schemes_reduced": 5,
+    "net_quantity_change": -83909.0
+   },
+   "rank": 22
+  },
+  {
+   "symbol": "RADICO",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 10.4,
+    "profit_growth_yoy_pct": 75.9,
+    "eps_growth_yoy_pct": 75.9,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 3.9,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 5,
+    "net_quantity_change": -525722.0
+   },
+   "rank": 23
+  },
+  {
+   "symbol": "SRF",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 31.8,
+    "profit_growth_yoy_pct": 75.5,
+    "eps_growth_yoy_pct": 75.6,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 15.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 2,
+    "net_quantity_change": 271060.0
+   },
+   "rank": 24
+  },
+  {
+   "symbol": "M&MFIN",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 14.6,
+    "profit_growth_yoy_pct": 75.3,
+    "eps_growth_yoy_pct": 64.0,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 16.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 5,
+    "net_quantity_change": -3492205.0
+   },
+   "rank": 25
+  },
+  {
+   "symbol": "GABRIEL",
+   "quarters": 13,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 29.8,
+    "profit_growth_yoy_pct": 74.5,
+    "eps_growth_yoy_pct": 40.6,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 7.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 5,
+    "schemes_reduced": 5,
+    "net_quantity_change": -144277.0
+   },
+   "rank": 26
+  },
+  {
+   "symbol": "ANANDRATHI",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 17.5,
+    "profit_growth_yoy_pct": 73.6,
+    "eps_growth_yoy_pct": -13.2,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 50.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 9,
+    "schemes_reduced": 2,
+    "net_quantity_change": 23589.0
+   },
+   "rank": 27
+  },
+  {
+   "symbol": "TDPOWERSYS",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 72.1,
+    "profit_growth_yoy_pct": 72.3,
+    "eps_growth_yoy_pct": 72.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 13.5,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "holdings found, no month-on-month change field",
+    "schemes_holding": 20,
+    "schemes_added": 0,
+    "schemes_reduced": 0,
+    "net_quantity_change": null
+   },
+   "rank": 28
+  },
+  {
+   "symbol": "ACUTAAS",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 59.1,
+    "profit_growth_yoy_pct": 70.4,
+    "eps_growth_yoy_pct": 67.7,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 22.7,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 1,
+    "net_quantity_change": -96727.0
+   },
+   "rank": 29
+  },
+  {
+   "symbol": "CCL",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 13.7,
+    "profit_growth_yoy_pct": 61.3,
+    "eps_growth_yoy_pct": 60.9,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 9.7,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 1,
+    "net_quantity_change": 281915.0
+   },
+   "rank": 30
+  },
+  {
+   "symbol": "PARADEEP",
+   "quarters": 18,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 63.1,
+    "profit_growth_yoy_pct": 53.4,
+    "eps_growth_yoy_pct": 20.4,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 6.4,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 5,
+    "schemes_reduced": 0,
+    "net_quantity_change": 1129087.0
+   },
+   "rank": 31
+  },
+  {
+   "symbol": "IOB",
+   "quarters": 17,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 18.8,
+    "profit_growth_yoy_pct": 49.3,
+    "eps_growth_yoy_pct": 45.9,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 18.9,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 14,
+    "schemes_reduced": 6,
+    "net_quantity_change": -480321.0
+   },
+   "rank": 32
+  },
+  {
+   "symbol": "COFORGE",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 49.9,
+    "profit_growth_yoy_pct": 49.2,
+    "eps_growth_yoy_pct": 30.3,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 9.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 9,
+    "net_quantity_change": -1070798.0
+   },
+   "rank": 33
+  },
+  {
+   "symbol": "INDIANB",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 11.1,
+    "profit_growth_yoy_pct": 48.7,
+    "eps_growth_yoy_pct": 47.5,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 18.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 2,
+    "net_quantity_change": -183029.0
+   },
+   "rank": 34
+  },
+  {
+   "symbol": "GLAND",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 19.6,
+    "profit_growth_yoy_pct": 47.1,
+    "eps_growth_yoy_pct": 47.0,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 17.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 6,
+    "net_quantity_change": -2486899.0
+   },
+   "rank": 35
+  },
+  {
+   "symbol": "SONACOMS",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 54.0,
+    "profit_growth_yoy_pct": 46.7,
+    "eps_growth_yoy_pct": 44.3,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 13.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 0,
+    "schemes_reduced": 4,
+    "net_quantity_change": -597730.0
+   },
+   "rank": 36
+  },
+  {
+   "symbol": "PRIVISCL",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 19.2,
+    "profit_growth_yoy_pct": 43.9,
+    "eps_growth_yoy_pct": 36.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 12.4,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 9,
+    "schemes_added": 1,
+    "schemes_reduced": 5,
+    "net_quantity_change": -147009.0
+   },
+   "rank": 37
+  },
+  {
+   "symbol": "NAUKRI",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 11.4,
+    "profit_growth_yoy_pct": 42.9,
+    "eps_growth_yoy_pct": 50.5,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 55.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 5,
+    "net_quantity_change": 48256.0
+   },
+   "rank": 38
+  },
+  {
+   "symbol": "CHOLAHLDNG",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 19.5,
+    "profit_growth_yoy_pct": 42.0,
+    "eps_growth_yoy_pct": 39.3,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 16.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 0,
+    "net_quantity_change": 78698.0
+   },
+   "rank": 39
+  },
+  {
+   "symbol": "JUBLINGREA",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 25.3,
+    "profit_growth_yoy_pct": 40.9,
+    "eps_growth_yoy_pct": 41.1,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 8.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 1,
+    "net_quantity_change": -43877.0
+   },
+   "rank": 40
+  },
+  {
+   "symbol": "KEI",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 23.0,
+    "profit_growth_yoy_pct": 40.0,
+    "eps_growth_yoy_pct": 40.0,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 8.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 0,
+    "schemes_reduced": 5,
+    "net_quantity_change": -204650.0
+   },
+   "rank": 41
+  },
+  {
+   "symbol": "SANSERA",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 33.3,
+    "profit_growth_yoy_pct": 38.7,
+    "eps_growth_yoy_pct": 38.2,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 8.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 6,
+    "net_quantity_change": -182396.0
+   },
+   "rank": 42
+  },
+  {
+   "symbol": "VIJAYA",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 22.8,
+    "profit_growth_yoy_pct": 37.6,
+    "eps_growth_yoy_pct": 37.2,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 23.0,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 4,
+    "schemes_reduced": 3,
+    "net_quantity_change": 211781.0
+   },
+   "rank": 43
+  },
+  {
+   "symbol": "HUDCO",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 26.6,
+    "profit_growth_yoy_pct": 35.0,
+    "eps_growth_yoy_pct": 34.9,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 22.9,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 5,
+    "schemes_reduced": 4,
+    "net_quantity_change": -3668399.0
+   },
+   "rank": 44
+  },
+  {
+   "symbol": "SUNDARMFIN",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 12.6,
+    "profit_growth_yoy_pct": 33.9,
+    "eps_growth_yoy_pct": 33.8,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 24.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 0,
+    "net_quantity_change": 21338.0
+   },
+   "rank": 45
+  },
+  {
+   "symbol": "AETHER",
+   "quarters": 16,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 27.5,
+    "profit_growth_yoy_pct": 33.4,
+    "eps_growth_yoy_pct": 34.4,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 19.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 10,
+    "net_quantity_change": -380117.0
+   },
+   "rank": 46
+  },
+  {
+   "symbol": "TBOTEK",
+   "quarters": 10,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 81.1,
+    "profit_growth_yoy_pct": 32.4,
+    "eps_growth_yoy_pct": 31.7,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 9.0,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 3,
+    "net_quantity_change": 154677.0
+   },
+   "rank": 47
+  },
+  {
+   "symbol": "KALYANKJIL",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 45.7,
+    "profit_growth_yoy_pct": 32.0,
+    "eps_growth_yoy_pct": 32.0,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 3.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 4,
+    "schemes_reduced": 3,
+    "net_quantity_change": 5863060.0
+   },
+   "rank": 48
+  },
+  {
+   "symbol": "AJANTPHARM",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 24.8,
+    "profit_growth_yoy_pct": 30.9,
+    "eps_growth_yoy_pct": 30.9,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 20.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 4,
+    "net_quantity_change": -107732.0
+   },
+   "rank": 49
+  },
+  {
+   "symbol": "LTF",
+   "quarters": 17,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 23.1,
+    "profit_growth_yoy_pct": 30.7,
+    "eps_growth_yoy_pct": 28.1,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 17.5,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 7,
+    "schemes_reduced": 3,
+    "net_quantity_change": 4429598.0
+   },
+   "rank": 50
+  },
+  {
+   "symbol": "OBEROIRLTY",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 31.7,
+    "profit_growth_yoy_pct": 29.0,
+    "eps_growth_yoy_pct": 29.0,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 41.8,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 1,
+    "net_quantity_change": 5024.0
+   },
+   "rank": 51
+  },
+  {
+   "symbol": "HSCL",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 28.0,
+    "profit_growth_yoy_pct": 27.4,
+    "eps_growth_yoy_pct": 23.6,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 16.0,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 14,
+    "schemes_reduced": 3,
+    "net_quantity_change": 41976.0
+   },
+   "rank": 52
+  },
+  {
+   "symbol": "LALPATHLAB",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 19.1,
+    "profit_growth_yoy_pct": 27.2,
+    "eps_growth_yoy_pct": -36.1,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 21.4,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 3,
+    "net_quantity_change": 366947.0
+   },
+   "rank": 53
+  },
+  {
+   "symbol": "NAM-INDIA",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 26.4,
+    "profit_growth_yoy_pct": 27.2,
+    "eps_growth_yoy_pct": 26.4,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 65.7,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 2,
+    "net_quantity_change": 1122523.0
+   },
+   "rank": 54
+  },
+  {
+   "symbol": "MARICO",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 21.4,
+    "profit_growth_yoy_pct": 27.1,
+    "eps_growth_yoy_pct": 24.6,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 16.5,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 6,
+    "schemes_reduced": 2,
+    "net_quantity_change": 1180991.0
+   },
+   "rank": 55
+  },
+  {
+   "symbol": "MAHABANK",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 13.9,
+    "profit_growth_yoy_pct": 26.8,
+    "eps_growth_yoy_pct": 34.2,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 25.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 4,
+    "schemes_reduced": 3,
+    "net_quantity_change": -707335.0
+   },
+   "rank": 56
+  },
+  {
+   "symbol": "CHOICEIN",
+   "quarters": 17,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 32.5,
+    "profit_growth_yoy_pct": 26.4,
+    "eps_growth_yoy_pct": 14.3,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 19.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 16,
+    "schemes_reduced": 3,
+    "net_quantity_change": 7038.0
+   },
+   "rank": 57
+  },
+  {
+   "symbol": "CRISIL",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 27.6,
+    "profit_growth_yoy_pct": 26.2,
+    "eps_growth_yoy_pct": 26.2,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 20.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 1,
+    "net_quantity_change": 86741.0
+   },
+   "rank": 58
+  },
+  {
+   "symbol": "PHOENIXLTD",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 12.8,
+    "profit_growth_yoy_pct": 23.0,
+    "eps_growth_yoy_pct": 23.3,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 36.7,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 0,
+    "net_quantity_change": 315175.0
+   },
+   "rank": 59
+  },
+  {
+   "symbol": "ACE",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 20.5,
+    "profit_growth_yoy_pct": 22.3,
+    "eps_growth_yoy_pct": 22.3,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 15.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 13,
+    "schemes_reduced": 5,
+    "net_quantity_change": 75742.0
+   },
+   "rank": 60
+  },
+  {
+   "symbol": "AFFLE",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 20.4,
+    "profit_growth_yoy_pct": 21.7,
+    "eps_growth_yoy_pct": 21.4,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 17.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 0,
+    "net_quantity_change": 132453.0
+   },
+   "rank": 61
+  },
+  {
+   "symbol": "ELGIEQUIP",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 22.6,
+    "profit_growth_yoy_pct": 20.7,
+    "eps_growth_yoy_pct": 21.0,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 9.7,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 7,
+    "schemes_reduced": 1,
+    "net_quantity_change": 149507.0
+   },
+   "rank": 62
+  },
+  {
+   "symbol": "SHYAMMETL",
+   "quarters": 18,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 23.5,
+    "profit_growth_yoy_pct": 20.7,
+    "eps_growth_yoy_pct": 20.6,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 6.4,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 13,
+    "schemes_reduced": 3,
+    "net_quantity_change": -177682.0
+   },
+   "rank": 63
+  },
+  {
+   "symbol": "CARTRADE",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 16.3,
+    "profit_growth_yoy_pct": 20.6,
+    "eps_growth_yoy_pct": 18.4,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 28.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 4,
+    "schemes_reduced": 1,
+    "net_quantity_change": 231077.0
+   },
+   "rank": 64
+  },
+  {
+   "symbol": "AZAD",
+   "quarters": 11,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 25.9,
+    "profit_growth_yoy_pct": 19.5,
+    "eps_growth_yoy_pct": 21.3,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 20.4,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 3,
+    "net_quantity_change": -162136.0
+   },
+   "rank": 65
+  },
+  {
+   "symbol": "AADHARHFC",
+   "quarters": 10,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 17.1,
+    "profit_growth_yoy_pct": 19.0,
+    "eps_growth_yoy_pct": 17.6,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 28.4,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 10,
+    "schemes_reduced": 0,
+    "net_quantity_change": 1990657.0
+   },
+   "rank": 66
+  },
+  {
+   "symbol": "APTUS",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 15.4,
+    "profit_growth_yoy_pct": 19.0,
+    "eps_growth_yoy_pct": 18.7,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 43.5,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 1,
+    "schemes_reduced": 1,
+    "net_quantity_change": -219475.0
+   },
+   "rank": 67
+  },
+  {
+   "symbol": "FLUOROCHEM",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 24.0,
+    "profit_growth_yoy_pct": 19.0,
+    "eps_growth_yoy_pct": 20.4,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 13.8,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 7,
+    "net_quantity_change": -506824.0
+   },
+   "rank": 68
+  },
+  {
+   "symbol": "CAPLIPOINT",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 19.6,
+    "profit_growth_yoy_pct": 18.8,
+    "eps_growth_yoy_pct": 15.8,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 29.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 12,
+    "schemes_reduced": 6,
+    "net_quantity_change": -127713.0
+   },
+   "rank": 69
+  },
+  {
+   "symbol": "INDHOTEL",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 14.6,
+    "profit_growth_yoy_pct": 18.7,
+    "eps_growth_yoy_pct": 20.7,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 16.7,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 5,
+    "schemes_reduced": 2,
+    "net_quantity_change": -135744.0
+   },
+   "rank": 70
+  },
+  {
+   "symbol": "BBOX",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 23.9,
+    "profit_growth_yoy_pct": 17.9,
+    "eps_growth_yoy_pct": 12.5,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 3.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 12,
+    "schemes_added": 4,
+    "schemes_reduced": 2,
+    "net_quantity_change": 38092.0
+   },
+   "rank": 71
+  },
+  {
+   "symbol": "CAMS",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 11.5,
+    "profit_growth_yoy_pct": 17.6,
+    "eps_growth_yoy_pct": -76.6,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 32.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 4,
+    "net_quantity_change": -1340334.0
+   },
+   "rank": 72
+  },
+  {
+   "symbol": "HEGAM",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 10.4,
+    "profit_growth_yoy_pct": 16.7,
+    "eps_growth_yoy_pct": 16.8,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 18.0,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 7,
+    "schemes_reduced": 2,
+    "net_quantity_change": -1832423.0
+   },
+   "rank": 73
+  },
+  {
+   "symbol": "RAINBOW",
+   "quarters": 18,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 33.2,
+    "profit_growth_yoy_pct": 16.2,
+    "eps_growth_yoy_pct": 13.3,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 13.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 3,
+    "schemes_reduced": 1,
+    "net_quantity_change": 123037.0
+   },
+   "rank": 74
+  },
+  {
+   "symbol": "360ONE",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 34.5,
+    "profit_growth_yoy_pct": 16.1,
+    "eps_growth_yoy_pct": 13.5,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 27.0,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 4,
+    "schemes_reduced": 1,
+    "net_quantity_change": 443441.0
+   },
+   "rank": 75
+  },
+  {
+   "symbol": "ECLERX",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 23.3,
+    "profit_growth_yoy_pct": 16.0,
+    "eps_growth_yoy_pct": -40.8,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 14.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 4,
+    "schemes_reduced": 4,
+    "net_quantity_change": -367408.0
+   },
+   "rank": 76
+  },
+  {
+   "symbol": "LUPIN",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 32.0,
+    "profit_growth_yoy_pct": 16.0,
+    "eps_growth_yoy_pct": 15.9,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 17.1,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 4,
+    "schemes_reduced": 1,
+    "net_quantity_change": 2251895.0
+   },
+   "rank": 77
+  },
+  {
+   "symbol": "NUVAMA",
+   "quarters": 12,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 22.6,
+    "profit_growth_yoy_pct": 15.8,
+    "eps_growth_yoy_pct": -77.1,
+    "profit_growth_quarters_of_last_8": 7,
+    "net_margin_pct": 22.2,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 8,
+    "schemes_reduced": 0,
+    "net_quantity_change": 57555.0
+   },
+   "rank": 78
+  },
+  {
+   "symbol": "GLAXO",
+   "quarters": 19,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 16.6,
+    "profit_growth_yoy_pct": 15.7,
+    "eps_growth_yoy_pct": 15.7,
+    "profit_growth_quarters_of_last_8": 8,
+    "net_margin_pct": 25.3,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 5,
+    "schemes_reduced": 3,
+    "net_quantity_change": 670849.0
+   },
+   "rank": 79
+  },
+  {
+   "symbol": "DABUR",
+   "quarters": 20,
+   "gates": {
+    "revenue_growing": true,
+    "profit_growing": true,
+    "profit_consistent": true,
+    "cash_backed": null
+   },
+   "measures": {
+    "revenue_growth_yoy_pct": 10.6,
+    "profit_growth_yoy_pct": 15.3,
+    "eps_growth_yoy_pct": 14.8,
+    "profit_growth_quarters_of_last_8": 6,
+    "net_margin_pct": 15.6,
+    "operating_cash_to_profit": null
+   },
+   "gaps": [
+    "cash_backed"
+   ],
+   "score": 3,
+   "promoter": {
+    "status": "no usable promoter trades in window",
+    "net_shares": null,
+    "flag": null
+   },
+   "mutual_funds": {
+    "status": "ok",
+    "schemes_holding": 20,
+    "schemes_added": 2,
+    "schemes_reduced": 4,
+    "net_quantity_change": 830824.0
+   },
+   "rank": 80
+  }
+ ],
+ "note": "Derived scores and gates only. Gates with missing data are listed as gaps, never passed."
+}
