@@ -21,6 +21,7 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   if (p.mode === 'token') return handleToken_(p);
   if (p.mode === 'quote') return handleQuote_();
+  if (p.mode === 'check') return handleCheck_(p);
   if (p.request_token) return handleLogin_(p.request_token);
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
 }
@@ -52,11 +53,42 @@ function handleLogin_(requestToken) {
 
 function handleToken_(p) {
   const props = PropertiesService.getScriptProperties();
-  if (!p.key || p.key !== props.getProperty('RELAY_KEY')) return json_({ error: 'forbidden' });
+  const relayKey = props.getProperty('RELAY_KEY') || '';
+  if (!relayKey) return json_({ error: 'RELAY_KEY is not set in script properties' });
+  if (!p.key || p.key !== relayKey) {
+    return json_({ error: 'key does not match RELAY_KEY', key_length_sent: (p.key || '').length,
+                   relay_key_length: relayKey.length });
+  }
   const token = props.getProperty('KITE_ACCESS_TOKEN');
   const date = props.getProperty('KITE_TOKEN_DATE');
-  if (!token || date !== todayIst_()) return json_({ error: 'no token for today; log in with Kite first' });
+  if (!token || date !== todayIst_()) {
+    return json_({ error: 'no Kite token for today; log in with Kite first', token_date: date || null, today: todayIst_() });
+  }
   return json_({ access_token: token, date: date });
+}
+
+/**
+ * Setup check for the owner and the daily job. Reports only whether each script property is set,
+ * its length, and whether the key matches. It never returns a value.
+ */
+function handleCheck_(p) {
+  const props = PropertiesService.getScriptProperties();
+  const names = ['KITE_API_KEY', 'KITE_API_SECRET', 'RELAY_KEY', 'GH_PAT', 'GH_REPO', 'KITE_ACCESS_TOKEN', 'KITE_TOKEN_DATE'];
+  const set = {};
+  names.forEach(n => {
+    const v = props.getProperty(n) || '';
+    set[n] = { set: v.length > 0, length: v.length };
+  });
+  const relayKey = props.getProperty('RELAY_KEY') || '';
+  return json_({
+    today: todayIst_(),
+    properties: set,
+    key_sent: p.key !== undefined,
+    key_matches: p.key === undefined ? null : (relayKey.length > 0 && p.key === relayKey),
+    key_length_sent: (p.key || '').length,
+    token_date: props.getProperty('KITE_TOKEN_DATE') || null,
+    token_ok_for_today: props.getProperty('KITE_TOKEN_DATE') === todayIst_() && !!props.getProperty('KITE_ACCESS_TOKEN'),
+  });
 }
 
 /**
