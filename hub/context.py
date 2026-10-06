@@ -107,6 +107,26 @@ def _india_vix() -> dict:
     return {"last": round(last, 2), "change_pct": round((last / prev - 1) * 100, 2) if prev else None}
 
 
+def _wti() -> dict:
+    """WTI crude in US$/bbl, daily, from Alpha Vantage (free key). Usually the previous session's close."""
+    import os
+    key = os.getenv("ALPHAVANTAGE_API_KEY")
+    if not key:
+        raise RuntimeError("ALPHAVANTAGE_API_KEY is not set")
+    r = requests.get("https://www.alphavantage.co/query",
+                     params={"function": "WTI", "interval": "daily", "apikey": key}, headers=UA, timeout=20)
+    r.raise_for_status()
+    body = r.json()
+    if "data" not in body:
+        raise RuntimeError(body.get("Information") or body.get("Note") or "no WTI data returned")
+    rows = [x for x in body["data"] if x.get("value") not in (None, ".", "")]
+    if len(rows) < 2:
+        raise RuntimeError("fewer than two WTI prices returned")
+    last, prev = float(rows[0]["value"]), float(rows[1]["value"])
+    return {"date": rows[0]["date"], "last": last, "prev": prev,
+            "change_pct": round((last / prev - 1) * 100, 2), "source": "Alpha Vantage"}
+
+
 def _headlines() -> list[dict]:
     """Recent headlines from each feed. Titles and links only; the brief quotes at most a few."""
     cutoff = datetime.now(config.IST) - timedelta(days=NEWS_MAX_AGE_DAYS)
@@ -147,7 +167,7 @@ def _headlines() -> list[dict]:
 def main() -> dict:
     out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "errors": {}}
     for key, fn in (("fii_dii", _fii_dii), ("fx", _fx), ("global", _fred), ("commodities", _commodities),
-                    ("india_vix", _india_vix), ("headlines", _headlines)):
+                    ("india_vix", _india_vix), ("wti", _wti), ("headlines", _headlines)):
         try:
             out[key] = fn()
         except Exception as exc:
