@@ -1,0 +1,23 @@
+{
+  "symbol": "INFY",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 49.55,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 10.2,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 78728000,
+  "next_month_futures_oi": 8932400,
+  "last_updated": "2026-04-01 09:31:49.000852",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "19-Aug-2026: Updates",
+    "18-Aug-2026: Updates",
+    "17-Aug-2026: Updates",
+    "10-Aug-2026: Updates",
+    "06-Aug-2026: Updates"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

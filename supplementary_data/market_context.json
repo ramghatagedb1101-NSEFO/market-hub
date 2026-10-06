@@ -1,0 +1,40 @@
+{
+  "fii_index_futures_net_contracts": -12571,
+  "fii_index_futures_position": "short",
+  "fii_data_date": "2026-08-19",
+  "fii_data_status": "ok",
+  "fii_source": "local_xls",
+  "macro_conviction_gap": false,
+  "brent_crude_price": 91.31,
+  "brent_crude_change_pct": 0.32,
+  "crude_type": "Brent",
+  "crude_data_status": "ok",
+  "advance_decline_ratio": 0.35,
+  "advances": 6,
+  "declines": 17,
+  "unchanged": 4,
+  "ad_source": "chain_data_websocket",
+  "vix_velocity": -0.04,
+  "vix_direction": "STABLE",
+  "vix_1d_change": -0.04,
+  "vix_prev_close": 15.67,
+  "vix_gate_status": "OK",
+  "vix_gate_reason": null,
+  "upcoming_events": [
+    {
+      "date": "2026-08-26",
+      "event": "NSE F&O Monthly Expiry (Aug 2026)",
+      "type": "EXPIRY",
+      "impact": "HIGH",
+      "days_away": 7
+    },
+    {
+      "date": "2026-09-16",
+      "event": "US Federal Reserve FOMC Rate Decision",
+      "type": "CENTRAL_BANK",
+      "impact": "HIGH",
+      "days_away": 28
+    }
+  ],
+  "last_fetched": "2026-08-19T18:44:01.107429"
+}

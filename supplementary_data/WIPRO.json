@@ -1,0 +1,23 @@
+{
+  "symbol": "WIPRO",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 52.15,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 19.9,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 199560000,
+  "next_month_futures_oi": 49458000,
+  "last_updated": "2026-04-01 09:30:59.840413",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "14-Aug-2026: Updates",
+    "12-Aug-2026: Updates",
+    "07-Aug-2026: General Updates",
+    "05-Aug-2026: Updates",
+    "05-Aug-2026: Press Release"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

@@ -1,0 +1,23 @@
+{
+  "symbol": "ITC",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 57.66,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 25.8,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 148436250,
+  "next_month_futures_oi": 51627525,
+  "last_updated": "2026-04-01 09:29:01.566812",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "14-Aug-2026: ESOP/ESOS/ESPS",
+    "14-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "13-Aug-2026: Copy of Newspaper Publication",
+    "04-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "01-Aug-2026: General Updates"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

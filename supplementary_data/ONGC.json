@@ -1,0 +1,23 @@
+{
+  "symbol": "ONGC",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 40.19,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 28.8,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 52440750,
+  "next_month_futures_oi": 21242250,
+  "last_updated": "2026-04-01 09:31:15.419679",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "18-Aug-2026: Press Release",
+    "18-Aug-2026: News Verification",
+    "17-Aug-2026: News Verification",
+    "14-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "13-Aug-2026: Appointment"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}

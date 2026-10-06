@@ -1,0 +1,23 @@
+{
+  "symbol": "AXISBANK",
+  "delivery_volume_pct_today": null,
+  "delivery_volume_pct_5d_avg": 47.82,
+  "bulk_block_deals_30d": "none",
+  "next_earnings_date": null,
+  "next_event_risk": null,
+  "futures_rollover_pct": 19.2,
+  "rollover_signal": "distribution",
+  "current_month_futures_oi": 83002500,
+  "next_month_futures_oi": 19704375,
+  "last_updated": "2026-04-01 09:30:44.726311",
+  "delivery_data_status": "pending_post_close",
+  "recent_announcements": [
+    "18-Aug-2026: ESOP/ESOS/ESPS",
+    "18-Aug-2026: Analysts/Institutional Investor Meet/Con. Call Updates",
+    "18-Aug-2026: Credit Rating",
+    "18-Aug-2026: Credit Rating",
+    "17-Aug-2026: General Updates"
+  ],
+  "delivery_source": "kite_quote",
+  "rollover_source": "kite_quote"
+}
