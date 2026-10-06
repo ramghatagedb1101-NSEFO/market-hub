@@ -65,8 +65,7 @@ FRED_SERIES = {
     "S&P 500": "SP500",
     "Dow Jones": "DJIA",
     "Nasdaq Composite": "NASDAQCOM",
-    "WTI crude (USD/bbl)": "DCOILWTICO",
-}
+}   # WTI is not here: FRED's series lags weeks. Crude in US$ comes from MCX crude / live USD/INR.
 
 
 def _fred() -> dict:
@@ -189,7 +188,7 @@ def _headlines() -> list[dict]:
 def main() -> dict:
     out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "errors": {}}
     for key, fn in (("fii_dii", _fii_dii), ("fx", _fx), ("global", _fred), ("commodities", _commodities),
-                    ("india_vix", _india_vix), ("usd_inr_live", _usd_inr_live), ("wti", _wti), ("headlines", _headlines)):
+                    ("india_vix", _india_vix), ("usd_inr_live", _usd_inr_live), ("headlines", _headlines)):
         try:
             out[key] = fn()
         except Exception as exc:
