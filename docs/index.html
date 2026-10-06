@@ -461,7 +461,7 @@
       const B = await (await fetch("data/brief.json", {cache:"no-store"})).json();
       $("#brief").innerHTML = `<div class="card" style="margin-bottom:14px">
         <h3><span>Daily brief</span><span class="mut" style="text-transform:none;letter-spacing:0">${esc(B.source || "")} · ${esc((B.ts||"").replace("T"," "))} IST</span></h3>
-        <div style="white-space:pre-wrap;font-size:14px;line-height:1.55">${esc(B.text)}</div>
+        <div style="white-space:pre-wrap;font-size:14px;line-height:1.55">${esc(/could not be written/.test(B.text || "") ? "Brief pending: the AI service is busy. It will update on the next daily run." : B.text)}</div>
         <div class="note">Written from this dashboard's numbers only. Not advice.</div></div>`;
     }catch(e){ $("#brief").innerHTML = ""; }
   }
