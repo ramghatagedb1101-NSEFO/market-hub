@@ -26,10 +26,20 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Fetch today's Kite access token from the relay
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          RESP=$(curl -fsSL -G "$RELAY_URL" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY")
+          TOKEN=$(echo "$RESP" | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))')
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today: $RESP"; exit 1; fi
+          echo "::add-mask::$TOKEN"
+          echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
       - name: Run daily job (refresh prices, settle, forecast, publish feed)
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
-          KITE_ACCESS_TOKEN: ${{ secrets.KITE_ACCESS_TOKEN }}
         run: python -m hub
 
       - name: Commit state and feed
