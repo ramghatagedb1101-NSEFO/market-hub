@@ -1,0 +1,39 @@
+name: kite-login
+
+# Run this from the GitHub app or website (Actions → kite-login → Run workflow),
+# paste the request_token that the Kite login page showed you.
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_token:
+        description: "request_token (or the full redirect URL) from the Kite login. Valid for minutes."
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: kite-login
+  cancel-in-progress: false
+
+jobs:
+  exchange:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Exchange request_token and store today's access token
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+          REQUEST_TOKEN: ${{ inputs.request_token }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: python -m hub.sources.kite_login

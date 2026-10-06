@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<title>Market Hub</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root { --bg:#0b1220; --card:#131c2e; --line:#22304a; --txt:#e6edf7; --mut:#8aa0bf;
+          --up:#22c55e; --dn:#ef4444; --acc:#60a5fa; --warn:#f59e0b; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f5f7fb; --card:#ffffff; --line:#dbe2ee; --txt:#0f172a; --mut:#516079; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+         font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { padding:14px 16px 6px; }
+  h1 { font-size:18px; margin:0; }
+  .sub { color:var(--mut); font-size:12px; margin-top:2px; }
+  nav { display:flex; gap:6px; overflow-x:auto; padding:8px 16px; border-bottom:1px solid var(--line); }
+  nav button { flex:0 0 auto; background:none; color:var(--mut); border:1px solid var(--line);
+               border-radius:999px; padding:6px 12px; font-size:13px; cursor:pointer; }
+  nav button.on { color:var(--txt); border-color:var(--acc); background:var(--card); }
+  main { padding:12px 16px 40px; max-width:900px; margin:0 auto; }
+  section { display:none; } section.on { display:block; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:14px; margin-bottom:12px; }
+  .grid { display:grid; grid-template-columns:1fr; gap:12px; }
+  @media (min-width:640px) { .grid { grid-template-columns:1fr 1fr; } }
+  .row { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+  .big { font-size:22px; font-weight:600; }
+  .mut { color:var(--mut); font-size:12px; }
+  .up { color:var(--up); } .dn { color:var(--dn); } .warn { color:var(--warn); }
+  .tag { display:inline-block; font-size:11px; border:1px solid var(--line); border-radius:6px;
+         padding:1px 6px; color:var(--mut); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:right; padding:6px 4px; border-bottom:1px solid var(--line); }
+  th:first-child, td:first-child { text-align:left; }
+  .scroll { overflow-x:auto; }
+  canvas { max-height:260px; }
+  .empty { color:var(--mut); padding:30px 0; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Market Hub</h1>
+  <div class="sub" id="updated">Loading…</div>
+</header>
+<nav>
+  <button class="on" data-tab="forecast">Forecasts</button>
+  <button data-tab="charts">Charts</button>
+  <button data-tab="track">Track record</button>
+  <button data-tab="fno">F&amp;O</button>
+  <button data-tab="mb">Multi-baggers</button>
+</nav>
+<main>
+  <section id="forecast" class="on"><div id="forecast-body"></div></section>
+  <section id="charts">
+    <div class="card"><div class="row"><b id="chart-title">NIFTY 50</b>
+      <select id="idx-pick"></select></div>
+      <canvas id="price-chart"></canvas></div>
+    <div class="card"><b>Predicted vs actual</b>
+      <div class="mut" id="track-title"></div>
+      <canvas id="track-chart"></canvas></div>
+    <div class="card"><b>Tool weights (learned)</b>
+      <canvas id="tool-chart"></canvas></div>
+  </section>
+  <section id="track"><div id="track-body"></div></section>
+  <section id="fno"><div class="card empty">F&amp;O picks are not connected yet.<br>
+    The free core is live; the Kite and Claude-based trade engines need a decision on paid
+    services before they can run here. See the README.</div></section>
+  <section id="mb"><div class="card empty">Multi-bagger screen is not connected yet.<br>
+    It will read quarterly results and ownership data once the fundamentals source is wired in.</div></section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const fmt = (x, d = 2) => (x === null || x === undefined) ? "–" :
+  Number(x).toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d });
+const sign = (x) => x > 0 ? "up" : x < 0 ? "dn" : "";
+const LABEL = { day: "Next session", expiry: "Next expiry", month: "Month close", year: "Year close" };
+let FEED = null, charts = {};
+
+document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("on", s.id === b.dataset.tab));
+  if (b.dataset.tab === "charts") drawCharts();
+});
+
+function forecastCard(idx, h, block) {
+  const f = block.horizons[h].forecast;
+  if (!f) return `<div class="card"><b>${idx}</b> · ${LABEL[h]}<div class="empty">No forecast yet</div></div>`;
+  const st = block.horizons[h].stats;
+  const verdict = st.n ? (st.mae_model_pct < st.mae_naive_pct
+      ? `<span class="tag up">beats naive (${st.n} settled)</span>`
+      : `<span class="tag warn">not beating naive yet (${st.n} settled)</span>`)
+    : `<span class="tag">no settled outcomes yet</span>`;
+  return `<div class="card">
+    <div class="row"><b>${idx}</b><span class="mut">${LABEL[h]} · ${f.target}</span></div>
+    <div class="big">${fmt(f.pred, 0)} <span class="mut" style="font-size:13px">predicted</span></div>
+    <div class="row ${sign(f.expected_move_pct)}"><span>${f.expected_move_pct >= 0 ? "+" : ""}${fmt(f.expected_move_pct)}% vs ${fmt(f.base, 0)}</span>
+      <span class="mut">range ${fmt(f.lo, 0)} – ${fmt(f.hi, 0)}</span></div>
+    <div style="margin-top:8px">${verdict}</div></div>`;
+}
+
+function renderForecast() {
+  const parts = [];
+  for (const idx of Object.keys(FEED.indices)) {
+    const b = FEED.indices[idx];
+    parts.push(`<div class="row" style="margin:14px 0 6px"><b>${idx}</b>
+      <span class="mut">last close ${fmt(b.last_close, 2)} · ${b.last_date}</span></div>`);
+    parts.push(`<div class="grid">` + Object.keys(b.horizons).map(h => forecastCard(idx, h, b)).join("") + `</div>`);
+  }
+  parts.push(`<p class="mut">Forecasts are shown with their track record. A forecast is only useful if it
+    beats the naive baseline ("tomorrow = today") on the Track record tab. Not investment advice.</p>`);
+  $("#forecast-body").innerHTML = parts.join("");
+}
+
+function renderTrack() {
+  const parts = [];
+  for (const idx of Object.keys(FEED.indices)) {
+    for (const h of Object.keys(FEED.indices[idx].horizons)) {
+      const H = FEED.indices[idx].horizons[h], s = H.stats;
+      parts.push(`<div class="card"><div class="row"><b>${idx} · ${LABEL[h]}</b>
+        <span class="mut">${s.n || 0} settled</span></div>`);
+      if (!s.n) { parts.push(`<div class="mut">Waiting for the first outcomes.</div></div>`); continue; }
+      parts.push(`<div class="scroll"><table>
+        <tr><th>Direction hit</th><th>Band coverage</th><th>MAE model</th><th>MAE naive</th></tr>
+        <tr><td>${fmt(s.direction_hit_pct, 1)}%</td><td>${fmt(s.coverage_pct, 1)}% (target 80%)</td>
+        <td>${fmt(s.mae_model_pct, 3)}%</td><td>${fmt(s.mae_naive_pct, 3)}%</td></tr></table></div>`);
+      const recent = H.history.slice(-12).reverse();
+      parts.push(`<div class="scroll" style="margin-top:8px"><table>
+        <tr><th>Target</th><th>Predicted</th><th>Actual</th><th>Error</th><th>In band</th></tr>` +
+        recent.map(r => `<tr><td>${r.target}</td><td>${fmt(r.pred, 0)}</td><td>${fmt(r.actual, 0)}</td>
+          <td class="${sign(-r.err_pct)}">${fmt(r.err_pct, 2)}%</td><td>${r.in_band ? "✓" : "✗"}</td></tr>`).join("") +
+        `</table></div></div>`);
+    }
+  }
+  $("#track-body").innerHTML = parts.join("") || `<div class="empty">No track record yet.</div>`;
+}
+
+function drawCharts() {
+  const idx = $("#idx-pick").value || Object.keys(FEED.indices)[0];
+  const b = FEED.indices[idx];
+  $("#chart-title").textContent = idx + " · last 250 sessions";
+  const hist = b.history;
+  charts.price?.destroy();
+  charts.price = new Chart($("#price-chart"), {
+    type: "line", data: { labels: hist.map(x => x.d),
+      datasets: [{ label: "Close", data: hist.map(x => x.c), borderColor: "#60a5fa", pointRadius: 0, borderWidth: 1.5 }] },
+    options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } } });
+
+  const H = b.horizons.month;
+  $("#track-title").textContent = idx + " · month close: predicted vs actual (settled)";
+  const rows = H.history;
+  charts.track?.destroy();
+  charts.track = new Chart($("#track-chart"), {
+    type: "line", data: { labels: rows.map(r => r.target), datasets: [
+      { label: "Actual", data: rows.map(r => r.actual), borderColor: "#22c55e", pointRadius: 2, borderWidth: 1.5 },
+      { label: "Predicted", data: rows.map(r => r.pred), borderColor: "#60a5fa", borderDash: [4,3], pointRadius: 0, borderWidth: 1.5 },
+      { label: "Band high", data: rows.map(r => r.hi), borderColor: "rgba(138,160,191,.3)", pointRadius: 0, borderWidth: 1 },
+      { label: "Band low", data: rows.map(r => r.lo), borderColor: "rgba(138,160,191,.3)", pointRadius: 0, borderWidth: 1 }] },
+    options: { plugins: { legend: { labels: { boxWidth: 10 } } }, scales: { x: { ticks: { maxTicksLimit: 6 } } } } });
+
+  const tools = b.horizons.day.tools;
+  charts.tool?.destroy();
+  charts.tool = new Chart($("#tool-chart"), {
+    type: "bar", data: { labels: tools.map(t => t.tool), datasets: [{ label: "Weight", data: tools.map(t => t.weight), backgroundColor: "#60a5fa" }] },
+    options: { indexAxis: "y", plugins: { legend: { display: false } } } });
+}
+
+async function init() {
+  FEED = await (await fetch("data/feed.json", { cache: "no-store" })).json();
+  $("#updated").textContent = "Updated " + FEED.generated_at.replace("T", " ") + " IST";
+  $("#idx-pick").innerHTML = Object.keys(FEED.indices).map(i => `<option>${i}</option>`).join("");
+  $("#idx-pick").onchange = drawCharts;
+  renderForecast(); renderTrack();
+}
+init().catch(e => { $("#updated").textContent = "Could not load feed: " + e; });
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
