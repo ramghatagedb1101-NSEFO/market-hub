@@ -1,0 +1,15 @@
+{
+ "ts": "2026-10-06T23:05+05:30",
+ "horizon_sessions": 5,
+ "split": "first 60% selection, last 40% test",
+ "indexes": {
+  "NIFTY": {
+   "error": "interval exceeds max limit: 2000 days"
+  },
+  "BANKNIFTY": {
+   "error": "interval exceeds max limit: 2000 days"
+  }
+ },
+ "shown_to_work": {},
+ "caveat": "Many candidates are tested, so some will look good by chance. Only those that pass the selection AND test halves, with a z above 1.64 on untouched data, are listed as shown to work. Nothing here proves a trading edge."
+}
