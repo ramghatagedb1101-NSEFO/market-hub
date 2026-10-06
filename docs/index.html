@@ -100,6 +100,13 @@
   .hero .hv{font:700 44px var(--mono);letter-spacing:-.5px;margin:8px 0 4px;font-variant-numeric:tabular-nums}
   .hero .hs{font-size:13.5px;margin-top:2px}
   .livebar{display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .gear{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--txt);width:36px;height:36px;border-radius:10px;font-size:18px;cursor:pointer;flex:0 0 auto}
+  .settings{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;align-items:flex-start;justify-content:center;padding:16px}
+  .settings.on{display:flex}
+  .settings .sheet{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:440px;width:100%;margin-top:40px;font-size:14px;line-height:1.5}
+  .settings .sheet h3{margin:0 0 10px;font:600 15px var(--sans)}
+  .kitebtn{display:inline-block;background:var(--acc);color:#fff;padding:10px 16px;border-radius:8px;font:600 13px var(--sans);text-decoration:none;margin:8px 0}
+  .settings .x{float:right;background:transparent;border:0;color:var(--mut);font-size:20px;cursor:pointer}
   .livebar .it{display:flex;gap:8px;align-items:baseline}
   .livebar .it b{font:600 15px var(--mono);font-variant-numeric:tabular-nums}
   .livebar .ts{margin-left:auto;color:var(--dim);font-size:12px}
@@ -114,7 +121,18 @@
       <div><b>Market Hub</b><small>Index forecasts · track record · F&amp;O · multi-bagger</small></div>
     </div>
     <div class="status"><span class="dot" id="dot"></span><span id="status">Loading feed…</span></div>
+    <button class="gear" id="gear" aria-label="Settings" title="Settings">⚙</button>
   </header>
+  <div class="settings" id="settings" role="dialog" aria-labelledby="set-title">
+    <div class="sheet">
+      <button class="x" id="set-close" aria-label="Close">×</button>
+      <h3 id="set-title">Settings</h3>
+      <div><b>Kite login for today</b></div>
+      <div class="mut" style="margin-top:4px">Do this once each morning, before the 16:30 daily run. Zerodha opens in a new tab. Type your login and 2FA code there, not here.</div>
+      <a class="kitebtn" href="https://kite.zerodha.com/connect/login?v=3&amp;api_key=t0kjzcu1vcl09fch" target="_blank" rel="noopener">Log in to Kite</a>
+      <div class="mut">After you log in, the page says "Logged in for [date]". If it says the daily run did not start, tell the owner.</div>
+    </div>
+  </div>
 
   <div class="livebar" id="live"><span class="mut">Live quotes loading…</span></div>
 
@@ -180,6 +198,11 @@
   const HZ = ["day","expiry","month"];   // year-end is hidden: not shown to the owner
   let FEED = null;
   const charts = {};
+
+  // Settings sheet (the Kite login link lives here, not on every tab)
+  $("#gear").onclick = () => $("#settings").classList.add("on");
+  $("#set-close").onclick = () => $("#settings").classList.remove("on");
+  $("#settings").onclick = e => { if (e.target.id === "settings") $("#settings").classList.remove("on"); };
 
   // Tabs
   document.querySelectorAll("nav button").forEach(b => b.onclick = () => {
