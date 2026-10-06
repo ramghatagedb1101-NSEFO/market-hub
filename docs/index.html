@@ -146,15 +146,7 @@
     <div class="card" id="method-body"></div>
   </section>
 
-  <section class="tab" id="fno">
-    <div class="soon">
-      <div class="c"><b>F&amp;O desk — not connected yet.</b><br>
-        Will show ranked trade ideas (buy/sell, strike, expiry, max loss, breakevens) with the same
-        track-record discipline as the index forecasts. It needs the Kite option-chain feed, which is
-        already in your subscription. Each trade is logged on entry and settled on expiry, so the desk shows
-        realised hit rate, not just ideas.</div>
-    </div>
-  </section>
+  <section class="tab" id="fno"><div id="fno-body"><div class="card mut">Loading F&amp;O suggestions…</div></div></section>
 
   <section class="tab" id="mb">
     <div class="soon">
@@ -410,7 +402,42 @@
       $("#live").innerHTML = `<span class="mut">Live quotes unavailable right now. The forecasts below still update daily.</span>`;
     }
   }
+  async function renderFno(){
+    const el = $("#fno-body");
+    try{
+      const D = await (await fetch("data/fno.json", {cache:"no-store"})).json();
+      const view = v => {
+        if (!v.structure) return `<div class="card"><h3>${esc(v.label)} · ${esc(v.expiry)}</h3>
+          <div class="mut">No suggestion. ${esc(v.reason || "")}</div></div>`;
+        const legs = v.legs.map(l => `<tr><td>${l.action}</td><td>${l.type}</td><td class="num">${f(l.strike)}</td>
+          <td class="num">${l.price == null ? "–" : f(l.price, 2)}</td></tr>`).join("");
+        const credit = v.net_per_unit > 0;
+        return `<div class="card">
+          <h3><span>${esc(v.label)} · ${esc(v.expiry)}</span><span class="tag">${esc(v.structure)}</span></h3>
+          <div class="kpis" style="margin-bottom:12px">
+            <div class="kpi"><div class="l">${credit ? "Credit / unit" : "Debit / unit"}</div><div class="v">${f(Math.abs(v.net_per_unit),2)}</div></div>
+            <div class="kpi"><div class="l">Max loss / lot</div><div class="v">${v.max_loss_per_lot == null ? "–" : f(v.max_loss_per_lot)}</div><div class="s">lot ${v.lot_size || "–"}</div></div>
+            <div class="kpi"><div class="l">Breakevens</div><div class="v" style="font-size:15px">${v.breakevens.map(b => f(b, 0)).join(" / ")}</div></div>
+            <div class="kpi"><div class="l">PCR (OI)</div><div class="v">${v.pcr == null ? "–" : f(v.pcr, 2)}</div></div>
+          </div>
+          <div class="scroll"><table class="tbl">
+            <tr><th>Action</th><th>Type</th><th>Strike</th><th>Premium</th></tr>${legs}</table></div>
+          <div class="note">${esc(v.reason)} Band ${f(v.band[0],0)} – ${f(v.band[1],0)}.</div>
+        </div>`;
+      };
+      el.innerHTML = Object.keys(D.underlyings).map(u => {
+        const b = D.underlyings[u];
+        return `<h3 style="margin:18px 0 10px;font:600 13px var(--sans);color:var(--mut);text-transform:uppercase;letter-spacing:.8px">${esc(u)} · spot ${f(b.spot,2)}</h3>
+          <div class="stack">${b.views.map(view).join("")}</div>`;
+      }).join("") + `<div class="verdict" style="margin-top:14px"><div class="i" style="background:var(--warn)"></div><div>
+        <b>Model suggestions, not advice.</b><span>${esc(D.disclaimer)} The suggestions have no track record yet.
+        Check margin and your own risk limits before placing anything.</span></div></div>`;
+    }catch(e){
+      el.innerHTML = `<div class="card mut">F&amp;O suggestions are not available yet. They appear after the daily job runs.</div>`;
+    }
+  }
   init();
+  renderFno();
   liveTick();
   setInterval(liveTick, 60000);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");

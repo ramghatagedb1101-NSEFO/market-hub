@@ -42,6 +42,11 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub
 
+      - name: F&O suggestions from the option chain
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        run: python -m hub.fno
+
       - name: Commit state and feed
         run: |
           git config user.name "forecast-bot"
