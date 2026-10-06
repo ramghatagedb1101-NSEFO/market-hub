@@ -395,7 +395,8 @@
       $("#dot").classList.toggle("stale", stale);
       $("#status").textContent = (open ? (stale ? "Quotes delayed" : "Live") : "Market closed") +
         " · quotes as of " + L.ts.replace("T"," ").slice(0,16) + " IST";
-      $("#live").innerHTML = item("NIFTY 50", L.indices.NIFTY) + item("SENSEX", L.indices.SENSEX) +
+      $("#live").innerHTML = item("NIFTY 50", L.indices.NIFTY) + item("BANK NIFTY", L.indices.BANKNIFTY) +
+        item("SENSEX", L.indices.SENSEX) +
         `<span class="ts">Forecasts built ${esc(FEED.generated_at.replace("T"," ").slice(0,16))} IST</span>`;
     }catch(e){
       $("#live").innerHTML = `<span class="mut">Live quotes unavailable right now. The forecasts below still update daily.</span>`;

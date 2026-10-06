@@ -18,15 +18,16 @@ PRICES_FILE = REPO / "state" / "prices.json"      # daily closes, grown incremen
 #   kite:    (exchange, tradingsymbol) on Kite Connect (paid, primary)
 #   nse_csv: index name in NSE's free bhavcopy (fallback, NIFTY only)
 INDEX_SOURCES = {
-    "NIFTY":  {"kite": ("NSE", "NIFTY 50"), "nse_csv": "Nifty 50"},
-    "SENSEX": {"kite": ("BSE", "SENSEX")},
+    "NIFTY":     {"kite": ("NSE", "NIFTY 50"), "nse_csv": "Nifty 50"},
+    "BANKNIFTY": {"kite": ("NSE", "NIFTY BANK"), "nse_csv": "Nifty Bank"},
+    "SENSEX":    {"kite": ("BSE", "SENSEX")},
 }
 INDICES = tuple(INDEX_SOURCES)
 HISTORY_DAYS = 5 * 365                            # backfill depth on first run
 
 # Weekly expiry weekday per index (0=Mon .. 4=Fri). Mirrors expiry_config.py.
 # Verify against current NSE / BSE circulars before relying on expiry targets.
-EXPIRY_WEEKDAY = {"NIFTY": 1, "SENSEX": 0}
+EXPIRY_WEEKDAY = {"NIFTY": 1, "BANKNIFTY": 2, "SENSEX": 0}
 
 HORIZONS = ("day", "expiry", "month", "year")
 
