@@ -98,6 +98,12 @@ def _commodities() -> dict:
     return commodities.main()
 
 
+def _usd_inr_live() -> dict:
+    """Live USD/INR from Kite's currency futures. Needs KITE_API_KEY and KITE_ACCESS_TOKEN."""
+    from .sources import commodities
+    return commodities.usd_inr()
+
+
 def _india_vix() -> dict:
     """India VIX level and change from Kite. Needs KITE_API_KEY and KITE_ACCESS_TOKEN."""
     from .sources import kite
@@ -167,7 +173,7 @@ def _headlines() -> list[dict]:
 def main() -> dict:
     out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "errors": {}}
     for key, fn in (("fii_dii", _fii_dii), ("fx", _fx), ("global", _fred), ("commodities", _commodities),
-                    ("india_vix", _india_vix), ("wti", _wti), ("headlines", _headlines)):
+                    ("india_vix", _india_vix), ("usd_inr_live", _usd_inr_live), ("wti", _wti), ("headlines", _headlines)):
         try:
             out[key] = fn()
         except Exception as exc:

@@ -55,6 +55,9 @@ def _context_summary(ctx: dict | None) -> str:
     lines = []
     for r in ctx.get("fii_dii") or []:
         lines.append(f"{r['category']} cash flow on {r['date']}: buy {r['buy']}, sell {r['sell']}, net {r['net']} crore.")
+    if ctx.get("usd_inr_live"):
+        u = ctx["usd_inr_live"]
+        lines.append(f"USD/INR live {u['last']} ({u['change_pct']}% on the day, {u['contract']} future).")
     fx = ctx.get("fx")
     if fx:
         lines.append(f"USD/INR {fx['usd_inr']} (ECB reference, {fx['date']}).")

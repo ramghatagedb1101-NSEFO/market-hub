@@ -282,7 +282,9 @@
       const vixNow = C.india_vix || S.india_vix;
       const tiles = [
         tile("GOLD ₹/10g", gold ? f(gold.last, 0) : "–", gold ? chgTxt(gold.change_pct) : "no data", cls(gold && gold.change_pct)),
-        tile("USD/INR", fx ? f(fx.usd_inr, 2) : "–", fx ? "ECB " + fx.date : "no data", ""),
+        tile("USD/INR", C.usd_inr_live ? f(C.usd_inr_live.last, 2) : (fx ? f(fx.usd_inr, 2) : "–"),
+             C.usd_inr_live ? chgTxt(C.usd_inr_live.change_pct) + " · live" : (fx ? "ECB " + fx.date : "no data"),
+             cls(C.usd_inr_live && C.usd_inr_live.change_pct)),
         tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) : "no data", cls(vixNow && vixNow.change_pct)),
         tile("CRUDE WTI US$", C.wti ? f(C.wti.last, 2) : "–", C.wti ? chgTxt(C.wti.change_pct) + " · " + C.wti.date : "no data", cls(C.wti && C.wti.change_pct)),
         tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) : "no data", cls(sp && sp.change_pct)),
