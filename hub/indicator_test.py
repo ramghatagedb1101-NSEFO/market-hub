@@ -123,7 +123,7 @@ def run_index(k, name, start, end):
     cut = int(n * 0.6)
     sigs = signals(close, vol)
     base_up = float(np.mean(fwd[~np.isnan(fwd)] > 0))
-    result = {"days": n, "from": dates[0], "to": dates[-1], "baseline_up_share_pct": round(base_up * 100, 1),
+    result = {"days": n, "from": str(dates[0])[:10], "to": str(dates[-1])[:10], "baseline_up_share_pct": round(base_up * 100, 1),
               "candidates": {}}
     for nm, sg in sigs.items():
         train = evaluate(sg[:cut], fwd[:cut])
