@@ -62,11 +62,16 @@ def main() -> dict:
     if not key:
         out["text"] = "Daily brief is off: GEMINI_API_KEY is not set in the repository secrets."
     else:
-        r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key},
-                          json={"contents": [{"parts": [{"text": PROMPT.format(data=_summary(feed, fno))}]}]},
-                          timeout=60)
-        r.raise_for_status()
-        out["text"] = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        try:
+            r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key},
+                              json={"contents": [{"parts": [{"text": PROMPT.format(data=_summary(feed, fno))}]}]},
+                              timeout=60)
+            if r.status_code != 200:
+                raise RuntimeError(f"Gemini returned {r.status_code}: {r.text[:300]}")
+            out["text"] = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception as exc:
+            # Record the reason on the page instead of failing the job. The rest still publishes.
+            out["text"] = f"Daily brief could not be written ({MODEL}). {exc}"
 
     BRIEF_FILE.parent.mkdir(parents=True, exist_ok=True)
     BRIEF_FILE.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
