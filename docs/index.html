@@ -91,8 +91,9 @@
   .soon{display:grid;gap:12px}
   .soon .c{border:1px dashed var(--line2);border-radius:12px;padding:16px;color:var(--mut)}
   .soon b{color:var(--txt)}
-  .heroes{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:14px}
-  @media(min-width:900px){.heroes{grid-template-columns:1fr 1fr}}
+  .heroes{display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:16px}
+  @media(min-width:860px){.heroes{grid-template-columns:repeat(3,1fr)}}
+  .stack{display:grid;gap:14px}
   .hero{background:linear-gradient(180deg,color-mix(in srgb,var(--acc) 10%,var(--panel)),var(--panel));
         border:1px solid color-mix(in srgb,var(--acc) 40%,var(--line));border-radius:14px;padding:18px}
   .hero .hl{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
@@ -180,7 +181,7 @@
   const pct = (x, d=2) => x == null ? "–" : (x >= 0 ? "+" : "") + f(x, d) + "%";
   const cls = x => x == null ? "" : (x > 0 ? "up" : x < 0 ? "dn" : "");
   const LABEL = {day:"Next session", expiry:"Next expiry", month:"Month close", year:"Year close"};
-  const HZ = ["day","expiry","month","year"];
+  const HZ = ["day","expiry","month"];   // year-end is hidden: not shown to the owner
   let FEED = null;
   const charts = {};
 
@@ -232,7 +233,6 @@
           <div class="s ${cls(chg)}">${chg == null ? "" : pct(chg)} vs prior</div></div>
         <div class="kpi"><div class="l">Session forecast</div><div class="v">${H_(b,"day")}</div><div class="s">${LABEL.day}</div></div>
         <div class="kpi"><div class="l">Month-close forecast</div><div class="v">${H_(b,"month")}</div><div class="s">${LABEL.month}</div></div>
-        <div class="kpi"><div class="l">Year-close forecast</div><div class="v">${H_(b,"year")}</div><div class="s">${LABEL.year}</div></div>
       </div>
       <div class="scroll"><table class="tbl">
         <tr><th>Horizon</th><th>Predicted</th><th>Position in band</th><th>80% band</th><th>Track record</th></tr>
@@ -246,17 +246,23 @@
   function todayIst(){ return new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10); }
 
   function heroCard(idx, b){
-    const fc = b.horizons.day.forecast;
-    if (!fc) return "";
-    const isToday = fc.target === todayIst();
-    const label = isToday ? "Today's predicted close" : "Predicted close · next session";
-    const st = b.horizons.day.stats;
-    const trust = st.n ? (st.mae_model_pct < st.mae_naive_pct ? "beats naive" : "below naive") : "no outcomes yet";
+    const t = b.today;
+    if (!t) return "";
+    const actualLine = t.actual != null
+      ? `<div class="hs"><span class="mut">Actual close</span> <b class="num">${f(t.actual, 2)}</b>
+           <span class="${cls(-(t.actual / t.pred - 1))}">· error ${pct((t.actual / t.pred - 1) * 100)}</span>
+           <span class="tag ${t.lo <= t.actual && t.actual <= t.hi ? "ok" : "bad"}">${t.lo <= t.actual && t.actual <= t.hi ? "inside band" : "outside band"}</span></div>`
+      : `<div class="hs mut">Market not closed yet · compares with the actual close after 15:30 IST</div>`;
+    const nx = b.horizons.day.forecast;
     return `<div class="hero">
-      <div class="hl"><span class="mut">${esc(idx)}</span><span class="tag">${esc(label)}</span></div>
-      <div class="hv num">${f(fc.pred, 0)}</div>
-      <div class="hs ${cls(fc.expected_move_pct)}">${pct(fc.expected_move_pct)} vs last close ${f(b.last_close, 2)}</div>
-      <div class="hs mut">Likely range ${f(fc.lo, 0)} – ${f(fc.hi, 0)} · target ${esc(fc.target)} · ${trust}</div>
+      <div class="hl"><span class="mut" style="font-weight:700;letter-spacing:.6px">${esc(idx)}</span>
+        <span class="tag ok">Today's predicted close · ${esc(t.target)}</span></div>
+      <div class="hv num">${f(t.pred, 0)}</div>
+      <div class="hs ${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)} vs prior close ${f(t.base, 2)}</div>
+      <div class="hs mut">Likely range ${f(t.lo, 0)} – ${f(t.hi, 0)} (80%)</div>
+      ${actualLine}
+      <div class="hs mut" style="margin-top:8px;font-size:11.5px">Estimate from the ${esc(t.asof)} close; not a pre-open record.
+        ${nx ? `Next session (${esc(nx.target)}): ${f(nx.pred, 0)}.` : ""}</div>
     </div>`;
   }
 
@@ -264,7 +270,7 @@
     const idxs = Object.keys(FEED.indices);
     const heroes = idxs.map(i => heroCard(i, FEED.indices[i])).join("");
     $("#ov").innerHTML = (heroes ? `<div class="heroes">${heroes}</div>` : "") +
-      `<div class="grid2">` + idxs.map(i => overviewIndex(i, FEED.indices[i])).join("") + `</div>`;
+      `<div class="stack">` + idxs.map(i => overviewIndex(i, FEED.indices[i])).join("") + `</div>`;
   }
 
   function renderStatus(){

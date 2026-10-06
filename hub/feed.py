@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 
-from . import config
+from . import config, engine
 from .store import Store
 
 
@@ -25,6 +25,28 @@ def _stats(settled: list) -> dict:
         "coverage_pct": _rnd(100 * sum(p["in_band"] for p in settled) / n, 1),
         "mae_model_pct": _rnd(sum(abs(p["err_pct"]) for p in settled) / n, 3),
         "mae_naive_pct": _rnd(sum(abs(p["naive_err_pct"]) for p in settled) / n, 3),
+    }
+
+
+def _today_estimate(store: Store, idx: str):
+    """
+    Estimate of today's close, made from the close before today. Not a stored pre-open record:
+    the page labels it as an estimate. Once today's close exists, the actual is shown beside it.
+    """
+    dates, closes = store.prices[idx]
+    today = datetime.now(config.IST).date()
+    if dates[-1] == today and len(dates) > 1:
+        asof_i, actual = len(dates) - 2, float(closes[-1])
+    else:
+        asof_i, actual = len(dates) - 1, None
+    asof = dates[asof_i]
+    fc = engine.forecast(idx, "day", asof, dates[:asof_i + 1], closes[:asof_i + 1],
+                         store.get_weights(idx, "day"), store.get_band(idx, "day"))
+    return {
+        "target": fc["target"], "asof": fc["asof"], "base": _rnd(fc["base"]),
+        "pred": _rnd(fc["pred"]), "lo": _rnd(fc["lo"]), "hi": _rnd(fc["hi"]),
+        "expected_move_pct": _rnd((fc["pred"] / fc["base"] - 1) * 100),
+        "actual": _rnd(actual),
     }
 
 
@@ -64,6 +86,7 @@ def build(store: Store) -> dict:
                     key=lambda r: -r["weight"]),
                 "band_k": _rnd(store.get_band(idx, h), 3),
             }
+        block["today"] = _today_estimate(store, idx)
         out["indices"][idx] = block
 
     if config.TRADES_FILE.exists():
