@@ -51,6 +51,51 @@ def fetch(symbol: str, key: str) -> list[dict]:
     return body.get("data", body if isinstance(body, list) else [])
 
 
+INSIDER = "https://bharatstockapi.com/v1/stocks/{t}/insider-trades"
+
+
+def fetch_insider(symbol: str, key: str) -> list[dict]:
+    r = requests.get(INSIDER.format(t=symbol), params={"promoters_only": "true"},
+                     headers={"X-API-Key": key}, timeout=30)
+    if r.status_code == 404:
+        return []
+    r.raise_for_status()
+    body = r.json()
+    return body.get("data", body if isinstance(body, list) else [])
+
+
+def insider_signal(rows: list[dict], months: int = 6) -> dict:
+    """Derived promoter signal over the last months: net shares bought or sold, and a flag.
+    Field names are read defensively; a missing field is a gap, never a guess."""
+    from datetime import date, timedelta
+    cutoff = date.today() - timedelta(days=30 * months)
+    buys = sells = 0
+    usable = 0
+    for x in rows:
+        d = x.get("transaction_date") or x.get("date") or x.get("trade_date")
+        try:
+            when = date.fromisoformat(str(d)[:10])
+        except (TypeError, ValueError):
+            continue
+        if when < cutoff:
+            continue
+        qty = x.get("quantity") or x.get("qty") or x.get("shares")
+        kind = str(x.get("transaction_type") or x.get("type") or x.get("mode") or "").lower()
+        if qty is None or not kind:
+            continue
+        usable += 1
+        if "acq" in kind or "buy" in kind:
+            buys += float(qty)
+        elif "disp" in kind or "sell" in kind:
+            sells += float(qty)
+    if usable == 0:
+        return {"status": "no usable promoter trades in window", "net_shares": None, "flag": None}
+    net = buys - sells
+    return {"status": "ok", "trades": usable, "bought_shares": buys, "sold_shares": sells,
+            "net_shares": net, "flag": "promoter buying" if net > 0 and buys > sells else
+                                       ("promoter selling" if sells > buys else "neutral")}
+
+
 def _consolidated(rows: list[dict]) -> list[dict]:
     rows = [x for x in rows if (x.get("consolidation_type") or "consolidated") == "consolidated"]
     return sorted(rows, key=lambda x: x["period_end_date"], reverse=True)
@@ -121,7 +166,16 @@ def main() -> dict:
     for sym in names:
         try:
             rows = fetch(sym, key)
-            results.append(score(sym, rows))
+            res = score(sym, rows)
+            try:
+                ins = fetch_insider(sym, key)
+                if ins and not getattr(main, "_logged", False):
+                    print("insider fields (names only):", sorted(ins[0].keys()), flush=True)
+                    main._logged = True
+                res["promoter"] = insider_signal(ins)
+            except Exception as exc:
+                res["promoter"] = {"status": f"insider fetch failed: {str(exc)[:80]}"}
+            results.append(res)
         except Exception as exc:
             failures.append({"symbol": sym, "error": str(exc)[:120]})
         time.sleep(0.2)
