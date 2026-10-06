@@ -103,16 +103,24 @@ def avg_safe(x):
     return np.where(np.isnan(x), np.inf, x)
 
 
-def evaluate(sig, fwd):
-    """Hit rate on days where the indicator has a view and the future move is known."""
+def up_share(fwd):
+    """Baseline: the share of up moves in this half. A rule that always says up scores this."""
+    f = fwd[~np.isnan(fwd)]
+    return float(np.mean(f > 0)) if len(f) else 0.5
+
+
+def evaluate(sig, fwd, base):
+    """Hit rate on days where the indicator has a view and the future move is known.
+    Compared with the baseline up-share of the same half, not a coin toss."""
     m = (sig != 0) & ~np.isnan(fwd)
     if m.sum() == 0:
         return None
     hits = (np.sign(sig[m]) == np.sign(fwd[m])) & (fwd[m] != 0)
     n = int(m.sum())
     p = hits.mean()
-    se = math.sqrt(0.25 / n)
-    return {"n": n, "hit_pct": round(p * 100, 1), "z_vs_coin": round((p - 0.5) / se, 2)}
+    se = math.sqrt(base * (1 - base) / n)
+    return {"n": n, "hit_pct": round(p * 100, 1), "baseline_pct": round(base * 100, 1),
+            "z_vs_baseline": round((p - base) / se, 2) if se > 0 else None}
 
 
 def run_index(k, name, start, end):
@@ -125,11 +133,13 @@ def run_index(k, name, start, end):
     base_up = float(np.mean(fwd[~np.isnan(fwd)] > 0))
     result = {"days": n, "from": str(dates[0])[:10], "to": str(dates[-1])[:10], "baseline_up_share_pct": round(base_up * 100, 1),
               "candidates": {}}
+    base_sel, base_tst = up_share(fwd[:cut]), up_share(fwd[cut:])
     for nm, sg in sigs.items():
-        train = evaluate(sg[:cut], fwd[:cut])
-        test = evaluate(sg[cut:], fwd[cut:])
-        useful = bool(train and test and train["hit_pct"] > 55 and test["hit_pct"] > 55
-                      and test["z_vs_coin"] > 1.64)
+        train = evaluate(sg[:cut], fwd[:cut], base_sel)
+        test = evaluate(sg[cut:], fwd[cut:], base_tst)
+        useful = bool(train and test and train["hit_pct"] > train["baseline_pct"]
+                      and test["hit_pct"] > test["baseline_pct"]
+                      and test["z_vs_baseline"] is not None and test["z_vs_baseline"] > 1.64)
         result["candidates"][nm] = {"selection": train, "test": test, "shown_to_work": useful}
     return result
 
