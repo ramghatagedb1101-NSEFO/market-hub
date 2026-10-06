@@ -88,5 +88,9 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "daily forecast $(date -u +%F)"
-            git push
+            # Another push may have landed during this run: rebase onto it and retry.
+            for i in 1 2 3; do
+              git pull --rebase -q origin main && git push && break
+              sleep 5
+            done
           fi
