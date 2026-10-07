@@ -58,6 +58,13 @@ def fetch_named_holders(xbrl_url: str) -> list[dict]:
     return named_holders_from_text(shp.fetch_xbrl_text(xbrl_url))
 
 
+def aggregate(holders: list[dict]) -> dict:
+    """Count of disclosed holders and the combined percentage of the ten largest -- comparing this
+    between two quarters needs only the already-parsed holder lists, no extra fetch."""
+    pcts = sorted((h["pct"] for h in holders if h.get("pct") is not None), reverse=True)
+    return {"holder_count": len(holders), "top10_pct": round(sum(pcts[:10]), 4) if pcts else None}
+
+
 def _normalize(name: str) -> list[str]:
     return [w for w in re.sub(r"[^A-Za-z ]", " ", name.upper()).split() if w]
 
