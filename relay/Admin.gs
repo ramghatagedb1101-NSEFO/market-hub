@@ -5,14 +5,15 @@
  * The code lasts 10 minutes and can be requested once a minute. A correct code starts a session
  * that lasts six hours, kept in the browser's session storage and checked on every data call.
  *
- * Data: the daily job posts the admin summary to the relay (mode=publish_admin, RELAY_KEY). It is
- * stored in a private file in the owner's Google Drive, never in the public repository.
+ * Data: the daily job writes the admin summary to the private repository market-hub-private. The page
+ * reads it with a read-only token kept in the script properties (ADMIN_READ_TOKEN), never in the public repository.
  *
  * Functions called from the page (google.script.run) must not end in an underscore, or the page
  * cannot call them, so these names are public on purpose and each one checks the session.
  */
 
-const ADMIN_FILE = 'market-hub-admin.json';
+const ADMIN_REPO = 'ramghatagedb1101-NSEFO/market-hub-private';
+const ADMIN_PATH = 'admin.json';
 const ADMIN_SESSION_SECONDS = 21600;   // six hours, the cache maximum
 const ADMIN_CODE_SECONDS = 600;        // ten minutes
 
@@ -47,9 +48,14 @@ function adminVerify(code) {
 function adminData(token) {
   const cache = CacheService.getScriptCache();
   if (!token || !cache.get('admin_session_' + token)) return { error: 'session_expired' };
-  const files = DriveApp.getFilesByName(ADMIN_FILE);
-  if (!files.hasNext()) return { error: 'No data published yet. The next daily run will send it.' };
-  return JSON.parse(files.next().getBlob().getDataAsString());
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  const res = UrlFetchApp.fetch(
+    'https://api.github.com/repos/' + ADMIN_REPO + '/contents/' + ADMIN_PATH,
+    { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
+  if (res.getResponseCode() === 404) return { error: 'No data published yet. The next daily run will send it.' };
+  if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for the private data.' };
+  return JSON.parse(res.getContentText());
 }
 
 /** Called by the daily job through doPost. Checks the relay key first, then replaces the private file. */
