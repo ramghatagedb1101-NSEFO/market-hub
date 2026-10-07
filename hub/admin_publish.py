@@ -1,10 +1,11 @@
 """
-Sends the admin summary to the Apps Script relay, which stores it in the owner's private Drive, not in
-the public repository. Needs RELAY_URL and RELAY_KEY (GitHub secrets, already used by the token step).
+Writes the admin summary to the private repository market-hub-private (not the public repository).
+Needs PRIVATE_REPO_TOKEN (a GitHub secret, created by the owner).
 
 Contents: daily run times, the parameter registry, the investor registry (names and aliases, as the
 owner keeps them), bulk-deal counts, multi-bagger totals, and the summary results of the back-tests.
 """
+import base64
 import json
 import os
 from datetime import datetime
@@ -51,25 +52,32 @@ def build() -> dict:
     }
 
 
+PRIVATE_REPO = "ramghatagedb1101-NSEFO/market-hub-private"
+PRIVATE_FILE = "admin.json"
+
+
 def main() -> dict:
-    url = os.getenv("RELAY_URL")
-    key = os.getenv("RELAY_KEY")
-    if not url or not key:
-        raise RuntimeError("RELAY_URL or RELAY_KEY is not set")
-    payload = json.dumps(build(), ensure_ascii=False)
-    r = requests.post(url, params={"mode": "publish_admin", "key": key},
-                      data=payload.encode("utf-8"), headers={"Content-Type": "text/plain;charset=utf-8"},
-                      timeout=60)
-    r.raise_for_status()
-    text = r.text.strip()
-    # A save only counts when the relay answers with its own JSON reply: {"ok": true}.
-    # Anything else (an error page, a sign-in page, a permission prompt) is a failure.
-    if not text.startswith("{"):
-        raise RuntimeError("relay did not confirm the save (non-JSON reply): " + text[:120])
-    body = json.loads(text)
-    if not body.get("ok"):
-        raise RuntimeError("relay refused the save: " + str(body.get("error", body))[:120])
-    return {"sent_bytes": len(payload), "saved": True}
+    """Writes the admin summary to the private repo through GitHub's contents API.
+    Needs PRIVATE_REPO_TOKEN: a fine-grained token with Contents read and write on market-hub-private only."""
+    token = os.getenv("PRIVATE_REPO_TOKEN")
+    if not token:
+        raise RuntimeError("PRIVATE_REPO_TOKEN is not set")
+    payload = json.dumps(build(), ensure_ascii=False, indent=1).encode("utf-8")
+    url = f"https://api.github.com/repos/{PRIVATE_REPO}/contents/{PRIVATE_FILE}"
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    sha = None
+    got = requests.get(url, headers=headers, timeout=30)
+    if got.status_code == 200:
+        sha = got.json().get("sha")
+    elif got.status_code != 404:
+        got.raise_for_status()
+    body = {"message": f"admin summary {datetime.now(config.IST).date().isoformat()}",
+            "content": base64.b64encode(payload).decode("ascii")}
+    if sha:
+        body["sha"] = sha
+    put = requests.put(url, headers=headers, json=body, timeout=60)
+    put.raise_for_status()
+    return {"sent_bytes": len(payload), "saved": True, "file": f"{PRIVATE_REPO}/{PRIVATE_FILE}"}
 
 
 if __name__ == "__main__":
