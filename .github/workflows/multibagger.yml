@@ -38,6 +38,7 @@ jobs:
         run: python -m hub.multibagger
 
       - name: Commit multi-bagger
+        if: always()          # save whatever was rated, even if the screen step failed or timed out
         run: |
           git config user.name "forecast-bot"
           git config user.email "forecast-bot@users.noreply.github.com"

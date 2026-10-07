@@ -236,47 +236,29 @@ def _r(x, d=1):
     return None if x is None else round(x, d)
 
 
-def main() -> dict:
-    key = os.getenv("BHARATSTOCK_API_KEY")
-    if not key:
-        raise RuntimeError("BHARATSTOCK_API_KEY is not set")
-    names = universe()
-    results, failures = [], []
-    for sym in names:
-        try:
-            rows = fetch(sym, key)
-            res = score(sym, rows)
-            # Fund and promoter data only for companies rated 2 or more: it saves about two thirds of the calls.
-            if res.get("score") is not None and res["score"] >= 2:
-                try:
-                    ins = fetch_insider(sym, key)
-                    res["promoter"] = insider_signal(ins)
-                except Exception as exc:
-                    res["promoter"] = {"status": f"insider fetch failed: {str(exc)[:80]}"}
-                try:
-                    res["mutual_funds"] = mf_counts(fetch_mf(sym, key))
-                except Exception as exc:
-                    res["mutual_funds"] = {"status": f"fund fetch failed: {str(exc)[:80]}"}
-            results.append(res)
-        except Exception as exc:
-            failures.append({"symbol": sym, "error": str(exc)[:120]})
-        time.sleep(0.2)
+TIME_BUDGET_SECONDS = 70 * 60      # stop early and save what is scored; the job limit is 90 minutes
+CHECKPOINT_EVERY = 200             # write the file as the run goes, so a stop never loses work
 
-    def holders(r):
-        mf = r.get("mutual_funds") or {}
-        return mf.get("schemes_holding") if mf.get("schemes_holding") is not None else 10 ** 6
 
+def _holders(r):
+    mf = r.get("mutual_funds") or {}
+    return mf.get("schemes_holding") if mf.get("schemes_holding") is not None else 10 ** 6
+
+
+def _write(results, failures, names, processed, partial) -> dict:
     rated = [r for r in results if r.get("score") is not None]
     ranked = sorted(rated, key=lambda r: (r["score"],
                                           r["measures"].get("turnaround", False),
-                                          -holders(r),
+                                          -_holders(r),
                                           r["measures"].get("profit_growth_yoy_pct") or -1e9),
                     reverse=True)
     for i, r in enumerate(ranked, 1):
         r["rank"] = i
     out = {
         "ts": datetime.now(config.IST).isoformat(timespec="minutes"),
+        "partial": partial,
         "universe": len(names),
+        "processed": processed,
         "scored": len(results),
         "rated": len(rated),
         "not_rated_few_quarters": len(results) - len(rated),
@@ -287,11 +269,48 @@ def main() -> dict:
         "endpoint_calls": ENDPOINT_COUNTS,
         "ranked": ranked,
         "note": "Derived ratings and gates only. A gate with missing data is a gap, never a pass. "
-                "Ranking: rating, then recent turnaround, then fewer mutual fund holders.",
+                "Ranking: rating, then recent turnaround, then fewer mutual fund holders. "
+                "partial=true means the run stopped at its time budget; the rest are not yet rated.",
     }
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return {k: v for k, v in out.items() if k != "ranked"}
+
+
+def main() -> dict:
+    key = os.getenv("BHARATSTOCK_API_KEY")
+    if not key:
+        raise RuntimeError("BHARATSTOCK_API_KEY is not set")
+    started = time.time()
+    names = universe()
+    results, failures = [], []
+    processed = 0
+    partial = False
+    for sym in names:
+        if time.time() - started > TIME_BUDGET_SECONDS:
+            partial = True
+            break
+        try:
+            rows = fetch(sym, key)
+            res = score(sym, rows)
+            # Fund and promoter data only for companies rated 2 or more: it saves about two thirds of the calls.
+            if res.get("score") is not None and res["score"] >= 2:
+                try:
+                    res["promoter"] = insider_signal(fetch_insider(sym, key))
+                except Exception as exc:
+                    res["promoter"] = {"status": f"insider fetch failed: {str(exc)[:80]}"}
+                try:
+                    res["mutual_funds"] = mf_counts(fetch_mf(sym, key))
+                except Exception as exc:
+                    res["mutual_funds"] = {"status": f"fund fetch failed: {str(exc)[:80]}"}
+            results.append(res)
+        except Exception as exc:
+            failures.append({"symbol": sym, "error": str(exc)[:120]})
+        processed += 1
+        if processed % CHECKPOINT_EVERY == 0:
+            _write(results, failures, names, processed, partial=True)
+        time.sleep(0.2)
+    return _write(results, failures, names, processed, partial=partial)
 
 
 if __name__ == "__main__":
