@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-10-07T04:51:52+00:00",
+  "generated_at": "2026-10-07T04:56:10+00:00",
   "universe": "NIFTY 50",
   "mode": "live",
   "replay_date": null,
   "symbol_count": 50,
-  "india_vix": 13.86,
+  "india_vix": 13.76,
   "macro_source": "deterministic",
   "recommendation_count": 0,
   "recommendations": [],
@@ -22,12 +22,12 @@
     {
       "symbol": "APOLLOHOSP",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-23.10 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.17.85); work it as a combo limit order or stand aside; call-side bid-ask 999.0% > 2.5%"
+      "detail": "put-side worst-case credit Rs.-23.10 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.22.10); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-21.80 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.2.22); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "ASIANPAINT",
       "status": "REJECTED",
-      "detail": "IV rank 23 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 11 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "AXISBANK",
@@ -72,7 +72,7 @@
     {
       "symbol": "COALINDIA",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-3.75 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.38); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.55 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.65); work it as a combo limit order or stand aside"
+      "detail": "put-side worst-case credit Rs.-3.75 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.38); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.25 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.78); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "DRREDDY",
@@ -117,7 +117,7 @@
     {
       "symbol": "HINDUNILVR",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit 0% of width < 15%; call-side worst-case credit 10% of width < 15%"
+      "detail": "put-side worst-case credit Rs.-0.10 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.6.95); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.90); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "ICICIBANK",
@@ -137,12 +137,12 @@
     {
       "symbol": "ITC",
       "status": "REJECTED",
-      "detail": "IV rank 30 < 30 (premium too cheap to sell)"
+      "detail": "put-side worst-case credit Rs.-0.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.80); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.05 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.45); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "JIOFIN",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit 5% of width < 15%; call-side worst-case credit Rs.-0.09 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.90); work it as a combo limit order or stand aside"
+      "detail": "IV rank 25 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "JSWSTEEL",
@@ -152,7 +152,7 @@
     {
       "symbol": "KOTAKBANK",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit 2% of width < 15%; call-side worst-case credit 11% of width < 15%"
+      "detail": "put-side worst-case credit Rs.0.00 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.08); work it as a combo limit order or stand aside; call-side worst-case credit 14% of width < 15%"
     },
     {
       "symbol": "LT",
@@ -167,12 +167,12 @@
     {
       "symbol": "MARUTI",
       "status": "REJECTED",
-      "detail": "IV rank 19 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 24 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "MAXHEALTH",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-3.30 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.4.90); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-5.70 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.4.57); work it as a combo limit order or stand aside"
+      "detail": "put-side worst-case credit Rs.-3.30 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.4.75); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-5.70 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.4.57); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "NESTLEIND",
@@ -187,7 +187,7 @@
     {
       "symbol": "ONGC",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-2.19 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.59); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.12 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.56); work it as a combo limit order or stand aside"
+      "detail": "put-side worst-case credit Rs.-2.19 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.59); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.11 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.56); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "POWERGRID",
@@ -197,7 +197,7 @@
     {
       "symbol": "RELIANCE",
       "status": "REJECTED",
-      "detail": "put-side bid-ask 3.5% > 2.5%; call-side worst-case credit 6% of width < 15%"
+      "detail": "put-side bid-ask 2.8% > 2.5%; call-side worst-case credit 6% of width < 15%"
     },
     {
       "symbol": "SBILIFE",
@@ -207,12 +207,12 @@
     {
       "symbol": "SBIN",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit 4% of width < 15%"
+      "detail": "put-side worst-case credit Rs.-0.20 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.00); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-3.25 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.45); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "SHRIRAMFIN",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-2.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.6.97); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-3.55 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.70); work it as a combo limit order or stand aside"
+      "detail": "put-side worst-case credit Rs.-2.10 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.7.02); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-3.40 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.95); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "SUNPHARMA",
@@ -242,7 +242,7 @@
     {
       "symbol": "TITAN",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit 11% of width < 15%; call-side worst-case credit Rs.-10.85 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.5.85); work it as a combo limit order or stand aside"
+      "detail": "put-side worst-case credit 10% of width < 15%; call-side worst-case credit Rs.-10.05 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.6.25); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "TMPV",
@@ -252,7 +252,7 @@
     {
       "symbol": "TRENT",
       "status": "REJECTED",
-      "detail": "IV rank 12 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 14 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "ULTRACEMCO",
