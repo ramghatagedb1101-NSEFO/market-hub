@@ -14,7 +14,7 @@ permissions:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,4 +25,5 @@ jobs:
       - name: Shareholding / ratios / corporate-actions field discovery
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
-        run: python -m hub.diag_shareholding
+          PYTHONUNBUFFERED: "1"
+        run: python -u -m hub.diag_shareholding
