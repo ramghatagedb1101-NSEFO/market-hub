@@ -7,9 +7,15 @@ on:
     branches: [main]
     paths: ["triggers/diag.txt"]
   workflow_dispatch:
+    inputs:
+      no_chain:
+        description: "If true, skip the self-dispatch step (prevents a loop when testing)"
+        required: false
+        default: "false"
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   run:
@@ -22,8 +28,10 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: BharatStock rate-limit headers on a 429
+      - name: Self-dispatch permission test (one hop only, no BharatStock calls)
+        if: github.event.inputs.no_chain != 'true'
         env:
-          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
-          PYTHONUNBUFFERED: "1"
-        run: python -u -m hub.diag_quota_headers
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run diag.yml --repo "$GITHUB_REPOSITORY" -f no_chain=true \
+            && echo "DISPATCH_OK" || echo "DISPATCH_FAILED"
