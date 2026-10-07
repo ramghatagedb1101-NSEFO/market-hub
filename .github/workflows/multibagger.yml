@@ -1,0 +1,52 @@
+name: multibagger-weekly
+
+# Financials change quarterly and fund and promoter data change monthly, so this runs weekly,
+# not with the daily job. It rates about 2,000 companies, which takes roughly 40 minutes.
+
+on:
+  schedule:
+    - cron: "30 3 * * 0"          # 03:30 UTC on Sundays = 09:00 IST
+  workflow_dispatch:              # "Run workflow" button for a manual run
+
+permissions:
+  contents: write
+
+concurrency:
+  group: multibagger
+  cancel-in-progress: false
+
+jobs:
+  rate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Multi-bagger screen (BharatStock financials; derived ratings only)
+        env:
+          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
+        run: python -m hub.multibagger
+
+      - name: Commit multi-bagger
+        run: |
+          git config user.name "forecast-bot"
+          git config user.email "forecast-bot@users.noreply.github.com"
+          git add docs/data/multibagger.json
+          if git diff --cached --quiet; then
+            echo "No multi-bagger changes to commit"
+          else
+            git commit -m "multi-bagger $(date -u +%F)"
+            for i in 1 2 3; do
+              git pull --rebase --autostash -q origin main && git push && break
+              sleep 5
+            done
+            git fetch -q origin
+            git merge-base --is-ancestor HEAD origin/main || { echo "save failed: multi-bagger commit did not reach main"; exit 1; }
+          fi
