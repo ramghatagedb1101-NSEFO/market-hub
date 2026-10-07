@@ -337,6 +337,11 @@ function showStock(sym){
   const s = (lib.stocks || []).find(x => x.symbol === sym);
   const el = document.getElementById('stockdetail');
   if (!s || !el) return;
+  if (s.error) {
+    el.innerHTML = '<div class="card" style="margin-top:12px"><b style="font-size:14px;text-transform:none;letter-spacing:0;color:var(--text)">' +
+      esc(sym) + '</b><p class="err" style="margin:8px 0 0">' + esc(s.error) + '</p></div>';
+    return;
+  }
   const rows = Object.keys(s.cells || {}).map(k => {
     const c = s.cells[k];
     return '<tr><td>' + esc(k) + '</td><td>' + esc(c.value == null ? '-' : c.value) + '</td><td>' + badge(c.status) + '</td><td class="muted">' + esc(c.rule) + '</td></tr>';
