@@ -185,6 +185,9 @@ let token = sessionStorage.getItem('mh_admin_token') || '';
 let data = null;
 let tab = 'status';
 let lib = null;
+let libPage = 0;
+const LIB_PAGE_SIZE = 100;
+function onLibFilterChange(){ libPage = 0; drawLibTable(); }
 
 function sendCode(){
   document.getElementById('send').disabled = true;
@@ -260,13 +263,17 @@ function draw(){
       const opts = Object.keys(lib.rules || {}).map(k => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('');
       v.innerHTML = '<p class="muted" id="libinfo" style="margin:0 0 12px"></p>' +
         '<div class="card"><div id="libctl" class="toolbar">' +
-        '<label>Search symbol<input id="libq" placeholder="e.g. TCS" oninput="drawLibTable()"></label>' +
-        '<label>Sort<select id="libsort" onchange="drawLibTable()"><option value="met">Most parameters met</option><option value="data">Data quality</option><option value="symbol">Symbol</option></select></label>' +
-        '<label>Min parameters met<input id="libmin" type="number" min="0" max="30" value="0" oninput="drawLibTable()"></label>' +
-        '<label>Min data quality %<input id="libdq" type="number" min="0" max="100" value="0" oninput="drawLibTable()"></label>' +
-        '<label>Parameter<select id="libp" onchange="drawLibTable()"><option value="">Any parameter</option>' + opts + '</select></label>' +
-        '<label>Parameter is<select id="libst" onchange="drawLibTable()"><option value="met">Met</option><option value="not_met">Not met</option><option value="not_testable">Not testable</option></select></label>' +
-        '</div><p class="muted" id="libinfo2" style="margin:10px 0 0"></p></div><div id="libtable"></div><div id="stockdetail"></div>';
+        '<label>Search symbol<input id="libq" placeholder="e.g. TCS" oninput="onLibFilterChange()"></label>' +
+        '<label>Sort<select id="libsort" onchange="onLibFilterChange()"><option value="met">Most parameters met</option><option value="data">Data quality</option><option value="symbol">Symbol</option></select></label>' +
+        '<label>Min parameters met<input id="libmin" type="number" min="0" max="30" value="0" oninput="onLibFilterChange()"></label>' +
+        '<label>Min data quality %<input id="libdq" type="number" min="0" max="100" value="0" oninput="onLibFilterChange()"></label>' +
+        '<label>Parameter<select id="libp" onchange="onLibFilterChange()"><option value="">Any parameter</option>' + opts + '</select></label>' +
+        '<label>Parameter is<select id="libst" onchange="onLibFilterChange()"><option value="met">Met</option><option value="not_met">Not met</option><option value="not_testable">Not testable</option></select></label>' +
+        '</div><p class="muted" id="libinfo2" style="margin:10px 0 0"></p></div>' +
+        '<div id="libpage" style="display:flex;align-items:center;gap:10px;margin-bottom:10px"></div>' +
+        '<div id="libtable"></div>' +
+        '<div id="libpage2" style="display:flex;align-items:center;gap:10px;margin-top:10px"></div>' +
+        '<div id="stockdetail"></div>';
       document.getElementById('libinfo').textContent = 'Generated ' + (lib.generated || '') + (lib.partial ? ' (partial run)' : '') + ' · ' + (lib.stocks || []).length + ' companies.';
     }
     drawLibTable();
@@ -299,14 +306,33 @@ function drawLibTable(){
   rows.sort((a, b) => sort === 'symbol' ? (a.symbol < b.symbol ? -1 : 1) :
     sort === 'data' ? (b.data_quality_pct || 0) - (a.data_quality_pct || 0) : (b.met || 0) - (a.met || 0));
   const total = rows.length;
-  rows = rows.slice(0, 300);
-  const body = rows.map(s => '<tr style="cursor:pointer" data-s="' + esc(s.symbol) + '" onclick="showStock(this.dataset.s)"><td><b>' +
+  const pages = Math.max(1, Math.ceil(total / LIB_PAGE_SIZE));
+  if (libPage >= pages) libPage = pages - 1;
+  if (libPage < 0) libPage = 0;
+  const from = libPage * LIB_PAGE_SIZE;
+  const pageRows = rows.slice(from, from + LIB_PAGE_SIZE);
+  const body = pageRows.map(s => '<tr style="cursor:pointer" data-s="' + esc(s.symbol) + '" onclick="showStock(this.dataset.s)"><td><b>' +
     esc(s.symbol) + '</b></td><td><span class="num-met">' + (s.met || 0) + '</span></td><td><span class="num-bad">' + (s.not_met || 0) +
     '</span></td><td class="muted">' + (s.not_testable || 0) + '</td><td><span class="' + dqClass(s.data_quality_pct || 0) + '">' +
     (s.data_quality_pct || 0) + '%</span></td></tr>').join('');
-  document.getElementById('libinfo2').textContent = total + ' companies match · showing ' + rows.length + ' · tap a row for detail';
+  const shownFrom = total === 0 ? 0 : from + 1;
+  const shownTo = Math.min(from + LIB_PAGE_SIZE, total);
+  document.getElementById('libinfo2').textContent = total + ' companies match · showing ' + shownFrom + '–' + shownTo + ' · tap a row for detail';
   el.innerHTML = '<table><tr><th>Symbol</th><th>Met</th><th>Not met</th><th>Not testable</th><th>Data</th></tr>' + body + '</table>';
+  const pageOpts = [];
+  for (let i = 0; i < pages; i++) {
+    const pFrom = i * LIB_PAGE_SIZE + 1;
+    const pTo = Math.min((i + 1) * LIB_PAGE_SIZE, total);
+    pageOpts.push('<option value="' + i + '"' + (i === libPage ? ' selected' : '') + '>' + pFrom + '–' + pTo + '</option>');
+  }
+  const pager = '<button' + (libPage === 0 ? ' disabled' : '') + ' onclick="libGoPage(' + (libPage - 1) + ')">← Prev</button>' +
+    '<select onchange="libGoPage(Number(this.value))">' + pageOpts.join('') + '</select>' +
+    '<span class="muted">of ' + total + '</span>' +
+    '<button' + (libPage >= pages - 1 ? ' disabled' : '') + ' onclick="libGoPage(' + (libPage + 1) + ')">Next →</button>';
+  document.getElementById('libpage').innerHTML = pager;
+  document.getElementById('libpage2').innerHTML = pager;
 }
+function libGoPage(p){ libPage = p; drawLibTable(); window.scrollTo({top: 0, behavior: 'smooth'}); }
 function showStock(sym){
   const s = (lib.stocks || []).find(x => x.symbol === sym);
   const el = document.getElementById('stockdetail');
