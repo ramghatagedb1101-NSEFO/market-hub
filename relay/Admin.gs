@@ -191,18 +191,20 @@ function draw(){
   } else if (tab === 'library') {
     if (!lib) { v.innerHTML = '<p class="muted">Loading the library...</p>'; loadLib(); return; }
     if (lib.error) { v.innerHTML = '<p class="err">' + esc(lib.error) + '</p>'; return; }
-    const q = (document.getElementById('libq') || { value: '' }).value.trim().toUpperCase();
-    const f = (document.getElementById('libf') || { value: 'all' }).value;
-    const rows = (lib.stocks || []).filter(s => s.symbol && s.symbol.indexOf(q) >= 0 &&
-      (f === 'all' || (f === 'met10' && (s.met || 0) >= 10) || (f === 'met15' && (s.met || 0) >= 15)))
-      .sort((a, b) => (b.met || 0) - (a.met || 0)).slice(0, 300);
-    const body = rows.map(s => '<tr style="cursor:pointer" data-s="' + esc(s.symbol) + '" onclick="showStock(this.dataset.s)"><td>' + esc(s.symbol) + '</td><td>' + (s.met || 0) + '</td><td>' + (s.not_met || 0) + '</td><td>' + (s.not_testable || 0) + '</td><td>' + (s.data_quality_pct || 0) + '%</td></tr>').join('');
-    v.innerHTML = '<p class="muted">Generated ' + esc(lib.generated) + (lib.partial ? ' (partial run)' : '') + '. ' +
-      (lib.stocks || []).length + ' companies. Top 300 shown; tap a row for the parameter detail.</p>' +
-      '<input id="libq" placeholder="Search symbol" oninput="draw()" style="width:100%;margin:6px 0">' +
-      '<select id="libf" onchange="draw()"><option value="all">All</option><option value="met10">Met 10 or more</option><option value="met15">Met 15 or more</option></select>' +
-      '<table><tr><th>Symbol</th><th>Met</th><th>Not met</th><th>Not testable</th><th>Data</th></tr>' + body + '</table>' +
-      '<div id="stockdetail"></div>';
+    if (!document.getElementById('libctl')) {
+      const opts = Object.keys(lib.rules || {}).map(k => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('');
+      v.innerHTML = '<p class="muted" id="libinfo"></p>' +
+        '<div id="libctl" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0">' +
+        '<input id="libq" placeholder="Search symbol" oninput="drawLibTable()">' +
+        '<select id="libsort" onchange="drawLibTable()"><option value="met">Sort: most parameters met</option><option value="data">Sort: data quality</option><option value="symbol">Sort: symbol</option></select>' +
+        '<label class="muted">Min parameters met <input id="libmin" type="number" min="0" max="30" value="0" oninput="drawLibTable()" style="width:70px"></label>' +
+        '<label class="muted">Min data quality % <input id="libdq" type="number" min="0" max="100" value="0" oninput="drawLibTable()" style="width:70px"></label>' +
+        '<select id="libp" onchange="drawLibTable()"><option value="">Any parameter</option>' + opts + '</select>' +
+        '<select id="libst" onchange="drawLibTable()"><option value="met">parameter is met</option><option value="not_met">parameter is not met</option><option value="not_testable">parameter is not testable</option></select>' +
+        '</div><p class="muted" id="libinfo2"></p><div id="libtable"></div><div id="stockdetail"></div>';
+      document.getElementById('libinfo').textContent = 'Generated ' + (lib.generated || '') + (lib.partial ? ' (partial run)' : '') + '. ' + (lib.stocks || []).length + ' companies.';
+    }
+    drawLibTable();
   } else if (tab === 'tests') {
     const t = d.tests || {};
     let html = '';
@@ -217,6 +219,27 @@ function loadLib(){
     if (d.error === 'session_expired') { logout(); return; }
     lib = d; draw();
   }).withFailureHandler(e => { lib = { error: e.message }; draw(); }).adminLibrary(token);
+}
+function drawLibTable(){
+  const el = document.getElementById('libtable');
+  if (!el || !lib || !lib.stocks) return;
+  const q = document.getElementById('libq').value.trim().toUpperCase();
+  const sort = document.getElementById('libsort').value;
+  const minMet = Number(document.getElementById('libmin').value || 0);
+  const minDq = Number(document.getElementById('libdq').value || 0);
+  const p = document.getElementById('libp').value;
+  const st = document.getElementById('libst').value;
+  let rows = lib.stocks.filter(s => s.symbol && s.symbol.indexOf(q) >= 0 && (s.met || 0) >= minMet &&
+    (s.data_quality_pct || 0) >= minDq && (!p || (s.cells && s.cells[p] && s.cells[p].status === st)));
+  rows.sort((a, b) => sort === 'symbol' ? (a.symbol < b.symbol ? -1 : 1) :
+    sort === 'data' ? (b.data_quality_pct || 0) - (a.data_quality_pct || 0) : (b.met || 0) - (a.met || 0));
+  const total = rows.length;
+  rows = rows.slice(0, 300);
+  const body = rows.map(s => '<tr style="cursor:pointer" data-s="' + esc(s.symbol) + '" onclick="showStock(this.dataset.s)"><td>' +
+    esc(s.symbol) + '</td><td>' + (s.met || 0) + '</td><td>' + (s.not_met || 0) + '</td><td>' + (s.not_testable || 0) + '</td><td>' +
+    (s.data_quality_pct || 0) + '%</td></tr>').join('');
+  document.getElementById('libinfo2').textContent = total + ' companies match. Showing ' + rows.length + '. Tap a row for the detail.';
+  el.innerHTML = '<table><tr><th>Symbol</th><th>Met</th><th>Not met</th><th>Not testable</th><th>Data</th></tr>' + body + '</table>';
 }
 function showStock(sym){
   const s = (lib.stocks || []).find(x => x.symbol === sym);
