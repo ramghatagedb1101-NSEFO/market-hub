@@ -2,7 +2,7 @@ name: daily-forecast
 
 on:
   schedule:
-    - cron: "0 11 * * 1-5"       # 11:00 UTC = 16:30 IST, weekdays (after the close and NSE's bhavcopy)
+    - cron: "30 12 * * 1-5"       # 12:30 UTC = 18:00 IST, weekdays (after the close, NSE bhavcopy and bulk deals)
   workflow_dispatch:              # "Run workflow" button for a manual run, free
 
 permissions:
@@ -72,6 +72,9 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python -m hub.narrate
+
+      - name: Collect today's bulk deals (history for the smart-money layer)
+        run: python -m hub.bulkdeals
 
       - name: Commit state and feed
         run: |
