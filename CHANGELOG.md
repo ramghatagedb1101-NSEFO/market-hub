@@ -2,6 +2,37 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-07
+
+### Stock library (hub/library.py, hub/parameters.py, private repo)
+- Full build: a 124-parameter registry (`b6768c2`, `8fed6f3`) and a scoring engine that gives every stock a met/not-met/not-testable verdict per parameter, with the literal rule shown (`6b8d686`). Universe is every NSE EQ/BE equity (2,570 names), not just Midcap150+Smallcap250; ACC is included (`60bda68`). Output goes to the private repo `market-hub-private` (`library.json`), never the public site, since it holds BharatStock-derived figures.
+- **Root cause found and fixed: the first run showed real data for only 2 of 2,570 companies.** The shared page-fetcher raised immediately on any non-2xx status, including 429, so a single rate-limit hit silently killed that company's entire entry (recorded as a bare error, not partial data). Added a 4-try backoff (2s/4s/6s) (`bc94edf`). A fast 10-company sample test (`hub/diag_library_sample.py`, `dd80108`) now checks a fix in under a minute instead of a 25-70 minute full-universe run.
+- Cash-flow parameters (`cfo`, `cfo_to_pat`, `cfo_margin`, `cfo_growth`, `fcf`, `capex_to_sales`) were always "not testable": BharatStock fills `cash_flow_operating` and `capex` only on annual financial rows, never quarterly, but only quarterly data was ever fetched. Added a separate annual-financials fetch; the same fix applied to the multi-bagger screen's `cash_backed` gate, which had the identical bug (`64cdc9e`, `67db96e`).
+- PE, PB, price/sales and market value added, computed free from fields already fetched (shares outstanding = paid-up equity capital ÷ face value, from the financials endpoint) rather than BharatStock's `ratios` endpoint, which turned out to be unreachable (`f9ab27e`; see below).
+- Promoter holding %, and its quarter-over-quarter and year-over-year change, added from NSE's own `corporate-share-holdings-master` API — confirmed reachable from GitHub Actions, no cookie workaround needed beyond a plain homepage GET first (`8d3a1f3`). Revised/duplicate filings for the same quarter are de-duplicated by broadcast date before computing change.
+- BharatStock's `shareholding`, `ratios` and `corporate-actions` endpoints 429 on every attempt, with or without backoff — not a burst issue, almost certainly not included in the current plan tier. Flagged for the owner to check; not guessed around.
+- Parameter registry coverage: 74 → 85 of 124 parameters now have a confirmed source.
+- Dashboard: added pagination to the Library tab (100 per page, 1–2,570) (`f438aab`), and the stock-detail panel now shows the actual error text for a failed company instead of a blank panel (`268b835`).
+
+### Admin dashboard (relay/Admin.gs, private, email-code login)
+- Built from scratch: six-digit email code (ten minutes, one per minute), six-hour session, tabs for Status/Library/Parameters/Registry/Bulk deals/Back-tests (`ba7aa98`, `c428b7c`). Data read from the private repo via a Contents-API read-only token, not the legacy Drive relay (`3072e0d`, `4f75dd6`).
+- Library tab: search, sort, minimum-met/minimum-data-quality filters, filter by one parameter's result (`78a171b`); fixed a quoting bug that broke the whole page's script (`33b3957`).
+- Visual redesign: color palette, card layout, status badges (met/not-met/not-testable/available/gap color-coded), proper toolbar (today, unlogged commit — see `relay/Admin.gs`).
+
+### Daily job fixes
+- Admin-summary publish step was still reading the old relay environment variables after the switch to the private-repo publisher; fixed to pass `PRIVATE_REPO_TOKEN` (`08f2f11`).
+- **Stale intraday price lock-in.** If the Kite-login trigger fires the daily job mid-session (owner logging in before 15:30 IST close), Kite's "today" candle is a partial-day value. The old incremental price-fetch logic stored it under today's date and never revisited it, because the next run's starting point always moved past any date already present — the wrong mid-session value for SENSEX would have stayed final forever. Fixed: today's entry is dropped and re-fetched every run, so it only becomes final once a run actually happens after the close (unreleased fix, `hub/sources/prices.py`).
+- NIFTY/BANKNIFTY bhavcopy confirmed working as intended: it shows the latest *published* trading day, which lags by one day until NSE releases the current day's file after close — not a bug.
+
+### Multi-bagger (hub/multibagger.py)
+- ACC exclusion removed; every NSE EQ/BE equity scored (`60bda68`).
+- 70-minute time budget with checkpoints every 200 companies, so a run near the 90-minute job limit never loses all its work (`9be621d`).
+- Same 429-retry and annual-financials fixes as the stock library, since both share `hub/multibagger.py`'s fetch functions.
+
+### Bulk deals and investor registry
+- Daily bulk-deal collector from NSE's archive CSV; client names are kept only when they match a `status: confirmed` registry entry, otherwise stored as `OTHER` (`e17354e`). No free historical source exists, so history only accumulates from 2026-10-06 forward.
+- Investor registry seeded with 23 researched "marquee investors," all `status: unconfirmed` until a filing or bulk-deal match confirms one.
+
 ## 2026-10-06 (late)
 
 Changes since the night entry. Commit references are on `main`.
