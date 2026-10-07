@@ -61,8 +61,15 @@ def main() -> dict:
                       data=payload.encode("utf-8"), headers={"Content-Type": "text/plain;charset=utf-8"},
                       timeout=60)
     r.raise_for_status()
-    body = r.json() if r.text.strip().startswith("{") else {"status": r.status_code}
-    return {"sent_bytes": len(payload), "relay_reply": body.get("error") or body.get("ok", True)}
+    text = r.text.strip()
+    # A save only counts when the relay answers with its own JSON reply: {"ok": true}.
+    # Anything else (an error page, a sign-in page, a permission prompt) is a failure.
+    if not text.startswith("{"):
+        raise RuntimeError("relay did not confirm the save (non-JSON reply): " + text[:120])
+    body = json.loads(text)
+    if not body.get("ok"):
+        raise RuntimeError("relay refused the save: " + str(body.get("error", body))[:120])
+    return {"sent_bytes": len(payload), "saved": True}
 
 
 if __name__ == "__main__":
