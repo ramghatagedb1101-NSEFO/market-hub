@@ -1,0 +1,28 @@
+{
+  "note": "Investor registry. A name counts in any score only when status is confirmed. Aliases are the exact spellings seen in NSE and BSE filings and bulk-deal records. Keep unconfirmed entries until a filing or bulk deal matches them.",
+  "investors": [
+    {"name": "Radhakishan Damani", "type": "individual", "aliases": ["RADHAKISHAN DAMANI", "RADHAKISHAN SHIVKISHAN DAMANI"], "status": "unconfirmed"},
+    {"name": "Ashish Kacholia", "type": "individual", "aliases": ["ASHISH KACHOLIA", "LUCKY INVESTMENT MANAGERS PRIVATE LIMITED", "LUCKY INVESTMENT MANAGERS PVT LTD"], "status": "unconfirmed"},
+    {"name": "Vijay Kedia", "type": "individual", "aliases": ["VIJAY KEDIA", "VIJAY KISHANLAL KEDIA", "KEDIA SECURITIES PRIVATE LIMITED", "KEDIA SECURITIES PVT LTD"], "status": "unconfirmed"},
+    {"name": "Madhusudan Kela", "type": "individual", "aliases": ["MADHUSUDAN KELA", "MADHURI MADHUSUDAN KELA"], "status": "unconfirmed"},
+    {"name": "Mukul Agrawal", "type": "individual", "aliases": ["MUKUL AGRAWAL", "PARAM CAPITAL"], "status": "unconfirmed"},
+    {"name": "Dolly Khanna", "type": "individual", "aliases": ["DOLLY KHANNA", "DOLLY RAJIV KHANNA"], "family_aliases": ["RAJIV KHANNA"], "status": "unconfirmed"},
+    {"name": "Sunil Singhania", "type": "individual", "aliases": ["SUNIL SINGHANIA", "ABAKKUS ASSET MANAGEMENT"], "status": "unconfirmed"},
+    {"name": "Porinju Veliyath", "type": "individual", "aliases": ["PORINJU VELIYATH", "EQUITY INTELLIGENCE INDIA PRIVATE LIMITED"], "status": "unconfirmed"},
+    {"name": "Rekha Jhunjhunwala", "type": "individual", "aliases": ["REKHA RAKESH JHUNJHUNWALA", "RARE ENTERPRISES"], "status": "unconfirmed"},
+    {"name": "Ramesh Damani", "type": "individual", "aliases": ["RAMESH DAMANI"], "status": "unconfirmed"},
+    {"name": "Ajay Upadhyaya", "type": "individual", "aliases": ["AJAY UPADHYAYA"], "status": "unconfirmed"},
+    {"name": "Dilipkumar Lakhi", "type": "individual", "aliases": ["DILIPKUMAR LAKHI"], "status": "unconfirmed"},
+    {"name": "Bhavook Tripathi", "type": "individual", "aliases": ["BHAVOOK TRIPATHI"], "status": "unconfirmed"},
+    {"name": "Keswani Haresh", "type": "individual", "aliases": ["KESWANI HARESH"], "status": "unconfirmed"},
+    {"name": "Anil Kumar Goel", "type": "individual", "aliases": ["ANIL KUMAR GOEL", "ANIL KUMAR GOEL AND ASSOCIATES"], "status": "unconfirmed"},
+    {"name": "Ashish Dhawan", "type": "individual", "aliases": ["ASHISH DHAWAN"], "status": "unconfirmed"},
+    {"name": "Amit Jain", "type": "individual", "aliases": ["AMIT JAIN"], "status": "unconfirmed", "check": "identity not yet verified"},
+    {"name": "Pratham Mittal", "type": "individual", "aliases": ["PRATHAM MITTAL"], "status": "unconfirmed", "check": "identity not yet verified"},
+    {"name": "Premji Invest", "type": "family_office", "aliases": ["PREMJI INVEST", "PREMJI INVEST LLP"], "status": "unconfirmed"},
+    {"name": "Sharrp Ventures", "type": "family_office", "aliases": ["SHARRP VENTURES"], "status": "unconfirmed"},
+    {"name": "MGA Ventures", "type": "family_office", "aliases": ["MGA VENTURES"], "status": "unconfirmed"},
+    {"name": "Prasid Uno Family Trust", "type": "family_office", "aliases": ["PRASID UNO FAMILY TRUST"], "status": "unconfirmed"},
+    {"name": "Bank Muscat India Fund", "type": "fund", "aliases": ["BANK MUSCAT INDIA FUND"], "status": "unconfirmed"}
+  ]
+}
