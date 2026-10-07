@@ -67,6 +67,7 @@ def values(records: list[dict]) -> dict:
         return out
     latest = records[0]
     out["promoter_holding"] = latest["promoter_pct"]
+    out["public_float"] = latest["public_pct"]
     out["_promoter_period"] = latest["date"].isoformat()
     if len(records) > 1:
         out["promoter_change_qoq"] = latest["promoter_pct"] - records[1]["promoter_pct"]

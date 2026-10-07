@@ -62,6 +62,7 @@ RULES = {
     "promoter_holding": ("Promoter and promoter group holding at least 40%", lambda v: v >= 40),
     "promoter_change_qoq": ("Promoter holding not lower than the previous quarter", lambda v: v >= 0),
     "promoter_change_yoy": ("Promoter holding not lower than a year ago", lambda v: v >= 0),
+    "public_float": ("Public float at least 25% (SEBI's minimum public shareholding norm)", lambda v: v >= 25),
 }
 
 NOT_YET = [

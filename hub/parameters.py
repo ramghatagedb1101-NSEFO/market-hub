@@ -66,7 +66,7 @@ PARAMETERS = [
     ('registry_new_entrants', 'ownership', 'Registry investors that entered the stock this quarter', 'NSE shareholding pattern + registry', 'to_build'),
     ('holder_count_change', 'ownership', 'Change in the number of holders above 1% over one quarter', 'NSE shareholding pattern', 'to_build'),
     ('top10_holding_change', 'ownership', "Change in the top ten holders' combined holding", 'NSE shareholding pattern', 'to_build'),
-    ('public_float', 'ownership', 'Share of shares held by the public, latest quarter', 'NSE shareholding pattern', 'to_build'),
+    ('public_float', 'ownership', 'Share of shares held by the public, latest quarter', 'NSE corporate-share-holdings-master', 'available'),
     ('bulk_buys_20d', 'smart_money', 'Bulk-deal buys in the last 20 sessions', 'NSE bulk deals', 'collecting'),
     ('bulk_sells_20d', 'smart_money', 'Bulk-deal sells in the last 20 sessions', 'NSE bulk deals', 'collecting'),
     ('registry_buys_20d', 'smart_money', 'Bulk-deal buys by confirmed registry investors in the last 20 sessions', 'NSE bulk deals + registry', 'collecting'),
