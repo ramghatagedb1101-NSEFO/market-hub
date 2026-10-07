@@ -250,19 +250,34 @@ def evaluate(values: dict) -> dict:
             "testable": testable, "data_quality_pct": round(100 * testable / len(RULES), 1)}
 
 
-def publish(payload: dict) -> None:
+def _private_headers() -> dict:
     token = os.getenv("PRIVATE_REPO_TOKEN")
     if not token:
         raise RuntimeError("PRIVATE_REPO_TOKEN is not set")
+    return {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+
+
+def fetch_existing() -> tuple[dict, str | None]:
+    """Reads the published library.json, if any, so a batch can resume from the last cursor and
+    merge into the prior results instead of starting over or overwriting other batches' work."""
+    url = f"https://api.github.com/repos/{PRIVATE_REPO}/contents/{PRIVATE_FILE}"
+    got = requests.get(url, headers=_private_headers(), timeout=30)
+    if got.status_code == 404:
+        return {}, None
+    got.raise_for_status()
+    body = got.json()
+    sha = body.get("sha")
+    try:
+        content = base64.b64decode(body.get("content", "")).decode("utf-8")
+        return json.loads(content), sha
+    except (ValueError, TypeError):
+        return {}, sha
+
+
+def publish(payload: dict, sha: str | None) -> None:
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     url = f"https://api.github.com/repos/{PRIVATE_REPO}/contents/{PRIVATE_FILE}"
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-    sha = None
-    got = requests.get(url, headers=headers, timeout=30)
-    if got.status_code == 200:
-        sha = got.json().get("sha")
-    elif got.status_code != 404:
-        got.raise_for_status()
+    headers = _private_headers()
     msg = {"message": f"stock library {date.today().isoformat()}",
            "content": base64.b64encode(body).decode("ascii")}
     if sha:
@@ -271,14 +286,26 @@ def publish(payload: dict) -> None:
 
 
 def main() -> dict:
+    """Runs one batch, starting where the last batch left off. A single GitHub Actions job cannot
+    finish the full ~2,570-company universe once real API calls are happening (roughly 300 fit in
+    the 70-minute time budget) -- so each run picks up at `cursor_next` from the previous run's
+    published library.json, processes as much as its time budget allows, merges its results into
+    the prior stocks (other companies' entries are left untouched), and reports whether the pass
+    wrapped around (cycle_complete). The workflow uses cycle_complete to decide whether to dispatch
+    another run and keep the chain going."""
     key = os.getenv("BHARATSTOCK_API_KEY")
     if not key:
         raise RuntimeError("BHARATSTOCK_API_KEY is not set")
     started = time.time()
     names = universe()
+    existing, sha = fetch_existing()
+    start_idx = existing.get("cursor_next", 0)
+    if not isinstance(start_idx, int) or not (0 <= start_idx < len(names)):
+        start_idx = 0
+    prior_stocks = {s["symbol"]: s for s in existing.get("stocks", []) if isinstance(s, dict) and s.get("symbol")}
     nse_session = shp.session()
     stocks, partial, processed = [], False, 0
-    for sym in names:
+    for sym in names[start_idx:]:
         if time.time() - started > TIME_BUDGET_SECONDS:
             partial = True
             break
@@ -321,18 +348,30 @@ def main() -> dict:
         except Exception as exc:
             stocks.append({"symbol": sym, "error": str(exc)[:120]})
         time.sleep(0.2)
+
+    end_idx = start_idx + processed
+    cycle_complete = end_idx >= len(names)
+    cursor_next = 0 if cycle_complete else end_idx
+    prior_stocks.update({s["symbol"]: s for s in stocks})
+    merged_stocks = list(prior_stocks.values())
+
     payload = {
         "generated": datetime.now(config.IST).isoformat(timespec="minutes"),
         "partial": partial,
         "universe": len(names),
         "processed": processed,
+        "batch_from": start_idx,
+        "batch_to": end_idx,
+        "cursor_next": cursor_next,
+        "cycle_complete": cycle_complete,
+        "total_stocks": len(merged_stocks),
         "rules": {k: v[0] for k, v in RULES.items()},
         "not_yet_implemented": NOT_YET,
-        "stocks": stocks,
+        "stocks": merged_stocks,
     }
-    publish(payload)
+    publish(payload, sha)
     return {k: v for k, v in payload.items() if k not in ("stocks", "rules", "not_yet_implemented")} | {
-        "stocks_written": len(stocks)}
+        "stocks_written": len(merged_stocks), "batch_written": len(stocks)}
 
 
 if __name__ == "__main__":

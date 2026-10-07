@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  actions: write   # lets the last step chain to the next batch (see below)
 
 concurrency:
   group: library
@@ -28,8 +29,23 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Score the stock library
+      # One run cannot score all ~2,570 companies once real API calls are happening (roughly 300
+      # fit in the 70-minute internal time budget). hub/library.py resumes from the cursor stored
+      # in the last published library.json and reports whether this batch reached the end of the
+      # universe (cycle_complete). While it hasn't, the next step re-dispatches this same workflow
+      # so a full pass finishes on its own across several runs, instead of waiting a week between
+      # Saturday cron fires.
+      - name: Score the stock library (one batch)
+        id: score
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: python -m hub.library
+        run: |
+          set -o pipefail
+          python -m hub.library | tee /tmp/library_result.json
+          python -c "import json; print('cycle_complete=' + str(json.load(open('/tmp/library_result.json')).get('cycle_complete', False)))" >> "$GITHUB_OUTPUT"
+      - name: Continue to the next batch
+        if: steps.score.outputs.cycle_complete != 'True'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run library.yml --repo "$GITHUB_REPOSITORY"
