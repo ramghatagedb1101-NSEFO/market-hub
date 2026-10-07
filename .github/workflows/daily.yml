@@ -76,11 +76,10 @@ jobs:
       - name: Collect today's bulk deals (history for the smart-money layer)
         run: python -m hub.bulkdeals
 
-      - name: Send the admin summary to the private dashboard (relay)
+      - name: Write the admin summary to the private repo
         continue-on-error: true
         env:
-          RELAY_URL: ${{ secrets.RELAY_URL }}
-          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: python -m hub.admin_publish
 
       - name: Commit state and feed
