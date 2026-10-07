@@ -1,5 +1,5 @@
 {
- "ts": "2026-10-07T10:16+05:30",
+ "ts": "2026-10-07T10:21+05:30",
  "errors": {},
  "fii_dii": [
   {
@@ -46,21 +46,21 @@
   "Gold (MCX, ₹/10g)": {
    "contract": "GOLD26DECFUT",
    "expiry": "2026-12-04",
-   "last": 149418.0,
+   "last": 149428.0,
    "prev_close": 150120.0,
-   "change_pct": -0.47
+   "change_pct": -0.46
   },
   "Crude oil (MCX, ₹/bbl)": {
    "contract": "CRUDEOIL26OCTFUT",
    "expiry": "2026-10-19",
-   "last": 8709.0,
+   "last": 8704.0,
    "prev_close": 8628.0,
-   "change_pct": 0.94
+   "change_pct": 0.88
   }
  },
  "india_vix": {
-  "last": 13.9,
-  "change_pct": 2.13
+  "last": 13.8,
+  "change_pct": 1.4
  },
  "usd_inr_live": {
   "contract": "USDINR26O09FUT",
@@ -207,7 +207,7 @@
   },
   {
    "source": "Livemint Markets",
-   "title": "RBI MPC meeting LIVE: Repo rate raised by 25 BPS to 5.50% | stance changed to caliberated tightening from neutral",
+   "title": "RBI MPC meeting LIVE: Repo rate raised by 25 BPS to 5.50% | Top factors that dictated MPC outcome",
    "time": "2026-10-07T06:37+05:30"
   },
   {
@@ -312,6 +312,16 @@
   },
   {
    "source": "Investing.com News",
+   "title": "Boston Dynamics appoints ex-Amazon executive Rohit Prasad as CEO",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
+   "title": "Regis Resources shares fall as Q1 gold production remains weak",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
    "title": "HSBC plans deep job cuts in UK wealth management amid AI push, FT reports",
    "time": null
   },
@@ -349,22 +359,12 @@
    "source": "Investing.com News",
    "title": "This AI infrastructure stock is up 16.8% this week as earnings beat estimates",
    "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Malaysia 2027 budget to tackle living costs, fiscal risks as election looms",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Asia stocks fall despite Wall Street records as rising oil, yields weigh",
-   "time": null
   }
  ],
  "crude_usd": {
-  "last": 89.65,
-  "change_pct": 0.94,
-  "basis": "MCX crude ₹8709 ÷ 97.145 (live USD/INR)",
+  "last": 89.6,
+  "change_pct": 0.88,
+  "basis": "MCX crude ₹8704 ÷ 97.145 (live USD/INR)",
   "contract": "CRUDEOIL26OCTFUT"
  }
 }
