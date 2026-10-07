@@ -286,6 +286,7 @@
     const com = C.commodities || {};
     const glob = C.global || {};
     const fii = (C.fii_dii || []).reduce((a, r) => { a[r.category] = r.net; return a; }, {});
+    const fiiDate = (C.fii_dii && C.fii_dii[0]) ? C.fii_dii[0].date : null;
 
     // Gold and crude in rupees: live if the relay has them, else the daily snapshot
     const goldRaw = ex.gold || com["Gold (MCX, ₹/10g)"];
@@ -323,8 +324,9 @@
       <div class="panel"><div class="ph"><span>Moves</span><span class="flag">% today</span></div>
         <div class="pb">${moves || '<div class="mut">No market data yet.</div>'}</div></div>
       <div class="sec">Institutional flows</div>
-      <div class="panel"><div class="ph"><span>FII and DII</span><span class="flag">cash, ₹ crore</span></div>
-        <div class="pb">${flows || '<div class="mut">Flow data not available today.</div>'}</div></div>
+      <div class="panel"><div class="ph"><span>FII and DII</span><span class="flag">cash${fiiDate ? " · " + esc(fiiDate) : ""}</span></div>
+        <div class="pb">${flows || '<div class="mut">Flow data not available today.</div>'}</div>
+        <div class="note" style="padding:0 12px 10px">NSE publishes this once a day for the previous session's settled trades, not live.</div></div>
       <div class="sec">Written brief</div>
       <div class="panel"><div class="pb">
         ${failed ? `<div class="amb">Brief pending: the AI service did not respond. It updates on the next daily run.</div>` :
