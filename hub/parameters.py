@@ -120,6 +120,57 @@ PARAMETERS = [
     ("sector_pe_vs_history", "context", "Sector median P/E vs its own five-year median", "BharatStock prices + financials", "to_build"),
     ("listing_age_years", "context", "Years since listing on NSE", "NSE equity list", "available"),
     ("index_membership", "context", "Current index membership (Nifty 50, Next 50, Midcap, Smallcap, Microcap)", "NSE index files", "to_build"),
+    # Added: more financial depth
+    ("net_profit_level", "financials", "Net profit, latest quarter, in rupees (scale and survivability)", "BharatStock financials", "pending_field_check"),
+    ("revenue_level", "financials", "Revenue, latest quarter, in rupees (scale)", "BharatStock financials", "pending_field_check"),
+    ("ebitda_margin", "financials", "Earnings before interest, tax, depreciation and amortisation as a share of revenue", "BharatStock financials", "pending_field_check"),
+    ("revenue_acceleration", "financials", "Change in revenue growth rate vs the previous quarter", "BharatStock financials", "pending_field_check"),
+    ("margin_trend_3y", "financials", "Change in net margin over three years", "BharatStock financials", "pending_field_check"),
+    ("eps_cagr_3y", "financials", "Three-year earnings per share growth rate per year", "BharatStock financials", "pending_field_check"),
+    ("tax_rate", "financials", "Tax as a share of profit before tax", "BharatStock financials", "pending_field_check"),
+    ("depreciation_to_sales", "financials", "Depreciation as a share of revenue (asset intensity)", "BharatStock financials", "pending_field_check"),
+    ("employee_cost_share", "financials", "Employee cost as a share of revenue", "BharatStock financials", "pending_field_check"),
+
+    # Added: balance sheet depth
+    ("equity_multiplier", "balance_sheet", "Total assets divided by net worth (leverage including non-debt liabilities)", "BharatStock balance sheet", "pending_field_check"),
+    ("total_assets_growth", "balance_sheet", "Growth in total assets over one year", "BharatStock balance sheet", "pending_field_check"),
+    ("asset_turnover", "balance_sheet", "Revenue divided by total assets (how hard the assets work)", "BharatStock balance sheet", "pending_field_check"),
+    ("book_value_per_share_growth", "balance_sheet", "Growth in book value per share over one year", "BharatStock balance sheet", "pending_field_check"),
+
+    # Added: cash flow depth
+    ("cfo_growth", "cash_flow", "Growth in operating cash flow over one year", "BharatStock cash flow", "pending_field_check"),
+    ("cfo_margin", "cash_flow", "Operating cash flow as a share of revenue", "BharatStock cash flow", "pending_field_check"),
+    ("working_capital_change", "cash_flow", "Change in working capital days over one year", "BharatStock balance sheet", "pending_field_check"),
+
+    # Added: ownership depth
+    ("fii_change_qoq", "ownership", "Change in foreign institutional holding over one quarter", "NSE shareholding pattern", "to_build"),
+    ("dii_change_qoq", "ownership", "Change in domestic institutional holding over one quarter", "NSE shareholding pattern", "to_build"),
+    ("mf_holding_pct_change", "ownership", "Change in mutual fund holding as a share of shares, over one quarter", "BharatStock mf-holdings", "pending_field_check"),
+    ("promoter_holding_change_3q", "ownership", "Change in promoter holding over three quarters", "NSE shareholding pattern", "to_build"),
+    ("pledge_change", "ownership", "Change in promoter pledge share over one year", "NSE shareholding pattern", "to_build"),
+
+    # Added: smart money and promoter depth
+    ("bulk_sell_value_ratio", "smart_money", "Bulk sell value as a share of bulk buy value, 20 sessions", "NSE bulk deals", "collecting"),
+    ("block_deal_count_90d", "smart_money", "Block deals in the last 90 sessions", "NSE block deals", "collecting"),
+    ("dividend_policy_change", "promoter_behaviour", "Dividend per share raised vs the previous year", "BharatStock cash flow", "pending_field_check"),
+
+    # Added: price depth
+    ("ret_6m", "price", "Share price return over six months", "BharatStock prices", "available"),
+    ("drawdown_from_12m_peak", "price", "Fall from the twelve-month high, in percent", "BharatStock prices", "available"),
+    ("beta_vs_index", "price", "Beta of the stock against the Nifty 500 over one year", "BharatStock prices + NSE index data", "to_build"),
+    ("volume_surge_count_60d", "price", "Sessions in the last 60 with volume above twice the 20-day average", "BharatStock prices", "available"),
+    ("rel_strength_rank_sector", "price", "Rank of the stock's six-month return within its sector", "BharatStock prices + NSE master", "to_build"),
+
+    # Added: valuation depth
+    ("ev_sales", "valuation", "Enterprise value to revenue", "BharatStock balance sheet + financials", "pending_field_check"),
+    ("earnings_yield", "valuation", "Trailing earnings divided by price", "BharatStock prices + financials", "pending_field_check"),
+    ("pe_percentile_5y", "valuation", "Where the current P/E sits within its five-year range (0 to 100)", "BharatStock prices + financials", "pending_field_check"),
+
+    # Added: context depth
+    ("peer_group_growth_median", "context", "Median profit growth of companies in the same sector", "BharatStock financials + NSE master", "to_build"),
+    ("commodity_input_trend", "context", "Price trend of the main input commodity for the sector", "Free commodity price source, to be chosen", "gap"),
+    ("supply_chain_exposure", "context", "Share of revenue exposed to a single supplier or market (judgment)", "Annual reports and filings", "gap"),
+
 ]
 
 
