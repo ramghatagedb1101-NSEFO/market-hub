@@ -55,6 +55,19 @@ def universe() -> list[str]:
     return sorted(syms - EXCLUDED)
 
 
+def _get_with_retry(url: str, params: dict, key: str, tries: int = 4):
+    """A 429 is routine on BharatStock under this project's call volume, not an outage -- back off
+    and retry rather than letting the exception kill the whole company's data. Without this, every
+    company after the first one or two in a run was silently recorded as a bare error with no
+    figures at all, because _pages() used to raise immediately on any non-2xx status."""
+    for attempt in range(tries):
+        r = requests.get(url, params=params, headers={"X-API-Key": key}, timeout=30)
+        if r.status_code != 429 or attempt == tries - 1:
+            return r
+        time.sleep(2 * (attempt + 1))
+    return r
+
+
 def _pages(url: str, key: str, params: dict | None = None) -> list[dict]:
     """Reads every page the API reports. A 404 means no data for that company."""
     out, page = [], 1
@@ -62,7 +75,7 @@ def _pages(url: str, key: str, params: dict | None = None) -> list[dict]:
         p = dict(params or {})
         if page > 1:
             p["page"] = page
-        r = requests.get(url, params=p, headers={"X-API-Key": key}, timeout=30)
+        r = _get_with_retry(url, p, key)
         if r.status_code == 404:
             return out
         r.raise_for_status()
