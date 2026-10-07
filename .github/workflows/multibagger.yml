@@ -4,6 +4,9 @@ name: multibagger-weekly
 # not with the daily job. It rates about 2,000 companies, which takes roughly 40 minutes.
 
 on:
+  push:
+    branches: [main]
+    paths: ["triggers/multibagger.txt"]   # push a change to this file to start a run
   schedule:
     - cron: "30 3 * * 0"          # 03:30 UTC on Sundays = 09:00 IST
   workflow_dispatch:              # "Run workflow" button for a manual run
