@@ -8,6 +8,10 @@ on:
     paths: ["triggers/library.txt"]   # push a change to this file to start a run
   schedule:
     - cron: "30 7 * * 6"            # 07:30 UTC on Saturdays = 13:00 IST (kept apart from the Sunday multi-bagger run)
+    - cron: "5 0 8 10 *"            # one-time: 00:05 UTC = 5:35 IST on 2026-10-08, first clean run after the
+                                     # BharatStock daily quota (resets 00:00 UTC) was exhausted during 2026-10-07
+                                     # testing. Harmless if it also fires on 8 Oct in future years; remove this
+                                     # line after 2026-10-08 if you don't want that.
   workflow_dispatch:
 
 permissions:
