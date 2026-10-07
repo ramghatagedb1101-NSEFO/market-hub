@@ -25,7 +25,7 @@ from . import config
 OUT_FILE = config.SITE_DIR / "data" / "multibagger.json"
 EQUITY_LIST = "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv"
 SERIES = {"EQ", "BE"}
-EXCLUDED = {"ACC"}   # large cap, never scored
+EXCLUDED = set()   # no exclusions: every EQ and BE equity on NSE is scored
 UA = {"User-Agent": "Mozilla/5.0 (market-hub; multibagger)"}
 API = "https://bharatstockapi.com/v1/stocks/{t}/financials"
 INSIDER = "https://bharatstockapi.com/v1/stocks/{t}/insider-trades"
