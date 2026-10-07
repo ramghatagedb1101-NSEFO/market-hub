@@ -22,6 +22,7 @@ from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf
                           insider_signal, mf_counts, _consolidated)
 from .backtest_multibagger import prices as fetch_prices
 from . import shareholding as shp
+from . import corporate_actions as ca
 
 PRIVATE_REPO = "ramghatagedb1101-NSEFO/market-hub-private"
 PRIVATE_FILE = "library.json"
@@ -66,10 +67,12 @@ RULES = {
     "fii_holding": ("Foreign institutional holding at least 5%", lambda v: v >= 5),
     "dii_holding": ("Domestic institutional holding at least 5%", lambda v: v >= 5),
     "pledge_pct": ("Promoter pledge below 10% of promoter holding", lambda v: v < 10),
+    "dividend_yield": ("Dividend yield at least 1%, trailing twelve months", lambda v: v >= 1),
+    "buyback_flag": ("Share buyback in the last year", lambda v: v is True),
 }
 
 NOT_YET = [
-    "cash_flow_quarterly", "capex", "capex_change", "dividend_yield",
+    "cash_flow_quarterly", "capex", "capex_change",
     "registry_holders", "bulk_buys_20d", "bulk_sells_20d", "registry_buys_20d",
     "ret_1m", "ret_3m", "ret_6m", "volatility_60d", "rel_strength_vs_index", "beta_vs_index",
     "ev_ebitda", "ev_sales", "peg", "sector_ret_3m", "sector_news_count", "regulatory_events",
@@ -341,6 +344,14 @@ def main() -> dict:
                     values.update(shp.fetch_institutional(nse_records[0]["xbrl"]))
                 except Exception:
                     pass
+            try:
+                ca_records = ca.fetch(nse_session, sym)
+                ca_values = ca.values(ca_records)
+                if last and ca_values.get("dividend_per_share_ttm") is not None:
+                    values["dividend_yield"] = ca_values["dividend_per_share_ttm"] / last * 100
+                values["buyback_flag"] = ca_values["buyback_flag"]
+            except Exception:
+                pass
             # Insider and fund data only for companies with profit growth: keeps the run inside the daily request limit.
             if values.get("profit_yoy") is not None and values["profit_yoy"] > 0:
                 ins = insider_signal(fetch_insider(sym, key))
