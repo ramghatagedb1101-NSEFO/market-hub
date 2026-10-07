@@ -69,6 +69,10 @@ RULES = {
     "pledge_pct": ("Promoter pledge below 10% of promoter holding", lambda v: v < 10),
     "dividend_yield": ("Dividend yield at least 1%, trailing twelve months", lambda v: v >= 1),
     "buyback_flag": ("Share buyback in the last year", lambda v: v is True),
+    "promoter_holding_change_3q": ("Promoter holding not lower than three quarters ago", lambda v: v >= 0),
+    "fii_change_qoq": ("Foreign institutional holding not lower than the previous quarter", lambda v: v >= 0),
+    "dii_change_qoq": ("Domestic institutional holding not lower than the previous quarter", lambda v: v >= 0),
+    "pledge_change": ("Promoter pledge not higher than a year ago", lambda v: v <= 0),
 }
 
 NOT_YET = [
@@ -339,11 +343,21 @@ def main() -> dict:
                 except Exception:
                     nse_records = []
             values.update(shp.values(nse_records))
-            if nse_records and nse_records[0].get("xbrl"):
+            targets = shp.institutional_targets(nse_records)
+            inst = {}
+            for label, url in targets.items():
                 try:
-                    values.update(shp.fetch_institutional(nse_records[0]["xbrl"]))
+                    inst[label] = shp.fetch_institutional(url)
                 except Exception:
                     pass
+            if "latest" in inst:
+                values.update(inst["latest"])
+                if "prior_quarter" in inst:
+                    for k, prior_k in (("fii_holding", "fii_change_qoq"), ("dii_holding", "dii_change_qoq")):
+                        if k in inst["latest"] and k in inst["prior_quarter"]:
+                            values[prior_k] = inst["latest"][k] - inst["prior_quarter"][k]
+                if "year_ago" in inst and "pledge_pct" in inst["latest"] and "pledge_pct" in inst["year_ago"]:
+                    values["pledge_change"] = inst["latest"]["pledge_pct"] - inst["year_ago"]["pledge_pct"]
             try:
                 ca_records = ca.fetch(nse_session, sym)
                 ca_values = ca.values(ca_records)
