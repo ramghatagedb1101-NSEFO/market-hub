@@ -77,6 +77,8 @@ RULES = {
     "pledge_change": ("Promoter pledge not higher than a year ago", lambda v: v <= 0),
     "registry_holders": ("At least one confirmed registry investor holds this stock", lambda v: v > 0),
     "registry_new_entrants": ("A confirmed registry investor is new this quarter", lambda v: v > 0),
+    "holder_count_change": ("More disclosed public holders than a quarter ago", lambda v: v > 0),
+    "top10_holding_change": ("Top ten disclosed holders' combined stake not lower than a quarter ago", lambda v: v >= 0),
 }
 
 NOT_YET = [
@@ -375,12 +377,14 @@ def main() -> dict:
             # and registry_new_entrants only count investors whose registry status is already
             # "confirmed", so they stay honestly at 0 until the owner reviews and confirms a match.
             matches_latest = []
+            agg_latest = agg_prior = None
             if "latest" in texts:
                 try:
                     holders_latest = nh.named_holders_from_text(texts["latest"])
                     matches_latest = nh.match_registry(holders_latest, registry_investors)
                     if matches_latest:
                         symbol_matches[sym] = matches_latest
+                    agg_latest = nh.aggregate(holders_latest)
                 except Exception:
                     pass
             confirmed_latest = {m["investor"] for m in matches_latest
@@ -393,8 +397,13 @@ def main() -> dict:
                     confirmed_prior = {m["investor"] for m in matches_prior
                                         if investor_status.get(m["investor"]) == "confirmed"}
                     values["registry_new_entrants"] = len(confirmed_latest - confirmed_prior)
+                    agg_prior = nh.aggregate(holders_prior)
                 except Exception:
                     pass
+            if agg_latest is not None and agg_prior is not None:
+                values["holder_count_change"] = agg_latest["holder_count"] - agg_prior["holder_count"]
+                if agg_latest["top10_pct"] is not None and agg_prior["top10_pct"] is not None:
+                    values["top10_holding_change"] = agg_latest["top10_pct"] - agg_prior["top10_pct"]
             try:
                 ca_records = ca.fetch(nse_session, sym)
                 ca_values = ca.values(ca_records)
