@@ -30,10 +30,13 @@ UA = {"User-Agent": "Mozilla/5.0 (market-hub; multibagger)"}
 API = "https://bharatstockapi.com/v1/stocks/{t}/financials"
 INSIDER = "https://bharatstockapi.com/v1/stocks/{t}/insider-trades"
 MFH = "https://bharatstockapi.com/v1/stocks/{t}/mf-holdings"
+SHAREHOLDING = "https://bharatstockapi.com/v1/stocks/{t}/shareholding"
+RATIOS = "https://bharatstockapi.com/v1/stocks/{t}/ratios"
+CORP_ACTIONS = "https://bharatstockapi.com/v1/stocks/{t}/corporate-actions"
 MAX_PAGES = 20
 # Field names only (never values), recorded so a missing input can be traced in the published file.
-FIELDS = {"financials": [], "insider": [], "mf": []}
-ENDPOINT_COUNTS = {"financials": 0, "insider": 0, "mf": 0}
+FIELDS = {"financials": [], "insider": [], "mf": [], "shareholding": [], "ratios": [], "corp_actions": []}
+ENDPOINT_COUNTS = {"financials": 0, "insider": 0, "mf": 0, "shareholding": 0, "ratios": 0, "corp_actions": 0}
 
 
 def universe() -> list[str]:
@@ -120,6 +123,36 @@ def insider_signal(rows: list[dict], months: int = 6) -> dict:
     return {"status": "ok", "trades": usable, "bought_shares": buys, "sold_shares": sells,
             "net_shares": net, "flag": "promoter buying" if net > 0 and buys > sells else
                                        ("promoter selling" if sells > buys else "neutral")}
+
+
+def fetch_shareholding(symbol: str, key: str) -> list[dict]:
+    rows = _pages(SHAREHOLDING.format(t=symbol), key)
+    ENDPOINT_COUNTS["shareholding"] += 1
+    if rows and not FIELDS["shareholding"]:
+        FIELDS["shareholding"] = sorted(rows[0].keys())
+    return rows
+
+
+def fetch_ratios(symbol: str, key: str) -> dict:
+    """RatioSnapshot: a single object per company, not a page. A 404 means no ratios for that company."""
+    r = requests.get(RATIOS.format(t=symbol), headers={"X-API-Key": key}, timeout=30)
+    ENDPOINT_COUNTS["ratios"] += 1
+    if r.status_code == 404:
+        return {}
+    r.raise_for_status()
+    body = r.json()
+    row = body.get("data", body) if isinstance(body, dict) else {}
+    if row and not FIELDS["ratios"]:
+        FIELDS["ratios"] = sorted(row.keys())
+    return row or {}
+
+
+def fetch_corporate_actions(symbol: str, key: str) -> list[dict]:
+    rows = _pages(CORP_ACTIONS.format(t=symbol), key)
+    ENDPOINT_COUNTS["corp_actions"] += 1
+    if rows and not FIELDS["corp_actions"]:
+        FIELDS["corp_actions"] = sorted(rows[0].keys())
+    return rows
 
 
 def fetch_mf(symbol: str, key: str) -> list[dict]:
