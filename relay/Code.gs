@@ -22,8 +22,16 @@ function doGet(e) {
   if (p.mode === 'token') return handleToken_(p);
   if (p.mode === 'quote') return handleQuote_();
   if (p.mode === 'check') return handleCheck_(p);
+  if (p.mode === 'admin') return adminPage();
   if (p.request_token) return handleLogin_(p.request_token);
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
+}
+
+/** The daily job posts the admin summary here (mode=publish_admin, with RELAY_KEY). */
+function doPost(e) {
+  const p = (e && e.parameter) || {};
+  if (p.mode === 'publish_admin') return json_(publishAdmin_(p.key || '', (e.postData && e.postData.contents) || ''));
+  return json_({ error: 'unknown mode' });
 }
 
 function handleLogin_(requestToken) {
