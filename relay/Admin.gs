@@ -89,7 +89,7 @@ td,th{border-bottom:1px solid #e5e5e5;padding:6px 4px;text-align:left;vertical-a
 .card{border:1px solid #e5e5e5;border-radius:12px;padding:12px;margin:8px 0}
 </style></head>
 <body>
-<h1>Market Hub admin</h1>
+<h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="44" height="44" style="vertical-align:middle;margin-right:10px"><rect width="96" height="96" rx="20" fill="#0b1220"/><polyline points="14,64 34,44 48,54 70,28 82,36" fill="none" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="82" cy="36" r="5" fill="#22c55e"/></svg>Market Hub admin</h1>
 <div id="login">
   <p class="muted">A six-digit code is emailed to the owner's Google account. It expires in 10 minutes.</p>
   <button id="send" onclick="sendCode()">Email me a code</button>
