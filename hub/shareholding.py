@@ -102,6 +102,17 @@ def fetch_institutional(xbrl_url: str) -> dict:
     return out
 
 
+def _nearest(records: list[dict], target: date, tolerance_days: int = 46) -> dict | None:
+    """The record closest to `target`, within about a quarter and a half either way -- quarterly
+    filings drift (not every company reports on the same day), so an exact date match is too strict."""
+    best, best_diff = None, timedelta(days=tolerance_days)
+    for rec in records:
+        diff = abs(rec["date"] - target)
+        if diff < best_diff:
+            best, best_diff = rec, diff
+    return best
+
+
 def values(records: list[dict]) -> dict:
     out = {}
     if not records:
@@ -112,12 +123,29 @@ def values(records: list[dict]) -> dict:
     out["_promoter_period"] = latest["date"].isoformat()
     if len(records) > 1:
         out["promoter_change_qoq"] = latest["promoter_pct"] - records[1]["promoter_pct"]
-    target = latest["date"] - timedelta(days=365)
-    best, best_diff = None, timedelta(days=46)   # within about a quarter and a half either way
-    for rec in records[1:]:
-        diff = abs(rec["date"] - target)
-        if diff < best_diff:
-            best, best_diff = rec, diff
-    if best is not None:
-        out["promoter_change_yoy"] = latest["promoter_pct"] - best["promoter_pct"]
+    yoy = _nearest(records[1:], latest["date"] - timedelta(days=365))
+    if yoy is not None:
+        out["promoter_change_yoy"] = latest["promoter_pct"] - yoy["promoter_pct"]
+    q3 = _nearest(records[1:], latest["date"] - timedelta(days=273))   # three quarters back
+    if q3 is not None:
+        out["promoter_holding_change_3q"] = latest["promoter_pct"] - q3["promoter_pct"]
+    return out
+
+
+def institutional_targets(records: list[dict]) -> dict:
+    """Which filings to fetch XBRL for, to get FII/DII/pledge change as well as the latest level:
+    the latest quarter (always), the previous quarter (for the QoQ change) and the filing closest to
+    a year ago (for the YoY pledge change). Returns {label: xbrl_url}, skipping a label when no
+    record is close enough or the record has no xbrl link."""
+    out = {}
+    if not records:
+        return out
+    latest = records[0]
+    if latest.get("xbrl"):
+        out["latest"] = latest["xbrl"]
+    if len(records) > 1 and records[1].get("xbrl"):
+        out["prior_quarter"] = records[1]["xbrl"]
+    yoy = _nearest(records[1:], latest["date"] - timedelta(days=365))
+    if yoy is not None and yoy.get("xbrl"):
+        out["year_ago"] = yoy["xbrl"]
     return out
