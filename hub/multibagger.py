@@ -36,7 +36,8 @@ CORP_ACTIONS = "https://bharatstockapi.com/v1/stocks/{t}/corporate-actions"
 MAX_PAGES = 20
 # Field names only (never values), recorded so a missing input can be traced in the published file.
 FIELDS = {"financials": [], "insider": [], "mf": [], "shareholding": [], "ratios": [], "corp_actions": []}
-ENDPOINT_COUNTS = {"financials": 0, "insider": 0, "mf": 0, "shareholding": 0, "ratios": 0, "corp_actions": 0}
+ENDPOINT_COUNTS = {"financials": 0, "financials_annual": 0, "insider": 0, "mf": 0,
+                   "shareholding": 0, "ratios": 0, "corp_actions": 0}
 
 
 def universe() -> list[str]:
@@ -83,6 +84,16 @@ def fetch(symbol: str, key: str) -> list[dict]:
     ENDPOINT_COUNTS["financials"] += 1
     if rows and not FIELDS["financials"]:
         FIELDS["financials"] = sorted(rows[0].keys())
+    return rows
+
+
+def fetch_annual(symbol: str, key: str) -> list[dict]:
+    """Annual financials. Cash-flow fields (cash_flow_operating, capex, ...) are filled once a year
+    on BharatStock, never on the quarterly rows, so cash-flow parameters need this call too."""
+    rows = _pages(API.format(t=symbol), key, {"period_type": "annual"})
+    ENDPOINT_COUNTS["financials_annual"] += 1
+    if rows and not FIELDS.get("financials_annual"):
+        FIELDS["financials_annual"] = sorted(rows[0].keys())
     return rows
 
 

@@ -18,7 +18,8 @@ from datetime import date, datetime, timedelta
 import requests
 
 from . import config
-from .multibagger import universe, fetch, fetch_insider, fetch_mf, insider_signal, mf_counts, _consolidated
+from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf,
+                          insider_signal, mf_counts, _consolidated)
 from .backtest_multibagger import prices as fetch_prices
 
 PRIVATE_REPO = "ramghatagedb1101-NSEFO/market-hub-private"
@@ -39,7 +40,12 @@ RULES = {
     "roce": ("Return on capital employed > 15%", lambda v: v > 15),
     "debt_to_equity": ("Debt to equity < 1.0", lambda v: v < 1.0),
     "debt_change_1y": ("Borrowings not higher than a year ago", lambda v: v <= 0),
+    "cfo": ("Operating cash flow positive, latest year", lambda v: v > 0),
     "cfo_to_pat": ("Operating cash flow at least 0.8x net profit (annual)", lambda v: v >= 0.8),
+    "cfo_margin": ("Operating cash flow at least 10% of revenue (annual)", lambda v: v >= 10),
+    "cfo_growth": ("Operating cash flow higher than a year ago (annual)", lambda v: v > 0),
+    "fcf": ("Free cash flow (operating cash flow less capital spending) positive (annual)", lambda v: v > 0),
+    "capex_to_sales": ("Capital spending below 20% of revenue (annual)", lambda v: v < 20),
     "insider_net_shares_6m": ("Promoters net buyers over six months", lambda v: v > 0),
     "mf_schemes_holding": ("At least 5 mutual fund schemes hold the stock", lambda v: v >= 5),
     "mf_schemes_added": ("At least 1 mutual fund scheme added the stock", lambda v: v >= 1),
@@ -53,7 +59,7 @@ RULES = {
 }
 
 NOT_YET = [
-    "cash_flow_quarterly", "capex_to_sales", "fcf", "cfo_growth", "dividend_yield",
+    "cash_flow_quarterly", "capex", "capex_change", "dividend_yield",
     "promoter_holding", "promoter_change_qoq", "pledge_pct", "fii_holding", "dii_holding",
     "registry_holders", "bulk_buys_20d", "bulk_sells_20d", "registry_buys_20d",
     "ret_1m", "ret_3m", "ret_6m", "volatility_60d", "rel_strength_vs_index", "beta_vs_index",
@@ -115,11 +121,41 @@ def financial_values(rows: list[dict]) -> dict:
     if op is not None and debt is not None and eq:
         ce = eq + debt
         out["roce"] = op * 4 / ce * 100 if ce else None
-    cfo = latest.get("cash_flow_operating")
-    if cfo is not None and pat:
-        out["cfo_to_pat"] = cfo / pat
     out["_latest_period"] = latest.get("period_end_date")
     out["_quarters"] = len(q)
+    return out
+
+
+def cash_flow_values(annual_rows: list[dict]) -> dict:
+    """Cash-flow parameters, from annual financials only: BharatStock fills cash_flow_operating and
+    capex once a year, never on the quarterly rows, so these cannot come from financial_values()."""
+    a = _consolidated(annual_rows)
+    out = {}
+    if not a:
+        return out
+    latest = a[0]
+    cfo, rev, pat = latest.get("cash_flow_operating"), latest.get("revenue"), latest.get("net_profit")
+    capex = latest.get("capex")
+    if cfo is not None:
+        out["cfo"] = cfo
+        if pat:
+            out["cfo_to_pat"] = cfo / pat
+        if rev:
+            out["cfo_margin"] = cfo / rev * 100
+        if capex is not None:
+            out["fcf"] = cfo - abs(capex)
+    if capex is not None:
+        out["capex"] = capex
+        if rev:
+            out["capex_to_sales"] = abs(capex) / rev * 100
+    if len(a) > 1:
+        ya = a[1]
+        ya_cfo, ya_capex = ya.get("cash_flow_operating"), ya.get("capex")
+        if cfo is not None and ya_cfo:
+            out["cfo_growth"] = (cfo / ya_cfo - 1) * 100 if ya_cfo > 0 else None
+        if capex is not None and ya_capex is not None:
+            out["capex_change"] = abs(capex) - abs(ya_capex)   # sign of the raw field is unconfirmed; compare magnitudes
+    out["_annual_period"] = latest.get("period_end_date")
     return out
 
 
@@ -213,6 +249,10 @@ def main() -> dict:
         try:
             rows = fetch(sym, key)
             values = financial_values(rows)
+            try:
+                values.update(cash_flow_values(fetch_annual(sym, key)))
+            except Exception:
+                pass
             try:
                 px = fetch_prices(sym, key)
             except Exception:
