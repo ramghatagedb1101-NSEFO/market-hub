@@ -251,7 +251,11 @@ function draw(){
     v.innerHTML = '<table><tr><th>Id</th><th>Family</th><th>Status</th><th>Definition</th></tr>' + rows + '</table>';
   } else if (tab === 'registry') {
     const rows = (d.registry || []).map(r => '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.type) + '</td><td>' + badge(r.status) + '</td><td class="muted">' + esc((r.aliases||[]).join(', ')) + '</td></tr>').join('');
-    v.innerHTML = '<table><tr><th>Name</th><th>Type</th><th>Status</th><th>Aliases</th></tr>' + rows + '</table>';
+    v.innerHTML = '<table><tr><th>Name</th><th>Type</th><th>Status</th><th>Aliases</th></tr>' + rows + '</table>' +
+      '<div class="sec" style="margin-top:18px">Candidate matches to review</div>' +
+      '<p class="muted" style="margin:0 0 10px">A name on an official NSE shareholding filing lining up with a registry alias. Not automatic: confirm an investor in hub/registry.json before it counts toward any parameter.</p>' +
+      '<div id="matchesbox"><p class="muted">Loading…</p></div>';
+    if (!lib) { loadLib(); } else { drawMatches(); }
   } else if (tab === 'bulk') {
     const days = (d.bulk_deals || {}).by_day || {};
     const rows = Object.keys(days).sort().reverse().map(k => '<tr><td>' + esc(k) + '</td><td>' + days[k].deals + '</td><td>' + days[k].buys + '</td><td>' + days[k].sells + '</td><td>' + days[k].registry_buys + '</td></tr>').join('');
@@ -291,6 +295,24 @@ function loadLib(){
     if (d.error === 'session_expired') { logout(); return; }
     lib = d; draw();
   }).withFailureHandler(e => { lib = { error: e.message }; draw(); }).adminLibrary(token);
+}
+function drawMatches(){
+  const el = document.getElementById('matchesbox');
+  if (!el) return;
+  if (lib.error) { el.innerHTML = '<p class="err">' + esc(lib.error) + '</p>'; return; }
+  const statusByInvestor = {};
+  (data.registry || []).forEach(r => { statusByInvestor[r.name] = r.status; });
+  const rows = [];
+  Object.keys(lib.investor_matches || {}).forEach(sym => {
+    (lib.investor_matches[sym] || []).forEach(m => rows.push({ sym, ...m }));
+  });
+  if (!rows.length) { el.innerHTML = '<p class="muted">No candidate matches found yet.</p>'; return; }
+  rows.sort((a, b) => a.investor < b.investor ? -1 : a.investor > b.investor ? 1 : 0);
+  const body = rows.map(r => '<tr><td><b>' + esc(r.sym) + '</b></td><td>' + esc(r.investor) + '</td><td>' +
+    badge(statusByInvestor[r.investor] || 'unconfirmed') + '</td><td class="muted">' + esc(r.alias_matched) + '</td><td>' +
+    esc(r.holder_name) + '</td><td>' + (r.shares != null ? r.shares.toLocaleString('en-IN') : '-') + '</td><td>' +
+    (r.pct != null ? r.pct + '%' : '-') + '</td></tr>').join('');
+  el.innerHTML = '<table><tr><th>Symbol</th><th>Investor</th><th>Status</th><th>Alias matched</th><th>Name on filing</th><th>Shares</th><th>%</th></tr>' + body + '</table>';
 }
 function drawLibTable(){
   const el = document.getElementById('libtable');
