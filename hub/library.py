@@ -24,9 +24,11 @@ from .backtest_multibagger import prices as fetch_prices
 from . import shareholding as shp
 from . import corporate_actions as ca
 from . import named_holders as nh
+from . import sector_news
 
 PRIVATE_REPO = "ramghatagedb1101-NSEFO/market-hub-private"
 REGISTRY_FILE = config.REPO / "hub" / "registry.json"
+SECTOR_MAP_FILE = config.REPO / "rg" / "data" / "sector_map.json"
 PRIVATE_FILE = "library.json"
 TIME_BUDGET_SECONDS = 70 * 60
 
@@ -79,13 +81,17 @@ RULES = {
     "registry_new_entrants": ("A confirmed registry investor is new this quarter", lambda v: v > 0),
     "holder_count_change": ("More disclosed public holders than a quarter ago", lambda v: v > 0),
     "top10_holding_change": ("Top ten disclosed holders' combined stake not lower than a quarter ago", lambda v: v >= 0),
+    # Sector-level (Google News RSS, keyword counts) -- a coarse attention proxy, not backtested; the
+    # thresholds are a written judgment call, not derived from any outcome test.
+    "sector_news_count": ("At least 20 sector-related news items in the last 30 days", lambda v: v >= 20),
+    "regulatory_events": ("No more than 65 regulatory/policy-keyword mentions for the sector in the last 90 days", lambda v: v <= 65),
 }
 
 NOT_YET = [
     "cash_flow_quarterly", "capex", "capex_change",
     "bulk_buys_20d", "bulk_sells_20d", "registry_buys_20d",
     "ret_1m", "ret_3m", "ret_6m", "volatility_60d", "rel_strength_vs_index", "beta_vs_index",
-    "ev_ebitda", "ev_sales", "peg", "sector_ret_3m", "sector_news_count", "regulatory_events",
+    "ev_ebitda", "ev_sales", "peg", "sector_ret_3m",
     "market_value_bucket", "listing_age_years",
 ]
 
@@ -326,6 +332,11 @@ def main() -> dict:
         registry_investors = []
     investor_status = {inv["name"]: inv.get("status") for inv in registry_investors if inv.get("name")}
     symbol_matches = {}
+    try:
+        sector_map = json.loads(SECTOR_MAP_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        sector_map = {}
+    sector_cache = {}   # built lazily, one pair of Google News calls per sector actually seen this batch
     nse_session = shp.session()
     stocks, partial, processed = [], False, 0
     for sym in names[start_idx:]:
@@ -412,6 +423,18 @@ def main() -> dict:
                 values["buyback_flag"] = ca_values["buyback_flag"]
             except Exception:
                 pass
+            sector = sector_map.get(sym)
+            if sector:
+                if sector not in sector_cache:
+                    try:
+                        sector_cache[sector] = {"sector_news_count": sector_news.sector_news_count(sector)}
+                    except Exception:
+                        sector_cache[sector] = {}
+                    try:
+                        sector_cache[sector]["regulatory_events"] = sector_news.regulatory_events(sector)
+                    except Exception:
+                        pass
+                values.update(sector_cache[sector])
             # Insider and fund data only for companies with profit growth: keeps the run inside the daily request limit.
             if values.get("profit_yoy") is not None and values["profit_yoy"] > 0:
                 ins = insider_signal(fetch_insider(sym, key))
