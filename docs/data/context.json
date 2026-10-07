@@ -1,5 +1,5 @@
 {
- "ts": "2026-10-07T06:59+05:30",
+ "ts": "2026-10-07T07:13+05:30",
  "errors": {},
  "fii_dii": [
   {
@@ -71,8 +71,18 @@
  },
  "headlines": [
   {
+   "source": "BBC Business",
+   "title": "From 'woke' ridicule to real car - new electric Jaguar unveiled",
+   "time": "2026-10-07T07:09+05:30"
+  },
+  {
    "source": "Economic Times Markets",
-   "title": "Trent shares surge nearly 13% on robust Q2 updates",
+   "title": "Pimco bets on bonds as 24-year-high yields lure",
+   "time": "2026-10-07T06:52+05:30"
+  },
+  {
+   "source": "Economic Times Markets",
+   "title": "Trent surges 13% to 2-year high after strong Q2 update",
    "time": "2026-10-07T06:43+05:30"
   },
   {
@@ -152,7 +162,7 @@
   },
   {
    "source": "Economic Times Markets",
-   "title": "September demat account addition falls to 2.89 million amid market selloff",
+   "title": "September demat account additions fall to 2.89 million amid market selloff",
    "time": "2026-10-07T05:47+05:30"
   },
   {
@@ -164,11 +174,6 @@
    "source": "Economic Times Markets",
    "title": "Jefferies favours Indian largecap stocks amid rising bond yields",
    "time": "2026-10-07T05:41+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "From 'woke' ridicule to real car - new electric Jaguar unveiled",
-   "time": "2026-10-07T05:31+05:30"
   },
   {
    "source": "BBC Business",
@@ -246,11 +251,6 @@
    "time": "2026-10-07T00:38+05:30"
   },
   {
-   "source": "Economic Times Markets",
-   "title": "S&amp;P projects 12-14% credit growth this fiscal, warns weak monsoon may hit rural lending",
-   "time": "2026-10-07T00:29+05:30"
-  },
-  {
    "source": "BBC Business",
    "title": "From films to streaming prices - how the Warner Bros deal could affect you",
    "time": "2026-10-07T00:12+05:30"
@@ -312,6 +312,11 @@
   },
   {
    "source": "Investing.com News",
+   "title": "Paramount wraps up mega Warner Bros merger to create Hollywood powerhouse Skydance",
+   "time": null
+  },
+  {
+   "source": "Investing.com News",
    "title": "SK Hynix bounces at Fibonacci support, cloud traps price: Live",
    "time": null
   },
@@ -353,11 +358,6 @@
   {
    "source": "Investing.com News",
    "title": "Analysis-Japan’s $15 billion Rapidus chip bet hinges on winning customers",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "SpaceX seeks to raise $40 bln to buy Nvidia chips- FT",
    "time": null
   }
  ],
