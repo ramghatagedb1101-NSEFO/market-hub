@@ -94,36 +94,91 @@ function adminLibrary(token) {
 const ADMIN_HTML = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body{font:16px/1.5 system-ui,sans-serif;margin:0;padding:16px;max-width:720px;margin:auto;color:#111;background:#fff}
-h1{font-size:22px;font-weight:500;margin:4px 0 12px}
-h2{font-size:18px;font-weight:500;margin:20px 0 8px}
-input,button{font:inherit;padding:10px 12px;border:1px solid #bbb;border-radius:8px}
-button{background:#111;color:#fff;border-color:#111;cursor:pointer}
-button.alt{background:#fff;color:#111}
-table{width:100%;border-collapse:collapse;font-size:14px}
-td,th{border-bottom:1px solid #e5e5e5;padding:6px 4px;text-align:left;vertical-align:top}
-.muted{color:#666;font-size:14px}
-.err{color:#b00020;font-size:14px}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
-.tabs button{padding:6px 10px;font-size:14px}
-.tabs button.on{background:#111;color:#fff}
-.card{border:1px solid #e5e5e5;border-radius:12px;padding:12px;margin:8px 0}
+:root{
+  --bg:#f4f5f7; --card:#ffffff; --border:#e4e6eb; --border-soft:#edeef2;
+  --text:#14161c; --muted:#70757f;
+  --accent:#2563eb; --accent-dark:#1d4ed8;
+  --success:#059669; --success-bg:#e9f9f1;
+  --danger:#dc2626; --danger-bg:#fdedec;
+  --warn:#b45309; --warn-bg:#fef3e0;
+  --neutral:#6b7280; --neutral-bg:#f0f1f3;
+}
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  margin:0;padding:0;color:var(--text);background:var(--bg);font-size:14px;line-height:1.5}
+#shell{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:18px;font-weight:700;margin:0;display:flex;align-items:center;gap:10px;letter-spacing:-.01em}
+h1 svg{flex:none;border-radius:8px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:16px;margin-bottom:18px;border-bottom:1px solid var(--border)}
+.topbar .sub{color:var(--muted);font-size:12px;margin-top:2px}
+input,select,button{font:inherit;color:inherit}
+input,select{padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--card)}
+input:focus,select:focus{outline:2px solid #bfdbfe;outline-offset:0;border-color:var(--accent)}
+button{padding:9px 16px;border:1px solid var(--border);border-radius:8px;background:var(--card);cursor:pointer;font-weight:600;font-size:13px;color:var(--text);transition:background .12s,border-color .12s}
+button:hover{border-color:#c7cad1}
+button:disabled{opacity:.55;cursor:default}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:var(--accent-dark)}
+button.alt{background:transparent;border-color:transparent;color:var(--muted);padding:6px 10px}
+button.alt:hover{color:var(--text);border-color:var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+th{text-align:left;padding:9px 12px;background:#fafbfc;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)}
+td{padding:9px 12px;border-bottom:1px solid var(--border-soft);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#fafbfe}
+.muted{color:var(--muted)}
+.err{color:var(--danger);font-size:13px;margin-top:10px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.tabs button{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:600;color:var(--muted);background:var(--card)}
+.tabs button.on{background:var(--text);border-color:var(--text);color:#fff}
+.card{border:1px solid var(--border);background:var(--card);border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.card b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:700;margin-bottom:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:620px){.grid2{grid-template-columns:1fr}}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.badge-met{background:var(--success-bg);color:var(--success)}
+.badge-bad{background:var(--danger-bg);color:var(--danger)}
+.badge-warn{background:var(--warn-bg);color:var(--warn)}
+.badge-neutral{background:var(--neutral-bg);color:var(--neutral)}
+.num-met{color:var(--success);font-weight:700}
+.num-bad{color:var(--danger);font-weight:700}
+.num-warn{color:var(--warn);font-weight:700}
+.toolbar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+@media (max-width:700px){.toolbar{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:460px){.toolbar{grid-template-columns:1fr}}
+.toolbar label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.toolbar label input{text-transform:none;font-weight:400;font-size:13px}
+.toolbar input,.toolbar select{width:100%}
+#login-card{max-width:420px;margin:60px auto 0}
+pre{white-space:pre-wrap;font-size:12px;background:#fafbfc;border-radius:8px;padding:10px;margin:0}
 </style></head>
 <body>
-<h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="44" height="44" style="vertical-align:middle;margin-right:10px"><rect width="96" height="96" rx="20" fill="#0b1220"/><polyline points="14,64 34,44 48,54 70,28 82,36" fill="none" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="82" cy="36" r="5" fill="#22c55e"/></svg>Market Hub admin</h1>
+<div id="shell">
 <div id="login">
-  <p class="muted">A six-digit code is emailed to the owner's Google account. It expires in 10 minutes.</p>
-  <button id="send" onclick="sendCode()">Email me a code</button>
-  <div id="codebox" style="display:none;margin-top:12px">
-    <input id="code" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="width:160px">
-    <button onclick="verify()">Sign in</button>
+  <div class="card" id="login-card">
+    <h1 style="margin-bottom:14px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="36" height="36"><rect width="96" height="96" rx="20" fill="#0b1220"/><polyline points="14,64 34,44 48,54 70,28 82,36" fill="none" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="82" cy="36" r="5" fill="#22c55e"/></svg>Market Hub admin</h1>
+    <p class="muted" style="margin:0 0 14px">A six-digit code is emailed to the owner's Google account. It expires in 10 minutes.</p>
+    <button id="send" class="primary" onclick="sendCode()" style="width:100%">Email me a code</button>
+    <div id="codebox" style="display:none;margin-top:14px">
+      <div style="display:flex;gap:8px">
+        <input id="code" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="flex:1">
+        <button class="primary" onclick="verify()">Sign in</button>
+      </div>
+    </div>
+    <p id="lmsg" class="err"></p>
   </div>
-  <p id="lmsg" class="err"></p>
 </div>
 <div id="app" style="display:none">
-  <p class="muted">Signed in. Data from the last daily run. <button class="alt" onclick="logout()">Sign out</button></p>
+  <div class="topbar">
+    <h1><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="30" height="30"><rect width="96" height="96" rx="20" fill="#0b1220"/><polyline points="14,64 34,44 48,54 70,28 82,36" fill="none" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="82" cy="36" r="5" fill="#22c55e"/></svg>Market Hub admin</h1>
+    <div style="text-align:right">
+      <div class="sub">Signed in &middot; data from the last daily run</div>
+      <button class="alt" onclick="logout()">Sign out</button>
+    </div>
+  </div>
   <div class="tabs" id="tabs"></div>
   <div id="view"></div>
+</div>
 </div>
 <script>
 let token = sessionStorage.getItem('mh_admin_token') || '';
@@ -169,20 +224,30 @@ function drawTabs(){
 }
 function pick(k){ tab = k; drawTabs(); draw(); }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+const BADGE_CLASS = { met:'met', available:'met', confirmed:'met', not_met:'bad', gap:'bad',
+  to_build:'warn', collecting:'warn', unconfirmed:'warn', annual_only:'neutral', not_testable:'neutral' };
+function badge(status){
+  const cls = BADGE_CLASS[status] || 'neutral';
+  const label = String(status == null ? '-' : status).replace(/_/g, ' ');
+  return '<span class="badge badge-' + cls + '">' + esc(label) + '</span>';
+}
+function dqClass(pct){ return pct >= 70 ? 'num-met' : (pct >= 40 ? 'num-warn' : 'muted'); }
 function draw(){
   const v = document.getElementById('view');
   const d = data;
   if (tab === 'status') {
     const s = d.status || {};
-    v.innerHTML = '<div class="card"><b>Last daily run</b><br>' + esc(s.daily_ts || 'unknown') + '</div>' +
-      '<div class="card"><b>Parameters</b><br>' + esc((s.parameters||{}).total) + ' total. ' + esc(JSON.stringify((s.parameters||{}).by_status || {})) + '</div>' +
-      '<div class="card"><b>Bulk deals stored</b><br>' + esc((d.bulk_deals||{}).days_stored || 0) + ' days, from ' + esc((d.bulk_deals||{}).first_day || '-') + '</div>' +
-      '<div class="card"><b>Multi-bagger ratings</b><br>' + esc((d.multibagger||{}).rated || 0) + ' rated. ' + esc((d.multibagger||{}).turnarounds || 0) + ' turnarounds.</div>';
+    v.innerHTML = '<div class="grid2">' +
+      '<div class="card"><b>Last daily run</b>' + esc(s.daily_ts || 'unknown') + '</div>' +
+      '<div class="card"><b>Parameters</b>' + esc((s.parameters||{}).total) + ' total &middot; ' + esc(JSON.stringify((s.parameters||{}).by_status || {})) + '</div>' +
+      '<div class="card"><b>Bulk deals stored</b>' + esc((d.bulk_deals||{}).days_stored || 0) + ' days, from ' + esc((d.bulk_deals||{}).first_day || '-') + '</div>' +
+      '<div class="card"><b>Multi-bagger ratings</b>' + esc((d.multibagger||{}).rated || 0) + ' rated &middot; ' + esc((d.multibagger||{}).turnarounds || 0) + ' turnarounds</div>' +
+      '</div>';
   } else if (tab === 'params') {
-    const rows = (d.parameters || []).map(p => '<tr><td>' + esc(p.id) + '</td><td>' + esc(p.family) + '</td><td>' + esc(p.status) + '</td><td class="muted">' + esc(p.definition) + '</td></tr>').join('');
+    const rows = (d.parameters || []).map(p => '<tr><td>' + esc(p.id) + '</td><td>' + esc(p.family) + '</td><td>' + badge(p.status) + '</td><td class="muted">' + esc(p.definition) + '</td></tr>').join('');
     v.innerHTML = '<table><tr><th>Id</th><th>Family</th><th>Status</th><th>Definition</th></tr>' + rows + '</table>';
   } else if (tab === 'registry') {
-    const rows = (d.registry || []).map(r => '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.type) + '</td><td>' + esc(r.status) + '</td><td class="muted">' + esc((r.aliases||[]).join(', ')) + '</td></tr>').join('');
+    const rows = (d.registry || []).map(r => '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.type) + '</td><td>' + badge(r.status) + '</td><td class="muted">' + esc((r.aliases||[]).join(', ')) + '</td></tr>').join('');
     v.innerHTML = '<table><tr><th>Name</th><th>Type</th><th>Status</th><th>Aliases</th></tr>' + rows + '</table>';
   } else if (tab === 'bulk') {
     const days = (d.bulk_deals || {}).by_day || {};
@@ -193,16 +258,16 @@ function draw(){
     if (lib.error) { v.innerHTML = '<p class="err">' + esc(lib.error) + '</p>'; return; }
     if (!document.getElementById('libctl')) {
       const opts = Object.keys(lib.rules || {}).map(k => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('');
-      v.innerHTML = '<p class="muted" id="libinfo"></p>' +
-        '<div id="libctl" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0">' +
-        '<input id="libq" placeholder="Search symbol" oninput="drawLibTable()">' +
-        '<select id="libsort" onchange="drawLibTable()"><option value="met">Sort: most parameters met</option><option value="data">Sort: data quality</option><option value="symbol">Sort: symbol</option></select>' +
-        '<label class="muted">Min parameters met <input id="libmin" type="number" min="0" max="30" value="0" oninput="drawLibTable()" style="width:70px"></label>' +
-        '<label class="muted">Min data quality % <input id="libdq" type="number" min="0" max="100" value="0" oninput="drawLibTable()" style="width:70px"></label>' +
-        '<select id="libp" onchange="drawLibTable()"><option value="">Any parameter</option>' + opts + '</select>' +
-        '<select id="libst" onchange="drawLibTable()"><option value="met">parameter is met</option><option value="not_met">parameter is not met</option><option value="not_testable">parameter is not testable</option></select>' +
-        '</div><p class="muted" id="libinfo2"></p><div id="libtable"></div><div id="stockdetail"></div>';
-      document.getElementById('libinfo').textContent = 'Generated ' + (lib.generated || '') + (lib.partial ? ' (partial run)' : '') + '. ' + (lib.stocks || []).length + ' companies.';
+      v.innerHTML = '<p class="muted" id="libinfo" style="margin:0 0 12px"></p>' +
+        '<div class="card"><div id="libctl" class="toolbar">' +
+        '<label>Search symbol<input id="libq" placeholder="e.g. TCS" oninput="drawLibTable()"></label>' +
+        '<label>Sort<select id="libsort" onchange="drawLibTable()"><option value="met">Most parameters met</option><option value="data">Data quality</option><option value="symbol">Symbol</option></select></label>' +
+        '<label>Min parameters met<input id="libmin" type="number" min="0" max="30" value="0" oninput="drawLibTable()"></label>' +
+        '<label>Min data quality %<input id="libdq" type="number" min="0" max="100" value="0" oninput="drawLibTable()"></label>' +
+        '<label>Parameter<select id="libp" onchange="drawLibTable()"><option value="">Any parameter</option>' + opts + '</select></label>' +
+        '<label>Parameter is<select id="libst" onchange="drawLibTable()"><option value="met">Met</option><option value="not_met">Not met</option><option value="not_testable">Not testable</option></select></label>' +
+        '</div><p class="muted" id="libinfo2" style="margin:10px 0 0"></p></div><div id="libtable"></div><div id="stockdetail"></div>';
+      document.getElementById('libinfo').textContent = 'Generated ' + (lib.generated || '') + (lib.partial ? ' (partial run)' : '') + ' · ' + (lib.stocks || []).length + ' companies.';
     }
     drawLibTable();
   } else if (tab === 'tests') {
@@ -235,10 +300,11 @@ function drawLibTable(){
     sort === 'data' ? (b.data_quality_pct || 0) - (a.data_quality_pct || 0) : (b.met || 0) - (a.met || 0));
   const total = rows.length;
   rows = rows.slice(0, 300);
-  const body = rows.map(s => '<tr style="cursor:pointer" data-s="' + esc(s.symbol) + '" onclick="showStock(this.dataset.s)"><td>' +
-    esc(s.symbol) + '</td><td>' + (s.met || 0) + '</td><td>' + (s.not_met || 0) + '</td><td>' + (s.not_testable || 0) + '</td><td>' +
-    (s.data_quality_pct || 0) + '%</td></tr>').join('');
-  document.getElementById('libinfo2').textContent = total + ' companies match. Showing ' + rows.length + '. Tap a row for the detail.';
+  const body = rows.map(s => '<tr style="cursor:pointer" data-s="' + esc(s.symbol) + '" onclick="showStock(this.dataset.s)"><td><b>' +
+    esc(s.symbol) + '</b></td><td><span class="num-met">' + (s.met || 0) + '</span></td><td><span class="num-bad">' + (s.not_met || 0) +
+    '</span></td><td class="muted">' + (s.not_testable || 0) + '</td><td><span class="' + dqClass(s.data_quality_pct || 0) + '">' +
+    (s.data_quality_pct || 0) + '%</span></td></tr>').join('');
+  document.getElementById('libinfo2').textContent = total + ' companies match · showing ' + rows.length + ' · tap a row for detail';
   el.innerHTML = '<table><tr><th>Symbol</th><th>Met</th><th>Not met</th><th>Not testable</th><th>Data</th></tr>' + body + '</table>';
 }
 function showStock(sym){
@@ -247,10 +313,10 @@ function showStock(sym){
   if (!s || !el) return;
   const rows = Object.keys(s.cells || {}).map(k => {
     const c = s.cells[k];
-    const tag = c.status === 'met' ? 'Met' : (c.status === 'not_met' ? 'Not met' : 'Not testable');
-    return '<tr><td>' + esc(k) + '</td><td>' + esc(c.value == null ? '-' : c.value) + '</td><td>' + tag + '</td><td class="muted">' + esc(c.rule) + '</td></tr>';
+    return '<tr><td>' + esc(k) + '</td><td>' + esc(c.value == null ? '-' : c.value) + '</td><td>' + badge(c.status) + '</td><td class="muted">' + esc(c.rule) + '</td></tr>';
   }).join('');
-  el.innerHTML = '<div class="card"><b>' + esc(sym) + '</b> (' + esc(s.latest_period || '-') + ')<table>' +
+  el.innerHTML = '<div class="card" style="margin-top:12px"><b style="font-size:14px;text-transform:none;letter-spacing:0;color:var(--text)">' +
+    esc(sym) + ' <span class="muted" style="font-weight:400">(' + esc(s.latest_period || '-') + ')</span></b><table>' +
     '<tr><th>Parameter</th><th>Value</th><th>Result</th><th>Rule</th></tr>' + rows + '</table></div>';
 }
 if (token) { show(); }
