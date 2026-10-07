@@ -38,6 +38,13 @@ def refresh(path: Path = config.PRICES_FILE) -> dict:
 
     for idx, spec in config.INDEX_SOURCES.items():
         have = raw.setdefault(idx, {})
+        # Today is never final until re-fetched: NSE's bhavcopy 404s harmlessly until published,
+        # but Kite's "day" candle for today is a running total that changes until the close -- if the
+        # daily job is triggered mid-session (e.g. the owner logging into Kite before 15:30 IST), the
+        # old logic would store that partial value under today's date and then never look at today
+        # again, because `start` had already moved past it. Dropping today first forces a fresh read
+        # every run, so the stored value only becomes final once a run actually happens after the close.
+        have.pop(today.isoformat(), None)
         start = (date.fromisoformat(max(have)) + timedelta(days=1)) if have \
             else today - timedelta(days=config.HISTORY_DAYS)
         if start > today:
