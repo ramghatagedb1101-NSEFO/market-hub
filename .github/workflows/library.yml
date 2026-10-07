@@ -1,0 +1,35 @@
+name: stock-library-weekly
+
+# Scores every listed NSE equity on the registry parameters with a confirmed source.
+# Writes the result to the private repo market-hub-private, never to the public site.
+on:
+  push:
+    branches: [main]
+    paths: ["triggers/library.txt"]   # push a change to this file to start a run
+  schedule:
+    - cron: "30 7 * * 6"            # 07:30 UTC on Saturdays = 13:00 IST (kept apart from the Sunday multi-bagger run)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: library
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Score the stock library
+        env:
+          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.library
