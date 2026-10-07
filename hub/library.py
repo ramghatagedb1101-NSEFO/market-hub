@@ -56,6 +56,8 @@ RULES = {
     "volume_ratio_20d": ("Recent volume at least as high as the prior 60 sessions", lambda v: v >= 1.0),
     "pe": ("Price to earnings below 40x", lambda v: 0 < v < 40),
     "pb": ("Price to book below 6x", lambda v: 0 < v < 6),
+    "ps": ("Price to sales below 5x", lambda v: 0 < v < 5),
+    "market_value_bucket": ("Market value at least ₹500 crore (not a micro-cap)", lambda v: v >= 500),
 }
 
 NOT_YET = [
@@ -159,6 +161,45 @@ def cash_flow_values(annual_rows: list[dict]) -> dict:
     return out
 
 
+def _sum4(vals: list) -> float | None:
+    """Sum of exactly four values, or None if fewer than four quarters or any is missing -- a
+    partial TTM figure from fewer quarters would misstate the ratio, so it is a gap instead."""
+    vals = vals[:4]
+    if len(vals) < 4 or any(v is None for v in vals):
+        return None
+    return sum(vals)
+
+
+def valuation_values(q: list[dict], price_last: float | None) -> dict:
+    """PE, PB, price/sales and market value, computed from confirmed financials fields (shares
+    outstanding = paid-up equity capital / face value) and the latest traded price. BharatStock's
+    'ratios' endpoint is not reachable on the current plan (persistent 429s), so this needs no new
+    source at all -- everything here was already being fetched for financial_values()."""
+    out = {}
+    if not q or not price_last:
+        return out
+    latest = q[0]
+    face, paid_up = latest.get("face_value_per_share"), latest.get("paid_up_equity_capital")
+    if not face or not paid_up:
+        return out
+    shares = paid_up / face
+    market_cap = price_last * shares
+    out["market_value_bucket"] = market_cap / 1e7   # INR crore
+
+    ttm_eps = _sum4([x.get("eps") for x in q])
+    if ttm_eps and ttm_eps > 0:
+        out["pe"] = price_last / ttm_eps
+
+    eq = latest.get("total_equity") or latest.get("equity_attributable_to_owners")
+    if eq:
+        out["pb"] = market_cap / eq
+
+    ttm_rev = _sum4([x.get("revenue") for x in q])
+    if ttm_rev:
+        out["ps"] = market_cap / ttm_rev
+    return out
+
+
 def price_values(series: list[tuple[date, float]], delivery: list[float], volume: list[float]) -> dict:
     out = {}
     if len(series) < 30:
@@ -183,15 +224,6 @@ def price_values(series: list[tuple[date, float]], delivery: list[float], volume
         recent = sum(volume[-20:]) / 20
         prior = sum(volume[-80:-20]) / 60
         out["volume_ratio_20d"] = recent / prior if prior else None
-    return out
-
-
-def valuation_values(fin: dict, price_last: float | None, shares_eps: float | None, book_ps: float | None) -> dict:
-    out = {}
-    if price_last and shares_eps and shares_eps > 0:
-        out["pe"] = price_last / (shares_eps * 4)   # TTM approximated from latest quarter EPS x 4
-    if price_last and book_ps and book_ps > 0:
-        out["pb"] = price_last / book_ps
     return out
 
 
@@ -259,6 +291,7 @@ def main() -> dict:
                 px = []
             values.update(price_values(px, [], []))
             last = px[-1][1] if px else None
+            values.update(valuation_values(_consolidated(rows), last))
             # Insider and fund data only for companies with profit growth: keeps the run inside the daily request limit.
             if values.get("profit_yoy") is not None and values["profit_yoy"] > 0:
                 ins = insider_signal(fetch_insider(sym, key))
