@@ -12,6 +12,7 @@
  * cannot call them, so these names are public on purpose and each one checks the session.
  */
 
+const ADMIN_FILE = 'market-hub-admin.json';   // legacy Drive file, no longer read by the dashboard
 const ADMIN_REPO = 'ramghatagedb1101-NSEFO/market-hub-private';
 const ADMIN_PATH = 'admin.json';
 const ADMIN_SESSION_SECONDS = 21600;   // six hours, the cache maximum
