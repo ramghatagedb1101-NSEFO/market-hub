@@ -1,6 +1,8 @@
 {
- "ts": "2026-10-07T04:42+05:30",
- "errors": {},
+ "ts": "2026-10-07T06:43+05:30",
+ "errors": {
+  "headlines": "Investing.com News did not load"
+ },
  "fii_dii": [
   {
    "category": "DII",
@@ -24,10 +26,10 @@
  },
  "global": {
   "S&P 500": {
-   "date": "2026-10-05",
-   "last": 7773.95,
-   "prev": 7722.72,
-   "change_pct": 0.66
+   "date": "2026-10-06",
+   "last": 7818.93,
+   "prev": 7773.95,
+   "change_pct": 0.58
   },
   "Dow Jones": {
    "date": "2026-10-06",
@@ -40,33 +42,27 @@
    "last": 27477.31,
    "prev": 27190.86,
    "change_pct": 1.05
-  },
-  "WTI crude (USD/bbl)": {
-   "date": "2026-09-29",
-   "last": 96.16,
-   "prev": 99.37,
-   "change_pct": -3.23
   }
  },
  "commodities": {
   "Gold (MCX, ₹/10g)": {
    "contract": "GOLD26DECFUT",
    "expiry": "2026-12-04",
-   "last": 150130.0,
-   "prev_close": 149316.0,
-   "change_pct": 0.55
+   "last": 150120.0,
+   "prev_close": 150120.0,
+   "change_pct": 0.0
   },
   "Crude oil (MCX, ₹/bbl)": {
    "contract": "CRUDEOIL26OCTFUT",
    "expiry": "2026-10-19",
-   "last": 8636.0,
-   "prev_close": 8669.0,
-   "change_pct": -0.38
+   "last": 8628.0,
+   "prev_close": 8628.0,
+   "change_pct": 0.0
   }
  },
  "india_vix": {
   "last": 13.61,
-  "change_pct": -7.92
+  "change_pct": 0.0
  },
  "usd_inr_live": {
   "contract": "USDINR26O09FUT",
@@ -75,309 +71,11 @@
   "prev_close": 97.145,
   "change_pct": 0.0
  },
- "wti": {
-  "date": "2026-09-29",
-  "last": 96.16,
-  "prev": 99.37,
-  "change_pct": -3.23,
-  "source": "Alpha Vantage"
- },
- "headlines": [
-  {
-   "source": "BBC Business",
-   "title": "UK risks being 'uninvestable' if new oil and gas fields not approved, warns Equinor",
-   "time": "2026-10-07T04:31+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "Froyo's made a comeback. But at £12 a tub will it last?",
-   "time": "2026-10-07T04:31+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Cattle futures rally on technical buying, higher beef prices",
-   "time": "2026-10-07T04:02+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Chart: A look at the S&P 500's remarkable and defiant trip to a new record",
-   "time": "2026-10-07T03:53+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Trump hedges on paying back government for ads that already aired",
-   "time": "2026-10-07T03:02+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Bessent Axing 20-Year Treasury May Send Yields Higher, BNP Warns",
-   "time": "2026-10-07T02:15+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "RBA Frets Potential AI Stock Slump Could Hit Australian Spending",
-   "time": "2026-10-07T02:04+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "Paramount takes over Warner Bros in $110bn Hollywood merger",
-   "time": "2026-10-07T01:48+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "US stocks: S&amp;P 500, Nasdaq reach record closing highs as focus pivots to earnings",
-   "time": "2026-10-07T01:40+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "US Treasuries Yields Fall From 2002 High as Oil Prices Dip",
-   "time": "2026-10-07T01:16+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Kalshi launches perpetual futures tied to US 500 stock index",
-   "time": "2026-10-07T01:12+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Emmy Awards leave broadcast TV for Prime Video in 2027 under six-year deal",
-   "time": "2026-10-07T01:05+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "What can I do to protect myself after 'Asos hacked' message?",
-   "time": "2026-10-07T00:47+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "Amazon wins global rights to stream Emmys in six-year deal",
-   "time": "2026-10-07T00:38+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Meta joins with group of companies to tame ‘chaos’ of doing business with AI bots",
-   "time": "2026-10-07T00:18+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "How event contract bundles are boosting volume on prediction markets",
-   "time": "2026-10-07T00:16+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "From films to streaming prices - how the Warner Bros deal could affect you",
-   "time": "2026-10-07T00:12+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "SAP to acquire workforce data firm TechWolf",
-   "time": "2026-10-07T00:11+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Kalshi launches transparency features on its election contracts ahead of midterms",
-   "time": "2026-10-07T00:04+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Gold industry expects price rise to $5,013 an ounce over 12 months",
-   "time": "2026-10-06T23:57+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "US EIA lifts Brent forecast to $98 as Iran war tightens global supplies",
-   "time": "2026-10-06T23:52+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Young voters struggle to afford housing. But they don't expect help from political candidates",
-   "time": "2026-10-06T23:41+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Gujarat Natural Resources sets November 5 as record date for the first-ever stock split. Details here",
-   "time": "2026-10-06T23:37+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Anthropic expands Claude Startups program in bid to snag founders and fast-growing companies",
-   "time": "2026-10-06T23:36+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Fed plans bank-supervision overhaul to strengthen accountability, says Vice Chair Michelle Bowman",
-   "time": "2026-10-06T23:35+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "Asos confirms hackers sent 'unauthorised' notification to app users",
-   "time": "2026-10-06T23:20+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "Roll-out begins for passport-free airport e-gates",
-   "time": "2026-10-06T23:08+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Salesforce shares sit at the epicenter of AI confusion. Here's how to trade it",
-   "time": "2026-10-06T22:52+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Zerodha founders Kamath brothers bet on Viceroy Hotels with 6.72% stake after insolvency-led crisis: What changed?",
-   "time": "2026-10-06T22:46+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Vaishali Parelh's best stocks to buy: IndiGo, IndusInd Bank, GPIL | Target price, stoploss, Nifty, Bank Nifty prediction",
-   "time": "2026-10-06T22:34+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Rebounding oil exports through Strait of Hormuz are vulnerable to stepped-up Iranian tanker attacks",
-   "time": "2026-10-06T21:49+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Angel One, Groww rally up to 38% in 2026 despite broader market sell-off: What’s driving gains?",
-   "time": "2026-10-06T21:19+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Ahead of Market: 10 things that will decide stock market action on Wednesday",
-   "time": "2026-10-06T21:10+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "FPIs pare bank Nifty shorts ahead of RBI policy",
-   "time": "2026-10-06T21:00+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Russian lab worker's suspected plague death leaves experts puzzled",
-   "time": "2026-10-06T20:53+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Rupee loses 13 paise to close at 96.42 per US dollar",
-   "time": "2026-10-06T20:46+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "US stocks: US software shares hit 2026 highs as AI disruption fears ease",
-   "time": "2026-10-06T20:05+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Top stocks in focus today: Investors must watch Titan, Utkarsh SFB, HCL Tech shares on Wed, 7 Oct | Triggers",
-   "time": "2026-10-06T20:02+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Why US stocks are rising today: S&amp;P 500, Nasdaq hit records as easing yields and oil fuel AI rally",
-   "time": "2026-10-06T19:22+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Investor awareness key to long-term wealth creation, technology double-edged sword: ANMI President Kamlesh Shroff",
-   "time": "2026-10-06T19:17+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "NHS supply lorry drivers to strike in pay dispute",
-   "time": "2026-10-06T19:13+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Despite 13% drop in 2026, Antique gives a 'buy' rating to this T&amp;D stock | check target, stop loss, rationale",
-   "time": "2026-10-06T19:10+05:30"
-  },
-  {
-   "source": "Economic Times Markets",
-   "title": "Utkarsh Small Finance Bank Q2 disbursements jump 55% YoY to Rs 3,525 crore; loan portfolio rises over 7%",
-   "time": "2026-10-06T18:38+05:30"
-  },
-  {
-   "source": "Livemint Markets",
-   "title": "Sebi vs Jane Street: 'Dilatory tactic; ulta chor kotwal ko daante' - What the markets regulator's lawyer said in hearing",
-   "time": "2026-10-06T18:07+05:30"
-  },
-  {
-   "source": "CNBC Top News",
-   "title": "Student riots engulf France as far-right presidential frontrunner Le Pen vows fiscal turnaround",
-   "time": "2026-10-06T15:16+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "We're saving £100 a month for our kids but they won't get it until they're 57",
-   "time": "2026-10-06T13:46+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "Lego fraudster among last year's most high-profile insurance scammers",
-   "time": "2026-10-06T12:33+05:30"
-  },
-  {
-   "source": "BBC Business",
-   "title": "OpenAI admits response to Australian government hacks 'not good enough'",
-   "time": "2026-10-06T12:23+05:30"
-  },
-  {
-   "source": "Investing.com News",
-   "title": "SpaceX seeks $40 billion to buy Nvidia chips, FT reports",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "FICO cuts workforce by 15% as part of AI-driven restructuring",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Factbox-Companies cutting jobs as investments shift toward AI",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Boston Dynamics names former Amazon executive Rohit Prasad as CEO",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "JetBlue wins final FAA approval to take over Spirit’s Laguardia slots",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Paramount wraps up mega Warner Bros merger to create Hollywood powerhouse Skydance",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Corona beer maker Constellation Brands tops second-quarter estimates on resilient demand",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Mexico stocks higher at close of trade; S&P/BMV IPC up 0.52%",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Black Hills stock surges 5% on $1.8B Google data center deal",
-   "time": null
-  },
-  {
-   "source": "Investing.com News",
-   "title": "Colombia stocks higher at close of trade; COLCAP up 0.25%",
-   "time": null
-  }
- ],
+ "headlines": null,
  "crude_usd": {
-  "last": 88.9,
-  "change_pct": -0.38,
-  "basis": "MCX crude ₹8636 ÷ 97.145 (live USD/INR)",
+  "last": 88.82,
+  "change_pct": 0.0,
+  "basis": "MCX crude ₹8628 ÷ 97.145 (live USD/INR)",
   "contract": "CRUDEOIL26OCTFUT"
  }
 }
