@@ -23,8 +23,10 @@ from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf
 from .backtest_multibagger import prices as fetch_prices
 from . import shareholding as shp
 from . import corporate_actions as ca
+from . import named_holders as nh
 
 PRIVATE_REPO = "ramghatagedb1101-NSEFO/market-hub-private"
+REGISTRY_FILE = config.REPO / "hub" / "registry.json"
 PRIVATE_FILE = "library.json"
 TIME_BUDGET_SECONDS = 70 * 60
 
@@ -73,11 +75,13 @@ RULES = {
     "fii_change_qoq": ("Foreign institutional holding not lower than the previous quarter", lambda v: v >= 0),
     "dii_change_qoq": ("Domestic institutional holding not lower than the previous quarter", lambda v: v >= 0),
     "pledge_change": ("Promoter pledge not higher than a year ago", lambda v: v <= 0),
+    "registry_holders": ("At least one confirmed registry investor holds this stock", lambda v: v > 0),
+    "registry_new_entrants": ("A confirmed registry investor is new this quarter", lambda v: v > 0),
 }
 
 NOT_YET = [
     "cash_flow_quarterly", "capex", "capex_change",
-    "registry_holders", "bulk_buys_20d", "bulk_sells_20d", "registry_buys_20d",
+    "bulk_buys_20d", "bulk_sells_20d", "registry_buys_20d",
     "ret_1m", "ret_3m", "ret_6m", "volatility_60d", "rel_strength_vs_index", "beta_vs_index",
     "ev_ebitda", "ev_sales", "peg", "sector_ret_3m", "sector_news_count", "regulatory_events",
     "market_value_bucket", "listing_age_years",
@@ -313,6 +317,13 @@ def main() -> dict:
     if not isinstance(start_idx, int) or not (0 <= start_idx < len(names)):
         start_idx = 0
     prior_stocks = {s["symbol"]: s for s in existing.get("stocks", []) if isinstance(s, dict) and s.get("symbol")}
+    prior_matches = {k: v for k, v in (existing.get("investor_matches") or {}).items()}
+    try:
+        registry_investors = json.loads(REGISTRY_FILE.read_text(encoding="utf-8")).get("investors", [])
+    except (OSError, ValueError):
+        registry_investors = []
+    investor_status = {inv["name"]: inv.get("status") for inv in registry_investors if inv.get("name")}
+    symbol_matches = {}
     nse_session = shp.session()
     stocks, partial, processed = [], False, 0
     for sym in names[start_idx:]:
@@ -344,12 +355,13 @@ def main() -> dict:
                     nse_records = []
             values.update(shp.values(nse_records))
             targets = shp.institutional_targets(nse_records)
-            inst = {}
+            texts = {}
             for label, url in targets.items():
                 try:
-                    inst[label] = shp.fetch_institutional(url)
+                    texts[label] = shp.fetch_xbrl_text(url)
                 except Exception:
                     pass
+            inst = {label: shp.institutional_from_text(t) for label, t in texts.items()}
             if "latest" in inst:
                 values.update(inst["latest"])
                 if "prior_quarter" in inst:
@@ -358,6 +370,31 @@ def main() -> dict:
                             values[prior_k] = inst["latest"][k] - inst["prior_quarter"][k]
                 if "year_ago" in inst and "pledge_pct" in inst["latest"] and "pledge_pct" in inst["year_ago"]:
                     values["pledge_change"] = inst["latest"]["pledge_pct"] - inst["year_ago"]["pledge_pct"]
+            # Named public holders above the 2-lakh disclosure threshold, matched against the investor
+            # registry. A match is evidence to review, not an automatic confirmation: registry_holders
+            # and registry_new_entrants only count investors whose registry status is already
+            # "confirmed", so they stay honestly at 0 until the owner reviews and confirms a match.
+            matches_latest = []
+            if "latest" in texts:
+                try:
+                    holders_latest = nh.named_holders_from_text(texts["latest"])
+                    matches_latest = nh.match_registry(holders_latest, registry_investors)
+                    if matches_latest:
+                        symbol_matches[sym] = matches_latest
+                except Exception:
+                    pass
+            confirmed_latest = {m["investor"] for m in matches_latest
+                                 if investor_status.get(m["investor"]) == "confirmed"}
+            values["registry_holders"] = len(confirmed_latest)
+            if "prior_quarter" in texts:
+                try:
+                    holders_prior = nh.named_holders_from_text(texts["prior_quarter"])
+                    matches_prior = nh.match_registry(holders_prior, registry_investors)
+                    confirmed_prior = {m["investor"] for m in matches_prior
+                                        if investor_status.get(m["investor"]) == "confirmed"}
+                    values["registry_new_entrants"] = len(confirmed_latest - confirmed_prior)
+                except Exception:
+                    pass
             try:
                 ca_records = ca.fetch(nse_session, sym)
                 ca_values = ca.values(ca_records)
@@ -387,6 +424,7 @@ def main() -> dict:
     cursor_next = 0 if cycle_complete else end_idx
     prior_stocks.update({s["symbol"]: s for s in stocks})
     merged_stocks = list(prior_stocks.values())
+    prior_matches.update(symbol_matches)
 
     payload = {
         "generated": datetime.now(config.IST).isoformat(timespec="minutes"),
@@ -401,10 +439,15 @@ def main() -> dict:
         "rules": {k: v[0] for k, v in RULES.items()},
         "not_yet_implemented": NOT_YET,
         "stocks": merged_stocks,
+        # Review list, every name-alias match regardless of registry status -- the owner confirms an
+        # investor in hub/registry.json before it counts toward registry_holders/registry_new_entrants.
+        "investor_matches": prior_matches,
     }
     publish(payload, sha)
-    return {k: v for k, v in payload.items() if k not in ("stocks", "rules", "not_yet_implemented")} | {
-        "stocks_written": len(merged_stocks), "batch_written": len(stocks)}
+    return {k: v for k, v in payload.items()
+            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches")} | {
+        "stocks_written": len(merged_stocks), "batch_written": len(stocks),
+        "symbols_with_matches": len(prior_matches)}
 
 
 if __name__ == "__main__":

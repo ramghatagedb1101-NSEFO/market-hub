@@ -68,7 +68,15 @@ def _xbrl_fact(text: str, tag: str, context: str) -> str | None:
     return m.group(1).strip() if m else None
 
 
-def fetch_institutional(xbrl_url: str) -> dict:
+def fetch_xbrl_text(xbrl_url: str) -> str:
+    """The raw filing, fetched once and shared by every reader of it (institutional facts, named
+    holders) so a filing already downloaded for one is never downloaded again for the other."""
+    r = requests.get(xbrl_url, headers=HEADERS, timeout=30)
+    r.raise_for_status()
+    return r.text
+
+
+def institutional_from_text(text: str) -> dict:
     """FII %, DII % and promoter pledge %, from the detailed XBRL shareholding filing -- the summary
     JSON used for promoter_holding/public_float does not carry these. Percentages in the XBRL are
     decimal fractions (0.172 = 17.2%). Confirmed field names against real filings on 2026-10-07:
@@ -79,11 +87,6 @@ def fetch_institutional(xbrl_url: str) -> dict:
     "...EncumberedUnderPledgedForPromoterAndPromoterGroup" flag disambiguates a genuine zero from a
     fact that is simply missing, so pledge_pct is 0.0 (not "not testable") when that flag says false."""
     out = {}
-    if not xbrl_url:
-        return out
-    r = requests.get(xbrl_url, headers=HEADERS, timeout=30)
-    r.raise_for_status()
-    text = r.text
     fii = _xbrl_fact(text, "ShareholdingAsAPercentageOfTotalNumberOfShares", "InstitutionsForeign_ContextI")
     dii = _xbrl_fact(text, "ShareholdingAsAPercentageOfTotalNumberOfShares", "InstitutionsDomestic_ContextI")
     if fii not in (None, ""):
@@ -100,6 +103,15 @@ def fetch_institutional(xbrl_url: str) -> dict:
             if pledge not in (None, ""):
                 out["pledge_pct"] = float(pledge) * 100
     return out
+
+
+def fetch_institutional(xbrl_url: str) -> dict:
+    """Convenience wrapper: fetches the filing and reads the institutional facts from it. Prefer
+    fetch_xbrl_text() + institutional_from_text() when the same filing is also read for named
+    holders, so it is downloaded only once."""
+    if not xbrl_url:
+        return {}
+    return institutional_from_text(fetch_xbrl_text(xbrl_url))
 
 
 def _nearest(records: list[dict], target: date, tolerance_days: int = 46) -> dict | None:
