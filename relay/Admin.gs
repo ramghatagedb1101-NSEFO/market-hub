@@ -196,8 +196,7 @@ function draw(){
     const rows = (lib.stocks || []).filter(s => s.symbol && s.symbol.indexOf(q) >= 0 &&
       (f === 'all' || (f === 'met10' && (s.met || 0) >= 10) || (f === 'met15' && (s.met || 0) >= 15)))
       .sort((a, b) => (b.met || 0) - (a.met || 0)).slice(0, 300);
-    const body = rows.map(s => '<tr style="cursor:pointer" onclick="showStock('' + esc(s.symbol) + '')"><td>' + esc(s.symbol) +
-      '</td><td>' + (s.met || 0) + '</td><td>' + (s.not_met || 0) + '</td><td>' + (s.not_testable || 0) + '</td><td>' + (s.data_quality_pct || 0) + '%</td></tr>').join('');
+    const body = rows.map(s => '<tr style="cursor:pointer" data-s="' + esc(s.symbol) + '" onclick="showStock(this.dataset.s)"><td>' + esc(s.symbol) + '</td><td>' + (s.met || 0) + '</td><td>' + (s.not_met || 0) + '</td><td>' + (s.not_testable || 0) + '</td><td>' + (s.data_quality_pct || 0) + '%</td></tr>').join('');
     v.innerHTML = '<p class="muted">Generated ' + esc(lib.generated) + (lib.partial ? ' (partial run)' : '') + '. ' +
       (lib.stocks || []).length + ' companies. Top 300 shown; tap a row for the parameter detail.</p>' +
       '<input id="libq" placeholder="Search symbol" oninput="draw()" style="width:100%;margin:6px 0">' +
