@@ -1,14 +1,20 @@
 {
- "ts": "2026-10-07T10:27+05:30",
- "days_stored": 1,
+ "ts": "2026-10-07T18:25+05:30",
+ "days_stored": 2,
  "first_day": "06-OCT-2026",
- "last_day": "06-OCT-2026",
- "added_today": 0,
+ "last_day": "07-OCT-2026",
+ "added_today": 218,
  "by_day": {
   "06-OCT-2026": {
    "deals": 207,
    "buys": 107,
    "sells": 100,
+   "registry_buys": 0
+  },
+  "07-OCT-2026": {
+   "deals": 218,
+   "buys": 110,
+   "sells": 108,
    "registry_buys": 0
   }
  },
