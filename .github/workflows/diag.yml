@@ -22,8 +22,8 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Library pipeline sample (10 companies, full detail)
+      - name: BharatStock rate-limit headers on a 429
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
           PYTHONUNBUFFERED: "1"
-        run: python -u -m hub.diag_library_sample
+        run: python -u -m hub.diag_quota_headers
