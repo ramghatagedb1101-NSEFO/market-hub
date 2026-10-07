@@ -15,7 +15,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 30                 # first run backfills 5 years of NSE bhavcopies
+    timeout-minutes: 90                 # first run backfills 5 years of NSE bhavcopies; multi-bagger rates about 2,000 companies
     steps:
       - uses: actions/checkout@v4
 
