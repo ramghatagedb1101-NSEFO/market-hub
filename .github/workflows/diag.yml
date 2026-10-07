@@ -22,7 +22,8 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: NSE shareholding-pattern API reachability from this runner
+      - name: Library pipeline sample (10 companies, full detail)
         env:
+          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
           PYTHONUNBUFFERED: "1"
-        run: python -u -m hub.diag_nse_shp
+        run: python -u -m hub.diag_library_sample
