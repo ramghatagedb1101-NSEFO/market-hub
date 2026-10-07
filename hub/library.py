@@ -63,11 +63,13 @@ RULES = {
     "promoter_change_qoq": ("Promoter holding not lower than the previous quarter", lambda v: v >= 0),
     "promoter_change_yoy": ("Promoter holding not lower than a year ago", lambda v: v >= 0),
     "public_float": ("Public float at least 25% (SEBI's minimum public shareholding norm)", lambda v: v >= 25),
+    "fii_holding": ("Foreign institutional holding at least 5%", lambda v: v >= 5),
+    "dii_holding": ("Domestic institutional holding at least 5%", lambda v: v >= 5),
+    "pledge_pct": ("Promoter pledge below 10% of promoter holding", lambda v: v < 10),
 }
 
 NOT_YET = [
     "cash_flow_quarterly", "capex", "capex_change", "dividend_yield",
-    "pledge_pct", "fii_holding", "dii_holding",
     "registry_holders", "bulk_buys_20d", "bulk_sells_20d", "registry_buys_20d",
     "ret_1m", "ret_3m", "ret_6m", "volatility_60d", "rel_strength_vs_index", "beta_vs_index",
     "ev_ebitda", "ev_sales", "peg", "sector_ret_3m", "sector_news_count", "regulatory_events",
@@ -334,6 +336,11 @@ def main() -> dict:
                 except Exception:
                     nse_records = []
             values.update(shp.values(nse_records))
+            if nse_records and nse_records[0].get("xbrl"):
+                try:
+                    values.update(shp.fetch_institutional(nse_records[0]["xbrl"]))
+                except Exception:
+                    pass
             # Insider and fund data only for companies with profit growth: keeps the run inside the daily request limit.
             if values.get("profit_yoy") is not None and values["profit_yoy"] > 0:
                 ins = insider_signal(fetch_insider(sym, key))

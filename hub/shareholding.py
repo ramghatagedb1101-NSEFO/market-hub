@@ -7,6 +7,7 @@ NSE returns every submission for a company, including revised/duplicate filings 
 quarter, so records are grouped by `date` (the quarter end) and only the latest-broadcast one per
 quarter is kept before computing quarter-over-quarter and year-over-year change.
 """
+import re
 from datetime import date, datetime, timedelta
 
 import requests
@@ -55,9 +56,49 @@ def fetch(s: requests.Session, symbol: str) -> list[dict]:
         prev = by_quarter.get(d)
         if prev is None or (row.get("broadcastDate") or "") > (prev.get("broadcastDate") or ""):
             by_quarter[d] = row
-    out = [{"date": d, "promoter_pct": float(v["pr_and_prgrp"]), "public_pct": float(v["public_val"])}
+    out = [{"date": d, "promoter_pct": float(v["pr_and_prgrp"]), "public_pct": float(v["public_val"]),
+            "xbrl": v.get("xbrl")}
            for d, v in by_quarter.items() if v.get("public_val") not in (None, "")]
     out.sort(key=lambda x: x["date"], reverse=True)
+    return out
+
+
+def _xbrl_fact(text: str, tag: str, context: str) -> str | None:
+    m = re.search(r'<in-bse-shp:' + tag + r'[^>]*contextRef="' + context + r'"[^>]*>([^<]*)</in-bse-shp:' + tag + r'>', text)
+    return m.group(1).strip() if m else None
+
+
+def fetch_institutional(xbrl_url: str) -> dict:
+    """FII %, DII % and promoter pledge %, from the detailed XBRL shareholding filing -- the summary
+    JSON used for promoter_holding/public_float does not carry these. Percentages in the XBRL are
+    decimal fractions (0.172 = 17.2%). Confirmed field names against real filings on 2026-10-07:
+    Reliance (no pledge) and a company with an active pledge, both parsed correctly.
+
+    Pledge is reported only when it exists: SEBI filings omit the percentage fact entirely for a
+    company with no pledge, rather than stating an explicit 0. The boolean
+    "...EncumberedUnderPledgedForPromoterAndPromoterGroup" flag disambiguates a genuine zero from a
+    fact that is simply missing, so pledge_pct is 0.0 (not "not testable") when that flag says false."""
+    out = {}
+    if not xbrl_url:
+        return out
+    r = requests.get(xbrl_url, headers=HEADERS, timeout=30)
+    r.raise_for_status()
+    text = r.text
+    fii = _xbrl_fact(text, "ShareholdingAsAPercentageOfTotalNumberOfShares", "InstitutionsForeign_ContextI")
+    dii = _xbrl_fact(text, "ShareholdingAsAPercentageOfTotalNumberOfShares", "InstitutionsDomestic_ContextI")
+    if fii not in (None, ""):
+        out["fii_holding"] = float(fii) * 100
+    if dii not in (None, ""):
+        out["dii_holding"] = float(dii) * 100
+    pledged_flag = _xbrl_fact(text, "WhetherAnySharesHeldByPromotersAreEncumberedUnderPledgedForPromoterAndPromoterGroup", "MainI")
+    if pledged_flag is not None:
+        if pledged_flag.lower() == "false":
+            out["pledge_pct"] = 0.0
+        else:
+            pledge = _xbrl_fact(text, "EncumberedShareUnderPledgedAsPercentageOfTotalNumberOfShares",
+                                 "ShareholdingOfPromoterAndPromoterGroup_ContextI")
+            if pledge not in (None, ""):
+                out["pledge_pct"] = float(pledge) * 100
     return out
 
 
