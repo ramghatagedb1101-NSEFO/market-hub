@@ -205,9 +205,13 @@ def _consolidated(rows: list[dict]) -> list[dict]:
     return sorted(rows, key=lambda x: x["period_end_date"], reverse=True)
 
 
-def score(symbol: str, rows: list[dict]) -> dict:
+def score(symbol: str, rows: list[dict], annual_rows: list[dict] | None = None) -> dict:
     """Derived measures only. The rating is the number of gates passed (0 to 4); failed gates are
-    listed, not dropped. Fewer than five quarters means no rating at all."""
+    listed, not dropped. Fewer than five quarters means no rating at all.
+
+    annual_rows: separate annual financials for the cash_backed gate. BharatStock fills
+    cash_flow_operating once a year, never on the quarterly rows, so the quarterly `rows` alone
+    cannot test it -- that was previously always a gap."""
     q = _consolidated(rows)
     out = {"symbol": symbol, "quarters": len(q), "gates": {}, "measures": {}, "gaps": [], "score": None}
     if len(q) < 5:
@@ -248,8 +252,11 @@ def score(symbol: str, rows: list[dict]) -> dict:
             break
     turned = 1 <= run <= 4 and any(f is False for f in flags[run:])
     cfo_ratio = None
-    if latest.get("cash_flow_operating") is not None and latest.get("net_profit"):
-        cfo_ratio = latest["cash_flow_operating"] / latest["net_profit"]
+    a = _consolidated(annual_rows) if annual_rows else []
+    if a:
+        a_cfo, a_pat = a[0].get("cash_flow_operating"), a[0].get("net_profit")
+        if a_cfo is not None and a_pat:
+            cfo_ratio = a_cfo / a_pat
     margin = None
     if latest.get("revenue") and latest.get("net_profit") is not None:
         margin = latest["net_profit"] / latest["revenue"] * 100
@@ -336,7 +343,11 @@ def main() -> dict:
             break
         try:
             rows = fetch(sym, key)
-            res = score(sym, rows)
+            try:
+                annual_rows = fetch_annual(sym, key)
+            except Exception:
+                annual_rows = []
+            res = score(sym, rows, annual_rows)
             # Fund and promoter data only for companies rated 2 or more: it saves about two thirds of the calls.
             if res.get("score") is not None and res["score"] >= 2:
                 try:
