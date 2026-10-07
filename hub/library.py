@@ -21,6 +21,7 @@ from . import config
 from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf,
                           insider_signal, mf_counts, _consolidated)
 from .backtest_multibagger import prices as fetch_prices
+from . import shareholding as shp
 
 PRIVATE_REPO = "ramghatagedb1101-NSEFO/market-hub-private"
 PRIVATE_FILE = "library.json"
@@ -58,11 +59,14 @@ RULES = {
     "pb": ("Price to book below 6x", lambda v: 0 < v < 6),
     "ps": ("Price to sales below 5x", lambda v: 0 < v < 5),
     "market_value_bucket": ("Market value at least ₹500 crore (not a micro-cap)", lambda v: v >= 500),
+    "promoter_holding": ("Promoter and promoter group holding at least 40%", lambda v: v >= 40),
+    "promoter_change_qoq": ("Promoter holding not lower than the previous quarter", lambda v: v >= 0),
+    "promoter_change_yoy": ("Promoter holding not lower than a year ago", lambda v: v >= 0),
 }
 
 NOT_YET = [
     "cash_flow_quarterly", "capex", "capex_change", "dividend_yield",
-    "promoter_holding", "promoter_change_qoq", "pledge_pct", "fii_holding", "dii_holding",
+    "pledge_pct", "fii_holding", "dii_holding",
     "registry_holders", "bulk_buys_20d", "bulk_sells_20d", "registry_buys_20d",
     "ret_1m", "ret_3m", "ret_6m", "volatility_60d", "rel_strength_vs_index", "beta_vs_index",
     "ev_ebitda", "ev_sales", "peg", "sector_ret_3m", "sector_news_count", "regulatory_events",
@@ -272,6 +276,7 @@ def main() -> dict:
         raise RuntimeError("BHARATSTOCK_API_KEY is not set")
     started = time.time()
     names = universe()
+    nse_session = shp.session()
     stocks, partial, processed = [], False, 0
     for sym in names:
         if time.time() - started > TIME_BUDGET_SECONDS:
@@ -292,6 +297,15 @@ def main() -> dict:
             values.update(price_values(px, [], []))
             last = px[-1][1] if px else None
             values.update(valuation_values(_consolidated(rows), last))
+            try:
+                nse_records = shp.fetch(nse_session, sym)
+            except Exception:
+                try:
+                    nse_session = shp.session()   # one retry with a fresh session/cookies
+                    nse_records = shp.fetch(nse_session, sym)
+                except Exception:
+                    nse_records = []
+            values.update(shp.values(nse_records))
             # Insider and fund data only for companies with profit growth: keeps the run inside the daily request limit.
             if values.get("profit_yoy") is not None and values["profit_yoy"] > 0:
                 ins = insider_signal(fetch_insider(sym, key))
