@@ -77,6 +77,20 @@ function saveAdminFile_(body) {
   return true;
 }
 
+/** Reads the stock library (library.json) from the private repo for the signed-in owner. */
+function adminLibrary(token) {
+  const cache = CacheService.getScriptCache();
+  if (!token || !cache.get('admin_session_' + token)) return { error: 'session_expired' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  const res = UrlFetchApp.fetch(
+    'https://api.github.com/repos/' + ADMIN_REPO + '/contents/library.json',
+    { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
+  if (res.getResponseCode() === 404) return { error: 'The stock library has not been published yet.' };
+  if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for the library.' };
+  return JSON.parse(res.getContentText());
+}
+
 const ADMIN_HTML = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -115,6 +129,7 @@ td,th{border-bottom:1px solid #e5e5e5;padding:6px 4px;text-align:left;vertical-a
 let token = sessionStorage.getItem('mh_admin_token') || '';
 let data = null;
 let tab = 'status';
+let lib = null;
 
 function sendCode(){
   document.getElementById('send').disabled = true;
@@ -147,7 +162,7 @@ function load(){
     data = d; drawTabs(); draw();
   }).withFailureHandler(e => { document.getElementById('view').innerHTML = '<p class="err">' + esc(e.message) + '</p>'; }).adminData(token);
 }
-const TABS = [['status','Status'],['params','Parameters'],['registry','Registry'],['bulk','Bulk deals'],['tests','Back-tests']];
+const TABS = [['status','Status'],['library','Library'],['params','Parameters'],['registry','Registry'],['bulk','Bulk deals'],['tests','Back-tests']];
 function drawTabs(){
   document.getElementById('tabs').innerHTML = TABS.map(([k,l]) =>
     '<button class="' + (k===tab?'on':'') + '" data-k="' + k + '" onclick="pick(this.dataset.k)">' + l + '</button>').join('');
@@ -173,6 +188,22 @@ function draw(){
     const days = (d.bulk_deals || {}).by_day || {};
     const rows = Object.keys(days).sort().reverse().map(k => '<tr><td>' + esc(k) + '</td><td>' + days[k].deals + '</td><td>' + days[k].buys + '</td><td>' + days[k].sells + '</td><td>' + days[k].registry_buys + '</td></tr>').join('');
     v.innerHTML = '<table><tr><th>Day</th><th>Deals</th><th>Buys</th><th>Sells</th><th>Registry buys</th></tr>' + rows + '</table>';
+  } else if (tab === 'library') {
+    if (!lib) { v.innerHTML = '<p class="muted">Loading the library...</p>'; loadLib(); return; }
+    if (lib.error) { v.innerHTML = '<p class="err">' + esc(lib.error) + '</p>'; return; }
+    const q = (document.getElementById('libq') || { value: '' }).value.trim().toUpperCase();
+    const f = (document.getElementById('libf') || { value: 'all' }).value;
+    const rows = (lib.stocks || []).filter(s => s.symbol && s.symbol.indexOf(q) >= 0 &&
+      (f === 'all' || (f === 'met10' && (s.met || 0) >= 10) || (f === 'met15' && (s.met || 0) >= 15)))
+      .sort((a, b) => (b.met || 0) - (a.met || 0)).slice(0, 300);
+    const body = rows.map(s => '<tr style="cursor:pointer" onclick="showStock('' + esc(s.symbol) + '')"><td>' + esc(s.symbol) +
+      '</td><td>' + (s.met || 0) + '</td><td>' + (s.not_met || 0) + '</td><td>' + (s.not_testable || 0) + '</td><td>' + (s.data_quality_pct || 0) + '%</td></tr>').join('');
+    v.innerHTML = '<p class="muted">Generated ' + esc(lib.generated) + (lib.partial ? ' (partial run)' : '') + '. ' +
+      (lib.stocks || []).length + ' companies. Top 300 shown; tap a row for the parameter detail.</p>' +
+      '<input id="libq" placeholder="Search symbol" oninput="draw()" style="width:100%;margin:6px 0">' +
+      '<select id="libf" onchange="draw()"><option value="all">All</option><option value="met10">Met 10 or more</option><option value="met15">Met 15 or more</option></select>' +
+      '<table><tr><th>Symbol</th><th>Met</th><th>Not met</th><th>Not testable</th><th>Data</th></tr>' + body + '</table>' +
+      '<div id="stockdetail"></div>';
   } else if (tab === 'tests') {
     const t = d.tests || {};
     let html = '';
@@ -181,6 +212,24 @@ function draw(){
     }
     v.innerHTML = html || '<p class="muted">No back-test results yet.</p>';
   }
+}
+function loadLib(){
+  google.script.run.withSuccessHandler(d => {
+    if (d.error === 'session_expired') { logout(); return; }
+    lib = d; draw();
+  }).withFailureHandler(e => { lib = { error: e.message }; draw(); }).adminLibrary(token);
+}
+function showStock(sym){
+  const s = (lib.stocks || []).find(x => x.symbol === sym);
+  const el = document.getElementById('stockdetail');
+  if (!s || !el) return;
+  const rows = Object.keys(s.cells || {}).map(k => {
+    const c = s.cells[k];
+    const tag = c.status === 'met' ? 'Met' : (c.status === 'not_met' ? 'Not met' : 'Not testable');
+    return '<tr><td>' + esc(k) + '</td><td>' + esc(c.value == null ? '-' : c.value) + '</td><td>' + tag + '</td><td class="muted">' + esc(c.rule) + '</td></tr>';
+  }).join('');
+  el.innerHTML = '<div class="card"><b>' + esc(sym) + '</b> (' + esc(s.latest_period || '-') + ')<table>' +
+    '<tr><th>Parameter</th><th>Value</th><th>Result</th><th>Rule</th></tr>' + rows + '</table></div>';
 }
 if (token) { show(); }
 </script>
