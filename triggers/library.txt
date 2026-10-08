@@ -1,1 +1,1 @@
-first clean batched run after quota reset 2026-10-08T00:13:24Z
+re-walk from cursor 499 to fix the 1,397 corrupted entries, 2026-10-08T09:00Z
