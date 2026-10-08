@@ -149,16 +149,23 @@ def _crude_usd_derived(commodities: dict, live_fx: dict | None, ecb: dict | None
 
 
 def _headlines() -> list[dict]:
-    """Recent headlines from each feed. Titles and links only; the brief quotes at most a few."""
+    """Recent headlines from each feed. Titles and links only; the brief quotes at most a few.
+
+    Each feed fails on its own, same philosophy as main()'s top-level sources -- one blocked RSS
+    feed (CNBC/Investing.com have both been flaky) used to raise and discard every headline already
+    collected from the other working feeds, not just its own. A fully-failed run (every feed down)
+    still raises, so main() correctly records headlines as unavailable rather than silently
+    publishing an empty list as if nothing had failed."""
     cutoff = datetime.now(config.IST) - timedelta(days=NEWS_MAX_AGE_DAYS)
-    items, seen = [], set()
+    items, seen, failed = [], set(), []
     for source, url in NEWS_FEEDS.items():
         try:
             r = requests.get(url, headers=UA, timeout=20)
             r.raise_for_status()
             root = ElementTree.fromstring(r.content)
         except Exception:
-            raise RuntimeError(f"{source} did not load") from None
+            failed.append(source)
+            continue
         count = 0
         for it in root.iter("item"):
             title = (it.findtext("title") or "").strip()
@@ -181,6 +188,8 @@ def _headlines() -> list[dict]:
             count += 1
             if count >= NEWS_PER_FEED:
                 break
+    if len(failed) == len(NEWS_FEEDS):
+        raise RuntimeError("every headline feed failed: " + ", ".join(failed))
     items.sort(key=lambda x: x["time"] or "", reverse=True)
     return items
 

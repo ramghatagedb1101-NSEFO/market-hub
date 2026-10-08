@@ -122,40 +122,62 @@ def _data(feed: dict, fno: dict | None, ctx: dict | None) -> str:
     return _summary(feed, fno) + "\n" + _context_summary(ctx)
 
 
+def _write_gemini(key: str, prompt: str) -> str:
+    body = {"contents": [{"parts": [{"text": prompt}]}]}
+    r = None
+    for attempt in range(4):   # Gemini returns 429/503 under load; back off and retry
+        r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key}, json=body, timeout=60)
+        if r.status_code not in (429, 503):
+            break
+        time.sleep(15 * (attempt + 1))
+    if r.status_code != 200:
+        raise RuntimeError(f"Gemini returned {r.status_code}: {r.text[:300]}")
+    return r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+
+
 def main() -> dict:
     nv_key = os.getenv("NVIDIA_API_KEY")
-    key = os.getenv("GEMINI_API_KEY")
+    gm_key = os.getenv("GEMINI_API_KEY")
     feed = json.loads(config.FEED_FILE.read_text(encoding="utf-8"))
     fno_path = config.SITE_DIR / "data" / "fno.json"
     fno = json.loads(fno_path.read_text(encoding="utf-8")) if fno_path.exists() else None
     ctx_path = config.SITE_DIR / "data" / "context.json"
     ctx = json.loads(ctx_path.read_text(encoding="utf-8")) if ctx_path.exists() else None
     out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "text": "", "source": ""}
+    prompt = PROMPT.format(data=_data(feed, fno, ctx))
 
-    if nv_key:
-        out["source"] = f"NVIDIA · {NVIDIA_MODEL}"
-        try:
-            out["text"] = _write_nvidia(nv_key, PROMPT.format(data=_data(feed, fno, ctx)))
-        except Exception as exc:
-            out["text"] = f"Daily brief could not be written ({NVIDIA_MODEL}). {exc}"
-    elif not key:
+    if not nv_key and not gm_key:
         out["source"] = "none"
         out["text"] = "Daily brief is off: no AI key is set in the repository secrets (NVIDIA_API_KEY or GEMINI_API_KEY)."
-    else:
-        out["source"] = f"Gemini · {MODEL}"
+        BRIEF_FILE.parent.mkdir(parents=True, exist_ok=True)
+        BRIEF_FILE.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+        return out
+
+    # NVIDIA first, Gemini as a genuine fallback on any failure -- the daily workflow's own step
+    # name ("Daily brief (NVIDIA, Gemini fallback)") promised this, but until 8 Oct the code never
+    # actually tried Gemini when NVIDIA failed (only when NVIDIA_API_KEY was absent entirely), so a
+    # live NVIDIA outage with both keys set would write an error message instead of falling back.
+    nv_error = None
+    if nv_key:
         try:
-            body = {"contents": [{"parts": [{"text": PROMPT.format(data=_data(feed, fno, ctx))}]}]}
-            for attempt in range(4):   # Gemini returns 429/503 under load; back off and retry
-                r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key}, json=body, timeout=60)
-                if r.status_code not in (429, 503):
-                    break
-                time.sleep(15 * (attempt + 1))
-            if r.status_code != 200:
-                raise RuntimeError(f"Gemini returned {r.status_code}: {r.text[:300]}")
-            out["text"] = r.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
+            out["source"] = f"NVIDIA · {NVIDIA_MODEL}"
+            out["text"] = _write_nvidia(nv_key, prompt)
+        except Exception as exc:
+            nv_error = str(exc)
+            out["text"] = ""
+
+    if not out["text"] and gm_key:
+        try:
+            out["source"] = f"Gemini · {MODEL}" + (" (NVIDIA fallback)" if nv_error else "")
+            out["text"] = _write_gemini(gm_key, prompt)
         except Exception as exc:
             # Record the reason on the page instead of failing the job. The rest still publishes.
-            out["text"] = f"Daily brief could not be written ({MODEL}). {exc}"
+            both = f"NVIDIA: {nv_error}. Gemini: {exc}" if nv_error else str(exc)
+            out["text"] = f"Daily brief could not be written. {both}"
+            out["source"] = "none"
+    elif not out["text"]:
+        # NVIDIA failed and there is no Gemini key to fall back to.
+        out["text"] = f"Daily brief could not be written ({NVIDIA_MODEL}). {nv_error}"
 
     BRIEF_FILE.parent.mkdir(parents=True, exist_ok=True)
     BRIEF_FILE.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")

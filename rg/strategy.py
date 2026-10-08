@@ -832,6 +832,32 @@ def _apply_caps(picks, score_of=None, *, max_per_sector=None, max_recos=None,
     return selected, drops
 
 
+def _cap_diagnostic_rows(picks, open_counts, open_keys, today=None):
+    """Gate for the time-boxed concentration diagnostic (cap_suppressed): config.CAP_DIAGNOSTIC_UNTIL
+    documents that past that date the diagnostic should stop and be "replaced by a prompt to make
+    the MAX_PER_SECTOR decision" -- but nothing ever actually read the date (found 8 Oct 2026, by
+    then 8 days past its own expiry), so the diagnostic (which simulates _apply_caps three times
+    over) had been running unconditionally the whole time. Implemented as originally designed: past
+    the date, skip the simulation and surface the pending decision instead of computing it again.
+    `today` is injectable for testing; defaults to the real clock."""
+    today = today or date.today()
+    cap_until = None
+    try:
+        cap_until = date.fromisoformat(config.CAP_DIAGNOSTIC_UNTIL) if config.CAP_DIAGNOSTIC_UNTIL else None
+    except ValueError:
+        print(f"  [STRATEGY] CAP_DIAGNOSTIC_UNTIL={config.CAP_DIAGNOSTIC_UNTIL!r} is not a valid "
+              f"date -- treating the diagnostic window as expired")
+    if cap_until is not None and today > cap_until:
+        print(f"  [STRATEGY] concentration-limit diagnostic window ended {cap_until} -- "
+              f"decide whether to keep MAX_PER_SECTOR={config.MAX_PER_SECTOR} "
+              f"(see rg/config.py CAP_DIAGNOSTIC_UNTIL) rather than extending the measurement")
+        return [{"status": "DIAGNOSTIC_EXPIRED",
+                 "detail": f"Diagnostic window ended {cap_until}. Decide whether to keep "
+                           f"MAX_PER_SECTOR={config.MAX_PER_SECTOR} (rg/config.py) instead of "
+                           f"extending RG_CAP_DIAGNOSTIC_UNTIL to keep measuring it."}]
+    return cap_suppressed(picks, config.CAP_DIAGNOSTIC_TOP_N, open_counts=open_counts, open_keys=open_keys)
+
+
 def cap_suppressed(picks, top_n=10, sector_of=None, open_counts=None, open_keys=None):
     """
     TIME-BOXED DIAGNOSTIC — what the concentration limits actually cost us.
@@ -1063,8 +1089,7 @@ def generate_recommendations(symbols, snapshot_fn, flags=None, today=None,
                                open_keys=open_keys)
     _attribute_drops(picks, final, drops, diagnostics, open_counts=open_counts,
                      open_keys=open_keys)
-    cap_rows = cap_suppressed(picks, config.CAP_DIAGNOSTIC_TOP_N,
-                              open_counts=open_counts, open_keys=open_keys)
+    cap_rows = _cap_diagnostic_rows(picks, open_counts, open_keys)
 
     # Stamp LAST. Every candidate is explicitly marked, not just the winners, so
     # a missing stamp means "never went through the caps" rather than "might be an
