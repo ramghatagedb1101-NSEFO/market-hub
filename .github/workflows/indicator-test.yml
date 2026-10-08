@@ -24,9 +24,18 @@ jobs:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
         run: |
-          RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
-          TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
-          if [ -z "$TOKEN" ]; then echo "No Kite token for today"; exit 1; fi
+          # Same transient-404 retry as daily.yml/expiry-theta.yml/live.yml (8 Oct) -- a single
+          # unretried shot here would fail this manual diagnostic run on a Google-side blip that has
+          # nothing to do with whether a token actually exists.
+          TOKEN=""
+          for attempt in 1 2 3; do
+            RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
+            TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+            if [ -n "$TOKEN" ]; then break; fi
+            echo "Attempt $attempt: no token yet. Relay answered: $RESP"
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 3)); fi
+          done
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today after 3 attempts. Last relay answer: $RESP"; exit 1; fi
           echo "::add-mask::$TOKEN"
           echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
       - name: Indicator test (summary statistics only)
