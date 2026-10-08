@@ -36,7 +36,7 @@ sign-in went live and the working data (phone app files and `state/`) moved to t
 ### C. Privacy (phone app sign-in and private data, live 8 Oct)
 5. Sign in on the phone and confirm every tab loads (owner; needs the emailed code).
 6. Confirm today's 18:00 daily run pulls `state/` from the private repo and saves back to it (first run on the new path).
-7. The library batch running at the switch (run 37730982115) used the old workflow: check whether its chain to the next batch stopped, and if so start `stock-library-weekly` by hand. Its batch's multi-bagger additions may be missing until the next full pass.
+7. Library batch chain: the batch running at the switch finished cleanly and chained on; the next batch (run 37737062142) is the first on the new workflow -- confirm its save step sends `site/multibagger.json` to the private repo.
 
 ### D. Housekeeping
 8. `working_capital_days`/`working_capital_change` are genuine gaps (field names for receivable/inventory/payable days on the BharatStock balance sheet were never confirmed) — worth a live check if there's ever a reason to prioritise it.
