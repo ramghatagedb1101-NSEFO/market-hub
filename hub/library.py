@@ -334,19 +334,24 @@ def price_values(series: list[tuple[date, float]], delivery: list[float], volume
     def back(n):
         return closes[-n - 1] if len(closes) > n else None
 
-    if len(closes) > 21:
+    # Divides by a specific historical close or a window extreme -- guarded against zero throughout:
+    # a glitched/suspended-trading zero-price record is plausible across 2,572 companies including
+    # illiquid micro-caps, and should leave that one figure a gap, not crash the whole company.
+    if len(closes) > 21 and closes[-22]:
         out["ret_1m"] = (last / closes[-22] - 1) * 100
-    if len(closes) > 63:
+    if len(closes) > 63 and closes[-64]:
         out["ret_3m"] = (last / closes[-64] - 1) * 100
-    if len(closes) > 126:
+    if len(closes) > 126 and closes[-127]:
         out["ret_6m"] = (last / closes[-127] - 1) * 100
     if back(252) is not None or back(200) is not None:
-        out["ret_12m"] = (last / closes[-253] - 1) * 100 if len(closes) > 252 else None
+        out["ret_12m"] = (last / closes[-253] - 1) * 100 if len(closes) > 252 and closes[-253] else None
     if len(closes) >= 252:
         hi = max(closes[-252:])
         lo = min(closes[-252:])
-        out["from_52w_high"] = (last / hi - 1) * 100
-        out["from_52w_low"] = (last / lo - 1) * 100
+        if hi:
+            out["from_52w_high"] = (last / hi - 1) * 100
+        if lo:
+            out["from_52w_low"] = (last / lo - 1) * 100
     if len(closes) >= 200:
         ma200 = sum(closes[-200:]) / 200
         out["above_200dma"] = last > ma200
@@ -390,8 +395,9 @@ def index_relative_values(series: list[tuple[date, float]], nifty: dict) -> dict
         return out
     n_last = nifty[aligned[-1][0].isoformat()]
     n_6m = nifty.get(aligned[-127][0].isoformat())
-    stock_ret_6m = (last / aligned[-127][1] - 1) * 100
-    if n_6m:
+    stock_base = aligned[-127][1]
+    if n_6m and stock_base:
+        stock_ret_6m = (last / stock_base - 1) * 100
         nifty_ret_6m = (n_last / n_6m - 1) * 100
         out["rel_strength_vs_index"] = stock_ret_6m - nifty_ret_6m
     if len(aligned) >= 253:
@@ -821,7 +827,13 @@ def main() -> dict:
         "stocks_written": len(merged_stocks), "batch_written": len(stocks),
         "symbols_with_matches": len(prior_matches),
         "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(mb_stocks),
-        "new_discovery_findings": len(new_findings), "alert_result": alert_result}
+        "new_discovery_findings": len(new_findings), "alert_result": alert_result,
+        # Diagnostics only, so a zero-written batch (like 8 Oct's) can be explained from the GH
+        # Actions log directly instead of needing private-repo access to read the real failures.
+        "batch_error_count": sum(1 for s in stocks if "error" in s),
+        "batch_error_sample": [s for s in stocks if "error" in s][:3],
+        "multibagger_failure_count": len(mb_failures),
+        "multibagger_failure_sample": list(mb_failures.values())[:3]}
 
 
 if __name__ == "__main__":
