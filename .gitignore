@@ -12,3 +12,9 @@ rg/data/risk_flags.json
 rg/data/macro_briefing.json
 rg/data/positions.json
 rg/reports/
+
+# Phone app data lives in the private repo (market-hub-private, site/), read through the relay after
+# sign-in. Jobs still write these locally; hub/site_data.py moves them. live.json (public quotes) stays.
+docs/data/*.json
+!docs/data/live.json
+docs/data/.pulled.json

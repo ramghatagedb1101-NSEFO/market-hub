@@ -28,11 +28,13 @@ function doGet(e) {
 }
 
 /** The daily job posts the admin summary here (mode=publish_admin, with RELAY_KEY). The stock-library
- *  batch posts a new discovery-tier finding here (mode=alert, with RELAY_KEY). */
+ *  batch posts a new discovery-tier finding here (mode=alert, with RELAY_KEY). The phone app signs in
+ *  and reads its data here (mode=app_code, app_verify, app_data; see Admin.gs). */
 function doPost(e) {
   const p = (e && e.parameter) || {};
   if (p.mode === 'publish_admin') return json_(publishAdmin_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'alert') return json_(sendDiscoveryAlert_(p.key || '', (e.postData && e.postData.contents) || ''));
+  if (/^app_/.test(p.mode || '')) return json_(appApi_(p.mode, (e.postData && e.postData.contents) || ''));
   return json_({ error: 'unknown mode' });
 }
 

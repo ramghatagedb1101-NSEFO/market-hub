@@ -118,6 +118,23 @@
   .sheet .pb{font-size:12.5px;line-height:1.55}
   .sheet a.btn{display:inline-block;text-decoration:none;margin:8px 0;border-color:var(--blu);color:var(--blu)}
   .foot{margin-top:14px;color:var(--dim);font-size:10.5px;line-height:1.55}
+
+  /* sign-in (same email code as the admin dashboard) */
+  .gate{display:none;position:fixed;inset:0;background:var(--bg);z-index:30;align-items:flex-start;justify-content:center;
+        padding:calc(16px + env(safe-area-inset-top)) 16px 16px;overflow-y:auto}
+  .gate.on{display:flex}
+  .gate .sheet{margin-top:8vh}
+  .gate .logo{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .gate .logo img{width:44px;height:44px;border-radius:9px}
+  .gate .logo span{font:700 12px var(--sans);letter-spacing:1.4px;text-transform:uppercase}
+  .gate input{width:100%;background:var(--pnl2);border:1px solid var(--ln2);color:var(--txt);border-radius:3px;
+              font:600 22px var(--mono);letter-spacing:6px;text-align:center;padding:10px;margin:6px 0 4px}
+  .gate input:focus{outline:2px solid var(--blu);outline-offset:1px}
+  .gate .btn{width:100%;padding:11px 9px;margin-top:8px;font-size:12px}
+  .gate .btn.pri{background:var(--blu);border-color:var(--blu);color:#fff}
+  .gate .btn:disabled{opacity:.5;cursor:default}
+  .gate .msg{min-height:18px;margin-top:8px;font-size:12px}
+  .gate .msg.err{color:var(--red)}
 </style>
 </head>
 <body>
@@ -149,6 +166,23 @@
   <button data-pane="desk"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg><span>Desk</span></button>
 </nav>
 
+<div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+  <div class="sheet">
+    <div class="pb">
+      <div class="logo"><img src="icon-512.png" alt=""><span id="gate-title">Market Hub</span></div>
+      <div><b>Sign in</b></div>
+      <div class="mut" style="margin-top:4px">A six-digit code goes to the owner's email, the same one the admin dashboard uses. It lasts 10 minutes. You stay signed in for six hours.</div>
+      <button class="btn" id="gate-send" type="button">Email me a code</button>
+      <form id="gate-form" autocomplete="off">
+        <label for="gate-code" class="mut" style="display:block;margin-top:14px">Code</label>
+        <input id="gate-code" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code">
+        <button class="btn pri" id="gate-verify" type="submit">Sign in</button>
+      </form>
+      <div class="msg" id="gate-msg" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
 <div class="sheet-bg" id="settings">
   <div class="sheet">
     <div class="ph"><span>Settings</span><button class="btn" id="set-close">Close</button></div>
@@ -157,6 +191,8 @@
       <div class="mut" style="margin-top:4px">Once each morning, before the 16:30 run. Zerodha opens in a new tab. Enter your login and 2FA code there, not here.</div>
       <a class="btn" href="https://kite.zerodha.com/connect/login?v=3&amp;api_key=t0kjzcu1vcl09fch" target="_blank" rel="noopener">Log in to Kite</a>
       <div class="mut">After you log in, the page says "Logged in for [date]". If it says the daily run did not start, tell the owner.</div>
+      <div style="margin-top:14px"><b>This device</b></div>
+      <button class="btn" id="signout" type="button" style="margin-top:6px">Sign out</button>
     </div>
   </div>
 </div>
@@ -174,6 +210,80 @@
   const HZ = ["day","expiry","month"];        // year-end is not shown
   const NAMES = {NIFTY:"NIFTY 50", BANKNIFTY:"BANK NIFTY", SENSEX:"SENSEX"};
   let FEED = null, LIVE = null, chart = null, BTC = null;
+
+  // Sign-in. The data files live in the private repo; the relay returns them only for a session
+  // started with the owner's emailed code (relay/Admin.gs). Sessions last six hours on the relay.
+  const SESSION_KEY = "mh_session";
+  const store = {
+    get(){ try { return localStorage.getItem(SESSION_KEY); } catch(e){ return null; } },
+    set(v){ try { localStorage.setItem(SESSION_KEY, v); } catch(e){} },
+    clear(){ try { localStorage.removeItem(SESSION_KEY); } catch(e){} }
+  };
+  let SESSION = store.get();
+  // text/plain keeps this a "simple" request, so the browser sends no preflight Apps Script can't answer.
+  async function relayPost(mode, body){
+    const r = await fetch(RELAY_URL + "?mode=" + mode, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+                                                          body: JSON.stringify(body || {})});
+    return r.json();
+  }
+  const APP_FILES = ["feed", "brief", "context", "stocks", "fno", "multibagger", "backtest_multibagger"];
+  let BUNDLE = null;
+  function loadBundle(){
+    if (!BUNDLE) {
+      BUNDLE = relayPost("app_data", {token: SESSION, files: APP_FILES}).then(r => {
+        if (r.error === "session_expired") { signOut("Your session ended. Sign in again."); throw new Error("signed out"); }
+        if (r.error || !r.files) throw new Error(r.error || "no data");
+        return r.files;
+      });
+      BUNDLE.catch(() => { BUNDLE = null; });   // a failed load is retried on the next refresh
+    }
+    return BUNDLE;
+  }
+  async function getFile(name){
+    const x = (await loadBundle())[name];
+    if (!x || x.error) throw new Error(name + ": " + ((x && x.error) || "missing"));
+    return x;
+  }
+
+  function showGate(msg, isErr){
+    $("#gate").classList.add("on");
+    $("#gate-msg").textContent = msg || "";
+    $("#gate-msg").classList.toggle("err", !!isErr);
+  }
+  function signOut(msg){
+    SESSION = null; BUNDLE = null; FEED = null; store.clear();
+    ["#home-body", "#brief-body", "#fno-body", "#mb-body", "#desk-body"].forEach(s => $(s).innerHTML = "");
+    $("#settings").classList.remove("on");
+    showGate(msg || "Signed out.");
+  }
+  $("#signout").onclick = () => signOut();
+  $("#gate-send").onclick = async () => {
+    const b = $("#gate-send"); b.disabled = true;
+    showGate("Sending…");
+    try {
+      const r = await relayPost("app_code");
+      if (r.sent) { showGate("Code sent. Check the owner's email."); $("#gate-code").focus(); }
+      else showGate(r.error || "Could not send a code.", true);
+    } catch(e) { showGate("Could not reach the relay. Check your connection.", true); }
+    b.disabled = false;
+  };
+  $("#gate-form").onsubmit = async e => {
+    e.preventDefault();
+    const code = $("#gate-code").value.trim();
+    if (!/^\d{6}$/.test(code)) { showGate("Enter the six-digit code.", true); return; }
+    const b = $("#gate-verify"); b.disabled = true;
+    showGate("Checking…");
+    try {
+      const r = await relayPost("app_verify", {code});
+      if (r.ok && r.token) {
+        SESSION = r.token; store.set(r.token);
+        $("#gate-code").value = "";
+        $("#gate").classList.remove("on");
+        start();
+      } else showGate(r.error || "Code not recognised.", true);
+    } catch(e) { showGate("Could not reach the relay. Check your connection.", true); }
+    b.disabled = false;
+  };
 
   // Panes and settings
   document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => {
@@ -264,9 +374,9 @@
   async function renderBrief(){
     try{
       const [B, C, S] = await Promise.all([
-        fetch("data/brief.json", {cache:"no-store"}).then(r => r.json()),
-        fetch("data/context.json", {cache:"no-store"}).then(r => r.json()).catch(() => ({})),
-        fetch("data/stocks.json", {cache:"no-store"}).then(r => r.json()).catch(() => ({}))
+        getFile("brief"),
+        getFile("context").catch(() => ({})),
+        getFile("stocks").catch(() => ({}))
       ]);
       BRIEF = {B, C, S};
       drawBrief();
@@ -468,7 +578,7 @@
   async function renderFno(){
     const el = $("#fno-body");
     try{
-      const D = await (await fetch("data/fno.json", {cache:"no-store"})).json();
+      const D = await getFile("fno");
       const idx = Object.keys(D.underlyings).map(u => {
         const b = D.underlyings[u];
         const chain = b.expiring_today ? `<details><summary>Chain expiring today (data only)</summary>
@@ -478,7 +588,7 @@
           <div class="panel"><div class="pb">${b.views.map(viewBlock).join('<div style="height:8px"></div>')}${chain}</div></div>`;
       }).join("");
       let S = null;
-      try { S = await (await fetch("data/stocks.json", {cache:"no-store"})).json(); } catch(e) { S = null; }
+      try { S = await getFile("stocks"); } catch(e) { S = null; }
       el.innerHTML = idx + stockScreen(S) +
         `<div class="foot">${esc(D.disclaimer)} Model suggestions with no track record yet. Check margin and your own risk limits before placing anything.</div>`;
     }catch(e){
@@ -490,9 +600,9 @@
   async function renderMultibagger(){
     const el = $("#mb-body");
     try{
-      const M = await (await fetch("data/multibagger.json", {cache:"no-store"})).json();
+      const M = await getFile("multibagger");
       let B = null;
-      try { B = await (await fetch("data/backtest_multibagger.json", {cache:"no-store"})).json(); } catch(e) { B = null; }
+      try { B = await getFile("backtest_multibagger"); } catch(e) { B = null; }
       const top = (M.ranked || []).slice(0, 30);
       const gateTxt = g => Object.entries(g || {}).map(([k, v]) =>
         `<span class="flag ${v === true ? "g" : v === false ? "r" : ""}">${esc(k.replace(/_/g, " "))}</span>`).join(" ");
@@ -576,9 +686,10 @@
 
   async function init(){
     try{
-      FEED = await (await fetch("data/feed.json", {cache:"no-store"})).json();
+      FEED = await getFile("feed");
       renderStatus(); renderHome(); renderDesk();
     }catch(e){
+      if (!SESSION) return;
       $("#status").textContent = "feed unavailable";
       $("#dot").classList.add("stale");
     }
@@ -616,7 +727,12 @@
     }
   }
 
-  async function refreshAll(){ await init(); await renderFno(); await renderBrief(); await liveTick(); }
+  async function refreshAll(){
+    if (!SESSION) return;
+    BUNDLE = null;
+    await init(); await renderFno(); await renderBrief(); await liveTick();
+    if ($("#mb").classList.contains("on")) renderMultibagger();
+  }
 
   // Pull to refresh (drag down from the top of the main pane)
   (function pullToRefresh(){
@@ -630,8 +746,14 @@
     });
   })();
 
-  init().then(renderBrief); renderFno(); renderMultibagger(); liveTick();
-  setInterval(liveTick, 60000);
+  // Quotes are public (the relay's mode=quote), so the ticker runs whether or not anyone is signed in.
+  let ticking = false;
+  function start(){
+    init().then(renderBrief); renderFno(); renderMultibagger();
+    if (!ticking) { ticking = true; liveTick(); setInterval(liveTick, 60000); }
+    else liveTick();
+  }
+  if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(liveTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
 })();
 </script>

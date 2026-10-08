@@ -4,7 +4,8 @@ name: stock-library-weekly
 # full result to the private repo market-hub-private (never the public site, since it holds
 # BharatStock-derived figures). Each company's multi-bagger gate score is computed in the same loop,
 # from the same already-fetched BharatStock rows, and published (derived scores/gates only, same as
-# before) to the public site's docs/data/multibagger.json -- this replaced a second, independent
+# before) as multibagger.json in the private repo's site/ folder, which the signed-in phone app
+# reads through the relay (hub/site_data.py) -- this replaced a second, independent
 # weekly fetch of the same financials that multibagger-weekly used to run on Sundays.
 on:
   push:
@@ -19,7 +20,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # needed to commit docs/data/multibagger.json to this (public) repo
+  contents: read
   actions: write    # lets the last step chain to the next batch (see below)
 
 concurrency:
@@ -37,6 +38,11 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Bring the phone app's data from the private repo
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
       # One run cannot score all ~2,570 companies once real API calls are happening (roughly 300
       # fit in the 70-minute internal time budget). hub/library.py resumes from the cursor stored
       # in the last published library.json and reports whether this batch reached the end of the
@@ -54,23 +60,11 @@ jobs:
           set -o pipefail
           python -m hub.library | tee /tmp/library_result.json
           python -c "import json; print('cycle_complete=' + str(json.load(open('/tmp/library_result.json')).get('cycle_complete', False)))" >> "$GITHUB_OUTPUT"
-      - name: Commit multi-bagger
-        if: always()          # save whatever was rated, even if the library step above failed or timed out
-        run: |
-          git config user.name "forecast-bot"
-          git config user.email "forecast-bot@users.noreply.github.com"
-          git add docs/data/multibagger.json
-          if git diff --cached --quiet; then
-            echo "No multi-bagger changes to commit"
-          else
-            git commit -m "multi-bagger (via library batch) $(date -u +%F)"
-            for i in 1 2 3; do
-              git pull --rebase --autostash -q origin main && git push && break
-              sleep 5
-            done
-            git fetch -q origin
-            git merge-base --is-ancestor HEAD origin/main || { echo "save failed: multi-bagger commit did not reach main"; exit 1; }
-          fi
+      - name: Save the phone app's data to the private repo
+        if: always() && steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "multi-bagger (via library batch) $(date -u +%F)"
       - name: Continue to the next batch
         if: steps.score.outputs.cycle_complete != 'True'
         env:

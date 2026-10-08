@@ -14,6 +14,11 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Bring the phone app's data from the private repo
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
       - name: Fetch today's Kite access token from the relay
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
@@ -28,12 +33,8 @@ jobs:
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.indicator_test
-      - name: Commit the summary
-        run: |
-          git config user.name "forecast-bot"
-          git config user.email "forecast-bot@users.noreply.github.com"
-          git add docs/data/indicator_test.json
-          if git diff --cached --quiet; then echo "nothing to commit"; else
-            git commit -m "indicator test summary"
-            for i in 1 2 3; do git pull --rebase -q origin main && git push && break; sleep 5; done
-          fi
+      - name: Save the phone app's data to the private repo
+        if: steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "indicator test summary"
