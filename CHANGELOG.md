@@ -4,6 +4,47 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-08
 
+### Acted on an outside options-trading review of the methodology doc
+Prepared a methodology write-up for an outside expert (trading/quant background) to review; their
+written feedback flagged two concrete, implementable changes and confirmed the existing 0.20-0.30
+delta band trade-off as the right call (no change needed there). Two other recommendations --
+a capital-efficiency (ROCE) gate on the multi-bagger screen, and an adaptive band-learning step size
+in the core forecast engine -- need more groundwork (confirming 3-year ROCE data actually exists
+cleanly in BharatStock's annual rows; backtesting the engine change before it goes live) and are not
+yet started. A third (splitting "Financial Services" into Private Banks/NBFCs/PSU Banks/Insurance/AMC
+sub-sectors) conflicts with a documented past decision -- neither NSE's CSV nor BharatStock expose
+that breakdown, and a prior hand-built sector taxonomy disagreed with NSE's own label on 24 of 25
+names -- left as is, by the owner's explicit call.
+
+- **`rg/strategy.py`/`rg/config.py`: a slippage haircut on the credit-spread qualification gate.** The
+  reviewer flagged that qualifying a spread on its unhaircut mid credit (`_gate_credit`) overstates
+  what a retail limit order on a thinner NIFTY 50/100 name will actually fill at. Added
+  `CREDIT_SLIPPAGE_HAIRCUT_PCT = 12.5` (centre of the reviewer's suggested 10-15% range) applied only
+  inside `_gate_credit`'s pass/fail threshold -- the displayed `net_credit`, position sizing, score and
+  the stop-loss/profit-target prices all still read the real, un-haircut mid from `_build_spread`, so
+  the card never shows a number the trade didn't actually offer. Verified with a standalone test
+  (`test_slippage_haircut.py`, 4 cases): the haircut lowers the gated credit without mutating the real
+  mid; a spread that cleared the raw 15% floor but not the haircut-adjusted one is now correctly
+  rejected; a spread with real margin above the floor still passes; an out-of-range config value is
+  clamped rather than inverting the gate.
+- **`hub/expiry_theta.py`: a settled-session log for the 0-DTE module.** The reviewer's verdict on the
+  expiry-morning iron condor was explicit: keep it at 1 lot (already true) "as a live paper-trading
+  exercise until you have accumulated at least 50-100 settled sessions of recorded execution data" --
+  but nothing previously recorded what happened to a suggested condor after the fact; `STATE_FILE` is
+  overwritten by the next session's suggestion, so last Tuesday's outcome was gone the moment this
+  Tuesday's first run wrote a new one. Added `_archive_stale_session()`, called at the top of `main()`:
+  when a new day's run notices `STATE_FILE` holds a prior session, it appends that session's last
+  intraday read (status/verdict/cost-to-close, from whatever `OUT_FILE` last recorded that day) to a
+  new `state/expiry_theta_log.json`, before this run's fresh suggestion overwrites the state file.
+  Deduplicates by date, so re-running the same morning never double-logs. Explicitly labelled as "last
+  intraday read, not a confirmed end-of-day settlement" in every row -- this module runs three times
+  during market hours, not at the close, so a true settlement price is never actually known. Syncs
+  automatically via `hub/site_data.py`'s existing `state/*.json` glob; no workflow change needed.
+  Verified with a standalone test (`test_expiry_theta_log.py`, 5 cases): archives a stale session with
+  its last read; never touches today's own in-progress session; two runs on the same new day log the
+  stale session only once; a first-ever run with no state file is a quiet no-op; a session still gets
+  logged (with nulls) if `OUT_FILE` has already moved past it.
+
 ### Stock library: found the 8 Oct quota corruption is much larger than first thought, repair tool added
 - Checked the admin dashboard's Library tab for real -- **1,401 of the 1,896 published entries (74%) are bare `{"symbol", "error"}` placeholders**, not real company data: every one carries the exact "429 Client Error: Too Many Requests" error the 8 Oct quota-exhaustion incident produced before `_is_quota_exhausted()` stopped a batch cleanly on its first 429 instead of writing garbage for the rest of the universe. The corrupted range is one contiguous block (confirmed by paging the admin dashboard: real data for the first ~495 companies by rank, then 0/0/0/0% straight through to the end) -- several separate pre-fix batches' tails, accumulated over days, not one single incident.
 - Normal weekly batching would eventually walk back through this range and fix it on its own, but the cursor had already moved past it by the time this was checked today -- a full ~2,570-company cycle away, weeks at the current cadence, not acceptable for data this broken.
