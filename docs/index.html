@@ -351,57 +351,89 @@
   }
 
   // F&O tab: index suggestions, then the Nifty 50 stock option screen in the same layout.
-  // Each rejection goes into exactly one real category -- an earlier version dumped every reason
-  // that wasn't "earnings" or "iv rank" into one bucket and mislabeled the whole thing "delivery",
-  // which made a no-credit/liquidity rejection (the most common reason) look like a delivery failure.
+  // Each stock's `detail` is either one symbol-level sentence (earnings/IV/delivery), or one or two
+  // per-leg clauses joined "put-side ...; call-side ...", each leg independently one of five gates
+  // from rg/strategy.py's _spread_reject_reason (checked in this order: POP, zero/negative worst-case
+  // credit, credit too thin vs. width, OI-wall placement, bid-ask too wide). An earlier version
+  // matched on the substring "worst-case credit" alone, which appears in BOTH the zero-credit message
+  // and the separate "too thin vs width" message, and tagged a leg as failing whenever its name
+  // appeared anywhere in the whole string -- so a stock whose put leg failed on bid-ask width and
+  // whose call leg merely had a thin (but positive) credit was wrongly counted as "no net credit" on
+  // both legs. Splitting on the put/call boundary and classifying each clause on its own fixes both.
+  function legClauses(detail){
+    return (detail || "").split(/;\s*(?=call-side)/i).map(c => c.trim()).filter(Boolean);
+  }
+  function classifyClause(c){
+    const t = c.toLowerCase();
+    if (t.includes("earnings")) return "earnings";
+    if (t.includes("iv rank not measurable")) return "iv_unmeasurable";
+    if (t.includes("iv rank")) return "iv_low";
+    if (t.includes("delivery")) return "delivery";
+    if (t.includes("pays nothing")) return "zero_credit";
+    if (t.includes("% of width <")) return "low_reward";
+    if (t.includes("not beyond oi wall")) return "oi_wall";
+    if (t.includes("bid-ask")) return "wide_spread";
+    if (t.startsWith("pop ")) return "low_pop";
+    return "other";
+  }
+  // A stock appears once per distinct category it genuinely fails on (its two legs can fail for two
+  // different reasons -- both are real and both are shown, under their own categories, never merged).
   function screenGroup(d){
-    const g = { earnings: [], iv_low: [], iv_unmeasurable: [], delivery: [], no_credit: [], other: [] };
+    const g = {};
     (d.diagnostics || []).forEach(x => {
       if (x.status === "RECOMMENDED") return;
-      const t = (x.detail || "").toLowerCase();
-      const row = { symbol: x.symbol, detail: x.detail || "" };
-      if (t.includes("earnings")) g.earnings.push(row);
-      else if (t.includes("iv rank not measurable")) g.iv_unmeasurable.push(row);
-      else if (t.includes("iv rank")) g.iv_low.push(row);
-      else if (t.includes("delivery")) g.delivery.push(row);
-      else if (t.includes("worst-case credit") || t.includes("pays nothing")) g.no_credit.push(row);
-      else g.other.push(row);
+      const seen = new Set();
+      legClauses(x.detail).forEach(c => {
+        const cat = classifyClause(c);
+        if (seen.has(cat)) return;
+        seen.add(cat);
+        (g[cat] = g[cat] || []).push({ symbol: x.symbol, clause: c });
+      });
     });
     return g;
   }
-  // A short, specific value per row instead of the full sentence -- the raw `detail` is still the
-  // title attribute, so hovering (or tapping on mobile) shows the whole reason if needed.
-  function shortReason(category, detail){
-    const d = detail;
-    if (category === "earnings") { const m = d.match(/earnings (\d{4}-\d{2}-\d{2})/i); return m ? m[1] + (/estimated/i.test(d) ? " (est.)" : "") : d; }
-    if (category === "iv_low") { const m = d.match(/iv rank (\d+) < (\d+)/i); return m ? `${m[1]} < ${m[2]}` : d; }
+  const CAT_LABEL = {
+    earnings: "Earnings inside the contract window",
+    iv_low: "IV rank below the 30 gate",
+    iv_unmeasurable: "IV rank not measurable (data gap)",
+    delivery: "Delivery below the 40% gate",
+    zero_credit: "Pays nothing at worst-case fill (cross both spreads)",
+    low_reward: "Credit too thin for the risk (below the width gate)",
+    oi_wall: "Short strike not past the OI wall",
+    wide_spread: "Bid-ask too wide to trade safely",
+    low_pop: "Win probability (POP) too low",
+    other: "Other"
+  };
+  // A short, specific value per row instead of the full sentence -- the raw clause is still the
+  // title attribute, so hovering (or tapping on mobile) shows the exact wording if needed. The leg
+  // (Put/Call) is named once, from the one clause that actually matched this category.
+  function shortReason(category, clause){
+    const legM = clause.match(/^(put|call)-side\s*/i);
+    const leg = legM ? legM[1][0].toUpperCase() + legM[1].slice(1).toLowerCase() + ": " : "";
+    const rest = clause.replace(/^(put|call)-side\s*/i, "");
+    if (category === "earnings") { const m = clause.match(/earnings (\d{4}-\d{2}-\d{2})/i); return m ? m[1] + (/estimated/i.test(clause) ? " (est.)" : "") : clause; }
+    if (category === "iv_low") { const m = clause.match(/iv rank (\d+) < (\d+)/i); return m ? `${m[1]} < ${m[2]}` : clause; }
     if (category === "iv_unmeasurable") return "no clean IV history yet";
-    if (category === "delivery") { const m = d.match(/delivery (\d+)% < (\d+)%/i); return m ? `${m[1]}% < ${m[2]}%` : d; }
-    if (category === "no_credit") {
-      const legs = [];
-      if (/put-side/i.test(d)) legs.push("put-side");
-      if (/call-side/i.test(d)) legs.push("call-side");
-      const credits = [...d.matchAll(/worst-case credit rs\.(-?[\d.]+)/gi)].map(m => f(parseFloat(m[1]), 2));
-      return (legs.join(" & ") || "no credit") + (credits.length ? ` (Rs.${credits.join(", Rs.")})` : "");
-    }
-    return d;
+    if (category === "delivery") { const m = clause.match(/delivery (\d+)% < (\d+)%/i); return m ? `${m[1]}% < ${m[2]}%` : clause; }
+    if (category === "zero_credit") { const m = rest.match(/credit rs\.(-?[\d.]+)/i); return leg + (m ? `Rs.${f(parseFloat(m[1]),2)}` : "no credit"); }
+    if (category === "low_reward") { const m = rest.match(/credit (\d+)% of width < (\d+)%/i); return leg + (m ? `${m[1]}% < ${m[2]}%` : rest); }
+    if (category === "oi_wall") return leg + "inside the wall";
+    if (category === "wide_spread") { const m = rest.match(/bid-ask ([\d.]+)% > ([\d.]+)%/i); return leg + (m ? `${m[1]}% > ${m[2]}%` : rest); }
+    if (category === "low_pop") { const m = rest.match(/pop (\d+)% < (\d+)%/i); return m ? `${m[1]}% < ${m[2]}%` : rest; }
+    return clause;
   }
   function reasonTable(rows, category){
     return `<table class="t"><tr><th>Symbol</th><th>Value</th></tr>` +
-      rows.map(r => `<tr><td>${esc(r.symbol)}</td><td title="${esc(r.detail)}">${esc(shortReason(category, r.detail))}</td></tr>`).join("") +
+      rows.map(r => `<tr><td>${esc(r.symbol)}</td><td title="${esc(r.clause)}">${esc(shortReason(category, r.clause))}</td></tr>`).join("") +
       `</table>`;
   }
   function stockScreen(d){
     if (!d) return "";
     const g = screenGroup(d);
     const recs = d.recommendations || [];
-    const counts = barRows([
-      { label: "Trades", v: recs.length, txt: String(recs.length) },
-      { label: "Earnings", v: g.earnings.length, txt: String(g.earnings.length) },
-      { label: "IV too low", v: g.iv_low.length, txt: String(g.iv_low.length) },
-      { label: "No net credit", v: g.no_credit.length, txt: String(g.no_credit.length) },
-      { label: "Delivery < 40%", v: g.delivery.length, txt: String(g.delivery.length) }
-    ]);
+    const catOrder = ["earnings", "iv_low", "zero_credit", "low_reward", "wide_spread", "delivery", "oi_wall", "low_pop", "iv_unmeasurable", "other"];
+    const counts = barRows([{ label: "Trades", v: recs.length, txt: String(recs.length) },
+      ...catOrder.filter(c => (g[c] || []).length).map(c => ({ label: CAT_LABEL[c].split(" (")[0].split(":")[0], v: g[c].length, txt: String(g[c].length) }))]);
     const tiles = [
       tile("SCREENED", String(d.symbol_count || 0), (d.mode || "") + " · NIFTY 50", ""),
       tile("TRADES", String(recs.length), recs.length ? "qualifying" : "none today", recs.length ? "up" : ""),
@@ -409,20 +441,14 @@
     ].join("");
     const recRows = recs.map(r => `<div class="row"><span class="l">${esc(r.symbol)} · ${esc(r.strategy || "")}${r.earnings_basis === "estimated" ? ' <span class="amb">· results date not confirmed</span>' : ""}</span>
       <span class="r">${esc(r.expiry || "")} · credit ${r.credit != null ? f(r.credit,2) : "–"} · POP ${r.pop != null ? f(r.pop,1) + "%" : "–"}</span></div>`).join("");
-    const rej = [["Earnings inside the contract window", g.earnings, "earnings"],
-                 ["No net credit (liquidity/spread, not a stock problem)", g.no_credit, "no_credit"],
-                 ["IV rank below the 30 gate", g.iv_low, "iv_low"],
-                 ["Delivery below the 40% gate", g.delivery, "delivery"],
-                 ["IV rank not measurable (data gap)", g.iv_unmeasurable, "iv_unmeasurable"],
-                 ["Other", g.other, "other"]]
-      .filter(([, v]) => v.length)
-      .map(([k, v, cat]) => `<details><summary>${esc(k)} · ${v.length}</summary>${reasonTable(v, cat)}</details>`).join("");
+    const rej = catOrder.filter(c => (g[c] || []).length)
+      .map(c => `<details><summary>${esc(CAT_LABEL[c])} · ${g[c].length}</summary>${reasonTable(g[c], c)}</details>`).join("");
     return `<div class="sec">NIFTY 50 stocks · option screen · ${esc((d.generated_at || "").replace("T"," ").slice(0,16))} UTC</div>
       <div class="glance">${tiles}</div>
       <div class="panel"><div class="ph"><span>Why names were rejected</span><span class="flag">${d.symbol_count || 0} names</span></div>
         <div class="pb">${counts}</div></div>
       <div class="panel" style="margin-top:8px"><div class="ph"><span>Qualifying trades</span><span class="flag">${recs.length}</span></div>
-        <div class="pb">${recRows || '<div class="mut">No trade passes every gate today. Most rejections are no net credit or earnings inside the contract window -- see the breakdown below.</div>'}</div></div>
+        <div class="pb">${recRows || '<div class="mut">No trade passes every gate today -- see the breakdown below for why.</div>'}</div></div>
       <div class="panel" style="margin-top:8px"><div class="ph"><span>Rejected names</span></div>
         <div class="pb">${rej || '<div class="mut">None.</div>'}</div></div>`;
   }
