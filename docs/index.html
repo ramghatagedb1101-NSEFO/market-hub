@@ -457,20 +457,23 @@
 
   function renderDesk(){
     if (!FEED) return;
+    const MIN_N = 20;   // below this, a hit-rate or mean error is one or two coin flips, not a track record
     const outcomes = Object.keys(FEED.indices).map(n => {
       const b = FEED.indices[n];
       return HZ.map(h => {
         const s = b.horizons[h].stats;
-        return `<tr><td>${esc(n)} · ${esc(LABEL[h])}</td><td>${s.n}</td><td>${s.n ? f(s.direction_hit_pct,1) + "%" : "–"}</td>
-          <td>${s.n ? f(s.mae_model_pct,2) + "%" : "–"}</td><td>${s.n ? f(s.mae_naive_pct,2) + "%" : "–"}</td></tr>`;
+        const enough = s.n >= MIN_N;
+        return `<tr><td>${esc(n)} · ${esc(LABEL[h])}</td><td>${s.n}${s.n && !enough ? ' <span class="mut">(too few)</span>' : ""}</td>
+          <td>${enough ? f(s.direction_hit_pct,1) + "%" : "–"}</td>
+          <td>${enough ? f(s.mae_model_pct,2) + "%" : "–"}</td><td>${enough ? f(s.mae_naive_pct,2) + "%" : "–"}</td></tr>`;
       }).join("");
     }).join("");
-    const any = Object.values(FEED.indices).some(b => HZ.some(h => b.horizons[h].stats.n));
+    const any = Object.values(FEED.indices).some(b => HZ.some(h => b.horizons[h].stats.n >= MIN_N));
     $("#desk-body").innerHTML = `
       <div class="sec">Track record</div>
       <div class="panel"><div class="pb">
-        <div class="note" style="margin:0 0 8px">${any ? "Settled outcomes are listed below." :
-          "No predictions have settled yet. A verdict needs settled outcomes, so none is shown. Until a horizon beats the naive baseline (tomorrow = today), treat the estimates as unproven."}</div>
+        <div class="note" style="margin:0 0 8px">${any ? "Settled outcomes are listed below. A horizon needs at least " + MIN_N + " settled calls before its hit rate means anything; fewer than that is shown as N only, no percentage -- one or two outcomes are a coin flip, not a track record." :
+          "No horizon has " + MIN_N + " settled outcomes yet, so no hit rate is shown -- with only a few calls settled, a 100% or 0% is just a coin flip, not a verdict. Until a horizon clears that bar and beats the naive baseline (tomorrow = today), treat the estimates as unproven."}</div>
         <table class="t"><tr><th>Horizon</th><th>N</th><th>Direction</th><th>Model err</th><th>Naive err</th></tr>${outcomes}</table>
       </div></div>
       <div class="sec">NIFTY 50 · last 250 sessions</div>
