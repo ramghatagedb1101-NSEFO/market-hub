@@ -5,7 +5,7 @@ from pathlib import Path
 
 PKG = Path(__file__).resolve().parent              # the hub/ package
 REPO = PKG.parent                                  # repo root: forecast_hub/ (publish this only)
-STATE_FILE = REPO / "state" / "state.json"        # committed daily by the scheduled job
+STATE_FILE = REPO / "state" / "state.json"        # kept in the private repo (hub/site_data.py)
 SITE_DIR = REPO / "docs"                          # static phone app, served by GitHub Pages
 FEED_FILE = SITE_DIR / "data" / "feed.json"       # what the phone app reads
 TRADES_FILE = REPO / "state" / "trades.json"      # optional: F&O picks written by the engines

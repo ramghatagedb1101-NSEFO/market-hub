@@ -58,4 +58,8 @@ Apps Script isn't deployed from GitHub -- a code change here needs re-pasting by
    email code and session as the dashboard, and reads `site/` in `market-hub-private` with the existing
    `ADMIN_READ_TOKEN` (Contents: Read on that repo).
 6. After deploying, run the **site-data** workflow once (Actions tab → site-data → Run workflow), so the
-   private repo has the phone app's data before the next daily run.
+   private repo has the data before the next job runs.
+7. The project has several active Web app deployments. The one to update is the one whose URL is in
+   `docs/index.html` (`RELAY_URL`), the `RELAY_URL` GitHub secret and the Kite redirect:
+   `AKfycbye12r6…`. Done 8 Oct 2026 as Version 19 (it had been on Version 8). The other deployments
+   (admin dashboard experiments, 7 Oct) were left as they were.

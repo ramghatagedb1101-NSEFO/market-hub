@@ -1,8 +1,7 @@
 # Build status and to-do
 
-As of 8 Oct 2026, 09:30 IST. Read this together with `CHANGELOG.md` — this file was badly out of
-date (last updated 6 Oct) and said several things that are no longer true (multi-bagger "not
-started", daily job "has not fired"); rewritten against verified current state.
+As of 8 Oct 2026, 11:45 IST. Read this together with `CHANGELOG.md`. Updated after the phone app
+sign-in went live and the working data (phone app files and `state/`) moved to the private repo.
 
 ## Where we are
 
@@ -14,12 +13,13 @@ started", daily job "has not fired"); rewritten against verified current state.
 | Live quotes | Working through the relay (`?mode=quote`), a few seconds delayed. |
 | F&O suggestions | Published daily. Credit gate now reads mid (limit/combo) price instead of worst-case, so real tradeable spreads (ADANIENT, BEL, ETERNAL and others) stop being silently discarded; a `fill_risk` flag and stop-loss/profit-target prices now show on each card. |
 | Daily brief | NVIDIA primary, Gemini fallback (`hub/narrate.py`). Not re-verified since the Gemini 503 issue noted 6 Oct — confirm it's no longer showing "Brief pending" before relying on it. |
-| Phone page | Live on GitHub Pages (`docs/index.html`) and Cloudflare Pages (`market-hub-4dq.pages.dev`). **Signed in with the admin dashboard's email code (8 Oct)**; its data now lives in the private repo and comes through the relay. Needs the relay redeployed before it works. |
+| Phone page | Live on GitHub Pages (`docs/index.html`) and Cloudflare Pages (`market-hub-4dq.pages.dev`). **Signed in with the admin dashboard's email code** (live 8 Oct, relay Version 19). Its data and the daily job's `state/` live in the private repo `market-hub-private`; nothing but index quotes is public now. |
+| Private data | `market-hub-private/site/` (phone app files) and `/state/` (forecast state, prices, bulk deals), synced by `hub/site_data.py` in every job. |
 | Stock library (124 parameters) | Built and running. Batched weekly (Saturdays, chains automatically across however many ~70-minute runs the ~2,570-company universe needs). A real bug meant every batch after the first silently lost all prior progress and reset to 0 — found and fixed 8 Oct; not yet confirmed clean on a live run (checking). |
 | Multi-bagger screen | Built — NOT "not started" as this file used to say. Previously ran as its own independent weekly job (Sundays); as of 8 Oct it's merged into the stock-library batch run instead, so the two no longer fetch the same BharatStock financials twice a week. |
 | Admin dashboard | Built (Google Apps Script, six-digit email code login, six-hour session). Status/Library/Parameters/Registry/Bulk deals/Back-tests tabs. |
 | Smart-money (bulk deals) | Collecting daily; the `bulk_*`/`registry_buys_20d` parameters need more history before they're usable. |
-| Email alerts | Not built until 8 Oct (in progress this session) — see below. |
+| Email alerts | Built 8 Oct (`hub/alerts.py`, relay `mode=alert`); live since the relay redeploy (Version 19). Not yet seen firing on a real batch. |
 | News | Not built as a standalone feature; `hub.context` pulls FII/DII, FX, US markets and headlines for the daily brief, but there's no separate news screen. |
 | Analytical tools | Last counted 6 of 10 requested; not recounted since. |
 
@@ -30,13 +30,13 @@ started", daily job "has not fired"); rewritten against verified current state.
 2. Confirm the best-effort BharatStock field-name guesses added 8 Oct (`dividend_paid`, volume/delivery on the prices endpoint) actually matched real field names once a live batch runs them — they fail safe (stay a gap) if wrong, but worth confirming either way.
 3. Confirm the daily brief isn't still stuck on Gemini's 503s now that NVIDIA is primary.
 
-### B. Email alerts for "new finding" stocks (in progress)
-4. A stock crossing into `mf_discovery_tier` 1 (fewer than 5 mutual fund schemes holding it, i.e. still undiscovered) alongside strong library/multi-bagger gates should email the owner, not just sit in a JSON file waiting to be noticed.
+### B. Email alerts for "new finding" stocks (built 8 Oct)
+4. Confirm the first real alert email arrives after a library batch finds a tier 1/2 stock passing its gates.
 
-### C. Phone page sign-in (built 8 Oct, uses the admin email code instead of Cloudflare Zero Trust)
-5. Redeploy the relay (`relay/README.md`, "Updating the deployed script"), then run the `site-data` workflow once so the private repo has the data before the next daily run.
-6. Sign in on the phone and confirm every tab loads.
-7. Optional: `state/` (forecast history) is still public in this repo. Moving it too is a bigger change to the daily job.
+### C. Privacy (phone app sign-in and private data, live 8 Oct)
+5. Sign in on the phone and confirm every tab loads (owner; needs the emailed code).
+6. Confirm today's 18:00 daily run pulls `state/` from the private repo and saves back to it (first run on the new path).
+7. The library batch running at the switch (run 37730982115) used the old workflow: check whether its chain to the next batch stopped, and if so start `stock-library-weekly` by hand. Its batch's multi-bagger additions may be missing until the next full pass.
 
 ### D. Housekeeping
 8. `working_capital_days`/`working_capital_change` are genuine gaps (field names for receivable/inventory/payable days on the BharatStock balance sheet were never confirmed) — worth a live check if there's ever a reason to prioritise it.
@@ -45,7 +45,7 @@ started", daily job "has not fired"); rewritten against verified current state.
 
 ## Known problems
 - Track record has too little settled history to mean anything yet (by design — the app won't show a hit rate below 20 settled outcomes per horizon).
-- Old data stays readable in this public repo's git history (before 8 Oct). `state/` is still public.
+- Data committed before 8 Oct (phone app files and `state/`) stays readable in this public repo's git history.
 - The daily brief's reliability depends on NVIDIA/Gemini API availability, outside our control.
 - `working_capital_days`, `working_capital_change`, `sector_pe_vs_history` are honest gaps, not silently faked.
 

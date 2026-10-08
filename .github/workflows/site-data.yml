@@ -1,8 +1,9 @@
 name: site-data
 
-# Manual run only. Copies the phone app's data files into the private repo (site/) without running
-# any job. Used once, right after the move to private storage, so the signed-in page has data before
-# the next daily run; safe to run again any time (it only sends files that differ).
+# Manual run only. Copies the private data (the phone app's files to site/, the daily job's state
+# to state/) into the private repo without running any job. Used once after each move to private
+# storage, so the next job finds its files there; safe to run again any time (it only sends files
+# that differ).
 on:
   workflow_dispatch:
 
@@ -20,12 +21,12 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Bring the phone app's data from the private repo (or the public history the first time)
+      - name: Bring the private data (site/, state/) from the private repo, or the public history the first time
         id: pull
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: python -m hub.site_data pull
-      - name: Save the phone app's data to the private repo
+      - name: Save the private data (site/, state/) to the private repo
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: python -m hub.site_data push "site data, first copy from the public repo"
+        run: python -m hub.site_data push "private data, copy from the public repo"
