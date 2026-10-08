@@ -1,6 +1,12 @@
 # Build status and to-do
 
-As of 8 Oct 2026, 13:40 IST. Read this together with `CHANGELOG.md`.
+As of 8 Oct 2026, 15:10 IST. Read this together with `CHANGELOG.md`.
+
+## Structure and capabilities audit (owner's request, 8 Oct)
+
+Going module by module for "claims vs. reality" bugs -- a config value, parameter, or feature documented or labeled as working but the code never actually reading it or doing it. Found and fixed so far: `rg/strategy.py`'s dead `CAP_DIAGNOSTIC_UNTIL` date-check, `hub/context.py`'s one-feed-failure discarding all headlines, `hub/narrate.py`'s non-functional Gemini fallback (details in `CHANGELOG.md`). Checked and confirmed working as designed: `hub/fno.py`, `multibagger.py` constants, `hub/bulkdeals.py`, the admin relay's large-file handling, `docs/index.html`'s sign-in contract, the dormant `rg/tracker.py`/`rg/mtm.py` subsystem. Deleted confirmed-dead code: `kite-login.yml`, `diag.yml` and their dependencies.
+
+Still open: a live, signed-in, tab-by-tab walk of the admin dashboard (Status/Library/Parameters/Registry/Bulk deals/Back-tests) to check every tab actually renders correctly after today's changes, and the same for the phone page's signed-in screens (F&O, Multi-bagger, Desk). Not yet started: cleaning up the all-zero `library.json` entries written during the 8 Oct quota-exhaustion incident, before that fix landed.
 
 ## Where we are
 
