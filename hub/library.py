@@ -922,5 +922,37 @@ def main() -> dict:
         "multibagger_failure_sample": list(mb_failures.values())[:3]}
 
 
+def fix_cursor_for_corrupted_entries() -> dict:
+    """One-off repair for the 8 Oct BharatStock quota-exhaustion incident, before _is_quota_exhausted()
+    stopped a batch cleanly on its first 429: several already-published batches instead kept
+    "processing" every remaining company into a bare {"symbol", "error"} entry (no "cells", no real
+    data). 1,401 of the 1,896 published entries carry that exact pattern. Moves cursor_next back to
+    the earliest such symbol's position in the current universe order, so the batches already
+    scheduled this week re-walk and overwrite them with real data -- instead of waiting for a full
+    ~2,570-company cycle (weeks away, since the cursor was past this range when today's testing
+    exhausted the quota again) to come back around. Leaves the entries themselves untouched; each
+    gets properly replaced, not deleted, when its batch turn comes. Meant to run once, by hand
+    (python -m hub.library --fix-cursor), not on a schedule."""
+    names = universe()
+    existing, sha = fetch_existing()
+    if not existing.get("stocks"):
+        return {"fixed": False, "reason": "no existing library.json"}
+    idx = {s: i for i, s in enumerate(names)}
+    corrupted = [s["symbol"] for s in existing["stocks"]
+                 if isinstance(s, dict) and s.get("error") and not s.get("cells") and s.get("symbol") in idx]
+    if not corrupted:
+        return {"fixed": False, "reason": "no corrupted entries found"}
+    earliest = min(idx[s] for s in corrupted)
+    old_cursor = existing.get("cursor_next")
+    existing["cursor_next"] = earliest
+    existing["cycle_complete"] = False
+    publish(existing, sha)
+    return {"fixed": True, "corrupted_count": len(corrupted), "old_cursor": old_cursor, "new_cursor": earliest}
+
+
 if __name__ == "__main__":
-    print(json.dumps(main(), indent=2, ensure_ascii=False))
+    import sys
+    if "--fix-cursor" in sys.argv:
+        print(json.dumps(fix_cursor_for_corrupted_entries(), indent=2, ensure_ascii=False))
+    else:
+        print(json.dumps(main(), indent=2, ensure_ascii=False))
