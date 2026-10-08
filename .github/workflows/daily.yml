@@ -36,9 +36,19 @@ jobs:
           echo "RELAY_KEY length ${#RELAY_KEY}"
           CHECK=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=check" --data-urlencode "key=$RELAY_KEY" || true)
           echo "Relay setup check: $CHECK"
-          RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
-          TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
-          if [ -z "$TOKEN" ]; then echo "No Kite token for today. Relay answered: $RESP"; exit 1; fi
+          # Google occasionally serves a transient "Drive: Page Not Found" page for an Apps Script web
+          # app call even when the script itself is fine (seen 2026-10-08: the check above succeeded
+          # with a valid token a moment before the token call below hit this, with no code change in
+          # between) -- retry a few times before treating it as a real missing token.
+          TOKEN=""
+          for attempt in 1 2 3 4; do
+            RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
+            TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+            if [ -n "$TOKEN" ]; then break; fi
+            echo "Attempt $attempt: no token yet. Relay answered: $RESP"
+            if [ "$attempt" -lt 4 ]; then sleep $((attempt * 5)); fi
+          done
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today after 4 attempts. Last relay answer: $RESP"; exit 1; fi
           echo "::add-mask::$TOKEN"
           echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
