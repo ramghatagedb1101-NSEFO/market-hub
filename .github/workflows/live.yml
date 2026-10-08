@@ -32,9 +32,21 @@ jobs:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
         run: |
-          RESP=$(curl -fsSL -G "$RELAY_URL" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY")
-          TOKEN=$(echo "$RESP" | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))')
-          if [ -z "$TOKEN" ]; then echo "No Kite token for today"; exit 1; fi
+          # Google occasionally serves a transient "Drive: Page Not Found" page for an Apps Script
+          # web app call even when the script and the token are both fine (same retry already in
+          # daily.yml/expiry-theta.yml since 8 Oct) -- this workflow is the one that actually hit it
+          # live (run 37746344330, curl exit 22) because it was still a single unretried shot, running
+          # every 5 minutes during market hours made it just a matter of time. Shorter backoff than
+          # daily.yml's: this job has a 5-minute total budget.
+          TOKEN=""
+          for attempt in 1 2 3; do
+            RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
+            TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+            if [ -n "$TOKEN" ]; then break; fi
+            echo "Attempt $attempt: no token yet. Relay answered: $RESP"
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 2)); fi
+          done
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today after 3 attempts. Last relay answer: $RESP"; exit 1; fi
           echo "::add-mask::$TOKEN"
           echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
