@@ -44,7 +44,7 @@ You can now delete the old `KITE_ACCESS_TOKEN` secret, since the daily run no lo
 - "Token saved, but the daily run did not start": the `GH_PAT` lacks Actions write.
 - The daily run says "No Kite token for today": log in with Kite first that day.
 
-## Updating the deployed script (8 Oct 2026: email alerts for new discovery-tier stocks)
+## Updating the deployed script (8 Oct 2026: email alerts, and phone app sign-in)
 Apps Script isn't deployed from GitHub -- a code change here needs re-pasting by hand:
 1. Open the Apps Script project (script.google.com → this project).
 2. Replace the contents of `Code.gs` and `Admin.gs` with the current versions from this repo.
@@ -54,3 +54,8 @@ Apps Script isn't deployed from GitHub -- a code change here needs re-pasting by
 4. No new script property or GitHub secret needed: `mode=alert` reuses the existing `RELAY_KEY`, and
    the email goes to the same Google account that owns the script (`Session.getEffectiveUser()`),
    same as the admin dashboard's sign-in code.
+5. Phone app sign-in (`mode=app_code`, `app_verify`, `app_data`) also needs nothing new: it uses the same
+   email code and session as the dashboard, and reads `site/` in `market-hub-private` with the existing
+   `ADMIN_READ_TOKEN` (Contents: Read on that repo).
+6. After deploying, run the **site-data** workflow once (Actions tab → site-data → Run workflow), so the
+   private repo has the phone app's data before the next daily run.

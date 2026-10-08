@@ -26,6 +26,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Bring the phone app's data from the private repo
+        id: pull
+        continue-on-error: true   # the forecast must still run; without a pull the save step below is skipped
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
+
       - name: Fetch today's Kite access token from the relay
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
@@ -94,11 +101,17 @@ jobs:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: python -m hub.admin_publish
 
+      - name: Save the phone app's data to the private repo
+        if: always() && steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "daily data $(date -u +%F)"
+
       - name: Commit state and feed
         run: |
           git config user.name "forecast-bot"
           git config user.email "forecast-bot@users.noreply.github.com"
-          git add state docs/data rg/data/sector_map.json rg/data/index_membership.json
+          git add state rg/data/sector_map.json rg/data/index_membership.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else

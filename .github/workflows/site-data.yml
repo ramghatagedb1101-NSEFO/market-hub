@@ -1,0 +1,31 @@
+name: site-data
+
+# Manual run only. Copies the phone app's data files into the private repo (site/) without running
+# any job. Used once, right after the move to private storage, so the signed-in page has data before
+# the next daily run; safe to run again any time (it only sends files that differ).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Bring the phone app's data from the private repo (or the public history the first time)
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
+      - name: Save the phone app's data to the private repo
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "site data, first copy from the public repo"

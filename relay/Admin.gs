@@ -17,6 +17,10 @@ const ADMIN_REPO = 'ramghatagedb1101-NSEFO/market-hub-private';
 const ADMIN_PATH = 'admin.json';
 const ADMIN_SESSION_SECONDS = 21600;   // six hours, the cache maximum
 const ADMIN_CODE_SECONDS = 600;        // ten minutes
+const ADMIN_MAX_TRIES = 5;
+// Phone app data: the files the daily jobs keep in the private repo's site/ folder (hub/site_data.py).
+const APP_DIR = 'site';
+const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger'];
 
 function adminPage() {
   return HtmlService.createHtmlOutput(ADMIN_HTML)
@@ -29,6 +33,7 @@ function adminRequestCode() {
   if (cache.get('admin_rate')) return { error: 'Wait a minute before asking for another code.' };
   const code = String(Math.floor(100000 + Math.random() * 900000));
   cache.put('admin_code', code, ADMIN_CODE_SECONDS);
+  cache.remove('admin_tries');
   cache.put('admin_rate', '1', 60);
   const to = Session.getEffectiveUser().getEmail();
   MailApp.sendEmail(to, 'Market Hub admin code',
@@ -39,8 +44,20 @@ function adminRequestCode() {
 function adminVerify(code) {
   const cache = CacheService.getScriptCache();
   const stored = cache.get('admin_code');
-  if (!stored || String(code || '').trim() !== stored) return { ok: false, error: 'Code not recognised.' };
-  cache.remove('admin_code');
+  if (!stored || String(code || '').trim() !== stored) {
+    // Five wrong tries cancel the code, so it cannot be guessed (the dashboard and the phone app both
+    // reach this from the public web address).
+    if (stored) {
+      const tries = Number(cache.get('admin_tries') || 0) + 1;
+      if (tries >= ADMIN_MAX_TRIES) {
+        cache.removeAll(['admin_code', 'admin_tries']);
+        return { ok: false, error: 'Too many wrong codes. Ask for a new one.' };
+      }
+      cache.put('admin_tries', String(tries), ADMIN_CODE_SECONDS);
+    }
+    return { ok: false, error: 'Code not recognised.' };
+  }
+  cache.removeAll(['admin_code', 'admin_tries']);
   const token = Utilities.getUuid() + Utilities.getUuid();
   cache.put('admin_session_' + token, '1', ADMIN_SESSION_SECONDS);
   return { ok: true, token: token };
@@ -103,6 +120,43 @@ function sendDiscoveryAlert_(key, body) {
     'found it yet. Check the admin dashboard\'s Library tab for the full parameter breakdown before acting.';
   MailApp.sendEmail(Session.getEffectiveUser().getEmail(), subject, body_);
   return { ok: true, sent: findings.length };
+}
+
+/**
+ * The phone app (docs/index.html) signs in with the same email code and session as this dashboard.
+ * It is a separate web page, so it cannot use google.script.run: it posts here through doPost
+ * (mode=app_code, app_verify, app_data) with a JSON body sent as text/plain.
+ */
+function appApi_(mode, body) {
+  let p = {};
+  try { p = JSON.parse(body || '{}'); } catch (err) { return { error: 'bad JSON body' }; }
+  if (mode === 'app_code') return adminRequestCode();
+  if (mode === 'app_verify') return adminVerify(p.code);
+  if (mode === 'app_data') return appData_(p.token, p.files);
+  return { error: 'unknown mode' };
+}
+
+/** Returns the requested phone-app files for a signed-in session, fetched from the private repo in parallel. */
+function appData_(token, files) {
+  const cache = CacheService.getScriptCache();
+  if (!token || !cache.get('admin_session_' + token)) return { error: 'session_expired' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  const names = (Array.isArray(files) ? files : APP_FILES).filter(function (n) { return APP_FILES.indexOf(n) >= 0; });
+  const responses = UrlFetchApp.fetchAll(names.map(function (n) {
+    return { url: 'https://api.github.com/repos/' + ADMIN_REPO + '/contents/' + APP_DIR + '/' + n + '.json',
+             muteHttpExceptions: true,
+             headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } };
+  }));
+  const out = {};
+  names.forEach(function (n, i) {
+    const res = responses[i];
+    const code = res.getResponseCode();
+    if (code === 404) { out[n] = { error: 'not published yet' }; return; }
+    if (code !== 200) { out[n] = { error: 'GitHub returned ' + code }; return; }
+    try { out[n] = JSON.parse(res.getContentText()); } catch (err) { out[n] = { error: 'not valid JSON' }; }
+  });
+  return { files: out };
 }
 
 /** Reads the stock library (library.json) from the private repo for the signed-in owner. */

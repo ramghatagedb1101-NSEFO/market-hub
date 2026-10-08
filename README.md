@@ -11,7 +11,8 @@ Runs with no PC: a scheduled GitHub Action does the daily work, GitHub Pages ser
 |---|---|---|
 | Daily job (prices → settle → forecast → feed) | GitHub Actions, weekdays 15:45 IST | free (public repo) |
 | State (`state/state.json`) | committed to this repo | free |
-| Phone app (`docs/`) | GitHub Pages | free (public repo) |
+| Phone app (`docs/`) | GitHub Pages; signs in with the admin email code | free (public repo) |
+| Phone app data | private repo `market-hub-private` (`site/`), read through the relay after sign-in (`hub/site_data.py`) | free |
 | Index prices | Yahoo Finance public chart endpoint | free, no key |
 
 ## One-time setup (about 10 minutes)

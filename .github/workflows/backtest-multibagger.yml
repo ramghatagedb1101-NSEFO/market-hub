@@ -14,16 +14,17 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
+      - name: Bring the phone app's data from the private repo
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
       - name: Back-test the multi-bagger gates (summary statistics only)
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
         run: python -m hub.backtest_multibagger
-      - name: Commit the summary
-        run: |
-          git config user.name "forecast-bot"
-          git config user.email "forecast-bot@users.noreply.github.com"
-          git add docs/data/backtest_multibagger.json
-          if git diff --cached --quiet; then echo "nothing to commit"; else
-            git commit -m "multibagger back-test summary"
-            for i in 1 2 3; do git pull --rebase -q origin main && git push && break; sleep 5; done
-          fi
+      - name: Save the phone app's data to the private repo
+        if: steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "multibagger back-test summary"

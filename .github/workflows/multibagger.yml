@@ -33,25 +33,19 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Bring the phone app's data from the private repo
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
+
       - name: Multi-bagger screen (BharatStock financials; derived ratings only)
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
         run: python -m hub.multibagger
 
-      - name: Commit multi-bagger
-        if: always()          # save whatever was rated, even if the screen step failed or timed out
-        run: |
-          git config user.name "forecast-bot"
-          git config user.email "forecast-bot@users.noreply.github.com"
-          git add docs/data/multibagger.json
-          if git diff --cached --quiet; then
-            echo "No multi-bagger changes to commit"
-          else
-            git commit -m "multi-bagger $(date -u +%F)"
-            for i in 1 2 3; do
-              git pull --rebase --autostash -q origin main && git push && break
-              sleep 5
-            done
-            git fetch -q origin
-            git merge-base --is-ancestor HEAD origin/main || { echo "save failed: multi-bagger commit did not reach main"; exit 1; }
-          fi
+      - name: Save the phone app's data to the private repo
+        if: always() && steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "multi-bagger $(date -u +%F)"
