@@ -444,6 +444,7 @@ function showStock(sym){
   if (s.error) {
     el.innerHTML = '<div class="card" style="margin-top:12px"><b style="font-size:14px;text-transform:none;letter-spacing:0;color:var(--text)">' +
       esc(sym) + '</b><p class="err" style="margin:8px 0 0">' + esc(s.error) + '</p></div>';
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
   const rows = Object.keys(s.cells || {}).map(k => {
@@ -453,6 +454,7 @@ function showStock(sym){
   el.innerHTML = '<div class="card" style="margin-top:12px"><b style="font-size:14px;text-transform:none;letter-spacing:0;color:var(--text)">' +
     esc(sym) + ' <span class="muted" style="font-weight:400">(' + esc(s.latest_period || '-') + ')</span></b><table>' +
     '<tr><th>Parameter</th><th>Value</th><th>Result</th><th>Rule</th></tr>' + rows + '</table></div>';
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 if (token) { show(); }
 </script>

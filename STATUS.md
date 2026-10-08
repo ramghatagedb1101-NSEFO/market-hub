@@ -6,7 +6,9 @@ As of 8 Oct 2026, 15:10 IST. Read this together with `CHANGELOG.md`.
 
 Going module by module for "claims vs. reality" bugs -- a config value, parameter, or feature documented or labeled as working but the code never actually reading it or doing it. Found and fixed so far: `rg/strategy.py`'s dead `CAP_DIAGNOSTIC_UNTIL` date-check, `hub/context.py`'s one-feed-failure discarding all headlines, `hub/narrate.py`'s non-functional Gemini fallback (details in `CHANGELOG.md`). Checked and confirmed working as designed: `hub/fno.py`, `multibagger.py` constants, `hub/bulkdeals.py`, the admin relay's large-file handling, `docs/index.html`'s sign-in contract, the dormant `rg/tracker.py`/`rg/mtm.py` subsystem. Deleted confirmed-dead code: `kite-login.yml`, `diag.yml` and their dependencies.
 
-Still open: a live, signed-in, tab-by-tab walk of the admin dashboard (Status/Library/Parameters/Registry/Bulk deals/Back-tests) to check every tab actually renders correctly after today's changes, and the same for the phone page's signed-in screens (F&O, Multi-bagger, Desk). Not yet started: cleaning up the all-zero `library.json` entries written during the 8 Oct quota-exhaustion incident, before that fix landed.
+**Live admin dashboard walk-through done 8 Oct (signed in).** All six tabs (Status/Library/Parameters/Registry/Bulk deals/Back-tests) render real data correctly. One real but minor gap found: tapping a library row to see its parameter detail worked, but the panel renders below the full 100-row page and the page never scrolled to it -- looked broken until scrolled all the way down. Fixed with `scrollIntoView` in `relay/Admin.gs` (`showStock()`); **needs the relay redeployed by hand** (`relay/README.md` has the steps) before it's live, same as every other `Admin.gs` change.
+
+Still open: the same live, signed-in walk for the phone page's screens (F&O, Multi-bagger, Desk). Not yet started: cleaning up the all-zero `library.json` entries written during the 8 Oct quota-exhaustion incident, before that fix landed.
 
 ## Where we are
 
