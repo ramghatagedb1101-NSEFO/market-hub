@@ -59,14 +59,25 @@ jobs:
         run: |
           set -o pipefail
           python -m hub.library | tee /tmp/library_result.json
-          python -c "import json; print('cycle_complete=' + str(json.load(open('/tmp/library_result.json')).get('cycle_complete', False)))" >> "$GITHUB_OUTPUT"
+          python -c "
+          import json
+          r = json.load(open('/tmp/library_result.json'))
+          print('cycle_complete=' + str(r.get('cycle_complete', False)))
+          print('processed=' + str(r.get('processed', 0)))
+          " >> "$GITHUB_OUTPUT"
       - name: Save the private data (site/, state/) to the private repo
         if: always() && steps.pull.outcome == 'success'
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: python -m hub.site_data push "multi-bagger (via library batch) $(date -u +%F)"
+      # processed == '0' means the batch stopped before scoring even one company -- almost always
+      # BharatStock quota exhaustion (hub/library.py's _is_quota_exhausted stop, 8 Oct) rather than
+      # the 70-minute time budget. Chaining immediately in that case re-dispatches a new run every
+      # ~45-70 seconds for hours (every call fails the same way until the quota resets at 00:00 UTC),
+      # which happened live 8 Oct before this guard existed. Stop the chain here instead; the next
+      # scheduled cron or a manual re-trigger picks it up once the quota is back.
       - name: Continue to the next batch
-        if: steps.score.outputs.cycle_complete != 'True'
+        if: steps.score.outputs.cycle_complete != 'True' && steps.score.outputs.processed != '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run library.yml --repo "$GITHUB_REPOSITORY"
