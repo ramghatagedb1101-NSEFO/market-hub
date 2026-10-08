@@ -1,0 +1,71 @@
+name: expiry-theta
+
+# Expiry-day theta harvest (hub/expiry_theta.py): EXPERIMENTAL, UNVALIDATED, a different risk
+# profile from everything else in this repo -- see that module's docstring before changing anything
+# here. Runs three times during market hours on NIFTY's weekly expiry day (Tuesday, per
+# hub/config.py's EXPIRY_WEEKDAY -- the script itself re-checks the live option chain for an actual
+# expiry today, so a stale weekday assumption fails safe into a no-op, not a wrong trade). Morning:
+# a new suggestion. Midday and afternoon: a hold/exit read on whatever the morning run suggested.
+on:
+  schedule:
+    - cron: "30 4 * * 2"    # 04:30 UTC = 10:00 IST: entry decision, after the opening session settles
+    - cron: "0 7 * * 2"     # 07:00 UTC = 12:30 IST: midday hold/exit check
+    - cron: "15 9 * * 2"    # 09:15 UTC = 14:45 IST: final hold/exit check, ~45 min before the close
+  workflow_dispatch:        # manual run any day, for testing -- the script no-ops if NIFTY has no expiry today
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expiry-theta
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Bring the private data (site/, state/) from the private repo
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
+
+      - name: Fetch today's Kite access token from the relay
+        run: |
+          CHECK=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=check" --data-urlencode "key=$RELAY_KEY" || true)
+          echo "Relay setup check: $CHECK"
+          TOKEN=""
+          for attempt in 1 2 3 4; do
+            RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
+            TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+            if [ -n "$TOKEN" ]; then break; fi
+            echo "Attempt $attempt: no token yet. Relay answered: $RESP"
+            if [ "$attempt" -lt 4 ]; then sleep $((attempt * 5)); fi
+          done
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today after 4 attempts. Last relay answer: $RESP"; exit 1; fi
+          echo "::add-mask::$TOKEN"
+          echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+
+      - name: Expiry-day theta harvest (NIFTY iron condor, suggestion or hold/exit read)
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        run: python -m hub.expiry_theta
+
+      - name: Save the private data (site/, state/) to the private repo
+        if: always() && steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "expiry-theta $(date -u +%F) $(date -u +%H:%M)"
