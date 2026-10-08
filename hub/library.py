@@ -181,6 +181,17 @@ NOT_YET = [
 ]
 
 
+def _is_quota_exhausted(exc: Exception) -> bool:
+    """A BharatStock 429 mid-batch almost always means the day's whole quota is gone (seen
+    2026-10-07 and again 2026-10-08: every call fails the same way for the rest of the run, it
+    does not recover within minutes the way a burst rate limit would -- multibagger.py's own
+    fetch() already retries a 429 a few times with backoff before giving up, so by the time this
+    is raised here, that retry already happened and failed). Distinguished by HTTP status code,
+    not by matching message text."""
+    resp = getattr(exc, "response", None)
+    return getattr(resp, "status_code", None) == 429
+
+
 def _sum_last(values):
     vals = [v for v in values if v is not None]
     return sum(vals) if vals else None
@@ -709,11 +720,14 @@ def main() -> dict:
             try:
                 annual_rows = fetch_annual(sym, key)
                 values.update(cash_flow_values(annual_rows))
-            except Exception:
-                pass
+            except Exception as exc:
+                if _is_quota_exhausted(exc):
+                    raise
             try:
                 px, px_volume, px_delivery = fetch_price_history(sym, key)
-            except Exception:
+            except Exception as exc:
+                if _is_quota_exhausted(exc):
+                    raise
                 px, px_volume, px_delivery = [], [], []
             values.update(price_values(px, px_delivery, px_volume))
             values.update(index_relative_values(px, nifty_series))
@@ -817,10 +831,14 @@ def main() -> dict:
                 try:
                     ins = insider_signal(fetch_insider(sym, key))
                 except Exception as exc:
+                    if _is_quota_exhausted(exc):
+                        raise
                     ins = {"status": f"insider fetch failed: {str(exc)[:80]}"}
                 try:
                     mf = mf_counts(fetch_mf(sym, key))
                 except Exception as exc:
+                    if _is_quota_exhausted(exc):
+                        raise
                     mf = {"status": f"fund fetch failed: {str(exc)[:80]}"}
                 if ins.get("net_shares") is not None:
                     values["insider_net_shares_6m"] = ins["net_shares"]
@@ -839,6 +857,17 @@ def main() -> dict:
                 mb_stocks.append(mb_res)
                 mb_failures.pop(sym, None)
         except Exception as exc:
+            if _is_quota_exhausted(exc):
+                # The day's BharatStock quota is gone, not just this one call -- every remaining
+                # company in this batch would fail the exact same way. Stop here instead of
+                # "processing" all of them into a worthless all-empty error entry (seen 8 Oct: every
+                # company after the first 429 showed zero data on the admin dashboard). processed is
+                # rolled back so cursor_next points at this exact symbol again, not past it --
+                # nothing was actually learned about it this run, so the next batch should retry it
+                # fresh rather than wait a full cycle for this index range to come around again.
+                processed -= 1
+                partial = True
+                break
             stocks.append({"symbol": sym, "error": str(exc)[:120]})
         time.sleep(0.2)
 
