@@ -4,6 +4,46 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-08
 
+### Stock credit-spread screen: activated the dormant position tracker, fixed a silent sector-cap bug
+Asked "did the SBIN recommendation actually work out," and the honest answer was "nothing tracks
+that" -- found the fix was mostly already written. `rg/tracker.py` and `rg/mtm.py` are a complete,
+vendored position tracker (persist recommendations as OPEN, settle at expiry with realized P&L,
+Black-Scholes mark-to-market for open positions), left dormant on purpose per `hub/stocks.py`'s own
+former docstring ("no tracker writes, no positions are booked"). Also found, while wiring it in: that
+same `main()` already called `tracker.open_sector_counts()`/`open_position_keys()` for **reads**, so
+the sector-concentration cap (`MAX_PER_SECTOR`) could apply across runs, not just within one -- but
+since `tracker.record_new()` was never called to **write** to that book, it has been permanently
+empty since this screen went live. The cross-run sector cap (built specifically to prevent two runs
+13 minutes apart both picking the same sector, a real 17-Aug-2026 incident) has silently been a no-op
+the entire time.
+
+- `hub/stocks.py`: added `_settle_fn()` (the underlying's live LTP, for `tracker.evaluate_closed()`)
+  and `_track_record()` (an all-time summary via `tracker.summary()`, gated at 10 settled trades
+  before publishing a win rate -- lower than the Desk tab's 20, since 30-66 DTE settlement is far
+  slower than a daily index forecast and 20 could take many months here). Wired `evaluate_closed` →
+  the existing screen → `record_new` → publish, each run. Every **qualifying** recommendation is
+  tracked as if traded -- nothing in this app knows whether the owner actually took a given trade, so
+  this is the screen's own measured hypothetical performance, stated explicitly in the published
+  `"basis"` field, not claimed as the owner's real P&L.
+- `rg/config.py`: moved `POSITIONS_FILE` out of `rg/data/` (never synced anywhere, gitignored into the
+  void) to `state/stocks_positions.json`, syncing automatically via `hub/site_data.py`'s existing
+  `state/*.json` glob -- same mechanism as today's other two new logs. `rg/tracker.py`'s `_save()` was
+  creating `DATA_DIR`, not `POSITIONS_FILE`'s own parent; fixed, since those two now diverge.
+- `hub/admin_publish.py`: added `stock_track_record` to the existing `TESTS` dict, which already feeds
+  the admin dashboard's Back-tests tab generically -- surfaces with **no `Admin.gs` change at all**.
+- Verified with a standalone test (`test_stock_tracker.py`, 9 cases) before wiring anything in:
+  `_settle_fn` returns the live spot and fails safe (0, never a fabricated price) on a bad quote or
+  exception; the win-rate gating at each of the three bands; a position settling above its short
+  strike realizes as a WIN with positive P&L; an open position never contributes to realized P&L (the
+  exact 17-Aug-2026 day-0-credit bug `mtm.py` warns about); and, directly reproducing the dormant bug
+  this also fixes, a second run's position is now visible to `open_sector_counts()` via the same
+  persisted book a prior run wrote to.
+- Scope, deliberately: covers the stock screen only, not the index-level F&O suggestions
+  (`hub/fno.py`, no equivalent tracker) or expiry-theta (already has its own lighter settled-session
+  log from earlier today, logging a last intraday read rather than a true realized P&L).
+- **Not yet done:** a live `python -m hub.stocks` run to confirm the book persists correctly through a
+  real cycle -- the standalone tests cover the logic, not an end-to-end live run yet.
+
 ### Stock screen: a run-history log, found missing while answering a real question
 Asked what would have happened on the SBIN spread the owner saw mid-morning, and had to answer "I
 can't tell you" -- `hub/stocks.py` overwrites `docs/data/stocks.json` on every run, including manual

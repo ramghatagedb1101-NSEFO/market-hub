@@ -21,6 +21,7 @@ TESTS = {
     "indicator_test": DOCS / "indicator_test.json",
     "backtest_multibagger": DOCS / "backtest_multibagger.json",
     "threshold_test": DOCS / "threshold_test.json",
+    "stock_track_record": DOCS / "stocks_track_record.json",
 }
 
 

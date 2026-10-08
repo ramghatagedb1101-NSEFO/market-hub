@@ -18,7 +18,12 @@ PKG_DIR       = Path(__file__).resolve().parent
 load_dotenv(PKG_DIR.parent / ".env")
 
 DATA_DIR      = PKG_DIR / "data"
-POSITIONS_FILE = DATA_DIR / "positions.json"      # persistent tracker
+# 8 Oct 2026: moved out of DATA_DIR into state/, the folder hub/site_data.py already syncs to the
+# private repo on every run (same mechanism hub/stocks.py's own run-history log and
+# hub/expiry_theta.py's settled-session log use) -- positions/P&L are personal data, not a public
+# cache file like the rest of DATA_DIR, and nothing synced this file before (hub/stocks.py never
+# called the tracker that reads/writes it).
+POSITIONS_FILE = PKG_DIR.parent / "state" / "stocks_positions.json"
 REPORT_DIR    = PKG_DIR / "reports"
 
 # ── Chain-snapshot cache (see market_data.get_chain_snapshot) ─────────
