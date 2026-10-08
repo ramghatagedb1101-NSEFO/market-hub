@@ -10,7 +10,6 @@ hub/multibagger/output/
 rg/data/chain_cache/
 rg/data/risk_flags.json
 rg/data/macro_briefing.json
-rg/data/positions.json
 rg/reports/
 
 # Private data lives in the private repo market-hub-private: the phone app's files in site/ (read

@@ -46,7 +46,10 @@ def _load() -> dict:
 
 
 def _save(data: dict) -> None:
-    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    # Creates POSITIONS_FILE's own parent, not DATA_DIR -- the two diverged 8 Oct 2026 when
+    # POSITIONS_FILE moved out of DATA_DIR into state/ (see config.py), and mkdir-ing the wrong
+    # directory here would leave state/ missing on a fresh checkout that hasn't run another job yet.
+    config.POSITIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
     config.POSITIONS_FILE.write_text(json.dumps(data, indent=2))
 
 
