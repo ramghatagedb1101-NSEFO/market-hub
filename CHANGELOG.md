@@ -4,6 +4,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-08
 
+### Phone app: a live, reproducible outage found and fixed (not just transient)
+- Live, signed-in walk of the phone page's F&O/Multi-bagger/Desk screens found the whole data layer down: "Brief not available", "feed unavailable" -- live index quotes (a separate public endpoint) kept working, so the gate itself and the quotes ticker looked fine, but every signed-in screen was empty.
+- Root cause: `relayPost()` (`docs/index.html`) POSTs to the relay for every signed-in data call (`app_data`, the single call that bundles feed/brief/context/stocks/fno/multibagger) with **no retry at all**. Confirmed via the browser's network log: 4 consecutive `app_data` POSTs all returned HTTP 404, while the relay's own GET `mode=quote` endpoint answered normally the whole time -- the exact same transient Google-side 404 already found and fixed today in five GitHub Actions workflows (daily.yml, expiry-theta.yml, live.yml, indicator-test.yml, threshold-test.yml), just never carried over to the one place a real visitor actually hits it.
+- Fixed with the same 3-attempt backoff pattern already used in those workflows, now in `relayPost()` itself so every `app_*` call (sign-in code, verify, and the data bundle) benefits. No change to `relay/Code.gs`/`Admin.gs` -- this is a client-side-only fix, so it needs no manual redeploy, just the next push to `docs/`.
+
 ### Admin dashboard: live tab-by-tab audit, one real UX gap fixed
 - Signed in and walked all six tabs (Status/Library/Parameters/Registry/Bulk deals/Back-tests) with real data -- all render correctly, including the Library tab's 1,896-row filtered table and the Registry tab's NSE-filing-to-alias candidate matches.
 - **Tapping a library row to see its parameter detail looked broken but wasn't.** `showStock()` (`relay/Admin.gs`) correctly fills `#stockdetail`, but that div sits below the full 100-row page, and nothing scrolled to it -- on a long page this reads as "nothing happened." Added `scrollIntoView({behavior:'smooth'})` after both the success and error-row paths. Needs the relay redeployed by hand before it's live (`relay/README.md`).
