@@ -7,6 +7,9 @@ name: fix-library-cursor
 # real data instead of waiting a full ~2,570-company cycle. Meant to run once, by hand, then be
 # deleted -- same lifecycle as diag.yml earlier today.
 on:
+  push:
+    branches: [main]
+    paths: ["triggers/fix-cursor.txt"]   # push a change to this file to start a run
   workflow_dispatch:
 
 permissions:

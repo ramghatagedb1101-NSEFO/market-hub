@@ -1,0 +1,1 @@
+one-off cursor repair for the 8 Oct quota-corruption incident, triggered 2026-10-08
