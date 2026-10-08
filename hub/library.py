@@ -281,7 +281,15 @@ def _private_headers() -> dict:
 
 def fetch_existing() -> tuple[dict, str | None]:
     """Reads the published library.json, if any, so a batch can resume from the last cursor and
-    merge into the prior results instead of starting over or overwriting other batches' work."""
+    merge into the prior results instead of starting over or overwriting other batches' work.
+
+    2026-10-08: the Contents API only inlines a file's content below 1 MB -- above that it
+    returns an empty content field with no error, which used to decode to "", fail json.loads,
+    and silently reset to "no prior data" (losing every earlier batch's results and restarting
+    the cursor at 0). library.json passes 1 MB after the first batch (~899 companies), so this
+    was hit on every batch after the first. Falls back to the Git Data API's blob endpoint
+    (no practical size limit, same sha) whenever the inline content is missing.
+    """
     url = f"https://api.github.com/repos/{PRIVATE_REPO}/contents/{PRIVATE_FILE}"
     got = requests.get(url, headers=_private_headers(), timeout=30)
     if got.status_code == 404:
@@ -290,9 +298,15 @@ def fetch_existing() -> tuple[dict, str | None]:
     body = got.json()
     sha = body.get("sha")
     try:
-        content = base64.b64decode(body.get("content", "")).decode("utf-8")
+        content_b64 = body.get("content")
+        if not content_b64:
+            blob = requests.get(f"https://api.github.com/repos/{PRIVATE_REPO}/git/blobs/{sha}",
+                                 headers=_private_headers(), timeout=60)
+            blob.raise_for_status()
+            content_b64 = blob.json().get("content", "")
+        content = base64.b64decode(content_b64).decode("utf-8")
         return json.loads(content), sha
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, KeyError):
         return {}, sha
 
 
