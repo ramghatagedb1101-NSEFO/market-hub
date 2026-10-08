@@ -22,6 +22,32 @@ from datetime import datetime, timezone
 from . import config
 
 STOCKS_FILE = config.SITE_DIR / "data" / "stocks.json"
+# Run history (8 Oct 2026): STOCKS_FILE is overwritten by every run, including manual re-dispatches
+# used for testing -- the daily job ran four times on 8 Oct alone (pre-market, mid-morning, and the
+# scheduled post-close run), and the mid-morning run's recommendations were gone by the time anyone
+# asked what they actually were. One row per run, appended, so a recommendation is never lost just
+# because a later run replaced it as "today's" current view.
+LOG_FILE = config.REPO / "state" / "stocks_log.json"
+LOG_MAX_ENTRIES = 1000
+
+
+def _append_log(payload: dict) -> None:
+    try:
+        log = json.loads(LOG_FILE.read_text(encoding="utf-8"))
+        if not isinstance(log, list):
+            log = []
+    except (OSError, ValueError):
+        log = []
+    log.append({
+        "generated_at": payload["generated_at"],
+        "mode": payload["mode"],
+        "symbol_count": payload["symbol_count"],
+        "recommendation_count": payload["recommendation_count"],
+        "india_vix": payload["india_vix"],
+        "recommendations": payload["recommendations"],
+    })
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    LOG_FILE.write_text(json.dumps(log[-LOG_MAX_ENTRIES:], default=str), encoding="utf-8")
 
 
 def main() -> dict:
@@ -77,6 +103,8 @@ def main() -> dict:
     STOCKS_FILE.parent.mkdir(parents=True, exist_ok=True)
     STOCKS_FILE.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     print(f"[STOCKS] wrote {STOCKS_FILE}")
+    _append_log(payload)
+    print(f"[STOCKS] appended to {LOG_FILE}")
     return payload
 
 
