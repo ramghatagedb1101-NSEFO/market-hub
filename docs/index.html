@@ -350,16 +350,45 @@
   }
 
   // F&O tab: index suggestions, then the Nifty 50 stock option screen in the same layout.
+  // Each rejection goes into exactly one real category -- an earlier version dumped every reason
+  // that wasn't "earnings" or "iv rank" into one bucket and mislabeled the whole thing "delivery",
+  // which made a no-credit/liquidity rejection (the most common reason) look like a delivery failure.
   function screenGroup(d){
-    const g = { earnings: [], iv: [], other: [] };
+    const g = { earnings: [], iv_low: [], iv_unmeasurable: [], delivery: [], no_credit: [], other: [] };
     (d.diagnostics || []).forEach(x => {
       if (x.status === "RECOMMENDED") return;
       const t = (x.detail || "").toLowerCase();
-      if (t.includes("earnings")) g.earnings.push(x.symbol);
-      else if (t.includes("iv rank")) g.iv.push(x.symbol);
-      else g.other.push(`${x.symbol}: ${x.detail}`);
+      const row = { symbol: x.symbol, detail: x.detail || "" };
+      if (t.includes("earnings")) g.earnings.push(row);
+      else if (t.includes("iv rank not measurable")) g.iv_unmeasurable.push(row);
+      else if (t.includes("iv rank")) g.iv_low.push(row);
+      else if (t.includes("delivery")) g.delivery.push(row);
+      else if (t.includes("worst-case credit") || t.includes("pays nothing")) g.no_credit.push(row);
+      else g.other.push(row);
     });
     return g;
+  }
+  // A short, specific value per row instead of the full sentence -- the raw `detail` is still the
+  // title attribute, so hovering (or tapping on mobile) shows the whole reason if needed.
+  function shortReason(category, detail){
+    const d = detail;
+    if (category === "earnings") { const m = d.match(/earnings (\d{4}-\d{2}-\d{2})/i); return m ? m[1] + (/estimated/i.test(d) ? " (est.)" : "") : d; }
+    if (category === "iv_low") { const m = d.match(/iv rank (\d+) < (\d+)/i); return m ? `${m[1]} < ${m[2]}` : d; }
+    if (category === "iv_unmeasurable") return "no clean IV history yet";
+    if (category === "delivery") { const m = d.match(/delivery (\d+)% < (\d+)%/i); return m ? `${m[1]}% < ${m[2]}%` : d; }
+    if (category === "no_credit") {
+      const legs = [];
+      if (/put-side/i.test(d)) legs.push("put-side");
+      if (/call-side/i.test(d)) legs.push("call-side");
+      const credits = [...d.matchAll(/worst-case credit rs\.(-?[\d.]+)/gi)].map(m => f(parseFloat(m[1]), 2));
+      return (legs.join(" & ") || "no credit") + (credits.length ? ` (Rs.${credits.join(", Rs.")})` : "");
+    }
+    return d;
+  }
+  function reasonTable(rows, category){
+    return `<table class="t"><tr><th>Symbol</th><th>Value</th></tr>` +
+      rows.map(r => `<tr><td>${esc(r.symbol)}</td><td title="${esc(r.detail)}">${esc(shortReason(category, r.detail))}</td></tr>`).join("") +
+      `</table>`;
   }
   function stockScreen(d){
     if (!d) return "";
@@ -368,8 +397,9 @@
     const counts = barRows([
       { label: "Trades", v: recs.length, txt: String(recs.length) },
       { label: "Earnings", v: g.earnings.length, txt: String(g.earnings.length) },
-      { label: "IV < gate", v: g.iv.length, txt: String(g.iv.length) },
-      { label: "Other", v: g.other.length, txt: String(g.other.length) }
+      { label: "IV too low", v: g.iv_low.length, txt: String(g.iv_low.length) },
+      { label: "No net credit", v: g.no_credit.length, txt: String(g.no_credit.length) },
+      { label: "Delivery < 40%", v: g.delivery.length, txt: String(g.delivery.length) }
     ]);
     const tiles = [
       tile("SCREENED", String(d.symbol_count || 0), (d.mode || "") + " · NIFTY 50", ""),
@@ -378,16 +408,20 @@
     ].join("");
     const recRows = recs.map(r => `<div class="row"><span class="l">${esc(r.symbol)} · ${esc(r.strategy || "")}${r.earnings_basis === "estimated" ? ' <span class="amb">· results date not confirmed</span>' : ""}</span>
       <span class="r">${esc(r.expiry || "")} · credit ${r.credit != null ? f(r.credit,2) : "–"} · POP ${r.pop != null ? f(r.pop,1) + "%" : "–"}</span></div>`).join("");
-    const rej = Object.entries({ "Earnings inside the contract window": g.earnings,
-                                 "IV rank below the 30 gate": g.iv, "Delivery below the 40% gate": g.other })
+    const rej = [["Earnings inside the contract window", g.earnings, "earnings"],
+                 ["No net credit (liquidity/spread, not a stock problem)", g.no_credit, "no_credit"],
+                 ["IV rank below the 30 gate", g.iv_low, "iv_low"],
+                 ["Delivery below the 40% gate", g.delivery, "delivery"],
+                 ["IV rank not measurable (data gap)", g.iv_unmeasurable, "iv_unmeasurable"],
+                 ["Other", g.other, "other"]]
       .filter(([, v]) => v.length)
-      .map(([k, v]) => `<details><summary>${esc(k)} · ${v.length}</summary><div class="note" style="margin:4px 0 8px">${v.map(esc).join(" · ")}</div></details>`).join("");
+      .map(([k, v, cat]) => `<details><summary>${esc(k)} · ${v.length}</summary>${reasonTable(v, cat)}</details>`).join("");
     return `<div class="sec">NIFTY 50 stocks · option screen · ${esc((d.generated_at || "").replace("T"," ").slice(0,16))} UTC</div>
       <div class="glance">${tiles}</div>
       <div class="panel"><div class="ph"><span>Why names were rejected</span><span class="flag">${d.symbol_count || 0} names</span></div>
         <div class="pb">${counts}</div></div>
       <div class="panel" style="margin-top:8px"><div class="ph"><span>Qualifying trades</span><span class="flag">${recs.length}</span></div>
-        <div class="pb">${recRows || '<div class="mut">No trade passes every gate today. Most names have results inside the contract window.</div>'}</div></div>
+        <div class="pb">${recRows || '<div class="mut">No trade passes every gate today. Most rejections are no net credit or earnings inside the contract window -- see the breakdown below.</div>'}</div></div>
       <div class="panel" style="margin-top:8px"><div class="ph"><span>Rejected names</span></div>
         <div class="pb">${rej || '<div class="mut">None.</div>'}</div></div>`;
   }
@@ -468,12 +502,10 @@
           <td>${enough ? f(s.mae_model_pct,2) + "%" : "–"}</td><td>${enough ? f(s.mae_naive_pct,2) + "%" : "–"}</td></tr>`;
       }).join("");
     }).join("");
-    const any = Object.values(FEED.indices).some(b => HZ.some(h => b.horizons[h].stats.n >= MIN_N));
     $("#desk-body").innerHTML = `
       <div class="sec">Track record</div>
       <div class="panel"><div class="pb">
-        <div class="note" style="margin:0 0 8px">${any ? "Settled outcomes are listed below. A horizon needs at least " + MIN_N + " settled calls before its hit rate means anything; fewer than that is shown as N only, no percentage -- one or two outcomes are a coin flip, not a track record." :
-          "No horizon has " + MIN_N + " settled outcomes yet, so no hit rate is shown -- with only a few calls settled, a 100% or 0% is just a coin flip, not a verdict. Until a horizon clears that bar and beats the naive baseline (tomorrow = today), treat the estimates as unproven."}</div>
+        <div class="note" style="margin:0 0 8px">Needs ${MIN_N}+ settled outcomes per horizon to show a hit rate.</div>
         <table class="t"><tr><th>Horizon</th><th>N</th><th>Direction</th><th>Model err</th><th>Naive err</th></tr>${outcomes}</table>
       </div></div>
       <div class="sec">NIFTY 50 · last 250 sessions</div>
