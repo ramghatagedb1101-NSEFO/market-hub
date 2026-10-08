@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T12:54:58+00:00",
+  "generated_at": "2026-10-08T00:46:33+00:00",
   "universe": "NIFTY 50",
   "mode": "live",
   "replay_date": null,
@@ -57,7 +57,7 @@
     {
       "symbol": "BHARTIARTL",
       "status": "REJECTED",
-      "detail": "IV rank 21 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 22 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "BSE",
@@ -82,7 +82,7 @@
     {
       "symbol": "EICHERMOT",
       "status": "REJECTED",
-      "detail": "IV rank 20 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 21 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "ETERNAL",
@@ -92,7 +92,7 @@
     {
       "symbol": "GRASIM",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-8.35 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.05); work it as a combo limit order or stand aside; call-side worst-case credit 6% of width < 15%"
+      "detail": "put-side worst-case credit Rs.-8.35 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.05); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "HCLTECH",
@@ -117,7 +117,7 @@
     {
       "symbol": "HINDUNILVR",
       "status": "REJECTED",
-      "detail": "IV rank 26 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 27 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "ICICIBANK",
@@ -127,7 +127,7 @@
     {
       "symbol": "INDIGO",
       "status": "REJECTED",
-      "detail": "IV rank 29 < 30 (premium too cheap to sell)"
+      "detail": "put-side worst-case credit Rs.-10.30 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.17.10); work it as a combo limit order or stand aside"
     },
     {
       "symbol": "INFY",
@@ -142,7 +142,7 @@
     {
       "symbol": "JIOFIN",
       "status": "REJECTED",
-      "detail": "IV rank 27 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "JSWSTEEL",
@@ -152,12 +152,12 @@
     {
       "symbol": "KOTAKBANK",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit 2% of width < 15%; call-side worst-case credit 11% of width < 15%"
+      "detail": "put-side worst-case credit 2% of width < 15%; call-side bid-ask 12.0% > 2.5%"
     },
     {
       "symbol": "LT",
       "status": "REJECTED",
-      "detail": "IV rank 20 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 21 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "M&M",
@@ -167,7 +167,7 @@
     {
       "symbol": "MARUTI",
       "status": "REJECTED",
-      "detail": "IV rank 27 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "MAXHEALTH",
@@ -212,7 +212,7 @@
     {
       "symbol": "SHRIRAMFIN",
       "status": "REJECTED",
-      "detail": "IV rank 20 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 21 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "SUNPHARMA",
@@ -252,12 +252,12 @@
     {
       "symbol": "TRENT",
       "status": "REJECTED",
-      "detail": "IV rank 12 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 13 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "ULTRACEMCO",
       "status": "REJECTED",
-      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 29 < 30 (premium too cheap to sell)"
     }
   ],
   "portfolio_caps": []
