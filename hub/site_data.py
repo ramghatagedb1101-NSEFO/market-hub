@@ -129,7 +129,8 @@ def pull() -> dict:
                                 f"{folder['seed_path']}/{name}")
             if r.status_code == 200:
                 (local / name).write_bytes(r.content)
-                seeded.append(name)        # not in the manifest, so push sends it
+                manifest["seed:" + f"{remote}/{name}"] = blob_sha(r.content)
+                seeded.append(name)
         report[remote] = {"pulled": got, "seeded_from_public_history": seeded}
 
     MANIFEST.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
@@ -138,17 +139,25 @@ def pull() -> dict:
 
 def push(message=None) -> dict:
     pulled = _load_manifest()
+    h = _headers()
     changed = []
     for folder in FOLDERS:
         for p in _local_files(folder):
             data = p.read_bytes()
             key = f"{folder['remote']}/{p.name}"
-            if pulled.get(key) != blob_sha(data):
-                changed.append((key, data))
+            sha = blob_sha(data)
+            if pulled.get(key) == sha:
+                continue
+            if pulled.get("seed:" + key) == sha:
+                # Seeded and not changed by this job: send it only if no other job has saved the file
+                # since, or a slow job would replace a newer copy with the old public one.
+                exists = _request("GET", f"{API}/repos/{PRIVATE_REPO}/contents/{key}?ref={BRANCH}", headers=h)
+                if exists.status_code != 404:
+                    continue
+            changed.append((key, data))
     if not changed:
         return {"pushed": [], "note": "no changes"}
 
-    h = _headers()
     repo = f"{API}/repos/{PRIVATE_REPO}"
     blobs = []
     for path, data in changed:
