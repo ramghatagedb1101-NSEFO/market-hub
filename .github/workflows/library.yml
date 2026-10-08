@@ -48,6 +48,8 @@ jobs:
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          RELAY_URL: ${{ secrets.RELAY_URL }}     # same relay the daily job uses; mode=alert emails a new discovery-tier finding
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
         run: |
           set -o pipefail
           python -m hub.library | tee /tmp/library_result.json

@@ -27,10 +27,12 @@ function doGet(e) {
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
 }
 
-/** The daily job posts the admin summary here (mode=publish_admin, with RELAY_KEY). */
+/** The daily job posts the admin summary here (mode=publish_admin, with RELAY_KEY). The stock-library
+ *  batch posts a new discovery-tier finding here (mode=alert, with RELAY_KEY). */
 function doPost(e) {
   const p = (e && e.parameter) || {};
   if (p.mode === 'publish_admin') return json_(publishAdmin_(p.key || '', (e.postData && e.postData.contents) || ''));
+  if (p.mode === 'alert') return json_(sendDiscoveryAlert_(p.key || '', (e.postData && e.postData.contents) || ''));
   return json_({ error: 'unknown mode' });
 }
 

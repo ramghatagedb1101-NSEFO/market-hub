@@ -77,6 +77,34 @@ function saveAdminFile_(body) {
   return true;
 }
 
+/**
+ * Called by the stock-library batch (hub/library.py, hub/alerts.py) through doPost when it finds a
+ * stock newly worth a "discovery" alert: thin mutual-fund ownership (mf_discovery_tier 1 or 2)
+ * alongside strong library/multi-bagger fundamentals. Body is JSON: {findings: [{symbol, tier, met,
+ * testable, data_quality_pct, mb_score}]}. One email per call, however many findings it carries.
+ */
+function sendDiscoveryAlert_(key, body) {
+  const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
+  if (!relayKey || key !== relayKey) return { error: 'forbidden' };
+  let payload;
+  try { payload = JSON.parse(body); } catch (err) { return { error: 'bad JSON body' }; }
+  const findings = payload.findings || [];
+  if (!findings.length) return { ok: true, sent: 0 };
+  const tierLabel = { 1: 'Tier 1 -- pounce (fewer than 5 mutual fund schemes hold it)',
+                      2: 'Tier 2 -- watch (5-20 schemes)' };
+  const lines = findings.map(function (f) {
+    return f.symbol + ': ' + (tierLabel[f.tier] || ('tier ' + f.tier)) +
+      ' -- library ' + f.met + '/' + f.testable + ' gates met (' + f.data_quality_pct + '% data quality)' +
+      (f.mb_score != null ? ', multi-bagger score ' + f.mb_score + '/4' : '');
+  });
+  const subject = 'Market Hub: ' + findings.length + ' new discovery-tier stock' + (findings.length > 1 ? 's' : '');
+  const body_ = 'New this batch (' + todayIst_() + '):\n\n' + lines.join('\n') +
+    '\n\nFewer mutual fund schemes holding a stock is the bullish read here: the market has not ' +
+    'found it yet. Check the admin dashboard\'s Library tab for the full parameter breakdown before acting.';
+  MailApp.sendEmail(Session.getEffectiveUser().getEmail(), subject, body_);
+  return { ok: true, sent: findings.length };
+}
+
 /** Reads the stock library (library.json) from the private repo for the signed-in owner. */
 function adminLibrary(token) {
   const cache = CacheService.getScriptCache();

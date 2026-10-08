@@ -43,3 +43,14 @@ You can now delete the old `KITE_ACCESS_TOKEN` secret, since the daily run no lo
 - "user is not enabled for the app": the app's Zerodha Client ID must be the account you log in with.
 - "Token saved, but the daily run did not start": the `GH_PAT` lacks Actions write.
 - The daily run says "No Kite token for today": log in with Kite first that day.
+
+## Updating the deployed script (8 Oct 2026: email alerts for new discovery-tier stocks)
+Apps Script isn't deployed from GitHub -- a code change here needs re-pasting by hand:
+1. Open the Apps Script project (script.google.com → this project).
+2. Replace the contents of `Code.gs` and `Admin.gs` with the current versions from this repo.
+3. **Deploy → Manage deployments → the existing Web app deployment → Edit (pencil) → Version: New version → Deploy.**
+   Do not create a brand-new deployment -- that would change the `/exec` URL, breaking `RELAY_URL`
+   everywhere it's used (GitHub secrets, the Kite login bookmark).
+4. No new script property or GitHub secret needed: `mode=alert` reuses the existing `RELAY_KEY`, and
+   the email goes to the same Google account that owns the script (`Session.getEffectiveUser()`),
+   same as the admin dashboard's sign-in code.
