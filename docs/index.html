@@ -80,6 +80,10 @@
   .row:last-child{border-bottom:0}
   .row .l{color:var(--mut)}
   .row .r{font:500 12px var(--mono);text-align:right}
+  .reccard{padding:4px 0;border-bottom:1px dotted var(--ln)}
+  .reccard:last-child{border-bottom:0}
+  .reccard .row{border-bottom:0;padding:0 0 2px}
+  .reccard .note{font-size:11px;padding:0 0 2px}
   .band{position:relative;height:6px;margin:12px 2px 18px;background:var(--ln2);border-radius:1px}
   .band .fill{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--blu) 35%,transparent)}
   .band .tick{position:absolute;top:-4px;width:1px;height:14px;background:var(--txt)}
@@ -439,8 +443,16 @@
       tile("TRADES", String(recs.length), recs.length ? "qualifying" : "none today", recs.length ? "up" : ""),
       tile("INDIA VIX", d.india_vix != null ? f(d.india_vix, 2) : "–", "gate 30 on IV rank", "")
     ].join("");
-    const recRows = recs.map(r => `<div class="row"><span class="l">${esc(r.symbol)} · ${esc(r.strategy || "")}${r.earnings_basis === "estimated" ? ' <span class="amb">· results date not confirmed</span>' : ""}</span>
-      <span class="r">${esc(r.expiry || "")} · credit ${r.credit != null ? f(r.credit,2) : "–"} · POP ${r.pop != null ? f(r.pop,1) + "%" : "–"}</span></div>`).join("");
+    const recRows = recs.map(r => {
+      const credit = r.net_credit != null ? f(r.net_credit, 2) : "–";
+      const pop = r.pop_pct != null ? f(r.pop_pct, 1) + "%" : "–";
+      const warn = r.fill_risk
+        ? `<div class="note amb">Needs a limit/combo order near mid -- a market order may not fill this credit.</div>` : "";
+      const exits = (r.stop_loss_debit != null && r.profit_target_debit != null)
+        ? `<div class="note mut">Stop-loss: exit if it costs ${f(r.stop_loss_debit,2)}+ to close. Profit target: exit once it costs ${f(r.profit_target_debit,2)} or less.</div>` : "";
+      return `<div class="reccard"><div class="row"><span class="l">${esc(r.symbol)} · ${esc(r.strategy || "")}${r.earnings_basis === "estimated" ? ' <span class="amb">· results date not confirmed</span>' : ""}</span>
+        <span class="r">${esc(r.expiry || "")} · credit ${credit} · POP ${pop}</span></div>${warn}${exits}</div>`;
+    }).join("");
     const rej = catOrder.filter(c => (g[c] || []).length)
       .map(c => `<details><summary>${esc(CAT_LABEL[c])} · ${g[c].length}</summary>${reasonTable(g[c], c)}</details>`).join("");
     return `<div class="sec">NIFTY 50 stocks · option screen · ${esc((d.generated_at || "").replace("T"," ").slice(0,16))} UTC</div>

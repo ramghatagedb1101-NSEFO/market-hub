@@ -113,17 +113,29 @@ def _long_price(row, side):
 
 def _gate_credit(sp):
     """
-    (credit, label) the REWARD GATE is measured on — config.USE_WORST_CASE_CREDIT.
+    (credit, label) the REWARD GATE is measured on: always mid, the price a
+    limit/combo order is meant to achieve, and the same basis sizing, score and
+    the management prices already use.
 
-    The mid is the realistic fill for a combo order and stays the basis for sizing,
-    score and the management prices. This picks the basis for the one question
-    "is the reward good enough", where the honest answer is the price an adverse
-    fill cannot take away. Both credits are already on the dict; nothing is
-    recomputed here.
+    2026-10-08: this used to read config.USE_WORST_CASE_CREDIT and gate on the
+    worst case (crossing both spreads with market orders) when that flag was on
+    -- a real, deliberate fix for a CIPLA spread once priced to a negative
+    worst-case credit (see the flag's own comment in config.py). But gating on
+    worst-case alone means a wide-but-real market (ADANIENT, BEL, ETERNAL and
+    others had a positive MID credit the whole time) silently reads as "no
+    trade qualifies" when the honest statement is "this needs a limit order
+    near mid, not a market order." The CIPLA risk is now carried forward as a
+    warning instead of a rejection: see fill_risk() and generate_recommendations,
+    which stamps "worst_case_unsafe" on the card rather than discarding it.
     """
-    if config.USE_WORST_CASE_CREDIT:
-        return sp["net_credit_worst"], "worst-case"
     return sp["net_credit"], "mid"
+
+
+def fill_risk(sp) -> bool:
+    """True when a market order crossing both legs' quotes would net zero or a
+    debit -- the trade is real at the mid, but only a limit/combo order captures
+    it. The card must say this explicitly, not bury it in a RoR number."""
+    return sp["net_credit_worst"] <= 0
 
 
 def _ror_fields(credit, max_loss, credit_worst, max_loss_worst):
@@ -502,23 +514,22 @@ def _spread_reject_reason(sp):
     """
     Per-spread gate. Returns None if it passes, else a short reason string.
 
-    The reward gate reads whichever credit config.USE_WORST_CASE_CREDIT selects, and
-    the reason NAMES that basis — "worst-case credit 12% of width" and "credit 12%
-    of width" are different claims about the same spread, and a diagnostics line
-    that cannot tell them apart cannot be audited against the chain.
+    The reward gate reads the mid credit (see _gate_credit) -- the reward a
+    careful limit/combo order is meant to capture. A trade whose worst-case
+    (market-order) fill is unsafe is not rejected here; it is flagged as
+    fill_risk() on the final card instead, so the user decides with the real
+    number in front of them rather than never seeing the trade at all.
     """
     max_ba, _, _, tier = _tier_limits(sp)
     if sp["pop_pct"] < config.MIN_POP_PCT:
         return f"POP {sp['pop_pct']:.0f}% < {config.MIN_POP_PCT:.0f}%"
     credit, basis = _gate_credit(sp)
-    # Only reachable on the worst-case basis: _build_spread already discards a
-    # non-positive MID credit. Called out separately because "credit -5% of width"
-    # reads as a threshold miss when it is actually a spread that pays nothing at
-    # all if both legs cross the quote.
+    # Defensive only: _build_spread already discards a non-positive mid credit,
+    # so this should never fire now that _gate_credit always reads mid. Left in
+    # case that invariant ever changes upstream.
     if credit <= 0:
-        return (f"{basis} credit Rs.{credit:.2f} <= 0 — pays nothing if both legs "
-                f"cross the quote (mid Rs.{sp['net_credit']:.2f}); work it as a "
-                f"combo limit order or stand aside")
+        return (f"{basis} credit Rs.{credit:.2f} <= 0 — pays nothing at the mid; "
+                f"stand aside")
     if (credit / sp["width"]) < config.MIN_CREDIT_TO_WIDTH:
         return (f"{basis} credit {credit/sp['width']*100:.0f}% of width < "
                 f"{config.MIN_CREDIT_TO_WIDTH*100:.0f}%")
@@ -1005,6 +1016,10 @@ def generate_recommendations(symbols, snapshot_fn, flags=None, today=None,
             # Symbol-level, after the iron-condor branch, for the same reason the
             # risk flags are applied here: a condor rebuild would drop it.
             best["earnings_unverified"] = _earnings_unverified(chain)
+            # The trade qualifies on its mid credit (see _gate_credit); this says
+            # explicitly when a market order crossing both legs would not -- the
+            # card must show this, not bury it in a RoR number.
+            best["fill_risk"] = fill_risk(best)
             # The basis fields ride along so the card, the diagnostics and
             # positions.json all state HOW the cycle was cleared. Without them a
             # reco cleared on a ±5-session estimate is indistinguishable from one
