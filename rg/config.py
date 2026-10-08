@@ -197,30 +197,37 @@ MIN_CREDIT_TO_WIDTH = 0.15         # credit must be >=15% of width (reward floor
                                    # — see the note above SHORT_DELTA_MIN before
                                    # touching either.
 
-# ── Which credit the REWARD GATE and the REPORTED RoR are measured on ──
+# ── Which credit the REPORTED RoR headline is measured on ──
 # Two credits exist for every spread and both are already computed (see
 # strategy._leg_mid vs _short_price/_long_price):
 #   net_credit       — the combo mid, the realistic fill when worked as one order
 #   net_credit_worst — sell the short at the bid, pay the ask on the long
 #
-# False (legacy): the credit-to-width gate and every displayed Return on Risk read
-#   the MID. Defensible as the expected fill, but it means the headline reward
-#   number is the best of the two prices the trade can get, and on a thin far-OTM
-#   chain the gap is not a rounding difference. Measured on the three condors this
-#   tool actually booked on 17-Aug-2026: RoR 75.4 -> 58.7 (BAJFINANCE), 79.9 ->
-#   65.3 (TCS), 71.2 -> 40.8 (HDFCLIFE). HDFCLIFE loses 30 points of reward — the
-#   card said 71% and the price you can be certain of paid 41%.
+# False (legacy): every displayed Return on Risk reads the MID. Defensible as the
+#   expected fill, but it means the headline reward number is the best of the two
+#   prices the trade can get, and on a thin far-OTM chain the gap is not a
+#   rounding difference. Measured on the three condors this tool actually booked
+#   on 17-Aug-2026: RoR 75.4 -> 58.7 (BAJFINANCE), 79.9 -> 65.3 (TCS), 71.2 -> 40.8
+#   (HDFCLIFE). HDFCLIFE loses 30 points of reward — the card said 71% and the
+#   price you can be certain of paid 41%.
 #
-# True (current, set 17-Aug-2026): gate and report on net_credit_worst, so the
+# True (current, set 17-Aug-2026): report net_credit_worst as the headline, so the
 #   number in front of the reader is the one no adverse fill can take away. The
 #   RoR pair (worst AND mid) is carried on every reco either way, so nothing is
 #   hidden — only which of the two is the headline changes.
 #
-# NOTE THIS TIGHTENS THE SCREEN, deliberately: a spread whose worst-case credit is
-# non-positive (CIPLA 1350/1340 priced to -0.50 that same day) is now REJECTED
-# outright instead of passing on its mid. Sizing, score and the management prices
-# stay on the mid — they price the order you actually intend to work, and moving
-# them is a separate decision. See strategy._credit_basis.
+# 2026-10-08: this flag used to ALSO gate the reward check itself -- a spread
+# whose worst-case credit was non-positive (the CIPLA 1350/1340 that priced to
+# -0.50 on 17-Aug-2026, the incident that motivated True) was rejected outright,
+# even when its mid credit was genuinely positive and tradeable as a limit order.
+# Over the screen's first three days live that silently discarded real, workable
+# trades (ADANIENT, BEL, ETERNAL and others) and read on the card as "no
+# opportunity exists" when the honest statement was "this needs a limit order,
+# not a market order." The gate (strategy._gate_credit) now always reads mid;
+# the CIPLA risk this flag was built for is carried forward as an explicit
+# fill_risk() stamp on the card instead of a silent rejection, so the user
+# decides with the real number in front of them. This flag now controls ONLY
+# which number is the RoR headline, never whether a trade qualifies.
 USE_WORST_CASE_CREDIT = True
 # Long wing = N strikes away from the short strike, counted by POSITION in the
 # chain's sorted strike list, not by arithmetic on a step size. NSE strike
