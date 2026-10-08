@@ -2,6 +2,13 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-08
+
+### Daily job reliability
+- Today's scheduled run failed in 41 seconds: the Kite-token relay call returned a generic Google "Drive: Page Not Found" page instead of a JSON response, even though a check moments earlier confirmed a valid token for the day. A transient Google-side glitch, not a real missing token or a code problem. Added a 4-try retry with backoff to that call; re-ran manually and it succeeded immediately.
+- **Audited the rest of the daily pipeline for the same bug class.** `store.refresh_prices()` deliberately raises rather than write a partial price day ("no partial writes" is correct), but the underlying fetches had no retry at all, so a transient blip in either would trigger that intentional hard-stop and skip the entire rest of the day (F&O, market context, the brief, bulk deals, admin publish, the final commit — none of it). Fixed: `hub/sources/nse.py` and `hub/sources/kite.py` now retry a genuine fetch failure up to 4 times, without retrying (or swallowing) a real negative result — a 404 holiday, or Kite's "symbol not found." Verified with injected failures: recovers from a transient blip, doesn't waste retries on a real negative, still raises after a persistent failure.
+- `daily.yml`: the "F&O suggestions" and "Collect today's bulk deals" steps were missing `continue-on-error`, unlike every other non-essential step in the same workflow — their failure was silently skipping bulk deals/admin-publish/commit (bulk deals' failure skipped admin-publish and the commit). Added.
+
 ## 2026-10-07
 
 ### Stock library (hub/library.py, hub/parameters.py, private repo)
