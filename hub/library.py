@@ -100,6 +100,8 @@ RULES = {
     "interest_cover": ("Operating profit / finance cost > 3x", lambda v: v > 3),
     "roe": ("Return on equity > 15%", lambda v: v > 15),
     "roce": ("Return on capital employed > 15%", lambda v: v > 15),
+    "working_capital_days": ("Working capital cycle below 60 days", lambda v: v < 60),
+    "working_capital_change": ("Working capital cycle not longer than a year ago", lambda v: v <= 0),
     "debt_to_equity": ("Debt to equity < 1.0", lambda v: v < 1.0),
     "debt_change_1y": ("Borrowings not higher than a year ago", lambda v: v <= 0),
     "cfo": ("Operating cash flow positive, latest year", lambda v: v > 0),
@@ -166,6 +168,9 @@ RULES = {
     "sector_ret_3m": ("Sector median 3-month return positive", lambda v: v > 0),
     "peer_group_growth_median": ("Sector median profit growth positive", lambda v: v > 0),
     "rel_strength_rank_sector": ("In the top half of its sector by 6-month return", lambda v: v >= 50),
+    # Needs MIN_PE_HISTORY accumulated observations before it means anything -- see
+    # apply_sector_aggregates(). Stays not_testable (a gap) for every company until then.
+    "sector_pe_vs_history": ("Sector median P/E not higher than its own accumulated history", lambda v: v <= 0),
 }
 
 NOT_YET = [
@@ -173,7 +178,6 @@ NOT_YET = [
     "bulk_buys_20d", "bulk_sells_20d", "registry_buys_20d",
     "ev_ebitda", "ev_sales", "peg",
     "market_value_bucket", "listing_age_years",
-    "working_capital_days", "working_capital_change", "sector_pe_vs_history",
 ]
 
 
@@ -230,6 +234,25 @@ def financial_values(rows: list[dict]) -> dict:
     if op is not None and debt is not None and eq:
         ce = eq + debt
         out["roce"] = op * 4 / ce * 100 if ce else None
+
+    def wc_days(row):
+        # Field names are an educated guess (same defensive pattern as dividend_paid elsewhere in
+        # this file): a wrong guess just leaves working_capital_days/_change a gap, never a
+        # fabricated figure. Days approximated against the quarter's own revenue (~91 days/quarter),
+        # the same simplification the registry's own definition implies (receivable + inventory -
+        # payable days, not a full operating-cycle model with separate COGS/purchases bases).
+        rcv = row.get("trade_receivables") or row.get("receivables") or row.get("sundry_debtors")
+        inv = row.get("inventories") or row.get("inventory") or row.get("stock_in_trade")
+        pay = row.get("trade_payables") or row.get("payables") or row.get("sundry_creditors")
+        rv = row.get("revenue")
+        if not rv or rcv is None or inv is None or pay is None:
+            return None
+        return (rcv + inv - pay) / rv * 91
+    wc_latest, wc_ya = wc_days(latest), wc_days(ya)
+    if wc_latest is not None:
+        out["working_capital_days"] = wc_latest
+    if wc_latest is not None and wc_ya is not None:
+        out["working_capital_change"] = wc_latest - wc_ya
     out["_latest_period"] = latest.get("period_end_date")
     out["_quarters"] = len(q)
     return out
@@ -528,17 +551,37 @@ def _apply_extra_cells(stock: dict, new_values: dict) -> None:
         stock["data_quality_pct"] = round(100 * stock["testable"] / len(RULES), 1)
 
 
+SECTOR_PE_HISTORY_FILE = config.REPO / "state" / "sector_pe_history.json"
+MIN_PE_HISTORY = 8   # observations (roughly weekly batches) before "vs history" means anything
+
+
+def _load_sector_pe_history() -> dict:
+    try:
+        return json.loads(SECTOR_PE_HISTORY_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
 def apply_sector_aggregates(merged_stocks: list[dict], sector_map: dict) -> None:
     """Sector-level context for every company scored so far (this batch or an earlier one): the
-    sector's median 3-month return, its median profit growth, and each company's percentile rank by
-    6-month return within its own sector. Needs no new BharatStock call -- every input (ret_3m,
-    profit_yoy, ret_6m) is already sitting in each company's own cells from the per-company loop."""
+    sector's median 3-month return, its median profit growth, each company's percentile rank by
+    6-month return within its own sector, and (sector_pe_vs_history) today's sector median P/E
+    against its own accumulated history. Needs no new BharatStock call -- every input (ret_3m,
+    profit_yoy, ret_6m, pe) is already sitting in each company's own cells from the per-company loop.
+
+    sector_pe_vs_history genuinely cannot mean anything on day one: the registry's own definition
+    is "vs its own five-year median," and there is no persisted sector-PE time series yet. This
+    starts one today (state/sector_pe_history.json, synced like any other state/ file) and records
+    one data point per batch; the comparison only activates once MIN_PE_HISTORY points exist, so it
+    reads "not enough history yet" honestly instead of comparing against a history of one."""
+    history = _load_sector_pe_history()
+    today = datetime.now(config.IST).date().isoformat()
     groups: dict[str, list[dict]] = {}
     for s in merged_stocks:
         sector = sector_map.get(s.get("symbol"))
         if sector and "cells" in s:
             groups.setdefault(sector, []).append(s)
-    for members in groups.values():
+    for sector, members in groups.items():
         ret3 = [v for v in (_cell_value(s, "ret_3m") for s in members) if v is not None]
         growth = [v for v in (_cell_value(s, "profit_yoy") for s in members) if v is not None]
         ret6 = {s["symbol"]: _cell_value(s, "ret_6m") for s in members}
@@ -546,12 +589,26 @@ def apply_sector_aggregates(merged_stocks: list[dict], sector_map: dict) -> None
         sector_ret_3m = st.median(ret3) if ret3 else None
         peer_growth = st.median(growth) if growth else None
         n6 = len(ranked6)
+
+        pe_values = [v for v in (_cell_value(s, "pe") for s in members) if v is not None]
+        pe_vs_hist = None
+        if pe_values:
+            sector_pe_today = st.median(pe_values)
+            series = history.setdefault(sector, {})
+            series[today] = sector_pe_today   # overwrite if this sector was already seen this batch
+            if len(series) >= MIN_PE_HISTORY:
+                pe_vs_hist = sector_pe_today - st.median(series.values())
+
         for s in members:
             new_values = {"sector_ret_3m": sector_ret_3m, "peer_group_growth_median": peer_growth}
+            if pe_vs_hist is not None:
+                new_values["sector_pe_vs_history"] = pe_vs_hist
             v6 = ret6.get(s["symbol"])
             if v6 is not None and n6 >= 3:
                 new_values["rel_strength_rank_sector"] = 100 * sum(1 for x in ranked6 if x <= v6) / n6
             _apply_extra_cells(s, new_values)
+    SECTOR_PE_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SECTOR_PE_HISTORY_FILE.write_text(json.dumps(history, indent=1), encoding="utf-8")
 
 
 def _mb_holders(r: dict):

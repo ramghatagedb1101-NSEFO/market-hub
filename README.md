@@ -59,16 +59,21 @@ Drop a file in `hub/tools/` with a function decorated by `@register("name")` tha
 score in [-1, 1] (or `None` to abstain). It is loaded automatically. The engine learns how much
 to trust each tool from its settled record, so a weak tool loses weight rather than polluting the forecast.
 
-## F&O picks (not connected yet)
+## F&O picks (live)
 
-The F&O section reads `state/trades.json`, if present. The existing Kite-based engines in the
-parent project can write that file. Kite Connect is a paid API (about ₹500/month) and the
-Claude-based analysis is pay-per-call. Both are a decision for you, see the chat.
+`hub/fno.py` (index iron condors/spreads) and `hub/stocks.py` (the Nifty 50 credit-spread screen,
+`rg/strategy.py`) run daily, using Kite Connect (~₹500/month, already approved) for the option
+chain. The credit gate reads the mid price a limit/combo order is meant to achieve; a `fill_risk`
+flag and stop-loss/profit-target prices show on each qualifying card.
 
-## Multi-bagger screen (not connected yet)
+## Multi-bagger and stock-library screens (live)
 
-Planned: quarterly results history and ownership from a free source, scored with the same
-learn-and-track loop. Source choice (Screener.in scraping vs NSE/BSE filings) is open.
+`hub/library.py` scores every NSE EQ/BE equity (2,572 names) on 124 parameters from BharatStock
+financials, batched weekly (Saturdays, chaining automatically across however many ~70-minute runs
+the universe needs). The same loop computes a four-gate multi-bagger score from the same
+already-fetched rows (`hub/multibagger.py`'s `score()`), so the two screens share one BharatStock
+fetch per company instead of two independent weekly pulls. Output goes to the private repo
+(`market-hub-private`), read by the phone app after sign-in.
 
 ## Limits to know
 
