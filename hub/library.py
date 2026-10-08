@@ -19,6 +19,7 @@ from datetime import date, datetime, timedelta
 import requests
 
 from . import config
+from . import alerts
 from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf,
                           insider_signal, mf_counts, _consolidated, score, UA, MAX_PAGES,
                           FIELDS, ENDPOINT_COUNTS)
@@ -612,6 +613,7 @@ def main() -> dict:
         start_idx = 0
     prior_stocks = {s["symbol"]: s for s in existing.get("stocks", []) if isinstance(s, dict) and s.get("symbol")}
     prior_matches = {k: v for k, v in (existing.get("investor_matches") or {}).items()}
+    already_alerted = dict(existing.get("alerted") or {})
     try:
         registry_investors = json.loads(REGISTRY_FILE.read_text(encoding="utf-8")).get("investors", [])
     except (OSError, ValueError):
@@ -786,6 +788,13 @@ def main() -> dict:
     prior_matches.update(symbol_matches)
     mb_total = merge_and_write_multibagger(mb_stocks, prior_mb, mb_failures, names, cycle_complete)
 
+    # Email alert for stocks newly in the discovery tier (thin mutual-fund ownership + strong
+    # fundamentals) -- scans the full merged set, not just this batch, since sector aggregation just
+    # above can push a company over the met-ratio threshold without it being re-scored this batch.
+    today_ist = datetime.now(config.IST).date().isoformat()
+    new_findings, alerted = alerts.find_new_discoveries(merged_stocks, prior_mb, already_alerted, today_ist)
+    alert_result = alerts.send_alert(new_findings, os.getenv("RELAY_URL", ""), os.getenv("RELAY_KEY", ""))
+
     payload = {
         "generated": datetime.now(config.IST).isoformat(timespec="minutes"),
         "partial": partial,
@@ -802,13 +811,17 @@ def main() -> dict:
         # Review list, every name-alias match regardless of registry status -- the owner confirms an
         # investor in hub/registry.json before it counts toward registry_holders/registry_new_entrants.
         "investor_matches": prior_matches,
+        # Which symbol/tier combos have already triggered an email, so the same finding doesn't
+        # re-alert every batch. See hub/alerts.py.
+        "alerted": alerted,
     }
     publish(payload, sha)
     return {k: v for k, v in payload.items()
-            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches")} | {
+            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted")} | {
         "stocks_written": len(merged_stocks), "batch_written": len(stocks),
         "symbols_with_matches": len(prior_matches),
-        "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(mb_stocks)}
+        "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(mb_stocks),
+        "new_discovery_findings": len(new_findings), "alert_result": alert_result}
 
 
 if __name__ == "__main__":
