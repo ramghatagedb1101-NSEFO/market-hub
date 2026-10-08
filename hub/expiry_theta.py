@@ -28,6 +28,14 @@ from .sources import kite
 
 OUT_FILE = config.SITE_DIR / "data" / "expiry_theta.json"
 STATE_FILE = config.REPO / "state" / "expiry_theta_state.json"
+# Settled-session log (8 Oct 2026): an outside options-trading review recommended this module stay
+# at 1 lot "as a live paper-trading exercise until you have accumulated at least 50-100 settled
+# sessions of recorded execution data" before ever being scaled up. Nothing previously recorded what
+# happened to a suggested condor after the fact -- STATE_FILE is overwritten by the next session's
+# suggestion, so last Tuesday's outcome was gone the moment this Tuesday's first run wrote a new one.
+# One row per expiry session, appended once that session's state is about to be replaced.
+LOG_FILE = config.REPO / "state" / "expiry_theta_log.json"
+LOG_MAX_ENTRIES = 500      # ~9-10 years at one weekly expiry/week; a defensive cap, not a real limit
 SPOT_SYMBOL = "NSE:NIFTY 50"
 UNDERLYING = "NIFTY"
 
@@ -141,11 +149,57 @@ def _cost_to_close(k, legs) -> float | None:
     return total
 
 
+def _archive_stale_session(today_str: str) -> None:
+    """If STATE_FILE holds a suggestion from a PRIOR expiry session (not today's), append its last
+    known outcome to LOG_FILE before this run's fresh state overwrites it. The "last known outcome" is
+    whatever OUT_FILE's final write for that session recorded -- this module runs a few times during
+    market hours, not at the close, so this is the last intraday read, not a confirmed settlement
+    price. The log says so explicitly, rather than implying a precision this module cannot have.
+    Deduplicates by date against existing log entries, so re-running safely never double-logs."""
+    try:
+        state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    stale_date = state.get("date")
+    if not stale_date or stale_date == today_str:
+        return
+    try:
+        log = json.loads(LOG_FILE.read_text(encoding="utf-8"))
+        if not isinstance(log, list):
+            log = []
+    except (OSError, ValueError):
+        log = []
+    if any(row.get("date") == stale_date for row in log):
+        return   # already archived this session
+    last_out = {}
+    try:
+        last_out = json.loads(OUT_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    if last_out.get("expiry") != stale_date:
+        last_out = {}   # OUT_FILE has since moved on (or was never written); nothing reliable to log
+    log.append({
+        "date": stale_date,
+        "net_credit_per_unit": state.get("net_credit_per_unit"),
+        "stop_loss_debit": state.get("stop_loss_debit"),
+        "profit_target_debit": state.get("profit_target_debit"),
+        "last_status": last_out.get("status"),
+        "last_verdict": last_out.get("verdict"),
+        "last_cost_to_close": last_out.get("cost_to_close"),
+        "last_check_ts": last_out.get("ts"),
+        "note": "last_* fields are the last intraday read this session, not a confirmed end-of-day "
+                "settlement -- this module does not run at the close.",
+    })
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    LOG_FILE.write_text(json.dumps(log[-LOG_MAX_ENTRIES:], indent=1), encoding="utf-8")
+
+
 def main() -> dict:
     k = kite.client()
     instruments = k.instruments("NFO")
     opts = [i for i in instruments if i["name"] == UNDERLYING and i["instrument_type"] in ("CE", "PE")]
     today = datetime.now(config.IST).date()
+    _archive_stale_session(today.isoformat())
     expiry = _todays_expiry(opts, today)
     now_ts = datetime.now(config.IST).isoformat(timespec="seconds")
 

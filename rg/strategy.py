@@ -113,9 +113,12 @@ def _long_price(row, side):
 
 def _gate_credit(sp):
     """
-    (credit, label) the REWARD GATE is measured on: always mid, the price a
-    limit/combo order is meant to achieve, and the same basis sizing, score and
-    the management prices already use.
+    (credit, label) the REWARD GATE is measured on: mid, the price a limit/combo
+    order is meant to achieve, less a slippage haircut (config.
+    CREDIT_SLIPPAGE_HAIRCUT_PCT). This is the ONLY place the haircut applies --
+    sizing, the displayed net_credit, score and the management prices all still
+    read the real, un-haircut mid from _build_spread; only the pass/fail
+    threshold is stricter.
 
     2026-10-08: this used to read config.USE_WORST_CASE_CREDIT and gate on the
     worst case (crossing both spreads with market orders) when that flag was on
@@ -127,8 +130,16 @@ def _gate_credit(sp):
     near mid, not a market order." The CIPLA risk is now carried forward as a
     warning instead of a rejection: see fill_risk() and generate_recommendations,
     which stamps "worst_case_unsafe" on the card rather than discarding it.
+
+    2026-10-08 (same day): gating on the unhaircut mid let through spreads an
+    outside reviewer flagged as unlikely to fill at mid on a thinner name --
+    "mid" is the combo's realistic *expected* fill, not a guaranteed one. The
+    haircut narrows the gap between "qualifies on paper" and "qualifies after a
+    realistic partial fill" without touching the CIPLA fix above or any number
+    actually shown on the card.
     """
-    return sp["net_credit"], "mid"
+    haircut = max(0.0, min(config.CREDIT_SLIPPAGE_HAIRCUT_PCT, 100.0)) / 100.0
+    return sp["net_credit"] * (1 - haircut), f"mid (-{config.CREDIT_SLIPPAGE_HAIRCUT_PCT:.1f}% haircut)"
 
 
 def fill_risk(sp) -> bool:

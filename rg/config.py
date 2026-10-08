@@ -197,6 +197,23 @@ MIN_CREDIT_TO_WIDTH = 0.15         # credit must be >=15% of width (reward floor
                                    # — see the note above SHORT_DELTA_MIN before
                                    # touching either.
 
+# ── Slippage haircut on the QUALIFICATION gate only ────────────────────
+# _gate_credit() (strategy.py) reads the mid credit -- the realistic fill when a
+# vertical is worked as one combo order (see _leg_mid). But a retail limit order
+# on a thinner NIFTY 50/100 name, especially outside the most liquid names, does
+# not reliably fill AT the mid; it fills somewhere between mid and the worse of
+# the two prices. An outside options-trading review (8 Oct 2026) flagged that
+# qualifying purely on mid therefore lets through spreads whose real achievable
+# credit, after a realistic partial fill, would miss MIN_CREDIT_TO_WIDTH.
+#
+# This haircuts ONLY the number the reward gate compares against the width floor
+# -- sizing, the displayed net_credit, score and the stop-loss/profit-target
+# prices all still read the real, un-haircut mid (see _build_spread), so the
+# card never shows a number the trade didn't actually offer. 12.5% sits at the
+# centre of the reviewer's suggested 10-15% range; there is no measured NSE
+# fill-slippage dataset behind this project to tune it more precisely than that.
+CREDIT_SLIPPAGE_HAIRCUT_PCT = 12.5
+
 # ── Which credit the REPORTED RoR headline is measured on ──
 # Two credits exist for every spread and both are already computed (see
 # strategy._leg_mid vs _short_price/_long_price):

@@ -12,6 +12,27 @@ Going module by module for "claims vs. reality" bugs -- a config value, paramete
 
 **The all-zero `library.json` entries turned out to be much larger than expected: 1,397 of 1,896 published entries (74%), one contiguous block, all carrying the exact 429-quota error -- found, fixed and confirmed 8 Oct.** Ran a one-off repair (`cursor_next` moved from 1896 back to 499, the earliest corrupted entry's position); confirmed via the workflow's own log output. The repair function and its one-off workflow were removed after the run, same lifecycle as `diag.yml` earlier today. Triggered a fresh library batch the same day to start the re-walk early -- it hit BharatStock's quota wall immediately (`processed: 0`), already exhausted by this morning's scheduled one-time catch-up run plus the rest of today's testing. The clean-stop fix handled it correctly: no new corruption, cursor held at 499. Real progress resumes once the quota resets (00:00 UTC / 05:30 IST) -- folds into the 9 Oct morning check already planned. Worth a spot-check on the admin dashboard's Library tab after a batch or two land to confirm the zero-data block is actually shrinking.
 
+## Outside review of the methodology document (8 Oct)
+
+Prepared a methodology write-up for an outside options/quant reviewer; their feedback confirmed the
+existing 0.20-0.30 delta band trade-off (no change) and flagged two implementable gaps, both shipped
+same day: a 12.5% slippage haircut on the credit-spread qualification gate (`rg/strategy.py`,
+`CREDIT_SLIPPAGE_HAIRCUT_PCT`) so a thin-liquidity name can't qualify on a mid-price fill it's
+unlikely to actually get, and a settled-session log for the expiry-theta module
+(`state/expiry_theta_log.json`) so the reviewer's "50-100 settled sessions before scaling past 1 lot"
+condition can eventually be checked against real data instead of nothing. Both tested standalone
+before landing.
+
+Two further recommendations are **not yet started**, by design -- they need groundwork first: an ROCE
+gate on the multi-bagger screen (needs confirming 3-year annual ROCE data actually exists cleanly in
+BharatStock's responses, same as the existing cash-flow gate's own "best-effort guess" caveat), and an
+adaptive band-learning step size in the core forecast engine (`hub/engine.py`, a change that should go
+through `hub/backtest.py` before it ever reaches the live model). A third recommendation -- splitting
+"Financial Services" into Private Banks/NBFCs/PSU Banks/Insurance/AMC sub-sectors for the concentration
+cap -- was explicitly left as is by the owner: neither NSE's own constituent CSV nor BharatStock expose
+that breakdown, and a prior hand-built sector taxonomy disagreed with NSE's own label on 24 of 25
+names before it was removed for exactly that reason.
+
 ## Where we are
 
 | Area | State |
