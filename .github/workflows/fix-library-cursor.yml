@@ -1,0 +1,29 @@
+name: fix-library-cursor
+
+# One-off repair for the 8 Oct BharatStock quota-exhaustion incident (see hub/library.py's
+# fix_cursor_for_corrupted_entries docstring and CHANGELOG.md): moves library.json's cursor_next
+# back to the earliest of the 1,401 entries that were written as bare {"symbol", "error"} garbage
+# before the clean-stop fix landed, so the next scheduled batches re-walk and overwrite them with
+# real data instead of waiting a full ~2,570-company cycle. Meant to run once, by hand, then be
+# deleted -- same lifecycle as diag.yml earlier today.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Move cursor_next to the earliest corrupted entry
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.library --fix-cursor
