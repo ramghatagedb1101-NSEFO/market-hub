@@ -1,1 +1,1 @@
-full run with retry fix + valuation + promoter holding 2026-10-07T10:10:15Z
+first clean batched run after quota reset 2026-10-08T00:13:24Z
