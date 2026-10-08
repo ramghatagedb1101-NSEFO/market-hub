@@ -38,7 +38,7 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Bring the phone app's data from the private repo
+      - name: Bring the private data (site/, state/) from the private repo
         id: pull
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
@@ -60,7 +60,7 @@ jobs:
           set -o pipefail
           python -m hub.library | tee /tmp/library_result.json
           python -c "import json; print('cycle_complete=' + str(json.load(open('/tmp/library_result.json')).get('cycle_complete', False)))" >> "$GITHUB_OUTPUT"
-      - name: Save the phone app's data to the private repo
+      - name: Save the private data (site/, state/) to the private repo
         if: always() && steps.pull.outcome == 'success'
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}

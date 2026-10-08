@@ -14,7 +14,7 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Bring the phone app's data from the private repo
+      - name: Bring the private data (site/, state/) from the private repo
         id: pull
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
@@ -23,7 +23,7 @@ jobs:
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}
         run: python -m hub.backtest_multibagger
-      - name: Save the phone app's data to the private repo
+      - name: Save the private data (site/, state/) to the private repo
         if: steps.pull.outcome == 'success'
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
