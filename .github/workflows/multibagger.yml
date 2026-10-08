@@ -1,14 +1,15 @@
 name: multibagger-weekly
 
-# Financials change quarterly and fund and promoter data change monthly, so this runs weekly,
-# not with the daily job. It rates about 2,000 companies, which takes roughly 40 minutes.
-
+# 2026-10-08: superseded by the stock-library-weekly job (.github/workflows/library.yml), which now
+# computes the same multi-bagger gate score in its own per-company loop, from the same BharatStock
+# rows it already fetches for the 124-parameter screen -- this used to independently re-fetch the
+# same financials for the same ~2,570 companies a day later every week. Schedule removed; kept as a
+# manual escape hatch (push to triggers/multibagger.txt, or "Run workflow") for a one-off full
+# recompute, e.g. to cross-check consistency while debugging.
 on:
   push:
     branches: [main]
     paths: ["triggers/multibagger.txt"]   # push a change to this file to start a run
-  schedule:
-    - cron: "30 3 * * 0"          # 03:30 UTC on Sundays = 09:00 IST
   workflow_dispatch:              # "Run workflow" button for a manual run
 
 permissions:

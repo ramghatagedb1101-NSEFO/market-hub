@@ -1,13 +1,17 @@
 name: stock-library-weekly
 
-# Scores every listed NSE equity on the registry parameters with a confirmed source.
-# Writes the result to the private repo market-hub-private, never to the public site.
+# Scores every listed NSE equity on the registry parameters with a confirmed source, writing the
+# full result to the private repo market-hub-private (never the public site, since it holds
+# BharatStock-derived figures). Each company's multi-bagger gate score is computed in the same loop,
+# from the same already-fetched BharatStock rows, and published (derived scores/gates only, same as
+# before) to the public site's docs/data/multibagger.json -- this replaced a second, independent
+# weekly fetch of the same financials that multibagger-weekly used to run on Sundays.
 on:
   push:
     branches: [main]
     paths: ["triggers/library.txt"]   # push a change to this file to start a run
   schedule:
-    - cron: "30 7 * * 6"            # 07:30 UTC on Saturdays = 13:00 IST (kept apart from the Sunday multi-bagger run)
+    - cron: "30 1 * * 6"            # 01:30 UTC on Saturdays = 07:00 IST, Saturday morning
     - cron: "5 0 8 10 *"            # one-time: 00:05 UTC = 5:35 IST on 2026-10-08, first clean run after the
                                      # BharatStock daily quota (resets 00:00 UTC) was exhausted during 2026-10-07
                                      # testing. Harmless if it also fires on 8 Oct in future years; remove this
@@ -15,8 +19,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  actions: write   # lets the last step chain to the next batch (see below)
+  contents: write   # needed to commit docs/data/multibagger.json to this (public) repo
+  actions: write    # lets the last step chain to the next batch (see below)
 
 concurrency:
   group: library
@@ -48,6 +52,23 @@ jobs:
           set -o pipefail
           python -m hub.library | tee /tmp/library_result.json
           python -c "import json; print('cycle_complete=' + str(json.load(open('/tmp/library_result.json')).get('cycle_complete', False)))" >> "$GITHUB_OUTPUT"
+      - name: Commit multi-bagger
+        if: always()          # save whatever was rated, even if the library step above failed or timed out
+        run: |
+          git config user.name "forecast-bot"
+          git config user.email "forecast-bot@users.noreply.github.com"
+          git add docs/data/multibagger.json
+          if git diff --cached --quiet; then
+            echo "No multi-bagger changes to commit"
+          else
+            git commit -m "multi-bagger (via library batch) $(date -u +%F)"
+            for i in 1 2 3; do
+              git pull --rebase --autostash -q origin main && git push && break
+              sleep 5
+            done
+            git fetch -q origin
+            git merge-base --is-ancestor HEAD origin/main || { echo "save failed: multi-bagger commit did not reach main"; exit 1; }
+          fi
       - name: Continue to the next batch
         if: steps.score.outputs.cycle_complete != 'True'
         env:
