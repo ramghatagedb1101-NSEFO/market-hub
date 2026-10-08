@@ -8,7 +8,9 @@ Going module by module for "claims vs. reality" bugs -- a config value, paramete
 
 **Live admin dashboard walk-through done 8 Oct (signed in).** All six tabs (Status/Library/Parameters/Registry/Bulk deals/Back-tests) render real data correctly. One real but minor gap found: tapping a library row to see its parameter detail worked, but the panel renders below the full 100-row page and the page never scrolled to it -- looked broken until scrolled all the way down. Fixed with `scrollIntoView` in `relay/Admin.gs` (`showStock()`); **needs the relay redeployed by hand** (`relay/README.md` has the steps) before it's live, same as every other `Admin.gs` change.
 
-Still open: the same live, signed-in walk for the phone page's screens (F&O, Multi-bagger, Desk). Not yet started: cleaning up the all-zero `library.json` entries written during the 8 Oct quota-exhaustion incident, before that fix landed.
+**Live phone-app walk-through done 8 Oct (signed in) found a real, currently-live outage, not just a UX gap.** Every signed-in screen (Brief, F&O, Multi-bagger, Desk) showed "not available"/"unavailable" -- live index quotes still worked (separate endpoint), but the data bundle call (`app_data`) was failing with HTTP 404, confirmed 4/4 in a row via the browser's network log. Same transient Google-side 404 already fixed today in five GitHub Actions workflows, just never applied to `docs/index.html`'s own relay call -- fixed with the same 3-attempt retry, client-side only, no relay redeploy needed, live on the next push.
+
+Not yet started: cleaning up the all-zero `library.json` entries written during the 8 Oct quota-exhaustion incident, before that fix landed.
 
 ## Where we are
 
