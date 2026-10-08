@@ -64,6 +64,7 @@ jobs:
         run: python -m hub.stocks
 
       - name: F&O suggestions from the option chain
+        continue-on-error: true   # a failure here must not skip bulk deals, admin publish and the commit
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.fno
@@ -84,6 +85,7 @@ jobs:
         run: python -m hub.narrate
 
       - name: Collect today's bulk deals (history for the smart-money layer)
+        continue-on-error: true   # a failure here must not skip admin publish and the commit
         run: python -m hub.bulkdeals
 
       - name: Write the admin summary to the private repo
