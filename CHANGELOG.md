@@ -4,6 +4,27 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-08
 
+### Stock screen: a run-history log, found missing while answering a real question
+Asked what would have happened on the SBIN spread the owner saw mid-morning, and had to answer "I
+can't tell you" -- `hub/stocks.py` overwrites `docs/data/stocks.json` on every run, including manual
+re-dispatches used for testing, and the daily job ran four times on 8 Oct (pre-market, a 10:55 IST
+mid-morning run, and the scheduled 18:22 IST post-close run). Whatever the mid-morning run actually
+recommended was gone the moment the evening run replaced it as "today's" view, and it wasn't in the
+GitHub Actions log either (that step only logs a line count, never the recommendation itself) or
+recoverable from the private repo's history (no access to it from here).
+
+Added `_append_log()` to `hub/stocks.py`: every run now also appends a compact row (timestamp, mode,
+symbol count, India VIX, and the full recommendations list -- strikes, credit, max loss, POP, spot at
+entry) to a new `state/stocks_log.json`, capped at 1,000 entries, alongside the existing overwritten
+"current" file (unchanged). Diagnostics (the ~50-name rejection breakdown) are deliberately left out of
+the log to keep it lean -- only what was actually suggested is worth keeping forever. Syncs
+automatically via `hub/site_data.py`'s existing `state/*.json` glob; no workflow change needed.
+Verified with a standalone test (`test_stocks_log.py`, 5 cases): a run's recommendations survive
+intact; two same-day runs with different numbers for the same symbol both stay retrievable, not one
+overwriting the other; a zero-recommendation run still gets logged, not silently skipped; the log caps
+at `LOG_MAX_ENTRIES` keeping the most recent rows; a missing or corrupt log file never breaks the
+daily job.
+
 ### Acted on an outside options-trading review of the methodology doc
 Prepared a methodology write-up for an outside expert (trading/quant background) to review; their
 written feedback flagged two concrete, implementable changes and confirmed the existing 0.20-0.30
