@@ -1,18 +1,74 @@
 {
-  "generated_at": "2026-10-08T00:46:33+00:00",
+  "generated_at": "2026-10-08T05:27:43+00:00",
   "universe": "NIFTY 50",
   "mode": "live",
   "replay_date": null,
   "symbol_count": 50,
-  "india_vix": 13.89,
+  "india_vix": 14.31,
   "macro_source": "deterministic",
-  "recommendation_count": 0,
-  "recommendations": [],
+  "recommendation_count": 1,
+  "recommendations": [
+    {
+      "return_on_risk_pct": 3.1,
+      "return_on_risk_pct_mid": 22.2,
+      "return_on_risk_pct_worst": 3.1,
+      "credit_basis": "worst",
+      "symbol": "SBIN",
+      "strategy": "BEAR_CALL_SPREAD",
+      "index_membership": "NIFTY50",
+      "dte_preferred": false,
+      "expiry": "2026-11-23",
+      "dte": 46,
+      "as_of": "2026-10-08T05:27:35",
+      "spot_at_entry": 949,
+      "short_strike": 1020.0,
+      "long_strike": 1030.0,
+      "width": 10.0,
+      "net_credit": 1.82,
+      "net_credit_worst": 0.3,
+      "max_loss": 8.18,
+      "max_loss_worst": 9.7,
+      "max_profit": 1.82,
+      "pop_pct": 75.0,
+      "short_delta": 0.25,
+      "iv_rank": 50.2,
+      "iv_quality": "sufficient",
+      "lot_size": 750,
+      "lots": 3,
+      "capital_at_risk": 93273.75,
+      "margin_source": "span",
+      "credit_collected": 4095.0,
+      "max_loss_total": 18405.0,
+      "breakeven": 1021.82,
+      "protected_by_wall": true,
+      "liquidity_pct": 2.09,
+      "call_wall": 1000.0,
+      "put_wall": 1000.0,
+      "stop_loss_debit": 3.64,
+      "profit_target_debit": 0.91,
+      "score": 0.1005,
+      "score_pre_flag": 0.1005,
+      "risk_flag_mode": "shadow",
+      "risk_flag_multiplier": 1.0,
+      "risk_flag_applied": 1.0,
+      "risk_flag_score_live": 0.1005,
+      "risk_flag_severity": null,
+      "risk_flags": [],
+      "market_risk_flags": [],
+      "earnings_unverified": false,
+      "fill_risk": false,
+      "earnings_basis": "estimated",
+      "earnings_detail": "2026-10-27..2026-11-10 (estimated from 2025-11-04, \u00b15 sessions)",
+      "earnings_date_est": "2026-11-03",
+      "recommended": true,
+      "recommendation_rank": 1
+    }
+  ],
   "diagnostics": [
     {
       "symbol": "ADANIENT",
       "status": "REJECTED",
-      "detail": "put-side short strike not beyond OI wall; call-side worst-case credit Rs.-0.85 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.27.27); work it as a combo limit order or stand aside"
+      "detail": "IV rank 27 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "ADANIPORTS",
@@ -22,12 +78,12 @@
     {
       "symbol": "APOLLOHOSP",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-47.25 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.7.40); work it as a combo limit order or stand aside"
+      "detail": "put-side bid-ask 41.4% > 2.5%; call-side mid credit 1% of width < 15%"
     },
     {
       "symbol": "ASIANPAINT",
       "status": "REJECTED",
-      "detail": "IV rank 16 < 30 (premium too cheap to sell)"
+      "detail": "earnings 2026-10-29 inside contract cycle (expiry 2026-11-23, confirmed filing)"
     },
     {
       "symbol": "AXISBANK",
@@ -42,7 +98,7 @@
     {
       "symbol": "BAJAJFINSV",
       "status": "REJECTED",
-      "detail": "earnings 2026-11-03 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+      "detail": "IV rank 20 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "BAJFINANCE",
@@ -52,12 +108,12 @@
     {
       "symbol": "BEL",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-0.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.22); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.08); work it as a combo limit order or stand aside"
+      "detail": "put-side bid-ask 44.0% > 2.5%; call-side short strike not beyond OI wall"
     },
     {
       "symbol": "BHARTIARTL",
       "status": "REJECTED",
-      "detail": "IV rank 22 < 30 (premium too cheap to sell)"
+      "detail": "put-side short strike not beyond OI wall; call-side mid credit 10% of width < 15%"
     },
     {
       "symbol": "BSE",
@@ -72,27 +128,27 @@
     {
       "symbol": "COALINDIA",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-3.95 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.20); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.25 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.88); work it as a combo limit order or stand aside"
+      "detail": "put-side mid credit 5% of width < 15%; call-side short strike not beyond OI wall"
     },
     {
       "symbol": "DRREDDY",
       "status": "REJECTED",
-      "detail": "IV rank 16 < 30 (premium too cheap to sell)"
+      "detail": "earnings 2026-10-23 inside contract cycle (expiry 2026-11-23, confirmed filing)"
     },
     {
       "symbol": "EICHERMOT",
       "status": "REJECTED",
-      "detail": "IV rank 21 < 30 (premium too cheap to sell)"
+      "detail": "put-side mid credit 15% of width < 15%; call-side bid-ask 999.0% > 2.5%"
     },
     {
       "symbol": "ETERNAL",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-1.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.72); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.90); work it as a combo limit order or stand aside"
+      "detail": "put-side mid credit 11% of width < 15%; call-side short strike not beyond OI wall"
     },
     {
       "symbol": "GRASIM",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-8.35 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.3.05); work it as a combo limit order or stand aside"
+      "detail": "put-side bid-ask 52.8% > 2.5%"
     },
     {
       "symbol": "HCLTECH",
@@ -127,7 +183,7 @@
     {
       "symbol": "INDIGO",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-10.30 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.17.10); work it as a combo limit order or stand aside"
+      "detail": "put-side short strike not beyond OI wall; call-side bid-ask 999.0% > 2.5%"
     },
     {
       "symbol": "INFY",
@@ -137,27 +193,27 @@
     {
       "symbol": "ITC",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-0.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.65); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.95); work it as a combo limit order or stand aside"
+      "detail": "put-side short strike not beyond OI wall"
     },
     {
       "symbol": "JIOFIN",
       "status": "REJECTED",
-      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
+      "detail": "put-side bid-ask 4.7% > 2.5%; call-side short strike not beyond OI wall"
     },
     {
       "symbol": "JSWSTEEL",
       "status": "REJECTED",
-      "detail": "earnings 2026-10-23 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+      "detail": "IV rank 29 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "KOTAKBANK",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit 2% of width < 15%; call-side bid-ask 12.0% > 2.5%"
+      "detail": "put-side mid credit 10% of width < 15%; call-side bid-ask 58.8% > 2.5%"
     },
     {
       "symbol": "LT",
       "status": "REJECTED",
-      "detail": "IV rank 21 < 30 (premium too cheap to sell)"
+      "detail": "put-side bid-ask 32.3% > 2.5%; call-side bid-ask 31.4% > 2.5%"
     },
     {
       "symbol": "M&M",
@@ -167,27 +223,27 @@
     {
       "symbol": "MARUTI",
       "status": "REJECTED",
-      "detail": "IV rank 28 < 30 (premium too cheap to sell)"
+      "detail": "put-side bid-ask 37.6% > 2.5%; call-side mid credit 7% of width < 15%"
     },
     {
       "symbol": "MAXHEALTH",
       "status": "REJECTED",
-      "detail": "IV rank 10 < 30 (premium too cheap to sell)"
+      "detail": "put-side short strike not beyond OI wall; call-side short strike not beyond OI wall"
     },
     {
       "symbol": "NESTLEIND",
       "status": "REJECTED",
-      "detail": "earnings 2026-10-15 inside contract cycle (expiry 2026-11-23, confirmed filing)"
+      "detail": "IV rank 26 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "NTPC",
       "status": "REJECTED",
-      "detail": "IV rank 12 < 30 (premium too cheap to sell)"
+      "detail": "call-side short strike not beyond OI wall"
     },
     {
       "symbol": "ONGC",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-1.57 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.27); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.81 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.45); work it as a combo limit order or stand aside"
+      "detail": "IV rank 18 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "POWERGRID",
@@ -197,32 +253,32 @@
     {
       "symbol": "RELIANCE",
       "status": "REJECTED",
-      "detail": "put-side bid-ask 2.5% > 2.5%; call-side worst-case credit 14% of width < 15%"
+      "detail": "put-side bid-ask 3.0% > 2.5%; call-side short strike not beyond OI wall"
     },
     {
       "symbol": "SBILIFE",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-16.15 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.4.57); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-11.45 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.07); work it as a combo limit order or stand aside"
+      "detail": "put-side bid-ask 64.0% > 2.5%"
     },
     {
       "symbol": "SBIN",
-      "status": "REJECTED",
-      "detail": "put-side worst-case credit 1% of width < 15%; call-side worst-case credit 8% of width < 15%"
+      "status": "CANDIDATE",
+      "detail": "BEAR_CALL_SPREAD score 0.1005 | TENOR 46d beyond preferred 45d (monthly ladder) | earnings est 2026-10-27..2026-11-10 (clear of cycle)"
     },
     {
       "symbol": "SHRIRAMFIN",
       "status": "REJECTED",
-      "detail": "IV rank 21 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 23 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "SUNPHARMA",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-6.50 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.9.42); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-2.35 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.38); work it as a combo limit order or stand aside"
+      "detail": "put-side bid-ask 57.8% > 2.5%; call-side bid-ask 116.7% > 2.5%"
     },
     {
       "symbol": "TATACONSUM",
       "status": "REJECTED",
-      "detail": "IV rank 22 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 23 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "TATASTEEL",
@@ -242,23 +298,39 @@
     {
       "symbol": "TITAN",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-0.70 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.9.12); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-1.35 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.5.77); work it as a combo limit order or stand aside"
+      "detail": "put-side short strike not beyond OI wall"
     },
     {
       "symbol": "TMPV",
       "status": "REJECTED",
-      "detail": "put-side worst-case credit Rs.-1.65 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.1.08); work it as a combo limit order or stand aside; call-side worst-case credit Rs.-0.25 <= 0 \u2014 pays nothing if both legs cross the quote (mid Rs.0.88); work it as a combo limit order or stand aside"
+      "detail": "put-side bid-ask 5.7% > 2.5%; call-side bid-ask 44.3% > 2.5%"
     },
     {
       "symbol": "TRENT",
       "status": "REJECTED",
-      "detail": "IV rank 13 < 30 (premium too cheap to sell)"
+      "detail": "IV rank 15 < 30 (premium too cheap to sell)"
     },
     {
       "symbol": "ULTRACEMCO",
       "status": "REJECTED",
-      "detail": "IV rank 29 < 30 (premium too cheap to sell)"
+      "detail": "5d delivery 37% < 40%"
     }
   ],
-  "portfolio_caps": []
+  "portfolio_caps": [
+    {
+      "rank": 1,
+      "symbol": "SBIN",
+      "strategy": "BEAR_CALL_SPREAD",
+      "sector": "FINANCIAL SERVICES",
+      "index_membership": "NIFTY50",
+      "score": 0.1005,
+      "score_pre_flag": 0.1005,
+      "pop_pct": 75.0,
+      "credit_collected": 4095.0,
+      "capital_at_risk": 93273.75,
+      "risk_flag_severity": null,
+      "status": "RECOMMENDED",
+      "blocked_by": ""
+    }
+  ]
 }
