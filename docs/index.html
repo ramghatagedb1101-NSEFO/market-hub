@@ -314,8 +314,9 @@
       ...(crudeUsd ? [{ label: "Crude US$", v: crudeUsd.change_pct, txt: chgTxt(crudeUsd.change_pct) }] : []),
       ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(" Composite", ""), v: glob[k].change_pct, txt: chgTxt(glob[k].change_pct) }))
     ]);
+    const FII_LABELS = { "FII/FPI": "FII (cash)", "DII": "DII (cash)" };   // NSE's only two known categories -- an unrecognized one shows its own name, never gets relabeled
     const flows = barRows(Object.keys(fii).map(k => ({
-      label: k === "FII/FPI" ? "FII (cash)" : "DII (cash)", v: fii[k], txt: (fii[k] >= 0 ? "+" : "") + f(fii[k], 0) + " cr" })));
+      label: FII_LABELS[k] || k, v: fii[k], txt: (fii[k] >= 0 ? "+" : "") + f(fii[k], 0) + " cr" })));
 
     const liveNote = LIVE && LIVE.ts ? "quotes " + LIVE.ts.replace("T"," ").slice(0,16) : "";
     $("#brief-body").innerHTML = `
@@ -477,9 +478,9 @@
           <div class="pb">${Object.entries(B.by_score).map(([k, v]) => `<div class="row"><span class="l">Score ${esc(k)}</span><span class="r">${v.n ? `n ${v.n} · 1y beat median ${v.beat_median_1y_pct}% · 3y ${v.beat_median_3y_pct}%` : "no data"}</span></div>`).join("")}
           <div class="note">Survivorship bias: today's index members only, so results are optimistic.</div></div></div>` : `<div class="panel" style="margin-bottom:8px"><div class="pb mut">Back-test not run yet.</div></div>`;
       el.innerHTML = `<div class="glance">
-          ${tile("UNIVERSE", String(M.universe || 0), "midcap 150 + smallcap 250", "")}
+          ${tile("UNIVERSE", String(M.universe || 0), "every NSE EQ + BE equity", "")}
           ${tile("SCORED", String(M.scored || 0), "with financials", "")}
-          ${tile("ALL 4 GATES", String(M.passing_all_gates_tested || 0), "tested and passed", "up")}
+          ${tile("ALL 4 GATES", String(M.rated_all_four_gates || 0), "tested and passed", "up")}
         </div>
         <div class="sec">Back-test</div>${bt}
         <div class="sec">Top 30 by score</div>${rows || '<div class="panel"><div class="pb mut">No scores yet.</div></div>'}
