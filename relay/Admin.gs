@@ -173,6 +173,22 @@ function adminLibrary(token) {
   return JSON.parse(res.getContentText());
 }
 
+/** Reads the multi-bagger ranked list (site/multibagger.json) from the private repo for the signed-in
+ * owner. Same file the phone app's Multi-bagger screen already reads through appData_ -- this just
+ * gives the admin dashboard its own filterable view of it (9 Oct 2026). */
+function adminMultibagger(token) {
+  const cache = CacheService.getScriptCache();
+  if (!token || !cache.get('admin_session_' + token)) return { error: 'session_expired' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  const res = UrlFetchApp.fetch(
+    'https://api.github.com/repos/' + ADMIN_REPO + '/contents/site/multibagger.json',
+    { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
+  if (res.getResponseCode() === 404) return { error: 'Multi-bagger data has not been published yet.' };
+  if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for multi-bagger data.' };
+  return JSON.parse(res.getContentText());
+}
+
 const ADMIN_HTML = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
@@ -270,6 +286,9 @@ let lib = null;
 let libPage = 0;
 const LIB_PAGE_SIZE = 100;
 function onLibFilterChange(){ libPage = 0; drawLibTable(); }
+let mb = null;
+let mbPage = 0;
+function onMbFilterChange(){ mbPage = 0; drawMbTable(); }
 
 function sendCode(){
   document.getElementById('send').disabled = true;
@@ -302,7 +321,7 @@ function load(){
     data = d; drawTabs(); draw();
   }).withFailureHandler(e => { document.getElementById('view').innerHTML = '<p class="err">' + esc(e.message) + '</p>'; }).adminData(token);
 }
-const TABS = [['status','Status'],['library','Library'],['params','Parameters'],['registry','Registry'],['bulk','Bulk deals'],['tests','Back-tests']];
+const TABS = [['status','Status'],['library','Library'],['multibagger','Multibagger'],['matured','Matured'],['params','Parameters'],['registry','Registry'],['bulk','Bulk deals'],['tests','Back-tests']];
 function drawTabs(){
   document.getElementById('tabs').innerHTML = TABS.map(([k,l]) =>
     '<button class="' + (k===tab?'on':'') + '" data-k="' + k + '" onclick="pick(this.dataset.k)">' + l + '</button>').join('');
@@ -363,6 +382,29 @@ function draw(){
       document.getElementById('libinfo').textContent = 'Generated ' + (lib.generated || '') + (lib.partial ? ' (partial run)' : '') + ' · ' + (lib.stocks || []).length + ' companies.';
     }
     drawLibTable();
+  } else if (tab === 'multibagger' || tab === 'matured') {
+    if (!mb) { v.innerHTML = '<p class="muted">Loading multi-bagger data...</p>'; loadMb(); return; }
+    if (mb.error) { v.innerHTML = '<p class="err">' + esc(mb.error) + '</p>'; return; }
+    v.innerHTML = '<p class="muted" id="mbinfo" style="margin:0 0 12px"></p>' +
+      '<div class="card"><div class="toolbar">' +
+      '<label>Search symbol<input id="mbq" placeholder="e.g. TCS" oninput="onMbFilterChange()"></label>' +
+      '<label>Min score<select id="mbscore" onchange="onMbFilterChange()">' +
+      '<option value="0">Any</option><option value="1">1+</option><option value="2">2+</option>' +
+      '<option value="3">3+</option><option value="4">4 (all gates)</option></select></label>' +
+      '<label>Sort<select id="mbsort" onchange="onMbFilterChange()">' +
+      (tab === 'matured'
+        ? '<option value="holders">More mutual fund holders first</option><option value="score">Score</option><option value="symbol">Symbol</option>'
+        : '<option value="rank">Rank (fresher, less-discovered first)</option><option value="score">Score</option><option value="symbol">Symbol</option>') +
+      '</select></label>' +
+      '</div><p class="muted" id="mbinfo2" style="margin:10px 0 0"></p></div>' +
+      '<div id="mbpage" style="display:flex;align-items:center;gap:10px;margin-bottom:10px"></div>' +
+      '<div id="mbtable"></div>' +
+      '<div id="mbpage2" style="display:flex;align-items:center;gap:10px;margin-top:10px"></div>' +
+      '<div id="mbdetail"></div>';
+    document.getElementById('mbinfo').textContent = 'Generated ' + (mb.ts || '') + (mb.partial ? ' (partial pass)' : '') +
+      ' · ' + (mb.rated || 0) + ' rated of ' + (mb.universe || 0) + ' in the universe · ' +
+      (tab === 'matured' ? 'proven, widely-held performers' : 'fresher, less-discovered names (the screen\'s own default ranking)');
+    drawMbTable();
   } else if (tab === 'tests') {
     const t = d.tests || {};
     let html = '';
@@ -377,6 +419,81 @@ function loadLib(){
     if (d.error === 'session_expired') { logout(); return; }
     lib = d; draw();
   }).withFailureHandler(e => { lib = { error: e.message }; draw(); }).adminLibrary(token);
+}
+function loadMb(){
+  google.script.run.withSuccessHandler(d => {
+    if (d.error === 'session_expired') { logout(); return; }
+    mb = d; draw();
+  }).withFailureHandler(e => { mb = { error: e.message }; draw(); }).adminMultibagger(token);
+}
+function mbHolders(r){
+  const n = (r.mutual_funds || {}).schemes_holding;
+  return n == null ? null : n;
+}
+function drawMbTable(){
+  const el = document.getElementById('mbtable');
+  if (!el || !mb || !mb.ranked) return;
+  const q = (document.getElementById('mbq').value || '').trim().toUpperCase();
+  const minScore = Number(document.getElementById('mbscore').value || 0);
+  const sort = document.getElementById('mbsort').value;
+  let rows = mb.ranked.filter(r => r.symbol && r.symbol.indexOf(q) >= 0 && (r.score || 0) >= minScore);
+  rows = rows.slice().sort((a, b) => {
+    if (sort === 'symbol') return a.symbol < b.symbol ? -1 : a.symbol > b.symbol ? 1 : 0;
+    if (sort === 'score') return (b.score || 0) - (a.score || 0);
+    if (sort === 'holders') {
+      const ah = mbHolders(a), bh = mbHolders(b);
+      return (bh == null ? -1 : bh) - (ah == null ? -1 : ah);   // more holders first, unknown last
+    }
+    return (a.rank || 0) - (b.rank || 0);   // backend's own rank: fewer holders first
+  });
+  const total = rows.length;
+  const pages = Math.max(1, Math.ceil(total / LIB_PAGE_SIZE));
+  if (mbPage >= pages) mbPage = pages - 1;
+  if (mbPage < 0) mbPage = 0;
+  const from = mbPage * LIB_PAGE_SIZE;
+  const pageRows = rows.slice(from, from + LIB_PAGE_SIZE);
+  const body = pageRows.map(r => {
+    const holders = mbHolders(r);
+    const turn = (r.measures || {}).turnaround;
+    const pg = (r.measures || {}).profit_growth_yoy_pct;
+    return '<tr style="cursor:pointer" data-s="' + esc(r.symbol) + '" onclick="showMbStock(this.dataset.s)"><td><b>' +
+      esc(r.symbol) + '</b></td><td><span class="' + (r.score === 4 ? 'num-met' : r.score > 0 ? 'num-warn' : 'num-bad') + '">' +
+      (r.score == null ? '-' : r.score + '/4') + '</span></td><td>' + (turn ? 'yes' : '-') + '</td><td class="muted">' +
+      (pg == null ? '-' : pg + '%') + '</td><td class="muted">' + (holders == null ? '-' : holders) + '</td><td class="muted">' +
+      (r.rank || '-') + '</td></tr>';
+  }).join('');
+  const shownFrom = total === 0 ? 0 : from + 1;
+  const shownTo = Math.min(from + LIB_PAGE_SIZE, total);
+  document.getElementById('mbinfo2').textContent = total + ' companies match · showing ' + shownFrom + '–' + shownTo + ' · tap a row for detail';
+  el.innerHTML = '<table><tr><th>Symbol</th><th>Score</th><th>Turnaround</th><th>Profit growth YoY</th><th>MF holders</th><th>Rank</th></tr>' + body + '</table>';
+  const pageOpts = [];
+  for (let i = 0; i < pages; i++) {
+    const pFrom = i * LIB_PAGE_SIZE + 1;
+    const pTo = Math.min((i + 1) * LIB_PAGE_SIZE, total);
+    pageOpts.push('<option value="' + i + '"' + (i === mbPage ? ' selected' : '') + '>' + pFrom + '–' + pTo + '</option>');
+  }
+  const pager = '<button' + (mbPage === 0 ? ' disabled' : '') + ' onclick="mbGoPage(' + (mbPage - 1) + ')">← Prev</button>' +
+    '<select onchange="mbGoPage(Number(this.value))">' + pageOpts.join('') + '</select>' +
+    '<span class="muted">of ' + total + '</span>' +
+    '<button' + (mbPage >= pages - 1 ? ' disabled' : '') + ' onclick="mbGoPage(' + (mbPage + 1) + ')">Next →</button>';
+  document.getElementById('mbpage').innerHTML = pager;
+  document.getElementById('mbpage2').innerHTML = pager;
+}
+function mbGoPage(p){ mbPage = p; drawMbTable(); window.scrollTo({top: 0, behavior: 'smooth'}); }
+function showMbStock(sym){
+  const r = (mb.ranked || []).find(x => x.symbol === sym);
+  const el = document.getElementById('mbdetail');
+  if (!r || !el) return;
+  const gateRows = Object.keys(r.gates || {}).map(k => '<tr><td>' + esc(k) + '</td><td>' +
+    (r.gates[k] === true ? badge('met') : r.gates[k] === false ? badge('not_met') : badge('not_testable')) + '</td></tr>').join('');
+  const measureRows = Object.keys(r.measures || {}).map(k => '<tr><td>' + esc(k) + '</td><td class="muted">' +
+    esc(r.measures[k] == null ? '-' : r.measures[k]) + '</td></tr>').join('');
+  const holders = mbHolders(r);
+  el.innerHTML = '<div class="card" style="margin-top:12px"><b style="font-size:14px;text-transform:none;letter-spacing:0;color:var(--text)">' +
+    esc(sym) + ' <span class="muted" style="font-weight:400">rank ' + (r.rank || '-') + ' · ' + (holders == null ? 'MF holders unknown' : holders + ' MF holders') + '</span></b>' +
+    '<table><tr><th>Gate</th><th>Result</th></tr>' + gateRows + '</table>' +
+    '<table style="margin-top:10px"><tr><th>Measure</th><th>Value</th></tr>' + measureRows + '</table></div>';
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function drawMatches(){
   const el = document.getElementById('matchesbox');
