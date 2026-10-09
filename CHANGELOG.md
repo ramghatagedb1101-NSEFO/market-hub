@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-09
 
+### Sign-in now lasts 7 days (admin dashboard and phone app)
+- Owner's choice (was six hours). The six hours was CacheService's hard cap on any entry, not a setting, so sessions moved to the **script properties** with their own expiry (`ADMIN_SESSION_DAYS = 7`).
+- Each session is stored as `sess_<SHA-256 of the token>` = expiry time, so the token itself never appears in the project settings (both Google accounts with access to the project can see those). Expired sessions are deleted when checked and swept whenever a new one starts.
+- **Sign out now ends the session on the server**, not just in the browser: new `adminLogout(token)` (dashboard) and `mode=app_logout` (phone app). Several devices can be signed in at once; signing out one leaves the others.
+- One-time effect of deploying it: sessions from the old storage stop working, so each device signs in once more.
+- Verified offline (`test_sessions.js`, 13 cases, Apps Script services mocked): valid at 6 days 23 hours, expired after 7 days, expired entries deleted, two devices independent, sign-out ends only that session, unknown or empty tokens refused by `adminData`/`appData_`, `app_logout` works. `node relay/check.js` passes.
+
 ### Admin login button: real cause found and fixed -- a browser-side syntax error, not authorization
 - **Cause:** the new Multibagger/Matured code in `relay/Admin.gs` had `'... (the screen\'s own default ranking)'` inside the `ADMIN_HTML` template literal. In a template literal `\'` is just `'`, so the page's browser script got a bare quote in the middle of a string and **failed to parse as a whole**. No button on the page had a handler; "Email me a code" did nothing; `doGet` ran (the page loads) but `adminRequestCode` never did -- exactly what the Executions log showed. Reworded to avoid the apostrophe.
 - **Why the earlier diagnosis missed it:** `node --check relay/Admin.gs` only sees the server code; the browser script is a string to node. And the deployment that "worked" (`AKfycbye12r6…`) was on Version 20, which does *not* contain the new tabs -- it was not the same code. The re-authorization theory is not needed.
