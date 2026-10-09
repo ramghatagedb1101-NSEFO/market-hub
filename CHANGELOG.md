@@ -25,13 +25,16 @@ owns `market-hub` -- not `ramghatage-ux`. This is an account-authorization actio
 to click, same as every other credential step in this project. Once `gh auth status` shows the right
 account, a plain `git push` should work again with no further changes.
 
-**Handover for whichever Claude picks this up next:** one commit is sitting local-only, already made and
-ready to go the moment push access is restored --
-`17669cc STATUS: stock tracker confirmed live on the admin dashboard, 9 Oct`. Run `git status`/`git log
-origin/main..HEAD` first thing to confirm whether that's still the case, then `git push`. Nothing else is
-blocked by this -- all the code changes from 8 Oct (slippage haircut, expiry-theta log, stock-screen
-run-history log, stock-tracker activation, the library.json cursor repair) were already pushed before
-this broke.
+**Handover for whichever Claude picks this up next:** local-only commits are queued, ready to go the
+moment push access is restored. Run `git log origin/main..HEAD` first thing -- as of this writing that's
+two: `17669cc` (the stock tracker's live confirmation) and `07d7c3a` (this note itself), but more may
+have landed since, including from a different working directory if the owner started a fresh session
+elsewhere on this machine. Check `gh auth status` before attempting anything: if it still shows
+`ramghatage-ux`, the fix hasn't landed yet and `git push` will still fail with the same 403 -- don't
+retry it speculatively, ask the owner. Once it shows the correct account, `git push` delivers everything
+queued in one go. Nothing else is blocked by this -- all the code changes from 8 Oct (slippage haircut,
+expiry-theta log, stock-screen run-history log, stock-tracker activation, the library.json cursor
+repair) were already pushed before this broke.
 
 ## 2026-10-08
 
