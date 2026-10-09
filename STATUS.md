@@ -15,8 +15,8 @@ authorization -- see CHANGELOG 9 Oct. Fix `d7578a5` (plus: admin session now sur
 `localStorage`) is deployed as a new version on **both** `AKfycbwQZxgg…` (admin bookmark) and
 `AKfycbye12r6…` (live relay), done from the Profile 5 / ramghatagedb1101@gmail.com Chrome window.
 Verified live from outside: both addresses serve the fixed page, and the page script Google actually
-serves parses (the same check fails on the broken 9 Oct code). Still to confirm by the owner: one real
-"Email me a code" click delivers a code, and reopening the tab within six hours stays signed in.
+serves parses (the same check fails on the broken 9 Oct code). **Confirmed by the owner 9 Oct: "Email me a code"
+delivers the code and login works.** Not yet confirmed: reopening the tab within six hours stays signed in.
 
 **Always run `node relay/check.js` before pasting/deploying relay code.** It catches browser-side errors
 inside `ADMIN_HTML` that `node --check` cannot see.
