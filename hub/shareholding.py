@@ -144,6 +144,48 @@ def values(records: list[dict]) -> dict:
     return out
 
 
+def target_dates(records: list[dict]) -> dict:
+    """The quarter-end date behind each institutional_targets() label, so the FII/DII figures read
+    from those filings can be filed under the right quarter in holding_history()."""
+    out = {}
+    if not records:
+        return out
+    out["latest"] = records[0]["date"]
+    if len(records) > 1:
+        out["prior_quarter"] = records[1]["date"]
+    yoy = _nearest(records[1:], records[0]["date"] - timedelta(days=365))
+    if yoy is not None:
+        out["year_ago"] = yoy["date"]
+    return out
+
+
+def holding_history(records: list[dict], inst_by_quarter: dict | None = None,
+                    prior: list[dict] | None = None, limit: int = 12) -> list[dict]:
+    """Quarterly shareholding for the admin stock report's trend chart, oldest first:
+    [{quarter, promoter, public, fii, dii}]. Promoter and public % come for every quarter NSE lists
+    (records); FII/DII % only for the quarters whose detailed filing was read this batch
+    (inst_by_quarter, keyed by ISO quarter-end) -- so `prior` (this company's history from earlier
+    batches) is merged in and FII/DII fill in over time instead of being re-fetched for every quarter.
+    A newer value for the same quarter wins; a missing one never erases a stored one."""
+    by_q = {}
+    for row in prior or []:
+        q = row.get("quarter")
+        if q:
+            by_q[q] = dict(row)
+    for rec in records:
+        q = rec["date"].isoformat()
+        row = by_q.setdefault(q, {"quarter": q})
+        row["promoter"] = round(rec["promoter_pct"], 2)
+        row["public"] = round(rec["public_pct"], 2)
+    for q, inst in (inst_by_quarter or {}).items():
+        row = by_q.setdefault(q, {"quarter": q})
+        for src, dst in (("fii_holding", "fii"), ("dii_holding", "dii")):
+            if inst.get(src) is not None:
+                row[dst] = round(inst[src], 2)
+    rows = sorted(by_q.values(), key=lambda r: r["quarter"])
+    return rows[-limit:]
+
+
 def institutional_targets(records: list[dict]) -> dict:
     """Which filings to fetch XBRL for, to get FII/DII/pledge change as well as the latest level:
     the latest quarter (always), the previous quarter (for the QoQ change) and the filing closest to

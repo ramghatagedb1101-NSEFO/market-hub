@@ -768,6 +768,16 @@ def main() -> dict:
                 except Exception:
                     pass
             inst = {label: shp.institutional_from_text(t) for label, t in texts.items()}
+            # Quarterly holding history for the admin report's trend chart (9 Oct 2026): every quarter
+            # NSE lists for promoter/public, plus FII/DII for the filings read above, merged with what
+            # earlier batches stored so FII/DII build up over time.
+            try:
+                q_dates = shp.target_dates(nse_records)
+                holding_hist = shp.holding_history(
+                    nse_records, {q_dates[lbl].isoformat(): v for lbl, v in inst.items() if lbl in q_dates},
+                    (prior_stocks.get(sym) or {}).get("holding_history"))
+            except Exception:
+                holding_hist = (prior_stocks.get(sym) or {}).get("holding_history")
             if "latest" in inst:
                 values.update(inst["latest"])
                 if "prior_quarter" in inst:
@@ -879,6 +889,8 @@ def main() -> dict:
                 entry["actions"] = ca_list
             if sector:
                 entry["sector"] = sector
+            if holding_hist:
+                entry["holding_history"] = holding_hist
             stocks.append(entry)
             if mb_res is not None:
                 mb_stocks.append(mb_res)

@@ -770,11 +770,8 @@ function pageStock(sym){
   }
 
   // Ownership, corporate actions, news
-  const own = s ? [['Promoter', val(s,'promoter_holding')], ['FII', val(s,'fii_holding')], ['DII', val(s,'dii_holding')]] : [];
-  const ownOk = own.every(x => x[1] != null);
-  html += '<div class="grid g3" style="margin-bottom:14px">' +
-    '<div class="panel"><div class="panel-h"><h3>Shareholding</h3><span class="muted" style="font-size:12px">latest NSE filing</span></div><div class="panel-b">' +
-    (ownOk ? '<div class="chart sm"><canvas id="cOwn"></canvas></div>' + ownChanges(s) : '<div class="muted">Shareholding not available for this company yet.</div>') + '</div></div>' +
+  html += shareholdingPanel(s);
+  html += '<div class="grid g2" style="margin-bottom:14px">' +
     '<div class="panel"><div class="panel-h"><h3>Corporate actions</h3><span class="muted" style="font-size:12px">NSE · upcoming first</span></div><div class="panel-b timeline">' + actionsHtml(s) + '</div></div>' +
     '<div class="panel"><div class="panel-h"><h3>Recent news</h3><span class="muted" style="font-size:12px">Google News</span></div><div class="panel-b news">' + newsHtml(R) + '</div></div></div>';
 
@@ -804,9 +801,45 @@ function metricRow(s, k){
   return '<div class="metric" title="' + esc(c.rule || '') + '"><span class="n">' + esc(M[k][0]) + '</span><span class="val ' + (c.status === 'met' ? 'up' : c.status === 'not_met' ? 'down' : '') + '">' + fmtMeasure(k, v) + '</span>' +
     (p != null ? '<span class="pct"><span class="track"><i style="left:' + p + '%"></i></span>' + (rank != null ? '<span style="min-width:116px;text-align:right">better than ' + rank + '%</span>' : '<span style="min-width:116px;text-align:right">' + p + 'th percentile</span>') + '</span>' : '') + '</div>';
 }
-function ownChanges(s){
-  const rows = [['Promoter (QoQ)', val(s,'promoter_change_qoq')], ['Promoter (YoY)', val(s,'promoter_change_yoy')], ['FII (QoQ)', val(s,'fii_change_qoq')], ['DII (QoQ)', val(s,'dii_change_qoq')], ['Pledge', val(s,'pledge_pct')]].filter(x => x[1] != null);
-  return '<div style="margin-top:10px">' + rows.map(([k, v]) => '<div class="metric" style="grid-template-columns:1fr auto"><span class="n">' + k + '</span><span class="val ' + (k === 'Pledge' ? (v > 10 ? 'down' : '') : cls(v)) + '">' + (k === 'Pledge' ? num(v, 2) + '%' : (v > 0 ? '+' : '') + num(v, 2) + ' pp') + '</span></div>').join('') + '</div>';
+// Shareholding in plain words: "Promoter 51.44%, down 0.56 from 52.00% last quarter". The change is in
+// percentage points (the plain difference between the two percentages), so last quarter = now - change.
+function holders(s){
+  const p = val(s,'promoter_holding'), f = val(s,'fii_holding'), d = val(s,'dii_holding');
+  const dp = val(s,'promoter_change_qoq'), df = val(s,'fii_change_qoq'), dd = val(s,'dii_change_qoq');
+  const rows = [['Promoter', p, dp], ['Foreign institutions (FII)', f, df], ['Domestic institutions (DII)', d, dd]];
+  if (p != null && f != null && d != null) {
+    // Whatever the three named groups gave up or took went to (or came from) the public and others.
+    const dpub = dp != null && df != null && dd != null ? -(dp + df + dd) : null;
+    rows.push(['Public & others', Math.max(0, 100 - p - f - d), dpub]);
+  }
+  return rows.filter(r => r[1] != null);
+}
+function moveWords(now, chg, when){
+  if (chg == null) return num(now, 2) + '%';
+  const before = now - chg;
+  if (Math.abs(chg) < 0.005) return num(now, 2) + '%, unchanged from ' + when;
+  return num(now, 2) + '%, ' + (chg > 0 ? 'up ' : 'down ') + num(Math.abs(chg), 2) + ' from ' + num(before, 2) + '% ' + when;
+}
+function shareholdingPanel(s){
+  const rows = s ? holders(s) : [];
+  const head = '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Shareholding</h3><span class="muted" style="font-size:12px">NSE filings · changes are in percentage points</span></div>';
+  if (!rows.length) return head + '<div class="panel-b muted">Shareholding not available for this company yet.</div></div>';
+  const lines = rows.map(([k, now, chg]) => '<div class="metric" style="grid-template-columns:1fr"><span class="n"><b style="font-weight:600;color:var(--text)">' + esc(k) + '</b></span>' +
+    '<span class="' + cls(chg) + '" style="font-size:13.5px">' + esc(moveWords(now, chg, 'last quarter')) + '</span></div>').join('');
+  const extra = [];
+  const p = val(s,'promoter_holding'), py = val(s,'promoter_change_yoy'), pl = val(s,'pledge_pct');
+  if (p != null && py != null) extra.push('A year ago promoters held ' + num(p - py, 2) + '% (' + (Math.abs(py) < 0.005 ? 'no change' : (py > 0 ? 'up ' : 'down ') + num(Math.abs(py), 2) + ' since') + ').');
+  if (pl != null) extra.push(pl === 0 ? 'No promoter shares are pledged.' : num(pl, 2) + '% of promoter shares are pledged as loan security' + (pl > 10 ? ' — high.' : '.'));
+  const hist = (s && s.holding_history) || [];
+  const hasTrend = hist.length >= 3;
+  const hasChanges = rows.some(r => r[2] != null);
+  return head + '<div class="grid g3" style="gap:0">' +
+    '<div class="panel-b" style="border-right:1px solid var(--line2)">' + lines + (extra.length ? '<div class="muted" style="font-size:12.5px;margin-top:10px">' + esc(extra.join(' ')) + '</div>' : '') + '</div>' +
+    '<div class="panel-b" style="border-right:1px solid var(--line2)"><div style="font-weight:600;font-size:13px;margin-bottom:2px">Who bought, who sold</div><div class="muted" style="font-size:12px;margin-bottom:8px">Change since last quarter, in percentage points</div>' +
+      (hasChanges ? '<div class="chart sm"><canvas id="cOwnChg"></canvas></div>' : '<div class="muted">Quarter-on-quarter changes not available yet.</div>') + '</div>' +
+    '<div class="panel-b"><div style="font-weight:600;font-size:13px;margin-bottom:2px">Holding by quarter</div><div class="muted" style="font-size:12px;margin-bottom:8px">' + (hasTrend ? hist.length + ' quarters stored' : 'Builds up as the weekly batch saves each quarter') + '</div>' +
+      (hasTrend ? '<div class="chart sm"><canvas id="cOwnTrend"></canvas></div>' : '<div class="muted" style="font-size:13px">The batch started saving quarterly holdings on 9 Oct 2026. This trend appears once this company has three quarters stored — promoter history fills in on its next pass, FII and DII a quarter at a time.</div>') + '</div>' +
+    '</div></div>';
 }
 function actionsHtml(s){
   const a = (s && s.actions) || null;
@@ -867,11 +900,31 @@ function drawStockCharts(R, s){
         scales: { x: scales.x, y: { grid: { color: grid }, ticks: { color: tick, callback: v => num(v, 0) } }, y2: { position: 'right', grid: { display: false }, ticks: { color: tick, callback: v => v + '%' } } } } }));
   }
 
-  const oel = $('cOwn');
-  if (oel && s) {
-    const p = val(s,'promoter_holding') || 0, f = val(s,'fii_holding') || 0, d = val(s,'dii_holding') || 0, o = Math.max(0, 100 - p - f - d);
-    charts.push(new Chart(oel, { type: 'doughnut', data: { labels: ['Promoter', 'FII', 'DII', 'Public & others'], datasets: [{ data: [p, f, d, o], backgroundColor: [brand, up, warn, faint], borderWidth: 0 }] },
-      options: { maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'right', labels: { boxWidth: 10 } }, tooltip: { callbacks: { label: c => c.label + ': ' + num(c.parsed, 1) + '%' } } } } }));
+  const down = cssVar('--down');
+  const cel = $('cOwnChg');
+  if (cel && s) {
+    const rows = holders(s).filter(r => r[2] != null);
+    const short = { 'Foreign institutions (FII)': 'FII', 'Domestic institutions (DII)': 'DII' };
+    const lim = Math.max(0.5, ...rows.map(r => Math.abs(r[2]))) * 1.15;
+    charts.push(new Chart(cel, { type: 'bar',
+      data: { labels: rows.map(r => short[r[0]] || r[0]), datasets: [{ data: rows.map(r => Math.round(r[2] * 100) / 100), backgroundColor: rows.map(r => r[2] >= 0 ? brand : down), borderRadius: 4, barThickness: 16 }] },
+      options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false },
+          tooltip: { callbacks: { label: c => { const r = rows[c.dataIndex]; return moveWords(r[1], r[2], 'last quarter'); } } } },
+        scales: { x: { min: -lim, max: lim, grid: { color: c => c.tick.value === 0 ? tick : grid }, ticks: { color: tick, maxTicksLimit: 5, callback: v => (v > 0 ? '+' : '') + num(v, 1) } },
+                  y: { grid: { display: false }, ticks: { color: tick } } } } }));
+  }
+  const tel = $('cOwnTrend');
+  const hist = (s && s.holding_history) || [];
+  if (tel && hist.length >= 3) {
+    const lab = hist.map(h => { const d = new Date(h.quarter); return isNaN(d) ? h.quarter : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); });
+    const line = (label, key, color, dash, style) => ({ label, data: hist.map(h => h[key] == null ? null : h[key]), borderColor: color, backgroundColor: color, borderDash: dash, borderWidth: 2, pointRadius: 3, pointStyle: style, spanGaps: true, tension: 0 });
+    const ds = [line('Promoter', 'promoter', brand, [], 'circle')];
+    if (hist.some(h => h.fii != null)) ds.push(line('FII', 'fii', warn, [6, 4], 'rect'));
+    if (hist.some(h => h.dii != null)) ds.push(line('DII', 'dii', up, [2, 3], 'triangle'));
+    charts.push(new Chart(tel, { type: 'line', data: { labels: lab, datasets: ds },
+      options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { usePointStyle: true, boxWidth: 7, boxHeight: 7, font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + num(c.parsed.y, 2) + '%' } } },
+        scales: { x: scales.x, y: { grid: { color: grid }, ticks: { color: tick, callback: v => v + '%' } } } } }));
   }
 }
 
