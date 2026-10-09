@@ -18,10 +18,12 @@ Verified live from outside: both addresses serve the fixed page, and the page sc
 serves parses (the same check fails on the broken 9 Oct code). **Confirmed by the owner 9 Oct: "Email me a code"
 delivers the code and login works.** Not yet confirmed: reopening the tab within six hours stays signed in.
 
-**7-day sign-in: built, waiting for deploy (9 Oct, ~20:15 IST).** `relay/Admin.gs` and `relay/Code.gs`
-changed (see CHANGELOG 9 Oct). Needs pasting into the Apps Script editor and a new version on both
-`AKfycbwQZxgg…` and `AKfycbye12r6…`, from the ramghatagedb1101@gmail.com profile. After it, every device
-signs in once more. `docs/index.html` (the phone page) is already pushed and works with either relay version.
+**7-day sign-in: live (9 Oct, 22:18 IST, Version 24 on both `AKfycbwQZxgg…` and `AKfycbye12r6…`).**
+Deployed with `clasp` as ramghatagedb1101@gmail.com (no Chrome). Verified live: both serve a page whose
+script parses, `app_data` refuses an unknown session, `app_logout` answers, quotes still served. Each
+device signs in once more (old six-hour sessions don't carry over), then lasts 7 days.
+
+**Relay deploys now go through `clasp`, not Chrome** -- see `relay/README.md`, "Deploying with clasp".
 
 **Always run `node relay/check.js` before pasting/deploying relay code.** It catches browser-side errors
 inside `ADMIN_HTML` that `node --check` cannot see.
