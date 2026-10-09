@@ -4,6 +4,47 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-09
 
+### Admin dashboard: added Multibagger and Matured tabs; redeploy left the login button broken
+Owner asked for two new admin-dashboard tabs: one showing the full multi-bagger ranked list (previously
+only a summary count existed, on the Status tab), and one surfacing the same data sorted toward
+established, widely-held performers instead of the screen's own default bias toward fresh/undiscovered
+names (more mutual-fund holders first, not fewer).
+
+- `relay/Admin.gs`: added `adminMultibagger()` (reads `site/multibagger.json` from the private repo,
+  same pattern as the existing `adminLibrary()`), two new `TABS` entries (`multibagger`, `matured`), a
+  shared `draw()` branch and `loadMb()`/`drawMbTable()`/`mbGoPage()`/`showMbStock()` client functions --
+  both tabs share one data load, differing only in default/selectable sort order. No new data pipeline:
+  `multibagger.json`'s `ranked` list and its `mutual_funds.schemes_holding` field already carried
+  everything needed.
+- Verified the pasted content line-by-line against the local file in the Apps Script editor (search-based
+  spot checks on every new function, not just a visual scroll) before saving, after an earlier mid-edit
+  mistake: a `key` action meant to scroll the editor typed "Page_Down" as literal text into the file
+  instead, corrupting one line -- caught before saving, fixed by re-pasting clean from the clipboard.
+- Deployed as a new version ("Version 21") to the owner's actual bookmarked admin URL (confirmed by
+  matching the Deployment ID character-for-character against the URL the owner pasted, since the project
+  has eight active deployments, several with near-identical names, and the one initially opened for
+  editing turned out to be the wrong one).
+
+**Found immediately after deploying: the live "Email me a code" login button stopped working on that
+URL** -- no error, no success, just silent. Confirmed via the Apps Script Executions log (authoritative):
+every click since the redeploy produces a `doGet` with zero `adminRequestCode` executions, on multiple
+fresh tabs, after a hard refresh, after long waits, and from the owner's own separately-opened tab. The
+exact same code on a second, untouched deployment of the same project (still pinned to the old "Version
+20") worked on the very first click. Ruled out: the diff touching login code (`git diff` confirms it
+didn't), a JS syntax error (`node --check` on the full file is clean), and Google-side quota exhaustion
+(the untouched deployment proves quota is fine). Leading theory: Apps Script's one-time re-authorization
+requirement for a privileged call (`MailApp.sendEmail`) under a brand-new deployment version, normally
+cleared by running the function once from the editor -- attempted but not completed before this session
+had to stop (the editor's function-selector dropdown kept silently reverting to `adminPage`, so the
+intended re-auth attempt never actually exercised `adminRequestCode`). **Full diagnosis and next steps
+in `STATUS.md`'s HANDOVER section -- read that before touching this.** Not yet fixed as of this entry.
+
+Also flagged by the owner, not yet implemented: the dashboard asks for a fresh six-digit code every time
+the browser tab/window closes, even within the server's own 6-hour session window, because
+`relay/Admin.gs` stores the login token in `sessionStorage` (cleared on tab close) rather than
+`localStorage`. Diagnosed, low-risk one-line-type fix identified, not made -- blocked on the login bug
+above making it impossible to verify end-to-end.
+
 ### Claude's own `git push` access broke -- wrong GitHub account, not a code problem
 No code change today; a local environment problem, logged here because it blocked pushing the rest of
 today's work and the next session needs to know about it immediately.
