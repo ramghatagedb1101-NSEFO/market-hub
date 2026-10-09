@@ -37,6 +37,25 @@ def _headers() -> dict:
     return shp.HEADERS
 
 
+def recent_and_upcoming(records: list[dict], as_of: date | None = None, past_days: int = 365,
+                        limit: int = 12) -> list[dict]:
+    """The actions worth showing on a stock report: anything with an ex-date in the future, plus the
+    last year. NSE's own wording is kept as-is (subject), dates normalised to ISO. Newest first.
+    This is public NSE data, so unlike BharatStock figures it can be stored in library.json."""
+    as_of = as_of or date.today()
+    cutoff = as_of - timedelta(days=past_days)
+    out = []
+    for row in records:
+        ex = _parse_date(row.get("exDate"))
+        if ex is None or ex < cutoff:
+            continue
+        rec = _parse_date(row.get("recDate") or row.get("recordDate"))
+        out.append({"subject": (row.get("subject") or "").strip(), "ex_date": ex.isoformat(),
+                    "record_date": rec.isoformat() if rec else None, "upcoming": ex >= as_of})
+    out.sort(key=lambda x: x["ex_date"], reverse=True)
+    return out[:limit]
+
+
 def values(records: list[dict], as_of: date | None = None) -> dict:
     """dividend_yield needs the price separately (library.py combines it); this returns the trailing
     12-month per-share dividend total and the buyback flag, both from the ex-date window only."""

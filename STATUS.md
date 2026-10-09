@@ -23,6 +23,11 @@ Deployed with `clasp` as ramghatagedb1101@gmail.com (no Chrome). Verified live: 
 script parses, `app_data` refuses an unknown session, `app_logout` answers, quotes still served. Each
 device signs in once more (old six-hour sessions don't carry over), then lasts 7 days.
 
+**Admin dashboard rebuilt (9 Oct, late):** research-terminal design, Proven compounders screen, clickable
+stock report -- see CHANGELOG. Owner to add `BHARATSTOCK_API_KEY` to the relay's script properties for the
+report's price and quarterly charts. Corporate actions, sectors and company names fill in as the weekly
+batch revisits companies.
+
 **Relay deploys now go through `clasp`, not Chrome** -- see `relay/README.md`, "Deploying with clasp".
 
 **Always run `node relay/check.js` before pasting/deploying relay code.** It catches browser-side errors

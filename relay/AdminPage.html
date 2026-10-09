@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Market Hub · Research</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --panel2:#fafbfc; --line:#e5e7eb; --line2:#eef0f3;
+  --text:#0f172a; --text2:#334155; --muted:#64748b; --faint:#94a3b8;
+  --brand:#2563eb; --brand2:#1d4ed8; --brand-soft:#eff4ff;
+  --up:#059669; --up-soft:#e7f7f0; --down:#dc2626; --down-soft:#fdecec; --warn:#b45309; --warn-soft:#fdf3e2;
+  --chip:#f1f5f9; --shadow:0 1px 2px rgba(15,23,42,.05),0 1px 1px rgba(15,23,42,.03);
+  --side:#0b1220; --side-text:#cbd5e1; --side-muted:#64748b; --side-on:#1e293b;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#0b1020; --panel:#111827; --panel2:#0f172a; --line:#1f2937; --line2:#172033;
+    --text:#e5e7eb; --text2:#cbd5e1; --muted:#94a3b8; --faint:#64748b;
+    --brand:#60a5fa; --brand2:#93c5fd; --brand-soft:#132042;
+    --up:#34d399; --up-soft:#0b2a20; --down:#f87171; --down-soft:#2c1215; --warn:#fbbf24; --warn-soft:#2a210b;
+    --chip:#1e293b; --shadow:none; --side:#070b16; --side-on:#152038; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:var(--brand);text-decoration:none} a:hover{text-decoration:underline}
+button,input,select{font:inherit;color:inherit}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.up{color:var(--up)} .down{color:var(--down)} .muted{color:var(--muted)} .faint{color:var(--faint)}
+
+/* ---------- login ---------- */
+#login{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{width:100%;max-width:400px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px;box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em}
+.brand svg{flex:none;border-radius:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-weight:600;font-size:13px}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.primary:hover{background:var(--brand2)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn:disabled{opacity:.5;cursor:default}
+.field{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);outline:none}
+.field:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.msg{min-height:20px;font-size:13px;margin-top:10px;color:var(--muted)} .msg.err{color:var(--down)}
+
+/* ---------- shell ---------- */
+#app{display:none;min-height:100%}
+.shell{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+.side{background:var(--side);color:var(--side-text);padding:18px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px;overflow-y:auto}
+.side .brand{color:#fff;padding:2px 8px 16px;font-size:15px}
+.nav-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--side-muted);padding:14px 10px 6px;font-weight:700}
+.nav a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--side-text);font-size:13.5px;font-weight:500;text-decoration:none}
+.nav a svg{width:17px;height:17px;flex:none;opacity:.85;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav a:hover{background:var(--side-on);color:#fff}
+.nav a.on{background:var(--side-on);color:#fff;box-shadow:inset 3px 0 0 #60a5fa}
+.nav a .count{margin-left:auto;font-size:11px;color:var(--side-muted);font-family:var(--mono)}
+.side-foot{margin-top:auto;padding:12px 10px 0;border-top:1px solid #1e293b;font-size:12px;color:var(--side-muted)}
+.side-foot button{margin-top:8px;width:100%;background:transparent;border:1px solid #1e293b;color:var(--side-text);border-radius:8px;padding:7px;cursor:pointer}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:12px 28px;display:flex;align-items:center;gap:14px}
+.top .crumb{font-weight:700;font-size:15px;white-space:nowrap}
+.search{position:relative;margin-left:auto;width:min(420px,100%)}
+.search input{padding-left:34px}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2}
+.suggest{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.12);overflow:hidden;display:none;z-index:20}
+.suggest.on{display:block}
+.suggest div{padding:9px 12px;cursor:pointer;display:flex;gap:10px;align-items:baseline}
+.suggest div:hover,.suggest div.hi{background:var(--brand-soft)}
+.suggest b{font-family:var(--mono);font-size:13px;min-width:92px}
+.content{padding:24px 28px 60px;max-width:1360px;width:100%}
+.menu-btn{display:none}
+
+/* ---------- building blocks ---------- */
+.h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
+.sub{color:var(--muted);margin:4px 0 0;font-size:13.5px}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
+.grid{display:grid;gap:14px}
+.g4{grid-template-columns:repeat(4,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);min-width:0}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line2)}
+.panel-h h3{margin:0;font-size:13.5px;font-weight:700}
+.panel-b{padding:14px 16px}
+.kpi{padding:16px}
+.kpi .k{font-size:12px;color:var(--muted);font-weight:600}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:4px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--chip);color:var(--text2);white-space:nowrap}
+.chip.up{background:var(--up-soft);color:var(--up)} .chip.down{background:var(--down-soft);color:var(--down)} .chip.warn{background:var(--warn-soft);color:var(--warn)} .chip.brand{background:var(--brand-soft);color:var(--brand)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar .field{width:auto;min-width:150px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;padding:6px 11px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--brand-soft);color:var(--brand)}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+.notice{padding:10px 12px;border-radius:8px;background:var(--warn-soft);color:var(--warn);font-size:12.5px}
+.skel{height:14px;border-radius:6px;background:linear-gradient(90deg,var(--line2),var(--line),var(--line2));background-size:200% 100%;animation:sk 1.2s infinite}
+@keyframes sk{to{background-position:-200% 0}}
+
+/* ---------- tables ---------- */
+.tbl-wrap{overflow:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);max-height:calc(100vh - 230px)}
+table.t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+table.t th{position:sticky;top:0;background:var(--panel2);text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:default;z-index:1}
+table.t th.sortable{cursor:pointer} table.t th.sortable:hover{color:var(--text)}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t td{padding:10px 12px;border-bottom:1px solid var(--line2);text-align:right;white-space:nowrap}
+table.t td.l,table.t th.l{text-align:left}
+table.t tr.click{cursor:pointer} table.t tr.click:hover td{background:var(--brand-soft)}
+table.t tr:last-child td{border-bottom:0}
+.co b{font-family:var(--mono);font-size:12.5px} .co span{display:block;font-size:12px;color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.dots{display:inline-flex;gap:3px} .dots i{width:9px;height:9px;border-radius:50%;background:var(--line)} .dots i.on{background:var(--up)}
+.bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;overflow:hidden} .bar i{display:block;height:100%;background:var(--brand)}
+.pager{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:10px;font-size:12.5px;color:var(--muted)}
+
+/* ---------- stock report ---------- */
+.rep-head{display:flex;gap:18px;justify-content:space-between;flex-wrap:wrap;align-items:flex-start;margin-bottom:16px}
+.rep-title{font-size:24px;font-weight:700;letter-spacing:-.02em;margin:0}
+.rep-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.price{text-align:right} .price .p{font-size:28px;font-weight:700;font-family:var(--mono)} .price .c{font-size:13px;font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;margin-bottom:14px;box-shadow:var(--shadow)}
+.stats div{padding:12px 14px;border-right:1px solid var(--line2)} .stats div:last-child{border-right:0}
+.stats .k{font-size:11.5px;color:var(--muted);font-weight:600} .stats .v{font-size:16px;font-weight:700;font-family:var(--mono);margin-top:2px}
+.chart{position:relative;height:280px} .chart.sm{height:200px}
+.metrics{display:grid;grid-template-columns:1fr;gap:0}
+.cols{columns:3 300px;column-gap:28px;padding:6px 16px 14px}
+.cols>div{break-inside:avoid;display:inline-block;width:100%}
+.metric{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 0;border-bottom:1px dashed var(--line2)}
+.metric:last-child{border-bottom:0}
+.metric .n{font-size:13px;color:var(--text2)} .metric .val{font-family:var(--mono);font-weight:700;text-align:right}
+.metric .pct{grid-column:1 / -1;display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+.metric .track{flex:1;height:4px;border-radius:2px;background:var(--line2);position:relative}
+.metric .track i{position:absolute;top:-3px;width:10px;height:10px;border-radius:50%;margin-left:-5px;background:var(--brand);border:2px solid var(--panel)}
+.ring{--p:0;width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--up) calc(var(--p)*1%),var(--line) 0);display:grid;place-items:center;flex:none}
+.ring span{width:50px;height:50px;border-radius:50%;background:var(--panel);display:grid;place-items:center;font-weight:700;font-family:var(--mono);font-size:13px}
+.timeline .ev{display:flex;gap:12px;padding:9px 0;border-bottom:1px dashed var(--line2)} .timeline .ev:last-child{border-bottom:0}
+.timeline .d{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:92px}
+.news a{display:block;padding:10px 0;border-bottom:1px dashed var(--line2);color:var(--text);text-decoration:none} .news a:last-child{border-bottom:0}
+.news a:hover .tt{color:var(--brand)} .news .tt{font-weight:600;font-size:13.5px;line-height:1.4} .news .src{font-size:12px;color:var(--muted);margin-top:2px}
+details.all summary{cursor:pointer;font-weight:600;padding:4px 0;color:var(--text2)}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;cursor:pointer;margin-bottom:10px;border:0;background:none;padding:0}
+.back:hover{color:var(--text)}
+.rules{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 14px}
+pre.raw{white-space:pre-wrap;font-size:12px;background:var(--panel2);border-radius:8px;padding:10px;margin:0;font-family:var(--mono)}
+
+@media (max-width:1100px){ .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .stats{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+  .side{position:fixed;inset:0 auto 0 0;width:250px;z-index:30;transform:translateX(-100%);transition:transform .2s}
+  .side.open{transform:none}
+  .menu-btn{display:inline-flex}
+  .top{padding:10px 16px} .content{padding:16px 16px 48px}
+  .g3,.g2{grid-template-columns:1fr} .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .search{width:auto;flex:1}
+  .top .crumb{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="login-card">
+    <div class="brand" style="margin-bottom:18px">
+      <svg viewBox="0 0 96 96" width="34" height="34"><rect width="96" height="96" rx="20" fill="#0b1220"/><polyline points="14,64 34,44 48,54 70,28 82,36" fill="none" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="82" cy="36" r="5" fill="#22c55e"/></svg>
+      <div>Market Hub<div class="muted" style="font-weight:500;font-size:12.5px">Research dashboard</div></div>
+    </div>
+    <p class="muted" style="margin:0 0 16px;font-size:13.5px">A six-digit code goes to the owner's Google account. It lasts 10 minutes; you stay signed in for seven days.</p>
+    <button id="send" class="btn primary" style="width:100%" onclick="sendCode()">Email me a code</button>
+    <div id="codebox" style="display:none;margin-top:14px">
+      <div style="display:flex;gap:8px">
+        <input id="code" class="field num" inputmode="numeric" maxlength="6" placeholder="6-digit code" onkeydown="if(event.key==='Enter')verify()">
+        <button class="btn primary" onclick="verify()">Sign in</button>
+      </div>
+    </div>
+    <div id="lmsg" class="msg"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="shell">
+    <aside class="side" id="side">
+      <div class="brand">
+        <svg viewBox="0 0 96 96" width="28" height="28"><rect width="96" height="96" rx="20" fill="#1e293b"/><polyline points="14,64 34,44 48,54 70,28 82,36" fill="none" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="82" cy="36" r="5" fill="#22c55e"/></svg>
+        Market Hub
+      </div>
+      <nav class="nav" id="nav"></nav>
+      <div class="side-foot">
+        <div id="sidefoot">Signed in</div>
+        <button onclick="logout()">Sign out</button>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="top">
+        <button class="btn ghost menu-btn" onclick="document.getElementById('side').classList.toggle('open')" aria-label="Menu">☰</button>
+        <div class="crumb" id="crumb">Overview</div>
+        <div class="search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="q" class="field" placeholder="Search a company or symbol…" autocomplete="off"
+                 oninput="suggest()" onkeydown="suggestKey(event)" onblur="setTimeout(()=>hideSuggest(),150)">
+          <div class="suggest" id="suggest"></div>
+        </div>
+      </header>
+      <main class="content" id="view"></main>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// ======================================================================================
+// Session (seven days on the server; the browser keeps the token in localStorage)
+// ======================================================================================
+const store = {
+  get(){ try { return localStorage.getItem('mh_admin_token'); } catch (e) { return null; } },
+  set(v){ try { localStorage.setItem('mh_admin_token', v); } catch (e) {} },
+  clear(){ try { localStorage.removeItem('mh_admin_token'); } catch (e) {} }
+};
+let token = store.get() || '';
+const $ = id => document.getElementById(id);
+
+function call(fn, ...args){
+  return new Promise((resolve, reject) => {
+    google.script.run.withSuccessHandler(r => {
+      if (r && r.error === 'session_expired') { logout(); reject(new Error('session expired')); return; }
+      resolve(r);
+    }).withFailureHandler(reject)[fn](...args);
+  });
+}
+function lmsg(t, err){ $('lmsg').textContent = t; $('lmsg').classList.toggle('err', !!err); }
+function sendCode(){
+  $('send').disabled = true; lmsg('Sending…');
+  google.script.run.withSuccessHandler(r => {
+    if (r.error) { lmsg(r.error, true); $('send').disabled = false; return; }
+    $('codebox').style.display = 'block'; $('code').focus(); lmsg('Code sent. Check your email.');
+  }).withFailureHandler(e => { lmsg('Could not send the code: ' + e.message, true); $('send').disabled = false; }).adminRequestCode();
+}
+function verify(){
+  const c = $('code').value.trim();
+  if (!/^\d{6}$/.test(c)) { lmsg('Enter the six-digit code.', true); return; }
+  lmsg('Checking…');
+  google.script.run.withSuccessHandler(r => {
+    if (!r.ok) { lmsg(r.error || 'Code not recognised.', true); return; }
+    token = r.token; store.set(token); start();
+  }).withFailureHandler(e => lmsg(e.message, true)).adminVerify(c);
+}
+function logout(){
+  const t = token; store.clear(); token = '';
+  google.script.run.withSuccessHandler(() => location.reload()).withFailureHandler(() => location.reload()).adminLogout(t);
+}
+
+// ======================================================================================
+// Data
+// ======================================================================================
+const S = { admin: null, lib: null, mb: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {} };
+
+function start(){
+  $('login').style.display = 'none'; $('app').style.display = 'block';
+  route();
+  call('adminData', token).then(d => { S.admin = d; renderFoot(); rerender(); }).catch(e => { S.admin = { error: e.message }; rerender(); });
+  call('adminLibrary', token).then(d => {
+    if (d.error) { S.libErr = d.error; rerender(); return; }
+    S.lib = d; S.names = d.names || {};
+    (d.stocks || []).forEach(s => { S.bySym[s.symbol] = s; });
+    renderNav(); rerender();
+  }).catch(e => { S.libErr = e.message; rerender(); });
+  call('adminMultibagger', token).then(d => {
+    if (d.error) { S.mbErr = d.error; rerender(); return; }
+    S.mb = d; (d.ranked || []).forEach(r => { S.mbBySym[r.symbol] = r; });
+    renderNav(); rerender();
+  }).catch(e => { S.mbErr = e.message; rerender(); });
+}
+function renderFoot(){
+  const s = (S.admin && S.admin.status) || {};
+  $('sidefoot').innerHTML = 'Signed in<br><span style="font-size:11.5px">Daily run ' + esc(fmtTs(s.daily_ts)) + '</span>';
+}
+
+// Cell helpers -------------------------------------------------------------------------
+function cell(s, k){ return s && s.cells ? s.cells[k] : null; }
+function val(s, k){ const c = cell(s, k); return c && c.value != null ? c.value : null; }
+function nameOf(sym){ const n = S.names[sym]; return n ? n.replace(/\s+(Limited|Ltd\.?)$/i, '') : ''; }
+function sectorOf(sym){ const s = S.bySym[sym]; return (s && s.sector) || ''; }
+
+// Distribution of a measure across the library (sorted), for "better than X% of companies".
+function dist(k){
+  if (S.dist[k]) return S.dist[k];
+  const arr = [];
+  (S.lib && S.lib.stocks || []).forEach(s => { const v = val(s, k); if (typeof v === 'number' && isFinite(v)) arr.push(v); });
+  arr.sort((a, b) => a - b);
+  return (S.dist[k] = arr);
+}
+function percentile(k, v){
+  const a = dist(k); if (!a.length || typeof v !== 'number') return null;
+  // Mid-rank for ties, so a value most companies share (often 0) sits in the middle, not at the bottom.
+  const below = (() => { let lo = 0, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] < v) lo = m + 1; else hi = m; } return lo; })();
+  const upto = (() => { let lo = below, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] <= v) lo = m + 1; else hi = m; } return lo; })();
+  return Math.round((below + (upto - below) / 2) / a.length * 100);
+}
+
+// ======================================================================================
+// Formatting
+// ======================================================================================
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const nf = (d) => new Intl.NumberFormat('en-IN', { minimumFractionDigits: d, maximumFractionDigits: d });
+function num(v, d = 1){ return v == null || !isFinite(v) ? '–' : nf(d).format(v); }
+function pct(v, d = 1, sign = true){ return v == null || !isFinite(v) ? '–' : (sign && v > 0 ? '+' : '') + nf(d).format(v) + '%'; }
+function cls(v){ return v == null ? '' : v > 0 ? 'up' : v < 0 ? 'down' : ''; }
+function crore(v){ // v already in crore
+  if (v == null || !isFinite(v)) return '–';
+  if (Math.abs(v) >= 100000) return '₹' + nf(2).format(v / 100000) + ' L cr';
+  return '₹' + nf(v >= 1000 ? 0 : 1).format(v) + ' cr';
+}
+function rupeesToCr(v){ return v == null ? null : v / 1e7; }
+function fmtTs(ts){ if (!ts) return '–'; return String(ts).replace('T', ' ').slice(0, 16); }
+function fmtDate(d){ if (!d) return '–'; const x = new Date(d); return isNaN(x) ? String(d) : x.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
+
+// Measure catalogue: label, group, unit, better direction. The value shown is the library's.
+const M = {
+  rev_yoy:['Revenue growth (YoY)','growth','pct',1], profit_yoy:['Profit growth (YoY)','growth','pct',1], eps_yoy:['EPS growth (YoY)','growth','pct',1],
+  profit_consistency_8q:['Profit growth quarters (of 8)','growth','int',1], profit_run:['Profit-growth streak (quarters)','growth','int',1],
+  net_margin:['Net margin','profit','pct0',1], operating_margin:['Operating margin','profit','pct0',1], roe:['Return on equity','profit','pct0',1], roce:['Return on capital','profit','pct0',1], interest_cover:['Interest cover','profit','x',1],
+  debt_to_equity:['Debt / equity','balance','x',-1], debt_change_1y:['Borrowings vs a year ago','balance','pct',-1], working_capital_days:['Working capital days','balance','int',-1], working_capital_change:['Working capital change (days)','balance','int',-1],
+  cfo:['Operating cash flow (yr)','cash','rs',1], cfo_to_pat:['Operating cash / profit','cash','x',1], cfo_margin:['Operating cash margin','cash','pct0',1], cfo_growth:['Operating cash growth','cash','pct',1], fcf:['Free cash flow (yr)','cash','rs',1], capex_to_sales:['Capex / sales','cash','pct0',-1],
+  pe:['P/E','value','x',-1], pb:['P/B','value','x',-1], ps:['Price / sales','value','x',-1], market_value_bucket:['Market cap','value','cr',0], dividend_yield:['Dividend yield','value','pct0',1],
+  ret_1m:['Return 1M','price','pct',1], ret_3m:['Return 3M','price','pct',1], ret_12m:['Return 12M','price','pct',1], from_52w_high:['From 52-week high','price','pct',1], from_52w_low:['From 52-week low','price','pct',0],
+  above_200dma:['Above 200-day average','price','bool',0], volatility_60d:['Volatility (60d, ann.)','price','pct0',-1], beta_vs_index:['Beta vs NIFTY','price','x',0], rel_strength_vs_index:['6M return vs NIFTY','price','pct',1],
+  avg_turnover_20d:['Avg turnover (20d)','price','rs',1], delivery_pct_20d:['Delivery % (20d)','price','pct0',1], delivery_change:['Delivery % change','price','pct',1], volume_ratio_20d:['Volume ratio','price','x',1],
+  promoter_holding:['Promoter holding','own','pct0',0], promoter_change_qoq:['Promoter change (QoQ)','own','pp',1], promoter_change_yoy:['Promoter change (YoY)','own','pp',1], promoter_holding_change_3q:['Promoter change (3Q)','own','pp',1],
+  public_float:['Public float','own','pct0',0], fii_holding:['FII holding','own','pct0',0], dii_holding:['DII holding','own','pct0',0], fii_change_qoq:['FII change (QoQ)','own','pp',1], dii_change_qoq:['DII change (QoQ)','own','pp',1],
+  pledge_pct:['Promoter pledge','own','pct0',-1], pledge_change:['Pledge change (YoY)','own','pct',-1], mf_schemes_holding:['Mutual fund schemes holding','own','int',0], mf_schemes_added:['Fund schemes added','own','int',1],
+  insider_net_shares_6m:['Promoter net shares (6M)','own','int',1], holder_count_change:['Disclosed holders change','own','int',1], top10_holding_change:['Top-10 holders change','own','pp',1],
+  dividend_paid:['Dividend paid (latest yr)','ctx','bool',0], dividend_policy_change:['Dividend raised','ctx','bool',0], buyback_flag:['Buyback in last year','ctx','bool',0],
+  registry_holders:['Registry investors holding','ctx','int',1], registry_new_entrants:['New registry investors','ctx','int',1], mf_discovery_tier:['Fund discovery tier','own','int',0],
+  sector_news_count:['Sector news (30d)','ctx','int',0], regulatory_events:['Sector regulatory mentions (90d)','ctx','int',-1], sector_ret_3m:['Sector return (3M)','ctx','pct',1],
+  peer_group_growth_median:['Sector median profit growth','ctx','pct',1], rel_strength_rank_sector:['Sector rank (6M return)','ctx','int',0], sector_pe_vs_history:['Sector P/E vs history','ctx','pct',-1]
+};
+const GROUPS = [['growth','Growth'],['profit','Profitability'],['cash','Cash flow'],['balance','Balance sheet'],['value','Valuation'],['price','Price & momentum'],['own','Ownership'],['ctx','Context']];
+function fmtMeasure(k, v){
+  const u = (M[k] || [])[2];
+  if (v == null) return '–';
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+  switch (u) {
+    case 'pct': return pct(v); case 'pct0': return num(v, 1) + '%'; case 'pp': return (v > 0 ? '+' : '') + num(v, 2) + ' pp';
+    case 'x': return num(v, 2) + '×'; case 'int': return num(v, 0); case 'cr': return crore(v); case 'rs': return crore(rupeesToCr(v));
+    case 'bool': return v ? 'Yes' : 'No'; default: return typeof v === 'number' ? num(v, 2) : esc(v);
+  }
+}
+
+// ======================================================================================
+// Screens
+// ======================================================================================
+// Proven compounders: established companies with a long record. Rules tuned on the 9 Oct data
+// (76 of ~1,860 companies pass all six).
+const COMPOUNDER_RULES = [
+  ['Profit grew in 6+ of last 8 quarters', s => val(s,'profit_consistency_8q') != null ? val(s,'profit_consistency_8q') >= 6 : null],
+  ['Net margin ≥ 8%', s => val(s,'net_margin') != null ? val(s,'net_margin') >= 8 : null],
+  ['Operating cash ≥ 0.8× profit', s => val(s,'cfo_to_pat') != null ? val(s,'cfo_to_pat') >= 0.8 : null],
+  ['Held by 30+ fund schemes', s => val(s,'mf_schemes_holding') != null ? val(s,'mf_schemes_holding') >= 30 : null],
+  ['Promoter pledge ≤ 5%', s => val(s,'pledge_pct') == null ? true : val(s,'pledge_pct') <= 5],
+  ['Market cap ≥ ₹5,000 cr', s => val(s,'market_value_bucket') != null ? val(s,'market_value_bucket') >= 5000 : null],
+];
+const QUALITY_CHECKS = [
+  ['Revenue growing', s => val(s,'rev_yoy') == null ? null : val(s,'rev_yoy') > 0],
+  ['Interest cover ≥ 3×', s => val(s,'interest_cover') == null ? null : val(s,'interest_cover') >= 3],
+  ['ROE ≥ 15%', s => val(s,'roe') == null ? null : val(s,'roe') >= 15],
+  ['Above 200-day average', s => val(s,'above_200dma') == null ? null : !!val(s,'above_200dma')],
+  ['Promoter stake steady (YoY)', s => val(s,'promoter_change_yoy') == null ? null : val(s,'promoter_change_yoy') >= -1],
+];
+function compounders(){
+  if (!S.lib) return null;
+  const out = [];
+  S.lib.stocks.forEach(s => {
+    if (!s.cells) return;
+    const res = COMPOUNDER_RULES.map(([, f]) => f(s));
+    const fails = res.filter(r => r !== true).length;
+    if (fails > 1) return;
+    const q = QUALITY_CHECKS.map(([, f]) => f(s));
+    out.push({ s, fails, quality: q.filter(x => x === true).length, qualityTested: q.filter(x => x != null).length,
+               failed: COMPOUNDER_RULES.filter((r, i) => res[i] !== true).map(r => r[0]) });
+  });
+  return out;
+}
+function isCompounder(sym){ const s = S.bySym[sym]; return !!(s && s.cells && COMPOUNDER_RULES.every(([, f]) => f(s) === true)); }
+
+// ======================================================================================
+// Router and navigation
+// ======================================================================================
+const ICON = {
+  overview:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  multibagger:'<svg viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>',
+  compounders:'<svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
+  library:'<svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2Z"/><path d="M8 7h6M8 11h6"/></svg>',
+  registry:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.8-3.5 3.2-5.5 6-5.5s5.2 2 6 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.6.8 2.6 2.6 3 5.5"/></svg>',
+  bulk:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  params:'<svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
+  tests:'<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/></svg>'
+};
+const NAV = [
+  ['', [['overview','Overview']]],
+  ['Screens', [['multibagger','Early multibaggers'], ['compounders','Proven compounders']]],
+  ['Data', [['library','Stock library'], ['registry','Investor registry'], ['bulk','Bulk deals'], ['params','Parameters'], ['tests','Back-tests']]]
+];
+let current = { page: 'overview', arg: null };
+function renderNav(){
+  const counts = {
+    multibagger: S.mb ? (S.mb.ranked || []).filter(r => r.score === 4).length : '',
+    compounders: S.lib ? (compounders() || []).filter(x => x.fails === 0).length : '',
+    library: S.lib ? (S.lib.stocks || []).filter(s => s.cells).length : ''
+  };
+  $('nav').innerHTML = NAV.map(([h, items]) => (h ? '<div class="nav-h">' + h + '</div>' : '') + items.map(([k, label]) =>
+    '<a href="#' + k + '" class="' + (current.page === k ? 'on' : '') + '">' + ICON[k] + '<span>' + label + '</span>' +
+    (counts[k] !== undefined && counts[k] !== '' ? '<span class="count">' + counts[k] + '</span>' : '') + '</a>').join('')).join('');
+}
+function route(){
+  const h = decodeURIComponent((location.hash || '#overview').slice(1));
+  const [page, arg] = h.split('/');
+  current = { page: page || 'overview', arg: arg || null };
+  $('side').classList.remove('open');
+  renderNav(); rerender(); window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+function go(h){ location.hash = h; }
+function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
+
+const TITLES = { overview:'Overview', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
+                 registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report' };
+function rerender(){
+  $('crumb').textContent = TITLES[current.page] || '';
+  const f = { overview: pageOverview, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
+              registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock }[current.page] || pageOverview;
+  f(current.arg);
+}
+function loadingBlock(t){ return '<div class="panel"><div class="panel-b"><div class="muted" style="margin-bottom:10px">' + esc(t) + '</div><div class="skel" style="width:60%"></div><div class="skel" style="width:85%;margin-top:8px"></div><div class="skel" style="width:40%;margin-top:8px"></div></div></div>'; }
+function errBlock(t){ return '<div class="panel"><div class="panel-b"><div class="notice" style="background:var(--down-soft);color:var(--down)">' + esc(t) + '</div></div></div>'; }
+
+// ======================================================================================
+// Search
+// ======================================================================================
+let sugg = [], suggIdx = -1;
+function suggest(){
+  const q = $('q').value.trim().toUpperCase();
+  const box = $('suggest');
+  if (!q || !S.lib) { box.classList.remove('on'); return; }
+  const scored = [];
+  S.lib.stocks.forEach(s => {
+    const sym = s.symbol, nm = (S.names[sym] || '').toUpperCase();
+    let r = -1;
+    if (sym === q) r = 0; else if (sym.startsWith(q)) r = 1; else if (nm.startsWith(q)) r = 2; else if (sym.includes(q)) r = 3; else if (nm.includes(q)) r = 4;
+    if (r >= 0) scored.push([r, sym]);
+  });
+  scored.sort((a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : 1));
+  sugg = scored.slice(0, 8).map(x => x[1]); suggIdx = sugg.length ? 0 : -1;
+  box.innerHTML = sugg.length ? sugg.map((sym, i) => '<div class="' + (i === suggIdx ? 'hi' : '') + '" onmousedown="pickSuggest(\'' + esc(sym) + '\')"><b>' + esc(sym) + '</b><span class="muted">' + esc(nameOf(sym)) + '</span></div>').join('')
+                           : '<div class="muted" style="cursor:default">No match</div>';
+  box.classList.add('on');
+}
+function suggestKey(e){
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (!sugg.length) return; suggIdx = (suggIdx + (e.key === 'ArrowDown' ? 1 : -1) + sugg.length) % sugg.length;
+    [...$('suggest').children].forEach((el, i) => el.classList.toggle('hi', i === suggIdx)); }
+  else if (e.key === 'Enter' && suggIdx >= 0) { pickSuggest(sugg[suggIdx]); }
+  else if (e.key === 'Escape') { hideSuggest(); }
+}
+function pickSuggest(sym){ $('q').value = ''; hideSuggest(); openStock(sym); }
+function hideSuggest(){ $('suggest').classList.remove('on'); }
+
+// ======================================================================================
+// Pages
+// ======================================================================================
+function companyCell(sym){ return '<div class="co"><b>' + esc(sym) + '</b><span>' + esc(nameOf(sym) || sectorOf(sym) || '') + '</span></div>'; }
+function dots(n, of){ let h = '<span class="dots" title="' + n + ' of ' + of + '">'; for (let i = 0; i < of; i++) h += '<i class="' + (i < n ? 'on' : '') + '"></i>'; return h + '</span>'; }
+
+// ---- Overview ----
+function pageOverview(){
+  const v = $('view');
+  const s = (S.admin && S.admin.status) || {};
+  const libN = S.lib ? S.lib.stocks.filter(x => x.cells).length : null;
+  const comp = S.lib ? compounders().filter(x => x.fails === 0) : null;
+  const mb4 = S.mb ? (S.mb.ranked || []).filter(r => r.score === 4) : null;
+  const turn = S.mb ? S.mb.turnarounds : null;
+  const cyc = S.lib ? Math.round((S.lib.cursor_next || 0) / (S.lib.universe || 1) * 100) : null;
+  const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
+  let html = '<div class="page-head"><div><h1 class="h1">Overview</h1><p class="sub">Daily run ' + esc(fmtTs(s.daily_ts)) +
+    (S.lib ? ' · library updated ' + esc(fmtTs(S.lib.generated)) : '') + '</p></div></div>';
+  html += '<div class="grid g4" style="margin-bottom:14px">' +
+    kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed · batch at ' + cyc + '%' : 'loading the library') +
+    kpi('Proven compounders', comp == null ? '…' : comp.length, 'pass all six rules') +
+    kpi('Early multibaggers 4/4', mb4 == null ? '…' : mb4.length, S.mb ? num(S.mb.rated, 0) + ' rated · ' + (turn || 0) + ' turnarounds' : 'loading') +
+    kpi('Bulk deals stored', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' d', 'since ' + esc((S.admin && S.admin.bulk_deals || {}).first_day || '–')) +
+    '</div>';
+  const mini = (title, href, rows, cols) => '<div class="panel"><div class="panel-h"><h3>' + title + '</h3><a href="#' + href + '">View all →</a></div>' +
+    (rows == null ? '<div class="panel-b">' + '<div class="skel"></div>' + '</div>' : rows.length ? '<table class="t"><tr>' + cols.map(c => '<th class="' + (c[2] || '') + '">' + c[0] + '</th>').join('') + '</tr>' +
+      rows.map(r => '<tr class="click" onclick="openStock(\'' + esc(r.sym) + '\')">' + cols.map(c => '<td class="' + (c[2] || '') + '">' + c[1](r) + '</td>').join('') + '</tr>').join('') + '</table>'
+      : '<div class="empty">None yet.</div>') + '</div>';
+  const topComp = comp ? comp.slice().sort((a, b) => b.quality - a.quality || (val(b.s,'market_value_bucket') || 0) - (val(a.s,'market_value_bucket') || 0)).slice(0, 6).map(x => ({ sym: x.s.symbol, s: x.s, q: x.quality })) : null;
+  const topMb = mb4 ? mb4.slice().sort((a, b) => (a.rank || 1e9) - (b.rank || 1e9)).slice(0, 6).map(r => ({ sym: r.symbol, r, s: S.bySym[r.symbol] })) : null;
+  html += '<div class="grid g2" style="margin-bottom:14px">' +
+    mini('Top proven compounders', 'compounders', topComp, [['Company', r => companyCell(r.sym), 'l'], ['Mkt cap', r => '<span class="num">' + crore(val(r.s,'market_value_bucket')) + '</span>'], ['12M', r => '<span class="num ' + cls(val(r.s,'ret_12m')) + '">' + pct(val(r.s,'ret_12m')) + '</span>'], ['Quality', r => dots(r.q, 5)]]) +
+    mini('Early multibaggers (all four gates)', 'multibagger', topMb, [['Company', r => companyCell(r.sym), 'l'], ['Profit gr.', r => '<span class="num ' + cls((r.r.measures||{}).profit_growth_yoy_pct) + '">' + pct((r.r.measures||{}).profit_growth_yoy_pct) + '</span>'], ['Funds', r => '<span class="num">' + num(((r.r.mutual_funds||{}).schemes_holding), 0) + '</span>'], ['Score', r => dots(r.r.score || 0, 4)]]) +
+    '</div>';
+  // Upcoming corporate actions across the library
+  let ups = null;
+  if (S.lib) {
+    ups = [];
+    S.lib.stocks.forEach(st => (st.actions || []).forEach(a => { if (a.upcoming) ups.push({ sym: st.symbol, a }); }));
+    ups.sort((x, y) => x.a.ex_date < y.a.ex_date ? -1 : 1);
+  }
+  html += '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>Upcoming corporate actions</h3><span class="muted" style="font-size:12px">from NSE · filled in as the weekly batch revisits each company</span></div>' +
+    (ups == null ? '<div class="panel-b"><div class="skel"></div></div>' : ups.length ? '<table class="t"><tr><th class="l">Ex-date</th><th class="l">Company</th><th class="l">Action</th></tr>' +
+      ups.slice(0, 10).map(u => '<tr class="click" onclick="openStock(\'' + esc(u.sym) + '\')"><td class="l num">' + esc(fmtDate(u.a.ex_date)) + '</td><td class="l">' + companyCell(u.sym) + '</td><td class="l">' + esc(u.a.subject) + '</td></tr>').join('') + '</table>'
+      : '<div class="empty">None recorded yet. The batch now keeps NSE corporate actions; they appear here as each company is next scored.</div>') + '</div>';
+  // Data health
+  let dq = null;
+  if (S.lib) { dq = [0, 0, 0, 0]; S.lib.stocks.forEach(st => { if (!st.cells) { dq[3]++; return; } const p = st.data_quality_pct || 0; dq[p >= 70 ? 0 : p >= 40 ? 1 : 2]++; }); }
+  html += '<div class="panel"><div class="panel-h"><h3>Data coverage</h3><a href="#library">Open library →</a></div><div class="panel-b">' +
+    (dq == null ? '<div class="skel"></div>' : [['70%+ of measures', dq[0], 'var(--up)'], ['40–70%', dq[1], 'var(--warn)'], ['Under 40%', dq[2], 'var(--faint)'], ['Not scored yet / error', dq[3], 'var(--down)']].map(([l, n, c]) => {
+      const tot = dq.reduce((a, b) => a + b, 0) || 1;
+      return '<div style="display:flex;align-items:center;gap:10px;margin:8px 0"><span style="width:170px;font-size:13px">' + l + '</span><span style="flex:1;height:8px;border-radius:4px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:' + (n / tot * 100) + '%;background:' + c + '"></i></span><span class="num" style="width:56px;text-align:right">' + num(n, 0) + '</span></div>';
+    }).join('')) + '</div></div></div>';
+  if (S.libErr) html = errBlock('Library: ' + S.libErr) + html;
+  if (S.mbErr) html = errBlock('Multi-bagger data: ' + S.mbErr) + html;
+  v.innerHTML = html;
+}
+
+// ---- Generic sortable/paged table state ----
+const TS = {};   // per-page table state
+function tableState(key, def){ return TS[key] || (TS[key] = Object.assign({ sort: def.sort, dir: def.dir || -1, page: 0, q: '', f: {} }, def)); }
+function sortRows(rows, st, getters){
+  const g = getters[st.sort]; if (!g) return rows;
+  return rows.slice().sort((a, b) => { const x = g(a), y = g(b);
+    if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1;
+    return (x < y ? -1 : x > y ? 1 : 0) * st.dir; });
+}
+function th(key, label, st, align){ const on = st.sort === key; return '<th class="sortable ' + (align || '') + '" onclick="setSort(\'' + st.id + '\',\'' + key + '\')">' + label + (on ? (st.dir < 0 ? ' ↓' : ' ↑') : '') + '</th>'; }
+function setSort(id, key){ const st = TS[id]; if (st.sort === key) st.dir *= -1; else { st.sort = key; st.dir = -1; } st.page = 0; rerender(); }
+function setPage(id, p){ TS[id].page = p; rerender(); window.scrollTo(0, 0); }
+function setQ(id, el){ TS[id].q = el.value.trim().toUpperCase(); TS[id].page = 0; const pos = el.selectionStart; rerender(); const n = $(el.id); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }
+function setF(id, k, v){ TS[id].f[k] = v; TS[id].page = 0; rerender(); }
+function pager(st, total, size){
+  const pages = Math.max(1, Math.ceil(total / size)); if (st.page >= pages) st.page = pages - 1;
+  const from = st.page * size;
+  return { from, html: '<div class="pager"><span>' + (total ? (from + 1) + '–' + Math.min(from + size, total) + ' of ' + num(total, 0) : '0 results') + '</span>' +
+    '<button class="btn" ' + (st.page === 0 ? 'disabled' : '') + ' onclick="setPage(\'' + st.id + '\',' + (st.page - 1) + ')">‹</button>' +
+    '<button class="btn" ' + (st.page >= pages - 1 ? 'disabled' : '') + ' onclick="setPage(\'' + st.id + '\',' + (st.page + 1) + ')">›</button></div>' };
+}
+function matchQ(sym, q){ return !q || sym.includes(q) || (S.names[sym] || '').toUpperCase().includes(q); }
+
+// ---- Early multibaggers ----
+function pageMultibagger(){
+  const v = $('view');
+  if (S.mbErr) { v.innerHTML = errBlock(S.mbErr); return; }
+  if (!S.mb) { v.innerHTML = loadingBlock('Loading the multi-bagger screen…'); return; }
+  const st = tableState('mb', { id: 'mb', sort: 'rank', dir: 1, f: { min: 3, turn: false } });
+  const m = r => r.measures || {};
+  let rows = (S.mb.ranked || []).filter(r => matchQ(r.symbol, st.q) && (r.score || 0) >= (st.f.min || 0) && (!st.f.turn || m(r).turnaround));
+  const G = { rank: r => r.rank, score: r => r.score, rev: r => m(r).revenue_growth_yoy_pct, pg: r => m(r).profit_growth_yoy_pct, nm: r => m(r).net_margin_pct,
+              cons: r => m(r).profit_growth_quarters_of_last_8, funds: r => (r.mutual_funds || {}).schemes_holding, mcap: r => val(S.bySym[r.symbol], 'market_value_bucket') };
+  rows = sortRows(rows, st, G);
+  const pg = pager(st, rows.length, 50);
+  const body = rows.slice(pg.from, pg.from + 50).map(r => {
+    const pr = (r.promoter || {}).flag;
+    return '<tr class="click" onclick="openStock(\'' + esc(r.symbol) + '\')"><td class="l">' + companyCell(r.symbol) + '</td>' +
+      '<td>' + dots(r.score || 0, 4) + '</td>' +
+      '<td>' + (m(r).turnaround ? '<span class="chip brand">Turnaround</span>' : '<span class="faint">–</span>') + '</td>' +
+      '<td class="num ' + cls(m(r).revenue_growth_yoy_pct) + '">' + pct(m(r).revenue_growth_yoy_pct) + '</td>' +
+      '<td class="num ' + cls(m(r).profit_growth_yoy_pct) + '">' + pct(m(r).profit_growth_yoy_pct) + '</td>' +
+      '<td class="num">' + (m(r).net_margin_pct == null ? '–' : num(m(r).net_margin_pct, 1) + '%') + '</td>' +
+      '<td class="num">' + (m(r).profit_growth_quarters_of_last_8 == null ? '–' : m(r).profit_growth_quarters_of_last_8 + '/8') + '</td>' +
+      '<td class="num">' + num((r.mutual_funds || {}).schemes_holding, 0) + '</td>' +
+      '<td class="num">' + crore(val(S.bySym[r.symbol], 'market_value_bucket')) + '</td>' +
+      '<td>' + (pr ? '<span class="chip ' + (pr === 'promoter buying' ? 'up' : pr === 'promoter selling' ? 'down' : '') + '">' + esc(pr.replace('promoter ', '')) + '</span>' : '<span class="faint">–</span>') + '</td></tr>';
+  }).join('');
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Early multibaggers</h1><p class="sub">Smaller, less-discovered companies with accelerating, cash-backed profit growth. Four gates: revenue growth &gt; 10%, profit growth &gt; 15%, profit up in 6 of 8 quarters, operating cash ≥ 0.8× profit. Fewer fund holders ranks higher.</p></div></div>' +
+    '<div class="toolbar"><input id="mbq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'mb\',this)">' +
+    '<div class="seg">' + [0, 2, 3, 4].map(n => '<button class="' + ((st.f.min || 0) === n ? 'on' : '') + '" onclick="setF(\'mb\',\'min\',' + n + ')">' + (n ? n + '+ gates' : 'All') + '</button>').join('') + '</div>' +
+    '<div class="seg"><button class="' + (st.f.turn ? 'on' : '') + '" onclick="setF(\'mb\',\'turn\',' + !st.f.turn + ')">Turnarounds only</button></div>' +
+    '<span class="muted" style="margin-left:auto;font-size:12.5px">Updated ' + esc(fmtTs(S.mb.ts)) + (S.mb.partial ? ' · partial pass' : '') + '</span></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th>' + th('score', 'Gates', st) + '<th>Turnaround</th>' + th('rev', 'Revenue gr.', st) + th('pg', 'Profit gr.', st) + th('nm', 'Net margin', st) + th('cons', 'Consistency', st) + th('funds', 'Fund schemes', st) + th('mcap', 'Mkt cap', st) + '<th>Promoter</th></tr></thead><tbody>' +
+    (body || '<tr><td colspan="10" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
+}
+
+// ---- Proven compounders ----
+function pageCompounders(){
+  const v = $('view');
+  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading the library to run the compounder screen…'); return; }
+  const st = tableState('cp', { id: 'cp', sort: 'quality', dir: -1, f: { near: false } });
+  let rows = compounders().filter(x => (st.f.near ? x.fails === 1 : x.fails === 0) && matchQ(x.s.symbol, st.q));
+  const G = { quality: x => x.quality * 1e12 + (val(x.s,'market_value_bucket') || 0), mcap: x => val(x.s,'market_value_bucket'), pe: x => val(x.s,'pe'), r12: x => val(x.s,'ret_12m'),
+              rev: x => val(x.s,'rev_yoy'), pg: x => val(x.s,'profit_yoy'), nm: x => val(x.s,'net_margin'), cons: x => val(x.s,'profit_consistency_8q'), funds: x => val(x.s,'mf_schemes_holding'), prom: x => val(x.s,'promoter_holding') };
+  rows = sortRows(rows, st, G);
+  const pg = pager(st, rows.length, 50);
+  const body = rows.slice(pg.from, pg.from + 50).map(x => { const s = x.s;
+    return '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l">' + companyCell(s.symbol) + '</td>' +
+      '<td class="num">' + crore(val(s,'market_value_bucket')) + '</td><td class="num">' + (val(s,'pe') == null ? '–' : num(val(s,'pe'), 1) + '×') + '</td>' +
+      '<td class="num ' + cls(val(s,'ret_12m')) + '">' + pct(val(s,'ret_12m')) + '</td><td class="num ' + cls(val(s,'rev_yoy')) + '">' + pct(val(s,'rev_yoy')) + '</td>' +
+      '<td class="num ' + cls(val(s,'profit_yoy')) + '">' + pct(val(s,'profit_yoy')) + '</td><td class="num">' + (val(s,'net_margin') == null ? '–' : num(val(s,'net_margin'), 1) + '%') + '</td>' +
+      '<td class="num">' + (val(s,'profit_consistency_8q') == null ? '–' : val(s,'profit_consistency_8q') + '/8') + '</td><td class="num">' + num(val(s,'mf_schemes_holding'), 0) + '</td>' +
+      '<td class="num">' + (val(s,'promoter_holding') == null ? '–' : num(val(s,'promoter_holding'), 1) + '%') + '</td>' +
+      '<td>' + (st.f.near ? '<span class="chip warn" title="' + esc(x.failed.join(', ')) + '">misses: ' + esc(x.failed[0]) + '</span>' : dots(x.quality, 5)) + '</td></tr>'; }).join('');
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Proven compounders</h1><p class="sub">Established, widely-held companies with a long record of profitable, cash-backed growth — the opposite end from early multibaggers. Must pass all six rules; ranked by five extra quality checks, then size.</p></div></div>' +
+    '<div class="rules">' + COMPOUNDER_RULES.map(r => '<span class="chip">' + esc(r[0]) + '</span>').join('') + '</div>' +
+    '<div class="toolbar"><input id="cpq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'cp\',this)">' +
+    '<div class="seg"><button class="' + (!st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',false)">Pass all six</button><button class="' + (st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',true)">Near misses (one rule)</button></div>' +
+    '<span class="muted" style="margin-left:auto;font-size:12.5px" title="' + esc(QUALITY_CHECKS.map(q => q[0]).join(' · ')) + '">Quality: ' + esc(QUALITY_CHECKS.map(q => q[0]).join(' · ')) + '</span></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th>' + th('mcap', 'Mkt cap', st) + th('pe', 'P/E', st) + th('r12', '12M return', st) + th('rev', 'Revenue gr.', st) + th('pg', 'Profit gr.', st) + th('nm', 'Net margin', st) + th('cons', 'Consistency', st) + th('funds', 'Fund schemes', st) + th('prom', 'Promoter', st) + th('quality', st.f.near ? 'Missed rule' : 'Quality', st) + '</tr></thead><tbody>' +
+    (body || '<tr><td colspan="11" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
+}
+
+// ---- Library ----
+function pageLibrary(){
+  const v = $('view');
+  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading the stock library (about 12 MB)…'); return; }
+  const st = tableState('lib', { id: 'lib', sort: 'met', dir: -1, f: { p: '', ps: 'met', dq: 0 } });
+  let rows = S.lib.stocks.filter(s => matchQ(s.symbol, st.q) && (s.data_quality_pct || 0) >= (st.f.dq || 0) &&
+    (!st.f.p || (s.cells && s.cells[st.f.p] && s.cells[st.f.p].status === st.f.ps)));
+  const G = { met: s => s.testable ? (s.met || 0) / s.testable : null, dq: s => s.data_quality_pct, mcap: s => val(s,'market_value_bucket'), pe: s => val(s,'pe'), r12: s => val(s,'ret_12m'), pg: s => val(s,'profit_yoy'), sym: s => s.symbol };
+  rows = sortRows(rows, st, G);
+  const pg = pager(st, rows.length, 50);
+  const opts = Object.keys(S.lib.rules || {}).map(k => '<option value="' + esc(k) + '" ' + (st.f.p === k ? 'selected' : '') + '>' + esc((M[k] || [k])[0]) + '</option>').join('');
+  const body = rows.slice(pg.from, pg.from + 50).map(s => {
+    if (!s.cells) return '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l">' + companyCell(s.symbol) + '</td><td colspan="6" class="l down" style="font-size:12px">' + esc(String(s.error || 'No data yet').slice(0, 90)) + '</td></tr>';
+    const r = s.testable ? s.met / s.testable : 0;
+    return '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l">' + companyCell(s.symbol) + '</td>' +
+      '<td class="num">' + crore(val(s,'market_value_bucket')) + '</td><td class="num">' + (val(s,'pe') == null ? '–' : num(val(s,'pe'), 1) + '×') + '</td>' +
+      '<td class="num ' + cls(val(s,'ret_12m')) + '">' + pct(val(s,'ret_12m')) + '</td><td class="num ' + cls(val(s,'profit_yoy')) + '">' + pct(val(s,'profit_yoy')) + '</td>' +
+      '<td><span class="num" style="margin-right:8px">' + (s.met || 0) + '/' + (s.testable || 0) + '</span><span class="bar"><i style="width:' + Math.round(r * 100) + '%"></i></span></td>' +
+      '<td class="num ' + ((s.data_quality_pct || 0) >= 70 ? 'up' : (s.data_quality_pct || 0) >= 40 ? '' : 'faint') + '">' + num(s.data_quality_pct, 0) + '%</td></tr>';
+  }).join('');
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Stock library</h1><p class="sub">Every listed NSE equity, scored on up to 124 parameters by the weekly batch. ' + num(S.lib.stocks.filter(s => s.cells).length, 0) + ' with data · updated ' + esc(fmtTs(S.lib.generated)) + (S.lib.partial ? ' (pass in progress)' : '') + '.</p></div></div>' +
+    '<div class="toolbar"><input id="libq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'lib\',this)">' +
+    '<select class="field" onchange="setF(\'lib\',\'p\',this.value)"><option value="">Any parameter</option>' + opts + '</select>' +
+    '<select class="field" onchange="setF(\'lib\',\'ps\',this.value)">' + [['met','is met'],['not_met','is not met'],['not_testable','is not testable']].map(o => '<option value="' + o[0] + '" ' + (st.f.ps === o[0] ? 'selected' : '') + '>' + o[1] + '</option>').join('') + '</select>' +
+    '<div class="seg">' + [0, 40, 70].map(n => '<button class="' + ((st.f.dq || 0) === n ? 'on' : '') + '" onclick="setF(\'lib\',\'dq\',' + n + ')">' + (n ? 'Data ' + n + '%+' : 'Any data') + '</button>').join('') + '</div></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr>' + th('sym', 'Company', st, 'l') + th('mcap', 'Mkt cap', st) + th('pe', 'P/E', st) + th('r12', '12M return', st) + th('pg', 'Profit gr.', st) + th('met', 'Rules met', st) + th('dq', 'Data', st) + '</tr></thead><tbody>' +
+    (body || '<tr><td colspan="7" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
+}
+
+// ---- Registry ----
+function pageRegistry(){
+  const v = $('view'); const d = S.admin;
+  if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
+  const statusBy = {}; (d.registry || []).forEach(r => { statusBy[r.name] = r.status; });
+  const chipS = s => '<span class="chip ' + (s === 'confirmed' ? 'up' : 'warn') + '">' + esc(s || 'unconfirmed') + '</span>';
+  let html = '<div class="page-head"><div><h1 class="h1">Investor registry</h1><p class="sub">Marquee investors tracked across NSE shareholding filings. Only confirmed investors count toward the registry parameters.</p></div></div>' +
+    '<div class="tbl-wrap" style="margin-bottom:18px"><table class="t"><thead><tr><th class="l">Investor</th><th class="l">Type</th><th class="l">Status</th><th class="l">Aliases</th></tr></thead><tbody>' +
+    (d.registry || []).map(r => '<tr><td class="l"><b>' + esc(r.name) + '</b></td><td class="l">' + esc(r.type) + '</td><td class="l">' + chipS(r.status) + '</td><td class="l muted" style="white-space:normal">' + esc((r.aliases || []).join(', ')) + '</td></tr>').join('') + '</tbody></table></div>';
+  html += '<div class="panel"><div class="panel-h"><h3>Candidate matches to review</h3><span class="muted" style="font-size:12px">A filing name lining up with a registry alias — confirm in hub/registry.json before it counts</span></div>';
+  if (!S.lib) html += '<div class="panel-b"><div class="skel"></div></div>';
+  else {
+    const rows = []; Object.keys(S.lib.investor_matches || {}).forEach(sym => (S.lib.investor_matches[sym] || []).forEach(m => rows.push(Object.assign({ sym }, m))));
+    rows.sort((a, b) => a.investor < b.investor ? -1 : 1);
+    html += rows.length ? '<table class="t"><tr><th class="l">Company</th><th class="l">Investor</th><th class="l">Status</th><th class="l">Name on filing</th><th>Shares</th><th>%</th></tr>' +
+      rows.map(r => '<tr class="click" onclick="openStock(\'' + esc(r.sym) + '\')"><td class="l">' + companyCell(r.sym) + '</td><td class="l">' + esc(r.investor) + '</td><td class="l">' + chipS(statusBy[r.investor]) + '</td><td class="l">' + esc(r.holder_name) + '</td><td class="num">' + (r.shares != null ? num(r.shares, 0) : '–') + '</td><td class="num">' + (r.pct != null ? num(r.pct, 2) + '%' : '–') + '</td></tr>').join('') + '</table>'
+      : '<div class="empty">No candidate matches found yet.</div>';
+  }
+  v.innerHTML = html + '</div>';
+}
+
+// ---- Bulk deals ----
+function pageBulk(){
+  const v = $('view'); const d = S.admin;
+  if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
+  const days = (d.bulk_deals || {}).by_day || {};
+  const keys = Object.keys(days).sort().reverse();
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Bulk deals</h1><p class="sub">Daily NSE bulk deals collected since ' + esc((d.bulk_deals || {}).first_day || '–') + '. Registry buys are deals by confirmed registry investors.</p></div></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Day</th><th>Deals</th><th>Buys</th><th>Sells</th><th>Registry buys</th></tr></thead><tbody>' +
+    (keys.map(k => '<tr><td class="l num">' + esc(fmtDate(k)) + '</td><td class="num">' + days[k].deals + '</td><td class="num up">' + days[k].buys + '</td><td class="num down">' + days[k].sells + '</td><td class="num">' + days[k].registry_buys + '</td></tr>').join('') || '<tr><td colspan="5" class="empty">No days stored yet.</td></tr>') + '</tbody></table></div>';
+}
+
+// ---- Parameters ----
+function pageParams(){
+  const v = $('view'); const d = S.admin;
+  if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
+  const st = tableState('par', { id: 'par', sort: 'id', dir: 1 });
+  const all = d.parameters || [];
+  const byStatus = {}; all.forEach(p => { byStatus[p.status] = (byStatus[p.status] || 0) + 1; });
+  const rows = all.filter(p => !st.q || (p.id + ' ' + p.definition + ' ' + p.family).toUpperCase().includes(st.q));
+  const chip = s => '<span class="chip ' + ({ available: 'up', collecting: 'warn', to_build: 'warn', gap: 'down' }[s] || '') + '">' + esc(String(s).replace(/_/g, ' ')) + '</span>';
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Parameters</h1><p class="sub">The registry of measures the library scores. ' + all.length + ' in total · ' + Object.keys(byStatus).map(k => byStatus[k] + ' ' + k.replace(/_/g, ' ')).join(' · ') + '.</p></div></div>' +
+    '<div class="toolbar"><input id="parq" class="field" placeholder="Filter parameters" value="' + esc(st.q) + '" oninput="setQ(\'par\',this)"></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Parameter</th><th class="l">Family</th><th class="l">Status</th><th class="l">Definition</th><th class="l">Source</th></tr></thead><tbody>' +
+    rows.map(p => '<tr><td class="l"><b>' + esc((M[p.id] || [p.id])[0]) + '</b><div class="faint num" style="font-size:11.5px">' + esc(p.id) + '</div></td><td class="l">' + esc(p.family) + '</td><td class="l">' + chip(p.status) + '</td><td class="l" style="white-space:normal;min-width:260px">' + esc(p.definition) + '</td><td class="l muted" style="white-space:normal;font-size:12px">' + esc(p.source) + '</td></tr>').join('') + '</tbody></table></div>';
+}
+
+// ---- Back-tests ----
+function pageTests(){
+  const v = $('view'); const d = S.admin;
+  if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
+  const t = d.tests || {};
+  const kv = obj => '<table class="t">' + Object.keys(obj).map(k => { const x = obj[k];
+    return '<tr><td class="l" style="white-space:normal">' + esc(k.replace(/_/g, ' ')) + '</td><td class="l" style="white-space:normal">' +
+      (x && typeof x === 'object' ? '<pre class="raw">' + esc(JSON.stringify(x, null, 1)) + '</pre>' : '<span class="num">' + esc(x) + '</span>') + '</td></tr>'; }).join('') + '</table>';
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Back-tests</h1><p class="sub">Summary statistics only. Survivorship bias applies wherever the universe is today\'s index members.</p></div></div>' +
+    (Object.keys(t).map(k => '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>' + esc(k.replace(/_/g, ' ')) + '</h3></div>' + kv(t[k]) + '</div>').join('') || '<div class="panel"><div class="empty">No back-test results yet.</div></div>');
+}
+
+// ======================================================================================
+// Stock report
+// ======================================================================================
+let charts = [];
+let pxRange = '1Y', pxRel = false;
+function destroyCharts(){ charts.forEach(c => { try { c.destroy(); } catch (e) {} }); charts = []; }
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+function pageStock(sym){
+  destroyCharts();
+  const v = $('view');
+  sym = String(sym || '').toUpperCase();
+  if (!S.lib && !S.libErr) { v.innerHTML = loadingBlock('Loading the library…'); return; }
+  const s = S.bySym[sym], r = S.mbBySym[sym];
+  if (!s && !r) { v.innerHTML = '<button class="back" onclick="history.back()">← Back</button>' + errBlock(sym + ' is not in the library yet.'); return; }
+  const name = nameOf(sym);
+  const rep = S.reports[sym];
+  if (!rep) {
+    S.reports[sym] = { loading: true };
+    call('adminStock', token, sym, S.names[sym] || '').then(d => { S.reports[sym] = d; if (current.page === 'stock' && current.arg && current.arg.toUpperCase() === sym) rerender(); })
+      .catch(e => { S.reports[sym] = { error: e.message, errors: {} }; if (current.page === 'stock') rerender(); });
+  }
+  const R = S.reports[sym] || { loading: true };
+  const px = (R.prices || []);
+  const last = px.length ? px[px.length - 1] : null;
+  const prev = px.length > 1 ? px[px.length - 2] : null;
+  const chg = last && prev ? (last[1] / prev[1] - 1) * 100 : null;
+  const yAgo = last ? px.find(p => p[0] >= isoShift(last[0], -365)) : null;
+  const r1y = last && yAgo ? (last[1] / yAgo[1] - 1) * 100 : val(s,'ret_12m');
+  const y52 = last ? px.filter(p => p[0] >= isoShift(last[0], -365)).map(p => p[1]) : [];
+  const hi52 = y52.length ? Math.max(...y52) : null, lo52 = y52.length ? Math.min(...y52) : null;
+  const cagr3 = last && px.length > 500 ? (Math.pow(last[1] / px[0][1], 365 / daysBetween(px[0][0], last[0])) - 1) * 100 : null;
+
+  // Badges
+  const badges = [];
+  if (isCompounder(sym)) badges.push('<span class="chip up">Proven compounder</span>');
+  if (r && r.score != null) badges.push('<span class="chip ' + (r.score === 4 ? 'up' : 'brand') + '">Multibagger ' + r.score + '/4</span>');
+  if (r && (r.measures || {}).turnaround) badges.push('<span class="chip brand">Turnaround</span>');
+  if (val(s,'mf_discovery_tier') === 1) badges.push('<span class="chip warn">Undiscovered (&lt;5 funds)</span>');
+  if (val(s,'pledge_pct') > 10) badges.push('<span class="chip down">Pledge ' + num(val(s,'pledge_pct'), 1) + '%</span>');
+
+  let html = '<button class="back" onclick="history.length > 1 ? history.back() : go(\'overview\')">← Back</button>' +
+    '<div class="rep-head"><div><h1 class="rep-title">' + esc(name || sym) + '</h1><div class="rep-meta"><span class="chip num">NSE: ' + esc(sym) + '</span>' +
+    (sectorOf(sym) ? '<span class="chip">' + esc(sectorOf(sym)) + '</span>' : '') + (s && s.latest_period ? '<span class="chip">Results to ' + esc(fmtDate(s.latest_period)) + '</span>' : '') + badges.join('') + '</div></div>' +
+    '<div class="price">' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:500">· ' + esc(fmtDate(last[0])) + '</span></div>'
+                            : R.loading ? '<div class="skel" style="width:140px;height:26px"></div>' : '') + '</div></div>';
+
+  html += '<div class="stats">' + [
+    ['Market cap', crore(val(s,'market_value_bucket'))], ['P/E', val(s,'pe') == null ? '–' : num(val(s,'pe'), 1) + '×'],
+    ['1Y return', '<span class="' + cls(r1y) + '">' + pct(r1y) + '</span>'], ['3Y CAGR', '<span class="' + cls(cagr3) + '">' + pct(cagr3) + '</span>'],
+    ['52W range', hi52 ? '₹' + num(lo52, 0) + '–' + num(hi52, 0) : (val(s,'from_52w_high') != null ? pct(val(s,'from_52w_high')) + ' from high' : '–')],
+    ['Dividend yield', val(s,'dividend_yield') == null ? '–' : num(val(s,'dividend_yield'), 2) + '%']
+  ].map(([k, x]) => '<div><div class="k">' + k + '</div><div class="v">' + x + '</div></div>').join('') + '</div>';
+
+  // Price + quarterly charts
+  const finErr = (R.errors || {}).financials, pxErr = (R.errors || {}).prices;
+  html += '<div class="grid g2" style="margin-bottom:14px">' +
+    '<div class="panel"><div class="panel-h"><h3>Price</h3><div style="display:flex;gap:8px"><div class="seg">' + ['6M', '1Y', '3Y'].map(x => '<button class="' + (pxRange === x ? 'on' : '') + '" onclick="pxRange=\'' + x + '\';rerender()">' + x + '</button>').join('') + '</div>' +
+    '<div class="seg"><button class="' + (pxRel ? 'on' : '') + '" onclick="pxRel=!pxRel;rerender()">vs NIFTY</button></div></div></div><div class="panel-b">' +
+    (R.loading ? '<div class="chart"><div class="skel" style="height:100%"></div></div>' : pxErr ? '<div class="notice">' + esc(pxErr) + '</div>' : '<div class="chart"><canvas id="cPx"></canvas></div>') + '</div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Quarterly revenue &amp; profit</h3><span class="muted" style="font-size:12px">₹ crore · consolidated · live from BharatStock</span></div><div class="panel-b">' +
+    (R.loading ? '<div class="chart"><div class="skel" style="height:100%"></div></div>' : finErr ? '<div class="notice">' + esc(finErr) + '</div>' : '<div class="chart"><canvas id="cQ"></canvas></div>') + '</div></div></div>';
+
+  // Scorecard
+  if (s && s.cells) {
+    const testable = s.testable || 0, met = s.met || 0, p = testable ? Math.round(met / testable * 100) : 0;
+    html += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Scorecard</h3><span class="muted" style="font-size:12px">Bar shows where this company sits among all ' + num(S.lib.stocks.filter(x => x.cells).length, 0) + ' in the library</span></div><div class="panel-b" style="display:flex;gap:16px;align-items:center;border-bottom:1px solid var(--line2)">' +
+      '<div class="ring" style="--p:' + p + '"><span>' + p + '%</span></div><div><div style="font-weight:700">' + met + ' of ' + testable + ' rules met</div><div class="muted" style="font-size:12.5px">' + (s.not_testable || 0) + ' not testable · data quality ' + num(s.data_quality_pct, 0) + '%</div></div></div>' +
+      '<div class="cols">' + GROUPS.map(([g, label]) => {
+        const keys = Object.keys(M).filter(k => M[k][1] === g && cell(s, k) && cell(s, k).value != null);
+        if (!keys.length) return '';
+        return '<div><div class="nav-h" style="color:var(--muted);padding:14px 0 4px">' + label + '</div><div class="metrics">' + keys.map(k => metricRow(s, k)).join('') + '</div></div>';
+      }).join('') + '</div></div>';
+  }
+
+  // Ownership, corporate actions, news
+  const own = s ? [['Promoter', val(s,'promoter_holding')], ['FII', val(s,'fii_holding')], ['DII', val(s,'dii_holding')]] : [];
+  const ownOk = own.every(x => x[1] != null);
+  html += '<div class="grid g3" style="margin-bottom:14px">' +
+    '<div class="panel"><div class="panel-h"><h3>Shareholding</h3><span class="muted" style="font-size:12px">latest NSE filing</span></div><div class="panel-b">' +
+    (ownOk ? '<div class="chart sm"><canvas id="cOwn"></canvas></div>' + ownChanges(s) : '<div class="muted">Shareholding not available for this company yet.</div>') + '</div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Corporate actions</h3><span class="muted" style="font-size:12px">NSE · upcoming first</span></div><div class="panel-b timeline">' + actionsHtml(s) + '</div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Recent news</h3><span class="muted" style="font-size:12px">Google News</span></div><div class="panel-b news">' + newsHtml(R) + '</div></div></div>';
+
+  // Multibagger gates + full table
+  if (r) {
+    html += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Multi-bagger screen</h3><span class="muted" style="font-size:12px">rank ' + esc(r.rank || '–') + ' of ' + num((S.mb.ranked || []).length, 0) + '</span></div><div class="panel-b" style="display:flex;gap:8px;flex-wrap:wrap">' +
+      Object.keys(r.gates || {}).map(k => '<span class="chip ' + (r.gates[k] === true ? 'up' : r.gates[k] === false ? 'down' : '') + '">' + (r.gates[k] === true ? '✓ ' : r.gates[k] === false ? '✗ ' : '? ') + esc(k.replace(/_/g, ' ')) + '</span>').join('') +
+      ((r.mutual_funds || {}).schemes_holding != null ? '<span class="chip">Funds: ' + r.mutual_funds.schemes_holding + ' holding · +' + (r.mutual_funds.schemes_added || 0) + ' / −' + (r.mutual_funds.schemes_reduced || 0) + '</span>' : '') +
+      ((r.promoter || {}).flag ? '<span class="chip">' + esc(r.promoter.flag) + ' (6M)</span>' : '') + '</div></div>';
+  }
+  if (s && s.cells) {
+    html += '<div class="panel"><div class="panel-b"><details class="all"><summary>All ' + Object.keys(s.cells).length + ' parameters with their rules</summary><div class="tbl-wrap" style="margin-top:10px;max-height:none"><table class="t"><tr><th class="l">Parameter</th><th>Value</th><th class="l">Result</th><th class="l">Rule</th></tr>' +
+      Object.keys(s.cells).map(k => { const c = s.cells[k];
+        return '<tr><td class="l">' + esc((M[k] || [k])[0]) + '</td><td class="num">' + fmtMeasure(k, c.value) + '</td><td class="l">' + statusChip(c.status) + '</td><td class="l muted" style="white-space:normal">' + esc(c.rule) + '</td></tr>'; }).join('') + '</table></div></details></div></div>';
+  } else if (s && s.error) {
+    html += errBlock('Library entry: ' + s.error);
+  }
+  v.innerHTML = html;
+  if (!R.loading) drawStockCharts(R, s);
+}
+
+function statusChip(st){ return '<span class="chip ' + ({ met: 'up', not_met: 'down' }[st] || '') + '">' + esc(String(st || '–').replace(/_/g, ' ')) + '</span>'; }
+function metricRow(s, k){
+  const c = cell(s, k), v = c.value, better = M[k][3];
+  const p = typeof v === 'number' ? percentile(k, v) : null;
+  const rank = p == null || !better ? null : (better > 0 ? p : 100 - p);
+  return '<div class="metric" title="' + esc(c.rule || '') + '"><span class="n">' + esc(M[k][0]) + '</span><span class="val ' + (c.status === 'met' ? 'up' : c.status === 'not_met' ? 'down' : '') + '">' + fmtMeasure(k, v) + '</span>' +
+    (p != null ? '<span class="pct"><span class="track"><i style="left:' + p + '%"></i></span>' + (rank != null ? '<span style="min-width:116px;text-align:right">better than ' + rank + '%</span>' : '<span style="min-width:116px;text-align:right">' + p + 'th percentile</span>') + '</span>' : '') + '</div>';
+}
+function ownChanges(s){
+  const rows = [['Promoter (QoQ)', val(s,'promoter_change_qoq')], ['Promoter (YoY)', val(s,'promoter_change_yoy')], ['FII (QoQ)', val(s,'fii_change_qoq')], ['DII (QoQ)', val(s,'dii_change_qoq')], ['Pledge', val(s,'pledge_pct')]].filter(x => x[1] != null);
+  return '<div style="margin-top:10px">' + rows.map(([k, v]) => '<div class="metric" style="grid-template-columns:1fr auto"><span class="n">' + k + '</span><span class="val ' + (k === 'Pledge' ? (v > 10 ? 'down' : '') : cls(v)) + '">' + (k === 'Pledge' ? num(v, 2) + '%' : (v > 0 ? '+' : '') + num(v, 2) + ' pp') + '</span></div>').join('') + '</div>';
+}
+function actionsHtml(s){
+  const a = (s && s.actions) || null;
+  if (a == null) return '<div class="muted">Not collected for this company yet — the weekly batch now saves NSE corporate actions and will add them on its next pass.</div>';
+  if (!a.length) return '<div class="muted">No dividends, splits, bonuses or buybacks in the last year, and none announced.</div>';
+  return a.map(x => '<div class="ev"><span class="d">' + esc(fmtDate(x.ex_date)) + '</span><span>' + (x.upcoming ? '<span class="chip brand" style="margin-right:6px">Upcoming</span>' : '') + esc(x.subject) +
+    (x.record_date ? '<div class="faint" style="font-size:12px">Record date ' + esc(fmtDate(x.record_date)) + '</div>' : '') + '</span></div>').join('');
+}
+function newsHtml(R){
+  if (R.loading) return '<div class="skel"></div><div class="skel" style="margin-top:10px;width:80%"></div><div class="skel" style="margin-top:10px;width:60%"></div>';
+  if ((R.errors || {}).news) return '<div class="notice">' + esc(R.errors.news) + '</div>';
+  const items = (R.news || []).filter(n => /^https?:\/\//.test(n.link || ''));
+  if (!items.length) return '<div class="muted">No recent headlines found.</div>';
+  return items.slice(0, 7).map(n => '<a href="' + esc(n.link) + '" target="_blank" rel="noopener noreferrer"><div class="tt">' + esc((n.title || '').replace(/\s+-\s+[^-]+$/, '')) + '</div><div class="src">' + esc(n.source || '') + ' · ' + esc(fmtDate(n.date)) + '</div></a>').join('');
+}
+function isoShift(iso, days){ const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
+function daysBetween(a, b){ return (new Date(b) - new Date(a)) / 86400000; }
+
+function drawStockCharts(R, s){
+  if (typeof Chart === 'undefined') return;
+  const grid = cssVar('--line2'), tick = cssVar('--muted'), brand = cssVar('--brand'), up = cssVar('--up'), warn = cssVar('--warn'), faint = cssVar('--faint');
+  Chart.defaults.font.family = cssVar('--sans'); Chart.defaults.color = tick;
+  const scales = { x: { grid: { display: false }, ticks: { maxTicksLimit: 6, color: tick } }, y: { grid: { color: grid }, ticks: { color: tick } } };
+
+  const px = R.prices || [];
+  const el = $('cPx');
+  if (el && px.length) {
+    const last = px[px.length - 1][0];
+    const cut = isoShift(last, pxRange === '6M' ? -183 : pxRange === '1Y' ? -365 : -1100);
+    const p = px.filter(x => x[0] >= cut);
+    const ds = [];
+    if (pxRel) {
+      const nmap = {}; (R.nifty || []).forEach(x => { nmap[x[0]] = x[1]; });
+      const base = p[0][1];
+      let nb = null; const nser = p.map(x => { const n = nmap[x[0]]; if (n != null && nb == null) nb = n; return n != null && nb ? n / nb * 100 : null; });
+      ds.push({ label: s ? s.symbol : 'Stock', data: p.map(x => x[1] / base * 100), borderColor: brand, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 0, tension: .15 });
+      ds.push({ label: 'NIFTY 50', data: nser, borderColor: faint, borderDash: [4, 3], borderWidth: 1.4, pointRadius: 0, spanGaps: true, tension: .15 });
+    } else {
+      ds.push({ label: 'Close', data: p.map(x => x[1]), borderColor: brand, backgroundColor: brand + '18', fill: true, borderWidth: 1.8, pointRadius: 0, tension: .15 });
+    }
+    charts.push(new Chart(el, { type: 'line', data: { labels: p.map(x => x[0]), datasets: ds },
+      options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: pxRel, labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (pxRel ? num(c.parsed.y, 1) : '₹' + num(c.parsed.y, 2)) } } },
+        scales: { x: scales.x, y: Object.assign({}, scales.y, { ticks: { color: tick, callback: v => pxRel ? v : '₹' + num(v, 0) } }) } } }));
+  }
+
+  const q = R.quarters || [];
+  const qel = $('cQ');
+  if (qel && q.length) {
+    const lab = q.map(x => { const d = new Date(x.period); return isNaN(d) ? x.period : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); });
+    const margin = q.map(x => x.revenue ? x.net_profit / x.revenue * 100 : null);
+    charts.push(new Chart(qel, { data: { labels: lab, datasets: [
+      { type: 'bar', label: 'Revenue', data: q.map(x => rupeesToCr(x.revenue)), backgroundColor: brand + 'cc', borderRadius: 3, yAxisID: 'y' },
+      { type: 'bar', label: 'Net profit', data: q.map(x => rupeesToCr(x.net_profit)), backgroundColor: up + 'cc', borderRadius: 3, yAxisID: 'y' },
+      { type: 'line', label: 'Net margin %', data: margin, borderColor: warn, backgroundColor: warn, borderWidth: 2, pointRadius: 2.5, yAxisID: 'y2', tension: .2 } ] },
+      options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y2' ? c.dataset.label + ': ' + num(c.parsed.y, 1) + '%' : c.dataset.label + ': ₹' + num(c.parsed.y, 0) + ' cr' } } },
+        scales: { x: scales.x, y: { grid: { color: grid }, ticks: { color: tick, callback: v => num(v, 0) } }, y2: { position: 'right', grid: { display: false }, ticks: { color: tick, callback: v => v + '%' } } } } }));
+  }
+
+  const oel = $('cOwn');
+  if (oel && s) {
+    const p = val(s,'promoter_holding') || 0, f = val(s,'fii_holding') || 0, d = val(s,'dii_holding') || 0, o = Math.max(0, 100 - p - f - d);
+    charts.push(new Chart(oel, { type: 'doughnut', data: { labels: ['Promoter', 'FII', 'DII', 'Public & others'], datasets: [{ data: [p, f, d, o], backgroundColor: [brand, up, warn, faint], borderWidth: 0 }] },
+      options: { maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'right', labels: { boxWidth: 10 } }, tooltip: { callbacks: { label: c => c.label + ': ' + num(c.parsed, 1) + '%' } } } } }));
+  }
+}
+
+// ======================================================================================
+if (token) start(); else { $('login').style.display = 'flex'; }
+</script>
+</body>
+</html>
