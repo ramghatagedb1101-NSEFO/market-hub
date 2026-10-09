@@ -9,16 +9,14 @@ As of 9 Oct 2026, 06:10 IST. Read this together with `CHANGELOG.md`.
 Claude account -- check GitHub's `user-login` and the Apps Script account popup before acting. Details in
 CHANGELOG 9 Oct, "Accounts and browser access".
 
-**Admin login button: fixed in code, waiting for deploy.** The 9 Oct "Email me a code does nothing" bug
-was a browser-side syntax error in the new Multibagger/Matured code (`screen\'s` inside the `ADMIN_HTML`
-template literal), not authorization -- see CHANGELOG 9 Oct. Fixed in `d7578a5` (plus: admin session
-now survives tab closes, `localStorage`). The fixed `Admin.gs` is **pasted and saved** in the Apps Script
-editor. **Remaining step (needs the owner or a session allowed to deploy):**
-1. Deploy → Manage deployments → `AKfycbwQZxgg…` ("Admin dashboard: Multibagger + Matured tabs",
-   the owner's admin bookmark) → pencil → Version: **New version** → Deploy. That creates Version 22.
-2. Same dialog → `AKfycbye12r6…` (live relay) → pencil → Version: **Version 22** → Deploy.
-3. Check: open the admin bookmark, "Email me a code" sends a code; Multibagger/Matured tabs load;
-   close and reopen the tab within six hours and it stays signed in.
+**Admin login button: fixed and deployed (9 Oct, ~19:50 IST).** Cause was a browser-side syntax error
+in the new Multibagger/Matured code (`screen's` inside the `ADMIN_HTML` template literal), not
+authorization -- see CHANGELOG 9 Oct. Fix `d7578a5` (plus: admin session now survives tab closes,
+`localStorage`) is deployed as a new version on **both** `AKfycbwQZxgg…` (admin bookmark) and
+`AKfycbye12r6…` (live relay), done from the Profile 5 / ramghatagedb1101@gmail.com Chrome window.
+Verified live from outside: both addresses serve the fixed page, and the page script Google actually
+serves parses (the same check fails on the broken 9 Oct code). Still to confirm by the owner: one real
+"Email me a code" click delivers a code, and reopening the tab within six hours stays signed in.
 
 **Always run `node relay/check.js` before pasting/deploying relay code.** It catches browser-side errors
 inside `ADMIN_HTML` that `node --check` cannot see.
