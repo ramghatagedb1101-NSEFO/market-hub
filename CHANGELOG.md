@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-09
 
+### Stock report: shareholding in plain words, who-bought/who-sold chart, quarterly holding history
+- Owner found "-0.56 pp" unclear. The shareholding panel now says it plainly -- "Promoter 51.44%, down 0.56 from 52.00% last quarter" -- for promoter, FII, DII and public & others (whatever the three named groups gave up or took), plus a line on the promoter stake a year ago and on pledging. The donut is gone.
+- **Who bought, who sold**: a diverging bar chart of each group's change since last quarter (right = increased, left = decreased), the owner's choice of chart.
+- **Holding by quarter** (trend line for promoter, FII, DII) appears once a company has three stored quarters. The weekly batch now saves `holding_history` per company: promoter and public % for every quarter NSE lists (already fetched, previously dropped), and FII/DII % for the filings it reads (latest, previous quarter, year ago), merged with what earlier batches stored so FII/DII fill in over time. Newest value wins per quarter; a missing value never erases a stored one; capped at 12 quarters (`hub/shareholding.py` `target_dates`, `holding_history`).
+- Verified: `test_holding_history.py` (dates line up with the filings read, oldest-first, merge across batches keeps earlier FII/DII, cap, empty fetch keeps history); page previewed on real data with stand-in history for one company.
+
 ### Admin dashboard rebuilt: research-terminal design, Proven compounders screen, clickable stock report
 Owner's feedback: the Matured tab looked identical to Multibagger, there was no way to see a full report on a company, and the dashboard looked unprofessional. Owner's choices: compounders as their own screen; the report to include live quarterly trends from BharatStock; a clean research-terminal look.
 - **Why Matured looked identical:** it was the same multi-bagger list, same columns and detail panel, with only the default sort changed (more fund holders first). Replaced.
