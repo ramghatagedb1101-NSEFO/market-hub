@@ -10,6 +10,8 @@ PRIVATE_REPO_TOKEN (contents read and write on market-hub-private).
 Parameters without a calculation yet are listed in NOT_YET in the output, so the gap is visible.
 """
 import base64
+import csv
+import io
 import json
 import os
 import statistics as st
@@ -21,7 +23,7 @@ import requests
 from . import config
 from . import alerts
 from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf,
-                          insider_signal, mf_counts, _consolidated, score, UA, MAX_PAGES,
+                          insider_signal, mf_counts, _consolidated, score, UA, MAX_PAGES, EQUITY_LIST,
                           FIELDS, ENDPOINT_COUNTS)
 from . import shareholding as shp
 from . import corporate_actions as ca
@@ -668,6 +670,17 @@ def merge_and_write_multibagger(mb_stocks: list[dict], prior_mb: dict, mb_failur
     return len(merged)
 
 
+def fetch_company_names() -> dict:
+    """Symbol -> company name, from the same NSE EQUITY_L list universe() reads."""
+    r = requests.get(EQUITY_LIST, headers=UA, timeout=30)
+    r.raise_for_status()
+    rows = list(csv.reader(io.StringIO(r.text)))
+    head = [h.strip().upper() for h in rows[0]]
+    i_sym, i_name = head.index("SYMBOL"), head.index("NAME OF COMPANY")
+    return {row[i_sym].strip(): row[i_name].strip() for row in rows[1:]
+            if len(row) > max(i_sym, i_name) and row[i_sym].strip()}
+
+
 def main() -> dict:
     """Runs one batch, starting where the last batch left off. A single GitHub Actions job cannot
     finish the full ~2,570-company universe once real API calls are happening (roughly 300 fit in
@@ -682,6 +695,11 @@ def main() -> dict:
     started = time.time()
     names = universe()
     existing, sha = fetch_existing()
+    company_names = dict(existing.get("names") or {})
+    try:
+        company_names.update(fetch_company_names())
+    except Exception:
+        pass   # names are a nicety for the stock report; never fail a batch over them
     start_idx = existing.get("cursor_next", 0)
     if not isinstance(start_idx, int) or not (0 <= start_idx < len(names)):
         start_idx = 0
@@ -790,8 +808,10 @@ def main() -> dict:
                 values["holder_count_change"] = agg_latest["holder_count"] - agg_prior["holder_count"]
                 if agg_latest["top10_pct"] is not None and agg_prior["top10_pct"] is not None:
                     values["top10_holding_change"] = agg_latest["top10_pct"] - agg_prior["top10_pct"]
+            ca_list = None
             try:
                 ca_records = ca.fetch(nse_session, sym)
+                ca_list = ca.recent_and_upcoming(ca_records)
                 ca_values = ca.values(ca_records)
                 if last and ca_values.get("dividend_per_share_ttm") is not None:
                     values["dividend_yield"] = ca_values["dividend_per_share_ttm"] / last * 100
@@ -851,8 +871,15 @@ def main() -> dict:
                     mb_res["promoter"] = ins
                     mb_res["mutual_funds"] = mf
             result = evaluate({k: v for k, v in values.items() if not k.startswith("_")})
-            stocks.append({"symbol": sym, "latest_period": values.get("_latest_period"),
-                           "quarters": values.get("_quarters", 0), **result})
+            entry = {"symbol": sym, "latest_period": values.get("_latest_period"),
+                     "quarters": values.get("_quarters", 0), **result}
+            # For the admin stock report (9 Oct 2026): NSE corporate actions (public data, last year
+            # plus anything upcoming) and the sector, both already fetched above and previously dropped.
+            if ca_list is not None:
+                entry["actions"] = ca_list
+            if sector:
+                entry["sector"] = sector
+            stocks.append(entry)
             if mb_res is not None:
                 mb_stocks.append(mb_res)
                 mb_failures.pop(sym, None)
@@ -900,6 +927,8 @@ def main() -> dict:
         "rules": {k: v[0] for k, v in RULES.items()},
         "not_yet_implemented": NOT_YET,
         "stocks": merged_stocks,
+        # Symbol -> company name from NSE's EQUITY_L list, for the admin stock report.
+        "names": company_names,
         # Review list, every name-alias match regardless of registry status -- the owner confirms an
         # investor in hub/registry.json before it counts toward registry_holders/registry_new_entrants.
         "investor_matches": prior_matches,
@@ -909,7 +938,7 @@ def main() -> dict:
     }
     publish(payload, sha)
     return {k: v for k, v in payload.items()
-            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted")} | {
+            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted", "names")} | {
         "stocks_written": len(merged_stocks), "batch_written": len(stocks),
         "symbols_with_matches": len(prior_matches),
         "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(mb_stocks),

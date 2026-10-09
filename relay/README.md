@@ -74,7 +74,7 @@ node relay/check.js                                   # must pass: parses the ad
 mkdir -p /tmp/relay && cd /tmp/relay
 echo '{"scriptId":"13rGqOxSSC3aQzZGYjpDWT4NnNXUO_kjCQKeA4oo2pZ8MD22KEilKWR7s","rootDir":"."}' > .clasp.json
 clasp pull                                            # gets appsscript.json; compare Code.js/Admin.js with the last deployed commit first
-cp <repo>/relay/Code.gs Code.js && cp <repo>/relay/Admin.gs Admin.js
+cp <repo>/relay/Code.gs Code.js && cp <repo>/relay/Admin.gs Admin.js && cp <repo>/relay/Report.gs Report.js && cp <repo>/relay/AdminPage.html AdminPage.html
 clasp push -f
 # confirm the saved project now matches the repo (projects.getContent) BEFORE versioning -- a push with the
 # API setting off once reported success and changed nothing
@@ -85,4 +85,12 @@ clasp deployments                                     # both should show @N
 ```
 `appsscript.json` has `executeAs: USER_DEPLOYING`, so the relay runs as whoever deploys -- deploy only as
 ramghatagedb1101@gmail.com. Never `clasp deploy` without `-i` (that creates a new deployment and URL).
+
+## Files in the Apps Script project (since 9 Oct 2026)
+- `Code.gs` -- Kite login relay, quotes, routing (doGet/doPost).
+- `Admin.gs` -- sign-in (email code, 7-day sessions), admin data readers, phone app API.
+- `Report.gs` -- `adminStock`: live parts of the stock report (BharatStock quarterly financials and prices, NIFTY, Google News).
+- `AdminPage.html` -- the admin dashboard page (served by `adminPage()`).
+
+Script property for the stock report: **`BHARATSTOCK_API_KEY`** (the same key as the GitHub secret), entered by the owner in Project Settings -> Script properties. Without it the report's two charts show a notice; everything else works.
 
