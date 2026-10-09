@@ -1,6 +1,21 @@
 # Build status and to-do
 
-As of 8 Oct 2026, 15:10 IST. Read this together with `CHANGELOG.md`.
+As of 9 Oct 2026, 06:10 IST. Read this together with `CHANGELOG.md`.
+
+## HANDOVER -- read this first if you are a new Claude session
+
+**`git push` is currently blocked.** Not a code problem -- `gh` CLI on this machine is authenticated as
+the wrong GitHub account (`ramghatage-ux`, used for the owner's other projects, not the account that
+owns `market-hub`), because the credential helper Chrome profile it was set up in was the wrong one. See
+`CHANGELOG.md`'s 9 Oct entry for the full diagnosis. **This needs the owner to run `gh auth login`
+themselves** (an account-authorization step, not something to do on their behalf) in the correct Chrome
+profile. Check `gh auth status` first -- if it still shows `ramghatage-ux`, don't attempt to push; ask
+the owner whether they've fixed it yet.
+
+One commit is sitting local-only, ready to push the moment access is restored:
+`17669cc STATUS: stock tracker confirmed live on the admin dashboard, 9 Oct`. Run `git log
+origin/main..HEAD` to confirm what's actually pending before pushing -- this file may have grown further
+commits since this note was written.
 
 ## Structure and capabilities audit (owner's request, 8 Oct)
 
