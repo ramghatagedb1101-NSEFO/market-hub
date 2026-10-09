@@ -171,7 +171,7 @@
     <div class="pb">
       <div class="logo"><img src="icon-512.png" alt=""><span id="gate-title">Market Hub</span></div>
       <div><b>Sign in</b></div>
-      <div class="mut" style="margin-top:4px">A six-digit code goes to the owner's email, the same one the admin dashboard uses. It lasts 10 minutes. You stay signed in for six hours.</div>
+      <div class="mut" style="margin-top:4px">A six-digit code goes to the owner's email, the same one the admin dashboard uses. It lasts 10 minutes. You stay signed in for seven days.</div>
       <button class="btn" id="gate-send" type="button">Email me a code</button>
       <form id="gate-form" autocomplete="off">
         <label for="gate-code" class="mut" style="display:block;margin-top:14px">Code</label>
@@ -212,7 +212,7 @@
   let FEED = null, LIVE = null, chart = null, BTC = null;
 
   // Sign-in. The data files live in the private repo; the relay returns them only for a session
-  // started with the owner's emailed code (relay/Admin.gs). Sessions last six hours on the relay.
+  // started with the owner's emailed code (relay/Admin.gs). Sessions last seven days on the relay.
   const SESSION_KEY = "mh_session";
   const store = {
     get(){ try { return localStorage.getItem(SESSION_KEY); } catch(e){ return null; } },
@@ -270,7 +270,8 @@
     $("#settings").classList.remove("on");
     showGate(msg || "Signed out.");
   }
-  $("#signout").onclick = () => signOut();
+  // Sign out ends the session on the relay too (fire and forget: the device forgets it either way).
+  $("#signout").onclick = () => { const t = SESSION; if (t) relayPost("app_logout", {token: t}).catch(() => {}); signOut(); };
   $("#gate-send").onclick = async () => {
     const b = $("#gate-send"); b.disabled = true;
     showGate("Sending…");

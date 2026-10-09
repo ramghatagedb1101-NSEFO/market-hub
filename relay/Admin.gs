@@ -3,7 +3,10 @@
  *
  * Login: a six-digit code is emailed to the account that owns this script (Session.getEffectiveUser).
  * The code lasts 10 minutes and can be requested once a minute. A correct code starts a session
- * that lasts six hours, kept in the browser's session storage and checked on every data call.
+ * that lasts seven days, checked on every data call. The browser keeps the session token in
+ * localStorage; the server keeps only its SHA-256 hash and expiry in the script properties
+ * (key "sess_<hash>"), so the token itself never appears in the project settings. Signing out
+ * deletes the session on the server.
  *
  * Data: the daily job writes the admin summary to the private repository market-hub-private. The page
  * reads it with a read-only token kept in the script properties (ADMIN_READ_TOKEN), never in the public repository.
@@ -15,12 +18,47 @@
 const ADMIN_FILE = 'market-hub-admin.json';   // legacy Drive file, no longer read by the dashboard
 const ADMIN_REPO = 'ramghatagedb1101-NSEFO/market-hub-private';
 const ADMIN_PATH = 'admin.json';
-const ADMIN_SESSION_SECONDS = 21600;   // six hours, the cache maximum
+const ADMIN_SESSION_DAYS = 7;          // owner's choice, 9 Oct 2026 (was six hours, CacheService's cap)
 const ADMIN_CODE_SECONDS = 600;        // ten minutes
 const ADMIN_MAX_TRIES = 5;
 // Phone app data: the files the daily jobs keep in the private repo's site/ folder (hub/site_data.py).
 const APP_DIR = 'site';
 const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger'];
+
+/**
+ * Sessions live in the script properties, not CacheService: CacheService caps any entry at six hours,
+ * which forced a new emailed code at least that often. Each session is stored under the SHA-256 of its
+ * token with its expiry time; expired ones are swept whenever a new session starts.
+ */
+function sessionKey_(token) { return 'sess_' + sha256Hex_(String(token)); }
+
+function sessionCreate_() {
+  const props = PropertiesService.getScriptProperties();
+  const now = Date.now();
+  const all = props.getProperties();
+  Object.keys(all).forEach(function (k) {
+    if (k.indexOf('sess_') === 0 && !(Number(all[k]) > now)) props.deleteProperty(k);
+  });
+  const token = Utilities.getUuid() + Utilities.getUuid();
+  props.setProperty(sessionKey_(token), String(now + ADMIN_SESSION_DAYS * 86400000));
+  return token;
+}
+
+function sessionValid_(token) {
+  if (!token) return false;
+  const props = PropertiesService.getScriptProperties();
+  const key = sessionKey_(token);
+  const exp = Number(props.getProperty(key) || 0);
+  if (exp > Date.now()) return true;
+  if (exp) props.deleteProperty(key);
+  return false;
+}
+
+/** Ends a session on the server (the dashboard's and the phone app's Sign out). Always succeeds. */
+function adminLogout(token) {
+  if (token) PropertiesService.getScriptProperties().deleteProperty(sessionKey_(token));
+  return { ok: true };
+}
 
 function adminPage() {
   return HtmlService.createHtmlOutput(ADMIN_HTML)
@@ -58,14 +96,11 @@ function adminVerify(code) {
     return { ok: false, error: 'Code not recognised.' };
   }
   cache.removeAll(['admin_code', 'admin_tries']);
-  const token = Utilities.getUuid() + Utilities.getUuid();
-  cache.put('admin_session_' + token, '1', ADMIN_SESSION_SECONDS);
-  return { ok: true, token: token };
+  return { ok: true, token: sessionCreate_() };
 }
 
 function adminData(token) {
-  const cache = CacheService.getScriptCache();
-  if (!token || !cache.get('admin_session_' + token)) return { error: 'session_expired' };
+  if (!sessionValid_(token)) return { error: 'session_expired' };
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
   if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
   const res = UrlFetchApp.fetch(
@@ -125,7 +160,7 @@ function sendDiscoveryAlert_(key, body) {
 /**
  * The phone app (docs/index.html) signs in with the same email code and session as this dashboard.
  * It is a separate web page, so it cannot use google.script.run: it posts here through doPost
- * (mode=app_code, app_verify, app_data) with a JSON body sent as text/plain.
+ * (mode=app_code, app_verify, app_data, app_logout) with a JSON body sent as text/plain.
  */
 function appApi_(mode, body) {
   let p = {};
@@ -133,13 +168,13 @@ function appApi_(mode, body) {
   if (mode === 'app_code') return adminRequestCode();
   if (mode === 'app_verify') return adminVerify(p.code);
   if (mode === 'app_data') return appData_(p.token, p.files);
+  if (mode === 'app_logout') return adminLogout(p.token);
   return { error: 'unknown mode' };
 }
 
 /** Returns the requested phone-app files for a signed-in session, fetched from the private repo in parallel. */
 function appData_(token, files) {
-  const cache = CacheService.getScriptCache();
-  if (!token || !cache.get('admin_session_' + token)) return { error: 'session_expired' };
+  if (!sessionValid_(token)) return { error: 'session_expired' };
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
   if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
   const names = (Array.isArray(files) ? files : APP_FILES).filter(function (n) { return APP_FILES.indexOf(n) >= 0; });
@@ -161,8 +196,7 @@ function appData_(token, files) {
 
 /** Reads the stock library (library.json) from the private repo for the signed-in owner. */
 function adminLibrary(token) {
-  const cache = CacheService.getScriptCache();
-  if (!token || !cache.get('admin_session_' + token)) return { error: 'session_expired' };
+  if (!sessionValid_(token)) return { error: 'session_expired' };
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
   if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
   const res = UrlFetchApp.fetch(
@@ -177,8 +211,7 @@ function adminLibrary(token) {
  * owner. Same file the phone app's Multi-bagger screen already reads through appData_ -- this just
  * gives the admin dashboard its own filterable view of it (9 Oct 2026). */
 function adminMultibagger(token) {
-  const cache = CacheService.getScriptCache();
-  if (!token || !cache.get('admin_session_' + token)) return { error: 'session_expired' };
+  if (!sessionValid_(token)) return { error: 'session_expired' };
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
   if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
   const res = UrlFetchApp.fetch(
@@ -279,8 +312,8 @@ pre{white-space:pre-wrap;font-size:12px;background:#fafbfc;border-radius:8px;pad
 </div>
 </div>
 <script>
-// localStorage, not sessionStorage: the session lives six hours on the server (CacheService's cap),
-// and sessionStorage was cleared on every tab close, forcing a new code each time.
+// localStorage, not sessionStorage: the session lives seven days on the server, and sessionStorage
+// was cleared on every tab close, forcing a new code each time.
 const store = {
   get(){ try { return localStorage.getItem('mh_admin_token'); } catch (e) { return null; } },
   set(v){ try { localStorage.setItem('mh_admin_token', v); } catch (e) {} },
@@ -314,7 +347,11 @@ function verify(){
   }).withFailureHandler(e => lmsg(e.message)).adminVerify(c);
 }
 function lmsg(t){ document.getElementById('lmsg').textContent = t; }
-function logout(){ store.clear(); token=''; location.reload(); }
+function logout(){
+  const t = token; store.clear(); token = '';
+  // End the session on the server too; reload either way.
+  google.script.run.withSuccessHandler(() => location.reload()).withFailureHandler(() => location.reload()).adminLogout(t);
+}
 
 function show(){
   document.getElementById('login').style.display = 'none';

@@ -29,7 +29,7 @@ function doGet(e) {
 
 /** The daily job posts the admin summary here (mode=publish_admin, with RELAY_KEY). The stock-library
  *  batch posts a new discovery-tier finding here (mode=alert, with RELAY_KEY). The phone app signs in
- *  and reads its data here (mode=app_code, app_verify, app_data; see Admin.gs). */
+ *  and reads its data here (mode=app_code, app_verify, app_data, app_logout; see Admin.gs). */
 function doPost(e) {
   const p = (e && e.parameter) || {};
   if (p.mode === 'publish_admin') return json_(publishAdmin_(p.key || '', (e.postData && e.postData.contents) || ''));
