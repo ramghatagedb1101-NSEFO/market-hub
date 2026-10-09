@@ -4,11 +4,17 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-09
 
+### Relay deploys moved to `clasp` (no Chrome needed)
+- Chrome-based deploys kept failing on account mix-ups: Claude in Chrome only reaches profiles whose extension is signed in to the session's Claude account (on 9 Oct, Chrome `Default` = Google ramghatage@gmail.com was reachable; `Profile 5` = Google ramghatagedb1101@gmail.com was not), and the deploy dialog itself is sometimes blocked by the session's permission check.
+- `clasp` 2.4.2 installed globally and signed in as **ramghatagedb1101@gmail.com** (credentials in `~/.clasprc.json` on the owner's laptop). Needed: the account's Apps Script API setting turned On (script.google.com/home/usersettings) and **all** permission boxes ticked at sign-in -- the first attempt granted only name/email and every call failed with "insufficient authentication scopes".
+- Gotcha found and recorded: with the API setting still off, `clasp push` printed "Pushed 3 files" but nothing changed; the first version created afterwards (Version 23) held the *old* code and was not deployed. Always confirm the uploaded content before versioning -- the procedure in `relay/README.md` does.
+
 ### Sign-in now lasts 7 days (admin dashboard and phone app)
 - Owner's choice (was six hours). The six hours was CacheService's hard cap on any entry, not a setting, so sessions moved to the **script properties** with their own expiry (`ADMIN_SESSION_DAYS = 7`).
 - Each session is stored as `sess_<SHA-256 of the token>` = expiry time, so the token itself never appears in the project settings (both Google accounts with access to the project can see those). Expired sessions are deleted when checked and swept whenever a new one starts.
 - **Sign out now ends the session on the server**, not just in the browser: new `adminLogout(token)` (dashboard) and `mode=app_logout` (phone app). Several devices can be signed in at once; signing out one leaves the others.
 - One-time effect of deploying it: sessions from the old storage stop working, so each device signs in once more.
+- **Deployed 22:18 IST as Version 24 on both addresses**, with `clasp` from the owner's machine (see below). Verified live on both: page script parses, `app_data` refuses an unknown session, new `app_logout` answers, quotes unaffected.
 - Verified offline (`test_sessions.js`, 13 cases, Apps Script services mocked): valid at 6 days 23 hours, expired after 7 days, expired entries deleted, two devices independent, sign-out ends only that session, unknown or empty tokens refused by `adminData`/`appData_`, `app_logout` works. `node relay/check.js` passes.
 
 ### Admin login button: real cause found and fixed -- a browser-side syntax error, not authorization

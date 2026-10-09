@@ -63,3 +63,26 @@ Apps Script isn't deployed from GitHub -- a code change here needs re-pasting by
    `docs/index.html` (`RELAY_URL`), the `RELAY_URL` GitHub secret and the Kite redirect:
    `AKfycbye12r6…`. Done 8 Oct 2026 as Version 19 (it had been on Version 8). The other deployments
    (admin dashboard experiments, 7 Oct) were left as they were.
+
+## Deploying with clasp (preferred since 9 Oct 2026)
+No Chrome, no account mix-ups. Runs on the owner's laptop, where `clasp` is signed in as
+`ramghatagedb1101@gmail.com` (check: `node -e` with the token in `~/.clasprc.json` against the userinfo
+endpoint, or `clasp login` again and choose that account, ticking every permission box).
+
+```bash
+node relay/check.js                                   # must pass: parses the admin page's browser script too
+mkdir -p /tmp/relay && cd /tmp/relay
+echo '{"scriptId":"13rGqOxSSC3aQzZGYjpDWT4NnNXUO_kjCQKeA4oo2pZ8MD22KEilKWR7s","rootDir":"."}' > .clasp.json
+clasp pull                                            # gets appsscript.json; compare Code.js/Admin.js with the last deployed commit first
+cp <repo>/relay/Code.gs Code.js && cp <repo>/relay/Admin.gs Admin.js
+clasp push -f
+# confirm the saved project now matches the repo (projects.getContent) BEFORE versioning -- a push with the
+# API setting off once reported success and changed nothing
+clasp version "<what changed> (<commit>)"             # prints the new version number N
+clasp deploy -i AKfycbwQZxgg5yCekhRX7O88GyLCMt_MHRkTSLyjA1HF7Zk6nNL14wjoDydD73IabaTyOiFV -V N -d "<desc>"   # admin bookmark
+clasp deploy -i AKfycbye12r6sWmdKQhSA6cpFnKnSUFjBhKDUm9BF5mGXsFmqeWer8-F0uVOoZ6NVPXF4SZ1ww -V N -d "<desc>"   # live relay
+clasp deployments                                     # both should show @N
+```
+`appsscript.json` has `executeAs: USER_DEPLOYING`, so the relay runs as whoever deploys -- deploy only as
+ramghatagedb1101@gmail.com. Never `clasp deploy` without `-i` (that creates a new deployment and URL).
+
