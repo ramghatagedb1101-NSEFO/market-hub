@@ -73,7 +73,10 @@ endpoint, or `clasp login` again and choose that account, ticking every permissi
 node relay/check.js                                   # must pass: parses the admin page's browser script too
 mkdir -p /tmp/relay && cd /tmp/relay
 echo '{"scriptId":"13rGqOxSSC3aQzZGYjpDWT4NnNXUO_kjCQKeA4oo2pZ8MD22KEilKWR7s","rootDir":"."}' > .clasp.json
-clasp pull                                            # gets appsscript.json; compare Code.js/Admin.js with the last deployed commit first
+clasp deployments                                     # also renews clasp's sign-in token -- run it first, or a script
+                                                      # reading ~/.clasprc.json directly gets "invalid credentials" (9 Oct)
+clasp pull                                            # gets appsscript.json; compare every file with the last deployed commit
+                                                      # and STOP if it differs -- don't let a failed check fall through
 cp <repo>/relay/Code.gs Code.js && cp <repo>/relay/Admin.gs Admin.js && cp <repo>/relay/Report.gs Report.js && cp <repo>/relay/AdminPage.html AdminPage.html
 clasp push -f
 # confirm the saved project now matches the repo (projects.getContent) BEFORE versioning -- a push with the
