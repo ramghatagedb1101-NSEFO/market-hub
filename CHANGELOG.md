@@ -2,6 +2,37 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-09
+
+### Claude's own `git push` access broke -- wrong GitHub account, not a code problem
+No code change today; a local environment problem, logged here because it blocked pushing the rest of
+today's work and the next session needs to know about it immediately.
+
+`git push` started failing with `Permission to ramghatagedb1101-NSEFO/market-hub.git denied to
+ramghatage-ux` (HTTP 403). Root cause: the owner's machine has `gh auth git-credential` registered as
+the credential helper for github.com (in `~/.gitconfig`, overriding the system's normal Credential
+Manager), and `gh` itself is currently logged in as `ramghatage-ux` -- the account used for the owner's
+*other* projects (Aiyoo.shop, HaloShoot), not the one that owns `market-hub`. Confirmed directly:
+Claude-in-Chrome's browser session is signed into github.com as `ramghatage-ux` too (its own repo list
+showed `ramghatage-ux/aiyoo`, `ramghatage-ux/haloshoot`, etc.) -- the owner has multiple Chrome profiles
+logged into different GitHub accounts, and Claude-in-Chrome was driving the wrong one when this was set
+up. Switching the Chrome profile alone will not fix it: `gh auth login`'s token is cached once and
+persists independently of which browser profile is active afterward.
+
+**Fix needed from the owner, not Claude:** run `gh auth login` fresh, choosing the browser-based flow,
+and complete the GitHub authorization step in the Chrome profile actually signed in as the account that
+owns `market-hub` -- not `ramghatage-ux`. This is an account-authorization action, so it's the owner's
+to click, same as every other credential step in this project. Once `gh auth status` shows the right
+account, a plain `git push` should work again with no further changes.
+
+**Handover for whichever Claude picks this up next:** one commit is sitting local-only, already made and
+ready to go the moment push access is restored --
+`17669cc STATUS: stock tracker confirmed live on the admin dashboard, 9 Oct`. Run `git status`/`git log
+origin/main..HEAD` first thing to confirm whether that's still the case, then `git push`. Nothing else is
+blocked by this -- all the code changes from 8 Oct (slippage haircut, expiry-theta log, stock-screen
+run-history log, stock-tracker activation, the library.json cursor repair) were already pushed before
+this broke.
+
 ## 2026-10-08
 
 ### Stock credit-spread screen: activated the dormant position tracker, fixed a silent sector-cap bug
