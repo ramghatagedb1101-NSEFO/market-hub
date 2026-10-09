@@ -4,57 +4,26 @@ As of 9 Oct 2026, 06:10 IST. Read this together with `CHANGELOG.md`.
 
 ## HANDOVER -- read this first if you are a new Claude session
 
-**git push is fine now** (the 9 Oct `gh auth` wrong-account blocker from earlier today was fixed by the
-owner and is fully resolved -- see `CHANGELOG.md`'s 9 Oct entries). Everything through commit `6bc4af4`
-is pushed. Run `git log origin/main..HEAD` to confirm nothing new is queued before assuming otherwise.
+**Accounts:** act only as Google `ramghatagedb1101@gmail.com` and GitHub `ramghatagedb1101-NSEFO`. Never
+`ramghatage@gmail.com` / `ramghatage-ux`. Claude in Chrome only reaches profiles signed in to this session's
+Claude account -- check GitHub's `user-login` and the Apps Script account popup before acting. Details in
+CHANGELOG 9 Oct, "Accounts and browser access".
 
-**Unresolved, real, and the thing to pick up next: the live admin dashboard's "Email me a code" login
-button silently does nothing on the deployment the owner actually uses.** Added two new tabs today
-(Multibagger, Matured -- see below) to `relay/Admin.gs`, redeployed as a new version ("Version 21") to
-the owner's existing deployment URL (`.../AKfycbwQZxgg5yCekhRX7O88GyLCMt_MHRkTSLyjA1HF7Zk6nNL14wjoDydD73IabaTyOiFV/exec`,
-the one `?mode=admin` the owner bookmarks). After that redeploy, clicking "Email me a code" produces no
-visible error and no success message -- just nothing.
+**Admin login button: fixed in code, waiting for deploy.** The 9 Oct "Email me a code does nothing" bug
+was a browser-side syntax error in the new Multibagger/Matured code (`screen\'s` inside the `ADMIN_HTML`
+template literal), not authorization -- see CHANGELOG 9 Oct. Fixed in `d7578a5` (plus: admin session
+now survives tab closes, `localStorage`). The fixed `Admin.gs` is **pasted and saved** in the Apps Script
+editor. **Remaining step (needs the owner or a session allowed to deploy):**
+1. Deploy → Manage deployments → `AKfycbwQZxgg…` ("Admin dashboard: Multibagger + Matured tabs",
+   the owner's admin bookmark) → pencil → Version: **New version** → Deploy. That creates Version 22.
+2. Same dialog → `AKfycbye12r6…` (live relay) → pencil → Version: **Version 22** → Deploy.
+3. Check: open the admin bookmark, "Email me a code" sends a code; Multibagger/Matured tabs load;
+   close and reopen the tab within six hours and it stays signed in.
 
-Diagnosed via the Apps Script project's own Executions log (Apps Script editor -> Executions), which is
-authoritative and doesn't lie the way the UI can:
-- On the redeployed URL (now "Version 21"), **every** click attempt since the redeploy (eight-plus
-  attempts, fresh tabs, long waits, cache-busted URLs, a real click from the owner's own separate tab)
-  shows a `doGet` (page load) but **zero** `adminRequestCode` executions -- the click never reaches the
-  server at all.
-- The **exact same code**, served from a *different*, untouched deployment of the same script project
-  still pinned to the old "Version 20" snapshot (URL
-  `.../AKfycbye12r6sWmdKQhSA6cpFnKnSUFjBhKDUm9BF5mGXsFmqeWer8-F0uVOoZ6NVPXF4SZ1ww/exec`, not the one the
-  owner bookmarks), **worked immediately** -- `adminRequestCode` completed in 1.3s on the first click.
-- This rules out: the diff being the cause (verified with `git diff` that no login/session code was
-  touched), a JS syntax error (`node --check` on the whole file is clean), general Google/MailApp quota
-  exhaustion (the untouched deployment proves quota is fine), and the click mechanism itself (same click
-  method worked on the other URL).
-- Leading theory, not yet confirmed: Apps Script sometimes requires a fresh one-time re-authorization of
-  privileged scopes (here, `MailApp.sendEmail`) the first time a **newly created deployment version**
-  actually executes that call for real -- the untouched deployment already has that authorization from
-  before; the redeployed one may not yet. The standard fix is running the privileged function once from
-  the Apps Script editor's own Run button, which should trigger (and let the owner approve) that
-  consent -- **this was in progress and not completed** when this session had to stop (ran out of
-  usable turns): the editor's function-selector dropdown kept silently reverting to `adminPage` instead
-  of staying on `adminRequestCode`, so the Run button never actually exercised the right function. Two
-  attempts both silently ran `adminPage` (confirmed via Executions log showing `Head adminPage Editor`
-  entries, not `adminRequestCode`).
+**Always run `node relay/check.js` before pasting/deploying relay code.** It catches browser-side errors
+inside `ADMIN_HTML` that `node --check` cannot see.
 
-**Next session: retry selecting `adminRequestCode` (or `adminMultibagger`, also privileged via
-`UrlFetchApp`+the private-repo token, though that one already ran fine under the old deployment so is
-lower-risk) in the editor's Run dropdown, confirm the selection stuck (the toolbar button text should
-read the function name, not `adminPage`) before clicking Run, and watch for an authorization popup to
-approve.** If that doesn't resolve it, the next thing to try is deleting and recreating this one
-deployment (not the whole project) via Manage deployments, since it's possible the specific deployment
-ID itself picked up some stale state across the "New version" step done today. The owner can also just
-test logging in again at any time -- if it starts working on its own, the fix was likely something
-on Google's side settling after propagation, not anything that needs further action here.
-
-**Separately, not yet done:** the owner asked why they have to log in so often. Diagnosed (not yet
-fixed): `relay/Admin.gs` stores the session token in `sessionStorage`, which Chrome clears on tab/browser
-close, even though the server-side session itself is valid for 6 hours (`CacheService`'s own hard cap).
-Swapping to `localStorage` would fix this with a low-risk one-line-type change -- not done because the
-login-button bug above made it impossible to verify end-to-end before this session had to stop.
+**git push works** from the owner's machine as `ramghatagedb1101-NSEFO` (fixed 9 Oct).
 
 ## Structure and capabilities audit (owner's request, 8 Oct)
 

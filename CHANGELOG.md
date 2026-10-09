@@ -4,6 +4,21 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-09
 
+### Admin login button: real cause found and fixed -- a browser-side syntax error, not authorization
+- **Cause:** the new Multibagger/Matured code in `relay/Admin.gs` had `'... (the screen\'s own default ranking)'` inside the `ADMIN_HTML` template literal. In a template literal `\'` is just `'`, so the page's browser script got a bare quote in the middle of a string and **failed to parse as a whole**. No button on the page had a handler; "Email me a code" did nothing; `doGet` ran (the page loads) but `adminRequestCode` never did -- exactly what the Executions log showed. Reworded to avoid the apostrophe.
+- **Why the earlier diagnosis missed it:** `node --check relay/Admin.gs` only sees the server code; the browser script is a string to node. And the deployment that "worked" (`AKfycbye12r6…`) was on Version 20, which does *not* contain the new tabs -- it was not the same code. The re-authorization theory is not needed.
+- **New `relay/check.js`** (`node relay/check.js`): builds `ADMIN_HTML` the way Apps Script does and parses each `<script>` block in it, plus both server files. It fails on the broken 9 Oct code and passes on the fix. **Run it before every relay paste/deploy.**
+- **Session now kept across tab closes:** the admin token moved from `sessionStorage` to `localStorage` (wrapped in try/catch). The server session is unchanged (six hours, CacheService's cap); an expired token still lands on sign-in.
+- Commit `d7578a5`. Pasted into the Apps Script editor and **saved** (verified the editor matched the repo exactly first; `Code.gs` unchanged). **Not yet deployed**: needs a new version on `AKfycbwQZxgg…` (the owner's admin bookmark, currently Version 21 = broken) and, to keep them in step, on `AKfycbye12r6…` (live relay, currently Version 20). See STATUS.md HANDOVER.
+
+### Accounts and browser access: read this before acting on the owner's behalf
+- **Accounts for this project:** only Google `ramghatagedb1101@gmail.com` (owns the Market_watch relay; codes and alerts go there) and GitHub `ramghatagedb1101-NSEFO`. The owner's other Google `ramghatage@gmail.com` and GitHub `ramghatage-ux` **must not be used here** (owner's instruction, 9 Oct).
+- **Claude in Chrome reaches only the profiles signed in to the session's Claude account.** The owner has two Claude accounts and two Chrome profiles, each with the extension. When this session ran as Claude `ramghatage@gmail.com`, `list_connected_browsers` showed only the profile logged in to Google `ramghatage@gmail.com` (no GitHub login); the ramghatagedb1101 profile was invisible. Fix: match the extension's Claude account in the ramghatagedb1101 profile to the session's (this doesn't change its Google/GitHub logins), and close or sign out the other profile's extension. **Before any outward action in Chrome, check:** GitHub `meta[name="user-login"]` = `ramghatagedb1101-NSEFO`; Apps Script account popup = `ramghatagedb1101@gmail.com`.
+- In the wrong profile, a relay deploy dialog showed "Execute as: Me (ramghatage@gmail.com)" and asked to authorise; cancelled, nothing changed. Deploying from the wrong Google account would make the relay run as that account.
+- **Relay deployments:** 8 active. `AKfycbye12r6…` is the live relay (`docs/index.html` RELAY_URL, the `RELAY_URL` secret, the Kite redirect). `AKfycbwQZxgg…` is the owner's admin bookmark. Update both in place (pencil → version), never "New deployment" (changes the URL).
+- **Kite resets every access token at about 6:00 AM IST.** A login after midnight but before 6 AM is stored as "today's" token and then wiped, giving "Kite: Incorrect `api_key` or `access_token`". The relay only checks the token's date. Log in after 6 AM. (Happened 9 Oct; a fresh login at 06:40 fixed it.)
+- **Stock library restarted** after the quota reset: the 8 Oct chain had stopped on a 0-processed batch. Run 37869589396 (started by the owner 06:54) scored the full 70 minutes and chained; batch 2 (run 37875233387) started 08:04.
+
 ### Admin dashboard: added Multibagger and Matured tabs; redeploy left the login button broken
 Owner asked for two new admin-dashboard tabs: one showing the full multi-bagger ranked list (previously
 only a summary count existed, on the Status tab), and one surfacing the same data sorted toward
