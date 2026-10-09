@@ -279,7 +279,14 @@ pre{white-space:pre-wrap;font-size:12px;background:#fafbfc;border-radius:8px;pad
 </div>
 </div>
 <script>
-let token = sessionStorage.getItem('mh_admin_token') || '';
+// localStorage, not sessionStorage: the session lives six hours on the server (CacheService's cap),
+// and sessionStorage was cleared on every tab close, forcing a new code each time.
+const store = {
+  get(){ try { return localStorage.getItem('mh_admin_token'); } catch (e) { return null; } },
+  set(v){ try { localStorage.setItem('mh_admin_token', v); } catch (e) {} },
+  clear(){ try { localStorage.removeItem('mh_admin_token'); } catch (e) {} }
+};
+let token = store.get() || '';
 let data = null;
 let tab = 'status';
 let lib = null;
@@ -302,12 +309,12 @@ function verify(){
   const c = document.getElementById('code').value;
   google.script.run.withSuccessHandler(r => {
     if (!r.ok) { lmsg(r.error || 'Code not recognised.'); return; }
-    token = r.token; sessionStorage.setItem('mh_admin_token', token);
+    token = r.token; store.set(token);
     show();
   }).withFailureHandler(e => lmsg(e.message)).adminVerify(c);
 }
 function lmsg(t){ document.getElementById('lmsg').textContent = t; }
-function logout(){ sessionStorage.removeItem('mh_admin_token'); token=''; location.reload(); }
+function logout(){ store.clear(); token=''; location.reload(); }
 
 function show(){
   document.getElementById('login').style.display = 'none';
@@ -403,7 +410,7 @@ function draw(){
       '<div id="mbdetail"></div>';
     document.getElementById('mbinfo').textContent = 'Generated ' + (mb.ts || '') + (mb.partial ? ' (partial pass)' : '') +
       ' · ' + (mb.rated || 0) + ' rated of ' + (mb.universe || 0) + ' in the universe · ' +
-      (tab === 'matured' ? 'proven, widely-held performers' : 'fresher, less-discovered names (the screen\'s own default ranking)');
+      (tab === 'matured' ? 'proven, widely-held performers' : 'fresher, less-discovered names (the default ranking of this screen)');
     drawMbTable();
   } else if (tab === 'tests') {
     const t = d.tests || {};
