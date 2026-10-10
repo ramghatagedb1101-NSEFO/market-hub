@@ -60,7 +60,8 @@ def build(shortlist: dict, companies: dict, stocks: list[dict], prices: dict, re
 
     # what changed in the lists since the previous day
     state = _load(STATE_FILE, {})
-    if state.get("last_date") != today.isoformat():
+    first_today = state.get("last_date") != today.isoformat()
+    if first_today:
         state["base_date"], state["base_lists"], state["base_core"] = state.get("last_date"), state.get("last_lists"), state.get("last_core")
     state["last_date"], state["last_lists"], state["last_core"] = today.isoformat(), lists, core
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -115,4 +116,20 @@ def build(shortlist: dict, companies: dict, stocks: list[dict], prices: dict, re
                "watchlist": watch, "scope": len(scope), "items": items}
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    return {"items": len(items), "scope": len(scope), "watchlist": len(watch)}
+    sent = notify(payload) if first_today else None
+    return {"items": len(items), "scope": len(scope), "watchlist": len(watch), "email": sent}
+
+
+def notify(payload: dict):
+    """The first run of the day hands the digest to the relay, which emails it once a day (relay
+    Alerts.gs, sendDigest_; switchable on the dashboard)."""
+    url, key = os.getenv("RELAY_URL", ""), os.getenv("RELAY_KEY", "")
+    if not url or not key:
+        return None
+    body = {"date": payload["date"], "items": [{k: x.get(k) for k in ("type", "symbol", "title", "detail")} for x in payload["items"]]}
+    try:
+        r = requests.post(url, params={"mode": "digest", "key": key}, data=json.dumps(body), timeout=30,
+                          headers={"Content-Type": "text/plain"})
+        return r.json()
+    except Exception as exc:
+        return {"error": str(exc)[:200]}

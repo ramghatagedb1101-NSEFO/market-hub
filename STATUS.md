@@ -44,6 +44,9 @@ CHANGELOG 10 Oct.
 summaries -- see CHANGELOG 11 Oct. AI summaries run on Gemini's free tier (`GEMINI_API_KEY` secret, present since 6 Oct); first real
 summaries (Titan) confirmed 10 Oct.
 
+**Chart indicators and email alerts (11 Oct):** RSI / MACD / Bollinger / 52-week lines on the stock report;
+daily digest and watchlist-move emails, switchable on Overview. No Telegram (owner does not use it). See CHANGELOG 11 Oct.
+
 **Relay deploys now go through `clasp`, not Chrome** -- see `relay/README.md`, "Deploying with clasp".
 
 **Always run `node relay/check.js` before pasting/deploying relay code.** It catches browser-side errors
