@@ -491,12 +491,12 @@ function pageOverview(){
   const comp = S.lib ? compounders().filter(x => x.fails === 0) : null;
   const mb4 = S.mb ? (S.mb.ranked || []).filter(r => r.score === 4) : null;
   const turn = S.mb ? S.mb.turnarounds : null;
-  const cyc = S.lib ? Math.round((S.lib.cursor_next || 0) / (S.lib.universe || 1) * 100) : null;
+  const trk = (S.lib && S.lib.tracker) || null;
   const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
   let html = '<div class="page-head"><div><h1 class="h1">Overview</h1><p class="sub">Daily run ' + esc(fmtTs(s.daily_ts)) +
     (S.lib ? ' · library updated ' + esc(fmtTs(S.lib.generated)) : '') + '</p></div></div>';
   html += '<div class="grid g4" style="margin-bottom:14px">' +
-    kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed · batch at ' + cyc + '%' : 'loading the library') +
+    kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed' + (trk ? ' · ' + num((trk.refreshed_this_run || {}).companies || 0, 0) + ' refreshed in the last run' : '') : 'loading the library') +
     kpi('Proven compounders', comp == null ? '…' : comp.length, 'pass all six rules') +
     kpi('Early multibaggers 4/4', mb4 == null ? '…' : mb4.length, S.mb ? num(S.mb.rated, 0) + ' rated · ' + (turn || 0) + ' turnarounds' : 'loading') +
     kpi('Bulk deals stored', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' d', 'since ' + esc((S.admin && S.admin.bulk_deals || {}).first_day || '–')) +
@@ -518,7 +518,7 @@ function pageOverview(){
     S.lib.stocks.forEach(st => (st.actions || []).forEach(a => { if (a.upcoming) ups.push({ sym: st.symbol, a }); }));
     ups.sort((x, y) => x.a.ex_date < y.a.ex_date ? -1 : 1);
   }
-  html += '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>Upcoming corporate actions</h3><span class="muted" style="font-size:12px">from NSE · filled in as the weekly batch revisits each company</span></div>' +
+  html += '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>Upcoming corporate actions</h3><span class="muted" style="font-size:12px">from NSE · whole market, refreshed every run</span></div>' +
     (ups == null ? '<div class="panel-b"><div class="skel"></div></div>' : ups.length ? '<table class="t"><tr><th class="l">Ex-date</th><th class="l">Company</th><th class="l">Action</th></tr>' +
       ups.slice(0, 10).map(u => '<tr class="click" onclick="openStock(\'' + esc(u.sym) + '\')"><td class="l num">' + esc(fmtDate(u.a.ex_date)) + '</td><td class="l">' + companyCell(u.sym) + '</td><td class="l">' + esc(u.a.subject) + '</td></tr>').join('') + '</table>'
       : '<div class="empty">None recorded yet. The batch now keeps NSE corporate actions; they appear here as each company is next scored.</div>') + '</div>';
@@ -530,9 +530,39 @@ function pageOverview(){
       const tot = dq.reduce((a, b) => a + b, 0) || 1;
       return '<div style="display:flex;align-items:center;gap:10px;margin:8px 0"><span style="width:170px;font-size:13px">' + l + '</span><span style="flex:1;height:8px;border-radius:4px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:' + (n / tot * 100) + '%;background:' + c + '"></i></span><span class="num" style="width:56px;text-align:right">' + num(n, 0) + '</span></div>';
     }).join('')) + '</div></div></div>';
+  html += freshnessPanel(trk);
   if (S.libErr) html = errBlock('Library: ' + S.libErr) + html;
   if (S.mbErr) html = errBlock('Multi-bagger data: ' + S.mbErr) + html;
   v.innerHTML = html;
+}
+
+// What the library still needs, and how much of the BharatStock allowance is used (library tracker, 10 Oct 2026).
+function freshnessPanel(trk){
+  if (!S.lib) return '';
+  if (!trk) return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Data freshness</h3></div><div class="empty">The tracker starts with the next library run.</div></div>';
+  const bs = trk.bharatstock || {}, pend = trk.pending || {}, ref = trk.refreshed_this_run || {}, fd = trk.feeds || {}, px = trk.prices || {};
+  const used = bs.requests_today || 0, budget = bs.budget || 1;
+  const bar = '<span style="flex:1;height:8px;border-radius:4px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:' + Math.min(100, used / budget * 100) + '%;background:' + (bs.allowance_used_up ? 'var(--down)' : 'var(--brand)') + '"></i></span>';
+  const row = (label, value, note) => '<tr><td class="l">' + label + '</td><td class="num">' + value + '</td><td class="l muted">' + (note || '') + '</td></tr>';
+  const feed = (f) => !f ? '–' : f.error ? '<span style="color:var(--down)">could not read</span>' : (f.companies_filed != null ? num(f.companies_filed, 0) + ' filed, ' + num(f.newer_than_stored, 0) + ' newer than stored' : num(f.companies || 0, 0) + ' companies');
+  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Data freshness</h3><span class="muted" style="font-size:12px">fetches only what changed · ' + esc(fmtTs(S.lib.generated)) + '</span></div><div class="panel-b">' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="width:230px;font-size:13px">BharatStock requests today (UTC day)</span>' + bar +
+    '<span class="num" style="width:150px;text-align:right">' + num(used, 0) + ' of ' + num(budget, 0) + (bs.allowance_used_up ? ' · used up' : '') + '</span></div>' +
+    '<table class="t"><tr><th class="l">Still needed</th><th>Companies</th><th class="l">Source</th></tr>' +
+    row('Quarterly results', num(pend.fin || 0, 0), 'BharatStock, only after a company files at NSE') +
+    row('Annual results', num(pend.ann || 0, 0), 'BharatStock, once a year') +
+    row('Shareholding', num(pend.shp || 0, 0), 'NSE, free') +
+    row('Insider and fund holdings', num(pend.fund || 0, 0), 'BharatStock, monthly') +
+    row('Waiting for tomorrow', num(trk.pending_waiting_for_bharatstock || 0, 0), 'need BharatStock, allowance used for today') +
+    row('No results at BharatStock', num(trk.no_bharatstock_results || 0, 0), 'asked once per filed quarter, not every run') +
+    '</table><table class="t" style="margin-top:10px"><tr><th class="l">Last run</th><th>Count</th><th class="l"></th></tr>' +
+    row('Companies refreshed', num(ref.companies || 0, 0), ['fin', 'ann', 'shp', 'fund'].filter(k => ref[k]).map(k => ({fin: 'results', ann: 'annual', shp: 'shareholding', fund: 'funds'})[k] + ' ' + ref[k]).join(' · ')) +
+    row('BharatStock requests', num(bs.requests_this_run || 0, 0), '') +
+    row('Prices (NSE daily file)', num(px.companies || 0, 0), px.error ? '<span style="color:var(--down)">' + esc(px.error) + '</span>' : 'as of ' + esc(fmtDate(px.as_of))) +
+    row('Results filings list', '', feed(fd.results)) +
+    row('Shareholding filings list', '', feed(fd.shareholding)) +
+    row('Corporate actions list', '', feed(fd.corporate_actions)) +
+    '</table></div></div>';
 }
 
 // ---- Generic sortable/paged table state ----
@@ -641,7 +671,7 @@ function pageLibrary(){
       '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td><td><span class="num" style="margin-right:8px">' + (s.met || 0) + '/' + (s.testable || 0) + '</span><span class="bar"><i style="width:' + Math.round(r * 100) + '%"></i></span></td>' +
       '<td class="num ' + ((s.data_quality_pct || 0) >= 70 ? 'up' : (s.data_quality_pct || 0) >= 40 ? '' : 'faint') + '">' + num(s.data_quality_pct, 0) + '%</td></tr>';
   }).join('');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Stock library</h1><p class="sub">Every listed NSE equity, scored on up to 124 parameters by the weekly batch. ' + num(S.lib.stocks.filter(s => s.cells).length, 0) + ' with data · updated ' + esc(fmtTs(S.lib.generated)) + (S.lib.partial ? ' (pass in progress)' : '') + '.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Stock library</h1><p class="sub">Every listed NSE equity, scored on up to 124 parameters, rescored daily. ' + num(S.lib.stocks.filter(s => s.cells).length, 0) + ' with data · updated ' + esc(fmtTs(S.lib.generated)) + (S.lib.partial ? ' (pass in progress)' : '') + '.</p></div></div>' +
     '<div class="toolbar"><input id="libq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'lib\',this)">' +
     '<select class="field" onchange="setF(\'lib\',\'p\',this.value)"><option value="">Any parameter</option>' + opts + '</select>' +
     '<select class="field" onchange="setF(\'lib\',\'ps\',this.value)">' + [['met','is met'],['not_met','is not met'],['not_testable','is not testable']].map(o => '<option value="' + o[0] + '" ' + (st.f.ps === o[0] ? 'selected' : '') + '>' + o[1] + '</option>').join('') + '</select>' +
@@ -864,7 +894,7 @@ function shareholdingPanel(s){
 }
 function actionsHtml(s){
   const a = (s && s.actions) || null;
-  if (a == null) return '<div class="muted">Not collected for this company yet — the weekly batch now saves NSE corporate actions and will add them on its next pass.</div>';
+  if (a == null) return '<div class="muted">No corporate actions on record at NSE for this company in the last year.</div>';
   if (!a.length) return '<div class="muted">No dividends, splits, bonuses or buybacks in the last year, and none announced.</div>';
   return a.map(x => '<div class="ev"><span class="d">' + esc(fmtDate(x.ex_date)) + '</span><span>' + (x.upcoming ? '<span class="chip brand" style="margin-right:6px">Upcoming</span>' : '') + esc(x.subject) +
     (x.record_date ? '<div class="faint" style="font-size:12px">Record date ' + esc(fmtDate(x.record_date)) + '</div>' : '') + '</span></div>').join('');

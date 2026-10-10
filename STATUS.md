@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of 9 Oct 2026, 06:10 IST. Read this together with `CHANGELOG.md`.
+As of 10 Oct 2026, 11:00 IST. Read this together with `CHANGELOG.md`.
 
 ## HANDOVER -- read this first if you are a new Claude session
 
@@ -31,6 +31,14 @@ batch revisits companies.
 **Analysis tools added (10 Oct):** Factor rankings, Screener (saved screens on the relay), Scatter explorer,
 What changed, Sectors, and factor profile + peers on each stock report -- see CHANGELOG 10 Oct. "What changed"
 since-last-scoring events start once companies are re-scored by the batch.
+
+**Stock library fetches only what changed (10 Oct).** BharatStock (10,000 requests/day) is now asked only
+for companies that have filed new results at NSE, within a 9,000/day budget; prices come from NSE's free
+daily price file; the library runs daily at 06:15 IST. Per-company stored figures and what each still needs
+are in `state/library_state.json` (private repo); the summary is `tracker` in `library.json` and "Data
+freshness" on the dashboard Overview. **Before adding any new BharatStock call, add it to the tracker's
+stages (`needs()` in `hub/library.py`) with a refresh rule -- never fetch per company per run.** See
+CHANGELOG 10 Oct.
 
 **Relay deploys now go through `clasp`, not Chrome** -- see `relay/README.md`, "Deploying with clasp".
 
