@@ -939,8 +939,8 @@ function pageStock(sym){
     (DK.loading ? '<div class="lwc"><div class="skel" style="height:100%"></div></div>'
       : DK.error ? '<div class="notice">' + esc(DK.error) + '</div>'
       : '<div class="lwc" id="lwc"><div class="lwc-legend" id="lwcLegend"></div></div><div class="lwc-credit">' +
-        (DK.source === 'kite' ? 'Kite (Zerodha) prices' : 'BharatStock daily prices' + (DK.kite_note ? ' · ' + esc(DK.kite_note) : '')) +
-        ' · markers: D dividend, S split/bonus, B buyback, R results call · charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts</a></div>') + '</div></div>';
+        ({ kite: 'Prices: Kite', nse: 'Prices: NSE daily closes', bharatstock: 'Prices: BharatStock daily' }[DK.source] || '') + (DK.note ? ' (' + esc(DK.note) + ')' : '') +
+        ' · markers: D dividend, S split/bonus, B buyback, R results call · chart: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a></div>') + '</div></div>';
 
   const finErr = (R.errors || {}).financials;
   const qN = (R.quarters || []).length, aN = (R.annual || []).length;

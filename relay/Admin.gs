@@ -214,8 +214,8 @@ function adminLibrary(token) {
   return gzipped_(res);
 }
 
-function privateRaw_(readToken, path) {
-  return UrlFetchApp.fetch('https://api.github.com/repos/' + ADMIN_REPO + '/contents/' + path,
+function privateRaw_(readToken, path, ref) {
+  return UrlFetchApp.fetch('https://api.github.com/repos/' + ADMIN_REPO + '/contents/' + path + (ref ? '?ref=' + encodeURIComponent(ref) : ''),
     { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
 }
 

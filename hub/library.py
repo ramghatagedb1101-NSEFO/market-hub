@@ -31,6 +31,7 @@ from . import documents as docs_mod
 from . import library_compact
 from . import shortlist as shortlist_mod
 from . import digest as digest_mod
+from . import price_shards
 from . import shareholding as shp
 from . import corporate_actions as ca
 from . import named_holders as nh
@@ -1317,6 +1318,12 @@ def main() -> dict:
                                                   datetime.now(config.IST).isoformat(timespec="minutes"), company_names)
     except Exception as exc:
         shortlist_summary = {"error": str(exc)[:200]}
+    # A year of NSE closes for the charts' free fallback (hub/price_shards.py; prices branch, no history).
+    if prices:
+        try:
+            shortlist_summary["price_shards"] = price_shards.publish(PRIVATE_REPO, _private_headers(), prices)
+        except Exception as exc:
+            shortlist_summary["price_shards"] = {"error": str(exc)[:200]}
     # The phone's "Today" digest (hub/digest.py), for the Shortlist and the watchlist.
     try:
         sl_payload = json.loads(shortlist_mod.OUT_FILE.read_text(encoding="utf-8"))
