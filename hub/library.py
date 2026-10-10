@@ -79,6 +79,16 @@ RULES = {
     "cfo_growth": ("Operating cash flow higher than a year ago (annual)", lambda v: v > 0),
     "fcf": ("Free cash flow (operating cash flow less capital spending) positive (annual)", lambda v: v > 0),
     "capex_to_sales": ("Capital spending below 20% of revenue (annual)", lambda v: v < 20),
+    # Long-term record (11 Oct 2026, from annual results; longterm_values)
+    "rev_cagr_5y": ("Revenue grew at least 12% a year over 5 years", lambda v: v >= 12),
+    "profit_cagr_5y": ("Profit grew at least 12% a year over 5 years", lambda v: v >= 12),
+    "profit_cagr_10y": ("Profit grew at least 10% a year over 10 years", lambda v: v >= 10),
+    "eps_cagr_5y": ("EPS grew at least 12% a year over 5 years", lambda v: v >= 12),
+    "profitable_share_10y": ("Profitable in at least 90% of the last 10 years", lambda v: v >= 90),
+    "cfo_positive_share_10y": ("Positive operating cash flow in at least 80% of the last 10 years", lambda v: v >= 80),
+    "cfo_to_pat_5y": ("Operating cash at least 0.8x profit over 5 years", lambda v: v >= 0.8),
+    "roe_avg_5y": ("Average ROE at least 15% over 5 years", lambda v: v >= 15),
+    "roe_min_5y": ("ROE at least 10% in every one of the last 5 years", lambda v: v >= 10),
     "insider_net_shares_6m": ("Promoters net buyers over six months", lambda v: v > 0),
     # Fewer holders, not more, is the bullish read here: heavy existing fund ownership means the
     # market has already found the stock, while thin ownership alongside strong fundamentals is the
@@ -285,6 +295,68 @@ def cash_flow_values(annual_rows: list[dict]) -> dict:
         if div_per_share is not None and ya_div_per_share is not None:
             out["dividend_policy_change"] = div_per_share - ya_div_per_share
     out["_annual_period"] = latest.get("period_end_date")
+    return out
+
+
+def longterm_values(annual_rows: list[dict]) -> dict:
+    """Long-term record from BharatStock's annual results (11 Oct 2026), so "proven" means years, not the
+    last 8 quarters. Only derived figures are kept (growth rates, shares of years, averages), never the
+    raw history. Needs at least 5 annual results; 10-year figures need 10.
+
+      rev_cagr_5y / profit_cagr_5y / eps_cagr_5y   compound annual growth over 5 years, %
+      profit_cagr_10y                               the same over 10 years
+      profitable_share_10y                          % of the last (up to) 10 years with a profit
+      cfo_positive_share_10y                        % of those years with positive operating cash flow
+      cfo_to_pat_5y                                 operating cash over profit, summed over 5 years
+      roe_avg_5y / roe_min_5y                       ROE (profit / year-end equity) over 5 years, %
+      years_of_history                              annual results available (up to 10 used)
+    A growth rate needs a positive start and end; otherwise it is a gap, not a figure."""
+    a = _consolidated(annual_rows)
+    out = {}
+    if len(a) < 5:
+        return out
+    out["years_of_history"] = min(len(a), 10)
+
+    def cagr(key, n):
+        if len(a) <= n:
+            return None
+        x1, x0 = a[0].get(key), a[n].get(key)
+        try:
+            y1, y0 = int(str(a[0]["period_end_date"])[:4]), int(str(a[n]["period_end_date"])[:4])
+        except (TypeError, ValueError, KeyError):
+            return None
+        years = y1 - y0
+        if not x1 or not x0 or x1 <= 0 or x0 <= 0 or years < n - 1 or years > n + 1:
+            return None
+        return ((x1 / x0) ** (1 / years) - 1) * 100
+
+    for key, name in (("revenue", "rev"), ("net_profit", "profit"), ("eps", "eps")):
+        g = cagr(key, 5)
+        if g is not None:
+            out[f"{name}_cagr_5y"] = g
+    g = cagr("net_profit", 10)
+    if g is not None:
+        out["profit_cagr_10y"] = g
+    last10 = a[:10]
+    pats = [r.get("net_profit") for r in last10 if r.get("net_profit") is not None]
+    if len(pats) >= 5:
+        out["profitable_share_10y"] = sum(1 for p in pats if p > 0) / len(pats) * 100
+    cfos = [r.get("cash_flow_operating") for r in last10 if r.get("cash_flow_operating") is not None]
+    if len(cfos) >= 5:
+        out["cfo_positive_share_10y"] = sum(1 for c in cfos if c > 0) / len(cfos) * 100
+    five = a[:5]
+    sp = [r.get("net_profit") for r in five]
+    sc = [r.get("cash_flow_operating") for r in five]
+    if all(x is not None for x in sp + sc) and sum(sp) > 0:
+        out["cfo_to_pat_5y"] = sum(sc) / sum(sp)
+    roes = []
+    for r in five:
+        eq = r.get("total_equity") or r.get("equity_attributable_to_owners")
+        if r.get("net_profit") is not None and eq and eq > 0:
+            roes.append(r["net_profit"] / eq * 100)
+    if len(roes) == 5:
+        out["roe_avg_5y"] = sum(roes) / 5
+        out["roe_min_5y"] = min(roes)
     return out
 
 
@@ -700,7 +772,8 @@ FIN_KEYS = ("rev_yoy", "profit_yoy", "eps_yoy", "profit_consistency_8q", "profit
             "operating_margin", "interest_cover", "roe", "debt_to_equity", "debt_change_1y", "roce",
             "working_capital_days", "working_capital_change")
 ANN_KEYS = ("cfo", "cfo_to_pat", "cfo_margin", "fcf", "capex", "capex_to_sales", "dividend_paid", "cfo_growth",
-            "capex_change", "dividend_policy_change")
+            "capex_change", "dividend_policy_change", "rev_cagr_5y", "profit_cagr_5y", "profit_cagr_10y", "eps_cagr_5y",
+            "profitable_share_10y", "cfo_positive_share_10y", "cfo_to_pat_5y", "roe_avg_5y", "roe_min_5y")
 VAL_KEYS = ("market_value_bucket", "pe", "pb", "ps")
 INST_KEYS = ("promoter_holding", "public_float", "promoter_change_qoq", "promoter_change_yoy",
              "promoter_holding_change_3q", "fii_holding", "dii_holding", "pledge_pct", "fii_change_qoq",
@@ -937,6 +1010,7 @@ def refresh_company(sym: str, c: dict, stages: list[str], ctx: dict) -> list[str
             if stage == "ann":
                 annual_rows = _bs(fetch_annual, sym, key)
                 ann = cash_flow_values(annual_rows)
+                ann.update(longterm_values(annual_rows))
                 a = _consolidated(annual_rows)
                 if a and a[0].get("cash_flow_operating") is not None and a[0].get("net_profit"):
                     ann["_cfo_ratio"] = a[0]["cash_flow_operating"] / a[0]["net_profit"]

@@ -41,29 +41,56 @@ CORE_WEEKS = 3
 HISTORY_FILE = config.REPO / "state" / "shortlist_history.json"
 OUT_FILE = config.SITE_DIR / "data" / "shortlist.json"
 
+_ge = lambda v, k, x: v(k) is not None and v(k) >= x
+# Proven compounders (11 Oct 2026): judged on years of annual results, plus "still delivering" and the
+# ownership / size gates. Companies whose long-term figures have not arrived yet (until the next annual
+# refresh) are judged on the earlier 8-quarter rules, so the screen never goes blank in between.
 COMPOUNDER_RULES = (
-    ("Profit grew in 6+ of last 8 quarters", lambda v: v("profit_consistency_8q") is not None and v("profit_consistency_8q") >= 6),
-    ("Net margin >= 8%", lambda v: v("net_margin") is not None and v("net_margin") >= 8),
-    ("Operating cash >= 0.8x profit", lambda v: v("cfo_to_pat") is not None and v("cfo_to_pat") >= 0.8),
-    ("Held by 30+ fund schemes", lambda v: v("mf_schemes_holding") is not None and v("mf_schemes_holding") >= 30),
+    ("Profitable in 90%+ of the last 10 years", lambda v: _ge(v, "profitable_share_10y", 90)),
+    ("Profit grew 12%+ a year over 5 years", lambda v: _ge(v, "profit_cagr_5y", 12)),
+    ("Average ROE 15%+ over 5 years", lambda v: _ge(v, "roe_avg_5y", 15)),
+    ("Operating cash 0.8x+ profit over 5 years", lambda v: _ge(v, "cfo_to_pat_5y", 0.8)),
+    ("Still delivering: profit grew in 5+ of the last 8 quarters", lambda v: _ge(v, "profit_consistency_8q", 5)),
+    ("Held by 30+ fund schemes", lambda v: _ge(v, "mf_schemes_holding", 30)),
     ("Promoter pledge <= 5%", lambda v: v("pledge_pct") is None or v("pledge_pct") <= 5),
-    ("Market cap >= Rs 5,000 cr", lambda v: v("market_value_bucket") is not None and v("market_value_bucket") >= 5000),
+    ("Market cap >= Rs 5,000 cr", lambda v: _ge(v, "market_value_bucket", 5000)),
 )
+LEGACY_COMPOUNDER_RULES = (
+    ("Profit grew in 6+ of last 8 quarters", lambda v: _ge(v, "profit_consistency_8q", 6)),
+    ("Net margin >= 8%", lambda v: _ge(v, "net_margin", 8)),
+    ("Operating cash >= 0.8x profit", lambda v: _ge(v, "cfo_to_pat", 0.8)),
+    ("Held by 30+ fund schemes", lambda v: _ge(v, "mf_schemes_holding", 30)),
+    ("Promoter pledge <= 5%", lambda v: v("pledge_pct") is None or v("pledge_pct") <= 5),
+    ("Market cap >= Rs 5,000 cr", lambda v: _ge(v, "market_value_bucket", 5000)),
+)
+LONGTERM_KEYS = ("profitable_share_10y", "profit_cagr_5y", "roe_avg_5y", "cfo_to_pat_5y")
+
+
+def compounder_rules(v):
+    """The long-term rule set when the company has its long-term figures, else the earlier one."""
+    return COMPOUNDER_RULES if any(v(k) is not None for k in LONGTERM_KEYS) else LEGACY_COMPOUNDER_RULES
 # Same factor definitions as the dashboard's factor rankings, except momentum (see the module note).
 FACTORS = {
     "quality": [("roe", 1), ("roce", 1), ("net_margin", 1), ("operating_margin", 1), ("cfo_to_pat", 1),
-                ("interest_cover", 1), ("debt_to_equity", -1), ("profit_consistency_8q", 1)],
-    "growth": [("rev_yoy", 1), ("profit_yoy", 1), ("eps_yoy", 1), ("profit_run", 1), ("cfo_growth", 1)],
+                ("interest_cover", 1), ("debt_to_equity", -1), ("profit_consistency_8q", 1),
+                ("roe_avg_5y", 1), ("roe_min_5y", 1), ("profitable_share_10y", 1), ("cfo_to_pat_5y", 1)],
+    "growth": [("rev_yoy", 1), ("profit_yoy", 1), ("eps_yoy", 1), ("profit_run", 1), ("cfo_growth", 1),
+               ("rev_cagr_5y", 1), ("profit_cagr_5y", 1), ("eps_cagr_5y", 1)],
     "value": [("pe", -1), ("pb", -1), ("ps", -1), ("dividend_yield", 1)],
     "ownership": [("promoter_change_yoy", 1), ("fii_change_qoq", 1), ("dii_change_qoq", 1),
                   ("mf_schemes_added", 1), ("pledge_pct", -1)],
 }
 POSITIVE_ONLY = {"pe", "pb", "ps"}
+BASE_INPUTS = {"quality": 8, "growth": 5, "value": 4, "ownership": 5}   # inputs before the long-term ones
+BASE_INPUTS = {k: [None] * n for k, n in BASE_INPUTS.items()}
 WEIGHTS = {
     "compounders": {"quality": .35, "value": .25, "growth": .15, "momentum": .15, "ownership": .10},
     "emerging": {"growth": .35, "momentum": .25, "quality": .20, "value": .10, "ownership": .10},
 }
 WHY = (
+    ("profit_cagr_5y", "Profit grew", lambda v: f"{v:.1f}% a year over 5 years", 1),
+    ("roe_avg_5y", "Average ROE", lambda v: f"{v:.1f}% over 5 years", 1),
+    ("profitable_share_10y", "Profitable in", lambda v: f"{v:.0f}% of the last 10 years", 1),
     ("roe", "ROE", lambda v: f"{v:.1f}%", 1), ("roce", "ROCE", lambda v: f"{v:.1f}%", 1),
     ("net_margin", "Net margin", lambda v: f"{v:.1f}%", 1),
     ("profit_consistency_8q", "Profit up in", lambda v: f"{v:.0f} of the last 8 quarters", 1),
@@ -129,7 +156,8 @@ def momentum_measures(series) -> dict:
 
 
 FIGURES = ("roe", "net_margin", "rev_yoy", "profit_yoy", "profit_consistency_8q", "promoter_holding",
-           "fii_holding", "dii_holding", "pledge_pct", "mf_schemes_holding", "debt_to_equity")
+           "fii_holding", "dii_holding", "pledge_pct", "mf_schemes_holding", "debt_to_equity",
+           "profit_cagr_5y", "rev_cagr_5y", "roe_avg_5y", "profitable_share_10y")
 
 
 def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, nifty: dict,
@@ -165,7 +193,7 @@ def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, n
             p = dist.pct(k, v)
             if p is not None:
                 xs.append(p if d > 0 else 100 - p)
-        need = max(2, math.ceil(len(FACTORS[key]) / 2))
+        need = max(2, math.ceil(len(BASE_INPUTS[key]) / 2))   # long-term inputs add to, never raise, the bar
         return _rnd(sum(xs) / len(xs)) if len(xs) >= need else None
 
     # industry P/E medians
@@ -181,7 +209,11 @@ def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, n
     left_out = {"compounders": [], "emerging": []}
     for sym, s in by_sym.items():
         v = lambda k, s=s: value(s, k)
-        comp = all(rule(v) for _, rule in COMPOUNDER_RULES)
+        rules = compounder_rules(v)
+        # Banks and financials: operating cash flow is not comparable, so that rule does not apply to them.
+        fin_ind = (industries.get(sym) or s.get("sector") or "").lower()
+        is_fin = "financial" in fin_ind or "bank" in fin_ind
+        comp = all(rule(v) or (is_fin and "Operating cash" in name) for name, rule in rules)
         mb = mb_by_sym.get(sym) or {}
         style = "compounders" if comp else ("emerging" if mb.get("score") == 4 else None)
         if not style:

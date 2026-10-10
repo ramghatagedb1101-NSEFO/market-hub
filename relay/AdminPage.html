@@ -377,6 +377,10 @@ function fmtDate(d){ if (!d) return '–'; const x = new Date(d); return isNaN(x
 
 // Measure catalogue: label, group, unit, better direction. The value shown is the library's.
 const M = {
+  rev_cagr_5y:['Revenue growth, 5 yrs (a year)','long','pct',1], profit_cagr_5y:['Profit growth, 5 yrs (a year)','long','pct',1],
+  profit_cagr_10y:['Profit growth, 10 yrs (a year)','long','pct',1], eps_cagr_5y:['EPS growth, 5 yrs (a year)','long','pct',1],
+  profitable_share_10y:['Profitable years (of last 10)','long','pct0',1], cfo_positive_share_10y:['Cash-positive years (of last 10)','long','pct0',1],
+  cfo_to_pat_5y:['Operating cash / profit, 5 yrs','long','x',1], roe_avg_5y:['Average ROE, 5 yrs','long','pct0',1], roe_min_5y:['Lowest ROE, 5 yrs','long','pct0',1],
   rev_yoy:['Revenue growth (YoY)','growth','pct',1], profit_yoy:['Profit growth (YoY)','growth','pct',1], eps_yoy:['EPS growth (YoY)','growth','pct',1],
   profit_consistency_8q:['Profit growth quarters (of 8)','growth','int',1], profit_run:['Profit-growth streak (quarters)','growth','int',1],
   net_margin:['Net margin','profit','pct0',1], operating_margin:['Operating margin','profit','pct0',1], roe:['Return on equity','profit','pct0',1], roce:['Return on capital','profit','pct0',1], interest_cover:['Interest cover','profit','x',1],
@@ -395,7 +399,7 @@ const M = {
   sector_news_count:['Sector news (30d)','ctx','int',0], regulatory_events:['Sector regulatory mentions (90d)','ctx','int',-1], sector_ret_3m:['Sector return (3M)','ctx','pct',1],
   peer_group_growth_median:['Sector median profit growth','ctx','pct',1], rel_strength_rank_sector:['Sector rank (6M return)','ctx','int',0], sector_pe_vs_history:['Sector P/E vs history','ctx','pct',-1]
 };
-const GROUPS = [['growth','Growth'],['profit','Profitability'],['cash','Cash flow'],['balance','Balance sheet'],['value','Valuation'],['price','Price & momentum'],['own','Ownership'],['ctx','Context']];
+const GROUPS = [['long','Long-term record'],['growth','Growth'],['profit','Profitability'],['cash','Cash flow'],['balance','Balance sheet'],['value','Valuation'],['price','Price & momentum'],['own','Ownership'],['ctx','Context']];
 function fmtMeasure(k, v){
   const u = (M[k] || [])[2];
   if (v == null) return '–';
@@ -412,14 +416,33 @@ function fmtMeasure(k, v){
 // ======================================================================================
 // Proven compounders: established companies with a long record. Rules tuned on the 9 Oct data
 // (76 of ~1,860 companies pass all six).
+// 11 Oct 2026: judged on years of annual results (hub/library.py longterm_values), plus "still delivering"
+// and the ownership / size gates -- the same rules as the batch's Shortlist (hub/shortlist.py). Companies
+// whose long-term figures have not arrived yet are judged on the earlier 8-quarter rules (LEGACY) until the
+// next annual refresh. Operating cash flow is not comparable for banks and financials, so that rule passes
+// for them.
+const ge = (s, k, x) => val(s, k) != null ? val(s, k) >= x : null;
+const isFinancial = s => /financial|bank/i.test(industryOf(s.symbol) || s.sector || '');
 const COMPOUNDER_RULES = [
-  ['Profit grew in 6+ of last 8 quarters', s => val(s,'profit_consistency_8q') != null ? val(s,'profit_consistency_8q') >= 6 : null],
-  ['Net margin ≥ 8%', s => val(s,'net_margin') != null ? val(s,'net_margin') >= 8 : null],
-  ['Operating cash ≥ 0.8× profit', s => val(s,'cfo_to_pat') != null ? val(s,'cfo_to_pat') >= 0.8 : null],
-  ['Held by 30+ fund schemes', s => val(s,'mf_schemes_holding') != null ? val(s,'mf_schemes_holding') >= 30 : null],
+  ['Profitable in 90%+ of the last 10 years', s => ge(s, 'profitable_share_10y', 90)],
+  ['Profit grew 12%+ a year over 5 years', s => ge(s, 'profit_cagr_5y', 12)],
+  ['Average ROE 15%+ over 5 years', s => ge(s, 'roe_avg_5y', 15)],
+  ['Operating cash 0.8×+ profit over 5 years', s => isFinancial(s) ? true : ge(s, 'cfo_to_pat_5y', 0.8)],
+  ['Still delivering: profit grew in 5+ of the last 8 quarters', s => ge(s, 'profit_consistency_8q', 5)],
+  ['Held by 30+ fund schemes', s => ge(s, 'mf_schemes_holding', 30)],
   ['Promoter pledge ≤ 5%', s => val(s,'pledge_pct') == null ? true : val(s,'pledge_pct') <= 5],
-  ['Market cap ≥ ₹5,000 cr', s => val(s,'market_value_bucket') != null ? val(s,'market_value_bucket') >= 5000 : null],
+  ['Market cap ≥ ₹5,000 cr', s => ge(s, 'market_value_bucket', 5000)],
 ];
+const LEGACY_COMPOUNDER_RULES = [
+  ['Profit grew in 6+ of last 8 quarters', s => ge(s, 'profit_consistency_8q', 6)],
+  ['Net margin ≥ 8%', s => ge(s, 'net_margin', 8)],
+  ['Operating cash ≥ 0.8× profit', s => isFinancial(s) ? true : ge(s, 'cfo_to_pat', 0.8)],
+  ['Held by 30+ fund schemes', s => ge(s, 'mf_schemes_holding', 30)],
+  ['Promoter pledge ≤ 5%', s => val(s,'pledge_pct') == null ? true : val(s,'pledge_pct') <= 5],
+  ['Market cap ≥ ₹5,000 cr', s => ge(s, 'market_value_bucket', 5000)],
+];
+const hasLongTerm = s => ['profitable_share_10y', 'profit_cagr_5y', 'roe_avg_5y', 'cfo_to_pat_5y'].some(k => val(s, k) != null);
+const rulesFor = s => hasLongTerm(s) ? COMPOUNDER_RULES : LEGACY_COMPOUNDER_RULES;
 const QUALITY_CHECKS = [
   ['Revenue growing', s => val(s,'rev_yoy') == null ? null : val(s,'rev_yoy') > 0],
   ['Interest cover ≥ 3×', s => val(s,'interest_cover') == null ? null : val(s,'interest_cover') >= 3],
@@ -432,16 +455,17 @@ function compounders(){
   const out = [];
   S.lib.stocks.forEach(s => {
     if (!s.cells) return;
-    const res = COMPOUNDER_RULES.map(([, f]) => f(s));
+    const R = rulesFor(s);
+    const res = R.map(([, f]) => f(s));
     const fails = res.filter(r => r !== true).length;
     if (fails > 1) return;
     const q = QUALITY_CHECKS.map(([, f]) => f(s));
-    out.push({ s, fails, quality: q.filter(x => x === true).length, qualityTested: q.filter(x => x != null).length,
-               failed: COMPOUNDER_RULES.filter((r, i) => res[i] !== true).map(r => r[0]) });
+    out.push({ s, fails, longTerm: R === COMPOUNDER_RULES, quality: q.filter(x => x === true).length, qualityTested: q.filter(x => x != null).length,
+               failed: R.filter((r, i) => res[i] !== true).map(r => r[0]) });
   });
   return out;
 }
-function isCompounder(sym){ const s = S.bySym[sym]; return !!(s && s.cells && COMPOUNDER_RULES.every(([, f]) => f(s) === true)); }
+function isCompounder(sym){ const s = S.bySym[sym]; return !!(s && s.cells && rulesFor(s).every(([, f]) => f(s) === true)); }
 
 // ======================================================================================
 // Router and navigation
@@ -713,8 +737,9 @@ function pageCompounders(){
       '<td class="num">' + (val(s,'profit_consistency_8q') == null ? '–' : val(s,'profit_consistency_8q') + '/8') + '</td><td class="num">' + num(val(s,'mf_schemes_holding'), 0) + '</td>' +
       '<td class="num">' + (val(s,'promoter_holding') == null ? '–' : num(val(s,'promoter_holding'), 1) + '%') + '</td>' +
       '<td>' + (st.f.near ? '<span class="chip warn" title="' + esc(x.failed.join(', ')) + '">misses: ' + esc(x.failed[0]) + '</span>' : dots(x.quality, 5)) + '</td></tr>'; }).join('');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Proven compounders</h1><p class="sub">Established, widely-held companies with a long record of profitable, cash-backed growth — the opposite end from early multibaggers. Must pass all six rules; ranked by five extra quality checks, then size.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Proven compounders</h1><p class="sub">Established, widely-held companies with a long record of profitable, cash-backed growth — the opposite end from early multibaggers. Judged on years of annual results: must pass all eight rules; ranked by five extra quality checks, then size.</p></div></div>' +
     '<div class="rules">' + COMPOUNDER_RULES.map(r => '<span class="chip">' + esc(r[0]) + '</span>').join('') + '</div>' +
+    (S.lib.stocks.some(s => s.cells && !hasLongTerm(s)) ? '<div class="notice" style="margin-bottom:12px">' + num(S.lib.stocks.filter(s => s.cells && !hasLongTerm(s)).length, 0) + ' companies have no long-term figures yet (they arrive with each company&#39;s next annual refresh) and are judged on the earlier rules: profit up in 6 of 8 quarters, net margin 8%+, operating cash 0.8× profit, plus the same ownership and size gates.</div>' : '') +
     '<div class="toolbar"><input id="cpq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'cp\',this)">' +
     '<div class="seg"><button class="' + (!st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',false)">Pass all six</button><button class="' + (st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',true)">Near misses (one rule)</button></div>' +
     '<span class="muted" style="margin-left:auto;font-size:12.5px" title="' + esc(QUALITY_CHECKS.map(q => q[0]).join(' · ')) + '">Quality: ' + esc(QUALITY_CHECKS.map(q => q[0]).join(' · ')) + '</span></div>' +
@@ -1269,8 +1294,9 @@ function drawStockCharts(R, s){
 // A factor needs at least half its inputs (and two) to be scored; the composite needs four of the five,
 // so a company missing whole factors (common for the smallest) cannot float to the top on partial data.
 const FACTORS = [
-  ['quality', 'Quality', [['roe', 1], ['roce', 1], ['net_margin', 1], ['operating_margin', 1], ['cfo_to_pat', 1], ['interest_cover', 1], ['debt_to_equity', -1], ['profit_consistency_8q', 1]]],
-  ['growth', 'Growth', [['rev_yoy', 1], ['profit_yoy', 1], ['eps_yoy', 1], ['profit_run', 1], ['cfo_growth', 1]]],
+  ['quality', 'Quality', [['roe', 1], ['roce', 1], ['net_margin', 1], ['operating_margin', 1], ['cfo_to_pat', 1], ['interest_cover', 1], ['debt_to_equity', -1], ['profit_consistency_8q', 1],
+                          ['roe_avg_5y', 1], ['roe_min_5y', 1], ['profitable_share_10y', 1], ['cfo_to_pat_5y', 1]], 8],
+  ['growth', 'Growth', [['rev_yoy', 1], ['profit_yoy', 1], ['eps_yoy', 1], ['profit_run', 1], ['cfo_growth', 1], ['rev_cagr_5y', 1], ['profit_cagr_5y', 1], ['eps_cagr_5y', 1]], 5],
   ['value', 'Value', [['pe', -1], ['pb', -1], ['ps', -1], ['dividend_yield', 1]]],
   ['momentum', 'Momentum', [['ret_3m', 1], ['ret_12m', 1], ['rel_strength_vs_index', 1], ['from_52w_high', 1]]],
   ['ownership', 'Ownership', [['promoter_change_yoy', 1], ['fii_change_qoq', 1], ['dii_change_qoq', 1], ['mf_schemes_added', 1], ['pledge_pct', -1]]]
@@ -1300,9 +1326,10 @@ function computeFactors(){
   S.lib.stocks.forEach(s => {
     if (!s.cells) return;
     const f = {};
-    FACTORS.forEach(([key, , inputs]) => {
+    FACTORS.forEach(([key, , inputs, base]) => {
       const xs = inputs.map(([k, d]) => scoreInput(s, k, d)).filter(x => x != null);
-      f[key] = xs.length >= Math.max(2, Math.ceil(inputs.length / 2)) ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+      // base: inputs before the long-term ones (11 Oct 2026) -- they add evidence, never raise the bar.
+      f[key] = xs.length >= Math.max(2, Math.ceil((base || inputs.length) / 2)) ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
     });
     const got = FACTORS.map(([k]) => f[k]).filter(x => x != null);
     f.composite = got.length >= 4 ? Math.round(got.reduce((a, b) => a + b, 0) / got.length) : null;
