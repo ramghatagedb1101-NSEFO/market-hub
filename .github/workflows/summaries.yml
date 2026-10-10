@@ -1,0 +1,49 @@
+name: ai-summaries
+
+# AI summaries of earnings-call transcripts and annual reports for the admin stock report (hub/summaries.py).
+# On demand: the report's "Summarise" button dispatches this with the company's symbol (through the relay's
+# GH_PAT). Daily: the newest transcripts of companies scoring 3+ on the multi-bagger screen, capped by
+# AI_DAILY_LIMIT. Needs the ANTHROPIC_API_KEY secret; without it the company's entry says so and nothing is sent.
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: "NSE symbol to summarise (blank = the daily selection)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "30 3 * * *"            # 03:30 UTC = 09:00 IST, after the 06:15 library run has listed new documents
+
+permissions:
+  contents: read
+
+concurrency:
+  group: summaries
+  cancel-in-progress: false
+
+jobs:
+  summarise:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Bring the private data (site/, state/) from the private repo
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
+      - name: Summarise
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SYMBOL: ${{ github.event.inputs.symbol }}
+        run: python -m hub.summaries
+      - name: Save the summaries to the private repo
+        if: always() && steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "AI summaries $(date -u +%F)"

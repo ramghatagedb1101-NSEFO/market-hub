@@ -77,7 +77,7 @@ clasp deployments                                     # also renews clasp's sign
                                                       # reading ~/.clasprc.json directly gets "invalid credentials" (9 Oct)
 clasp pull                                            # gets appsscript.json; compare every file with the last deployed commit
                                                       # and STOP if it differs -- don't let a failed check fall through
-cp <repo>/relay/Code.gs Code.js && cp <repo>/relay/Admin.gs Admin.js && cp <repo>/relay/Report.gs Report.js && cp <repo>/relay/AdminPage.html AdminPage.html
+cp <repo>/relay/Code.gs Code.js && cp <repo>/relay/Admin.gs Admin.js && cp <repo>/relay/Report.gs Report.js && cp <repo>/relay/Research.gs Research.js && cp <repo>/relay/AdminPage.html AdminPage.html
 clasp push -f
 # confirm the saved project now matches the repo (projects.getContent) BEFORE versioning -- a push with the
 # API setting off once reported success and changed nothing
@@ -92,7 +92,8 @@ ramghatagedb1101@gmail.com. Never `clasp deploy` without `-i` (that creates a ne
 ## Files in the Apps Script project (since 9 Oct 2026)
 - `Code.gs` -- Kite login relay, quotes, routing (doGet/doPost).
 - `Admin.gs` -- sign-in (email code, 7-day sessions), admin data readers, phone app API.
-- `Report.gs` -- `adminStock`: live parts of the stock report (BharatStock quarterly financials and prices, NIFTY, Google News).
+- `Report.gs` -- `adminStock`: live parts of the stock report (BharatStock quarterly and annual results, up to 10 years; Google News).
+- `Research.gs` -- `adminChart` (Kite historical candles, BharatStock daily prices as fallback), `adminDocs` (NSE document links and AI summaries from the private repo), `adminSummarise` (starts the ai-summaries workflow through `GH_PAT`).
 - `AdminPage.html` -- the admin dashboard page (served by `adminPage()`).
 
 Script property for the stock report: **`BHARATSTOCK_API_KEY`** (the same key as the GitHub secret), entered by the owner in Project Settings -> Script properties. Without it the report's two charts show a notice; everything else works.
