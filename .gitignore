@@ -19,3 +19,6 @@ docs/data/*.json
 !docs/data/live.json
 state/
 .private_pulled.json
+
+# NSE daily price files, carried between library runs by actions/cache (hub/bhav.py)
+.cache/

@@ -55,14 +55,22 @@ def universe() -> list[str]:
     return sorted(syms - EXCLUDED)
 
 
+# Every HTTP request sent to BharatStock (pages and retries included), for the library's daily budget.
+BS_REQUESTS = [0]
+
+
 def _get_with_retry(url: str, params: dict, key: str, tries: int = 4):
     """A 429 is routine on BharatStock under this project's call volume, not an outage -- back off
     and retry rather than letting the exception kill the whole company's data. Without this, every
     company after the first one or two in a run was silently recorded as a bare error with no
     figures at all, because _pages() used to raise immediately on any non-2xx status."""
     for attempt in range(tries):
+        BS_REQUESTS[0] += 1
         r = requests.get(url, params=params, headers={"X-API-Key": key}, timeout=30)
         if r.status_code != 429 or attempt == tries - 1:
+            return r
+        # The daily allowance is gone (the body says so): retrying only burns time until 00:00 UTC.
+        if "daily rate limit" in r.text.lower():
             return r
         time.sleep(2 * (attempt + 1))
     return r
@@ -214,17 +222,26 @@ def mf_counts(rows: list[dict]) -> dict:
 
 
 def _consolidated(rows: list[dict]) -> list[dict]:
-    rows = [x for x in rows if (x.get("consolidation_type") or "consolidated") == "consolidated"]
+    """Consolidated results, newest first -- or standalone ones for a company that files no
+    consolidated results (no subsidiaries). Keeping consolidated rows only left about 600 companies
+    (a quarter of the universe) with no figures at all even though their results were fetched every
+    week (found 10 Oct 2026). Never a mix of the two for one company."""
+    cons = [x for x in rows if (x.get("consolidation_type") or "consolidated") == "consolidated"]
+    rows = cons or [x for x in rows if str(x.get("consolidation_type") or "").lower() == "standalone"]
     return sorted(rows, key=lambda x: x["period_end_date"], reverse=True)
 
 
-def score(symbol: str, rows: list[dict], annual_rows: list[dict] | None = None) -> dict:
+def score(symbol: str, rows: list[dict], annual_rows: list[dict] | None = None,
+          cfo_ratio: float | None = None) -> dict:
     """Derived measures only. The rating is the number of gates passed (0 to 4); failed gates are
     listed, not dropped. Fewer than five quarters means no rating at all.
 
     annual_rows: separate annual financials for the cash_backed gate. BharatStock fills
     cash_flow_operating once a year, never on the quarterly rows, so the quarterly `rows` alone
-    cannot test it -- that was previously always a gap."""
+    cannot test it -- that was previously always a gap.
+
+    cfo_ratio: the same operating-cash/profit ratio, already worked out from annual rows fetched
+    earlier -- the library stores it so a quarterly refresh need not re-fetch the annual figures."""
     q = _consolidated(rows)
     out = {"symbol": symbol, "quarters": len(q), "gates": {}, "measures": {}, "gaps": [], "score": None}
     if len(q) < 5:
@@ -264,7 +281,6 @@ def score(symbol: str, rows: list[dict], annual_rows: list[dict] | None = None) 
         else:
             break
     turned = 1 <= run <= 4 and any(f is False for f in flags[run:])
-    cfo_ratio = None
     a = _consolidated(annual_rows) if annual_rows else []
     if a:
         a_cfo, a_pat = a[0].get("cash_flow_operating"), a[0].get("net_profit")

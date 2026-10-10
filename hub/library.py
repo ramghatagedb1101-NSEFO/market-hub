@@ -16,15 +16,17 @@ import json
 import os
 import statistics as st
 import time
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 
 from . import config
 from . import alerts
 from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf,
-                          insider_signal, mf_counts, _consolidated, score, UA, MAX_PAGES, EQUITY_LIST,
-                          FIELDS, ENDPOINT_COUNTS)
+                          insider_signal, mf_counts, _consolidated, score, UA, EQUITY_LIST,
+                          FIELDS, ENDPOINT_COUNTS, BS_REQUESTS)
+from . import bhav
+from . import nse_feeds
 from . import shareholding as shp
 from . import corporate_actions as ca
 from . import named_holders as nh
@@ -36,48 +38,6 @@ SECTOR_MAP_FILE = config.REPO / "rg" / "data" / "sector_map.json"
 MULTIBAGGER_FILE = config.SITE_DIR / "data" / "multibagger.json"
 PRIVATE_FILE = "library.json"
 TIME_BUDGET_SECONDS = 70 * 60
-PRICES_URL = "https://bharatstockapi.com/v1/stocks/{t}/prices"
-
-
-def fetch_price_history(symbol: str, key: str) -> tuple[list[tuple[date, float]], list[float], list[float]]:
-    """Same prices endpoint as backtest_multibagger.prices(), kept separate so a volume/delivery
-    field-name guess here can never affect that tool's own (working) close-price-only fetch.
-
-    Volume and delivery-percentage field names are read defensively (several candidate keys), the
-    same pattern already used throughout this file for uncertain BharatStock/NSE field names: a
-    wrong guess just leaves the value out (not_testable), never a fabricated figure."""
-    closes, volume, delivery = [], [], []
-    page = 1
-    while page <= MAX_PAGES:
-        params = {"from": "2010-01-01", "page_size": 1000}
-        if page > 1:
-            params["page"] = page
-        r = requests.get(PRICES_URL.format(t=symbol), params=params, headers={"X-API-Key": key, **UA}, timeout=30)
-        if r.status_code == 404:
-            break
-        r.raise_for_status()
-        body = r.json()
-        rows = body.get("data", [])
-        for x in rows:
-            c = x.get("adjusted_close") or x.get("close")
-            if c is None or not x.get("trade_date"):
-                continue
-            closes.append((date.fromisoformat(str(x["trade_date"])[:10]), float(c)))
-            v = x.get("volume") or x.get("total_traded_qty") or x.get("traded_volume") or x.get("total_volume")
-            volume.append(float(v) if v is not None else None)
-            d = (x.get("delivery_percentage") or x.get("delivery_pct") or
-                 x.get("pct_deliverable") or x.get("deliverable_pct"))
-            delivery.append(float(d) if d is not None else None)
-        pag = body.get("pagination") or {}
-        if not rows or not pag.get("has_next", page < (pag.get("total_pages") or 1)):
-            break
-        page += 1
-    closes.sort(key=lambda x: x[0])
-    # volume/delivery were appended in fetch order, matching closes before the sort -- only trust
-    # them if every row actually had a value, otherwise a reordered/partial list would misalign.
-    vol_clean = volume if volume and all(v is not None for v in volume) else []
-    del_clean = delivery if delivery and all(d is not None for d in delivery) else []
-    return closes, vol_clean, del_clean
 
 
 def load_nifty_series() -> dict:
@@ -335,29 +295,7 @@ def valuation_values(q: list[dict], price_last: float | None) -> dict:
     outstanding = paid-up equity capital / face value) and the latest traded price. BharatStock's
     'ratios' endpoint is not reachable on the current plan (persistent 429s), so this needs no new
     source at all -- everything here was already being fetched for financial_values()."""
-    out = {}
-    if not q or not price_last:
-        return out
-    latest = q[0]
-    face, paid_up = latest.get("face_value_per_share"), latest.get("paid_up_equity_capital")
-    if not face or not paid_up:
-        return out
-    shares = paid_up / face
-    market_cap = price_last * shares
-    out["market_value_bucket"] = market_cap / 1e7   # INR crore
-
-    ttm_eps = _sum4([x.get("eps") for x in q])
-    if ttm_eps and ttm_eps > 0:
-        out["pe"] = price_last / ttm_eps
-
-    eq = latest.get("total_equity") or latest.get("equity_attributable_to_owners")
-    if eq:
-        out["pb"] = market_cap / eq
-
-    ttm_rev = _sum4([x.get("revenue") for x in q])
-    if ttm_rev:
-        out["ps"] = market_cap / ttm_rev
-    return out
+    return valuation_from_basis(valuation_basis(q), price_last)
 
 
 def price_values(series: list[tuple[date, float]], delivery: list[float], volume: list[float]) -> dict:
@@ -720,20 +658,457 @@ def fetch_company_names() -> dict:
             if len(row) > max(i_sym, i_name) and row[i_sym].strip()}
 
 
+# ---------------------------------------------------------------------------------------------------
+# What each company needs, and fetching only that (10 Oct 2026).
+#
+# BharatStock allows 10,000 requests a day. Until now every batch re-read every company in full -- 16
+# years of prices, quarterly and annual results, insider and fund data -- about 7 requests a company,
+# whether or not anything had changed. Now:
+#   prices                 NSE's daily price file (hub/bhav.py), free, every company, every run
+#   corporate actions      NSE's market-wide list, one free request a run
+#   quarterly results      BharatStock, only after NSE shows the company filed a newer quarter
+#   annual results         BharatStock, only when a new financial year's results are in
+#   shareholding           NSE (free), only after NSE shows a newer quarter's filing
+#   insider + fund data    BharatStock, at most monthly, only for companies either screen wants it for
+# Each company's last fetched figures are kept in state/library_state.json (private repo), so a run
+# recomputes every company's scores from stored figures plus today's prices without asking again.
+# Each source also has an age limit (REFRESH_DAYS) as a safety net in case a filing list is missed.
+# ---------------------------------------------------------------------------------------------------
+STATE_FILE = config.REPO / "state" / "library_state.json"
+BS_DAILY_BUDGET = int(os.getenv("BS_DAILY_BUDGET", "9000"))   # of 10,000: the rest is left for the admin stock report
+REFRESH_DAYS = {"fin": 120, "ann": 400, "shp": 120, "fund": 30}
+RETRY_DAYS = 3              # BharatStock can lag an NSE filing by a few days
+MAX_TRIES = 3               # per newly filed quarter; after that the age limit takes over
+FIRST_FEED_LOOKBACK = 100   # days of filing lists read on the first run (covers the current results season)
+FEED_OVERLAP = 3            # days re-read on each run, for late-listed filings
+BS_STAGES = ("fin", "ann", "fund")
+
+FIN_KEYS = ("rev_yoy", "profit_yoy", "eps_yoy", "profit_consistency_8q", "profit_run", "net_margin",
+            "operating_margin", "interest_cover", "roe", "debt_to_equity", "debt_change_1y", "roce",
+            "working_capital_days", "working_capital_change")
+ANN_KEYS = ("cfo", "cfo_to_pat", "cfo_margin", "fcf", "capex", "capex_to_sales", "dividend_paid", "cfo_growth",
+            "capex_change", "dividend_policy_change")
+VAL_KEYS = ("market_value_bucket", "pe", "pb", "ps")
+INST_KEYS = ("promoter_holding", "public_float", "promoter_change_qoq", "promoter_change_yoy",
+             "promoter_holding_change_3q", "fii_holding", "dii_holding", "pledge_pct", "fii_change_qoq",
+             "dii_change_qoq", "pledge_change", "registry_holders", "registry_new_entrants",
+             "holder_count_change", "top10_holding_change")
+FUND_KEYS = ("insider_net_shares_6m", "mf_schemes_holding", "mf_schemes_added", "mf_discovery_tier")
+PRICE_KEYS = ("ret_1m", "ret_3m", "ret_6m", "ret_12m", "from_52w_high", "from_52w_low", "above_200dma",
+              "volatility_60d", "delivery_pct_20d", "delivery_change", "volume_ratio_20d", "avg_turnover_20d",
+              "rel_strength_vs_index", "beta_vs_index", "dividend_yield", "buyback_flag")
+
+
+def _iso(d) -> str | None:
+    return d.isoformat() if isinstance(d, date) else d
+
+
+def _date(s) -> date | None:
+    if isinstance(s, date):
+        return s
+    try:
+        return date.fromisoformat(str(s)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def load_state() -> dict:
+    try:
+        return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(state: dict) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+
+def _cells_of(entry: dict | None, keys) -> dict:
+    cells = (entry or {}).get("cells") or {}
+    out = {}
+    for k in keys:
+        v = (cells.get(k) or {}).get("value")
+        if v is not None:
+            out[k] = v
+    return out
+
+
+def migrate(entry: dict | None) -> dict:
+    """First run on the tracker: start each company from the figures its library entry already holds,
+    so nothing is lost while it waits its turn. Marked migrated: quarterly and annual results are
+    re-read once (to store the inputs valuation and the multi-bagger score need), shareholding only if
+    it predates the 10 Oct FII correction."""
+    c = {"basis": {}, "src": {}}
+    if not entry or not entry.get("cells"):
+        return c
+    on = entry.get("scored_on") or "2026-10-01"
+    fin = _cells_of(entry, FIN_KEYS)
+    fin["_latest_period"] = entry.get("latest_period")
+    fin["_quarters"] = entry.get("quarters", 0)
+    c["basis"]["fin"] = fin
+    c["basis"]["val_cells"] = _cells_of(entry, VAL_KEYS)
+    c["src"]["fin"] = {"on": on, "period": entry.get("latest_period"), "migrated": True}
+    c["basis"]["ann"] = _cells_of(entry, ANN_KEYS)
+    c["src"]["ann"] = {"on": on, "migrated": True}
+    if entry.get("shp_v", 0) >= SHP_VERSION:
+        c["basis"]["inst"] = _cells_of(entry, INST_KEYS)
+        hh = entry.get("holding_history") or []
+        c["src"]["shp"] = {"on": on, "quarter": hh[-1]["quarter"] if hh else None, "v": entry.get("shp_v")}
+    if entry.get("holding_history"):
+        c["holding_history"] = entry["holding_history"]
+    fund = _cells_of(entry, FUND_KEYS)
+    if fund:
+        c["basis"]["fund"] = fund
+        c["src"]["fund"] = {"on": on}
+    return c
+
+
+def _wants_fund(c: dict, mb_row: dict | None) -> bool:
+    py = (c["basis"].get("fin") or {}).get("profit_yoy")
+    return ((py is not None and py > 0) or
+            (mb_row is not None and mb_row.get("score") is not None and mb_row["score"] >= 2))
+
+
+def needs(c: dict, mb_row: dict | None, today: date) -> list[str]:
+    """The stages this company needs now, in the order they must run (annual before quarterly, since
+    the multi-bagger score made from the quarterly rows uses the annual cash-flow ratio)."""
+    src = c.get("src") or {}
+    out = []
+
+    def due(stage):
+        s = src.get(stage)
+        if not s:
+            return True
+        retry = _date(s.get("retry"))
+        if retry and retry > today:
+            return False
+        if s.get("migrated"):
+            return True
+        if stage == "shp" and (s.get("v") or 0) < SHP_VERSION:
+            return True
+        want, have = s.get("want"), s.get("quarter" if stage == "shp" else "period")
+        # A company BharatStock holds no results for gets one try per filed quarter, not three.
+        if want and (not have or want > str(have)[:10]) and s.get("tries", 0) < (1 if s.get("empty") else MAX_TRIES):
+            return True
+        on = _date(s.get("on"))
+        return on is None or (today - on).days >= REFRESH_DAYS[stage]
+
+    if due("ann"):
+        out.append("ann")
+    if out or due("fin"):
+        out.append("fin")
+    if due("shp"):
+        out.append("shp")
+    # Fund data is wanted only for companies with profit growth or a multi-bagger score of 2+. Fresh
+    # results can change that, so after a results refresh refresh_company() checks again itself.
+    s = src.get("fund")
+    stale = not s or _date(s.get("on")) is None or (today - _date(s["on"])).days >= REFRESH_DAYS["fund"]
+    if stale and ("fin" in out or _wants_fund(c, mb_row)):
+        out.append("fund")
+    return out
+
+
+def _priority(stages: list[str], c: dict) -> int:
+    src = c.get("src") or {}
+    if "fin" in stages and not src.get("fin"):
+        return 0                       # never read at all
+    if stages == ["shp"]:
+        return 1                       # free: costs no BharatStock requests
+    if any((src.get(s) or {}).get("want") for s in stages):
+        return 2                       # a newer quarter has been filed
+    if any((src.get(s) or {}).get("migrated") for s in stages):
+        return 3
+    return 4
+
+
+def _mark_wants(companies: dict, filed: dict, stage: str, key: str) -> int:
+    n = 0
+    for sym, q in filed.items():
+        c = companies.get(sym)
+        if c is None:
+            continue
+        s = c["src"].setdefault(stage, {})
+        qi = q.isoformat()
+        have = str(s.get(key) or "")[:10]
+        if (not have or qi > have) and qi > (s.get("want") or ""):
+            s["want"], s["tries"] = qi, 0
+            n += 1
+            if stage == "fin" and q.month == 3:          # a March quarter brings the year's annual results
+                a = c["src"].setdefault("ann", {})
+                if qi > (a.get("want") or ""):
+                    a["want"], a["tries"] = qi, 0
+    return n
+
+
+def _after_fetch(s: dict, have, today: date) -> None:
+    """Bookkeeping after a stage ran: done if it now holds the filed quarter, else try again later."""
+    s["on"] = today.isoformat()
+    s.pop("migrated", None)
+    s.pop("error", None)
+    want = s.get("want")
+    if want and (not have or str(have)[:10] < want):
+        s["tries"] = s.get("tries", 0) + 1
+        s["retry"] = (today + timedelta(days=RETRY_DAYS)).isoformat()
+    else:
+        s.pop("want", None)
+        s.pop("tries", None)
+        s.pop("retry", None)
+
+
+def valuation_basis(q: list[dict]) -> dict:
+    """The financial inputs of valuation_values(), stored so PE/PB/PS/market value can be recomputed
+    from each day's price without re-reading the results."""
+    if not q:
+        return {}
+    latest = q[0]
+    face, paid_up = latest.get("face_value_per_share"), latest.get("paid_up_equity_capital")
+    return {"shares": paid_up / face if face and paid_up else None,
+            "ttm_eps": _sum4([x.get("eps") for x in q]),
+            "equity": latest.get("total_equity") or latest.get("equity_attributable_to_owners"),
+            "ttm_rev": _sum4([x.get("revenue") for x in q])}
+
+
+def valuation_from_basis(vb: dict, price_last: float | None) -> dict:
+    out = {}
+    shares = vb.get("shares")
+    if not price_last or not shares:
+        return out
+    market_cap = price_last * shares
+    out["market_value_bucket"] = market_cap / 1e7   # INR crore
+    if vb.get("ttm_eps") and vb["ttm_eps"] > 0:
+        out["pe"] = price_last / vb["ttm_eps"]
+    if vb.get("equity"):
+        out["pb"] = market_cap / vb["equity"]
+    if vb.get("ttm_rev"):
+        out["ps"] = market_cap / vb["ttm_rev"]
+    return out
+
+
+class QuotaGone(Exception):
+    pass
+
+
+def _bs(call, *args):
+    """A BharatStock call; QuotaGone when the day's allowance is used up (a 429 after retries)."""
+    try:
+        return call(*args)
+    except Exception as exc:
+        if _is_quota_exhausted(exc):
+            raise QuotaGone() from exc
+        raise
+
+
+def refresh_company(sym: str, c: dict, stages: list[str], ctx: dict) -> list[str]:
+    """Runs the given stages for one company, storing what it fetched in c. Returns the stages that
+    completed. Raises QuotaGone the moment BharatStock refuses, after storing anything already done."""
+    today, key = ctx["today"], ctx["key"]
+    basis, src = c.setdefault("basis", {}), c.setdefault("src", {})
+    done = []
+    annual_rows = None
+    for stage in stages:
+        if stage in BS_STAGES and not ctx["bs_ok"]():
+            continue
+        try:
+            if stage == "ann":
+                annual_rows = _bs(fetch_annual, sym, key)
+                ann = cash_flow_values(annual_rows)
+                a = _consolidated(annual_rows)
+                if a and a[0].get("cash_flow_operating") is not None and a[0].get("net_profit"):
+                    ann["_cfo_ratio"] = a[0]["cash_flow_operating"] / a[0]["net_profit"]
+                basis["ann"] = ann
+                _after_fetch(src.setdefault("ann", {}), ann.get("_annual_period"), today)
+                src["ann"]["period"] = ann.get("_annual_period")
+                src["ann"]["empty"] = not annual_rows
+            elif stage == "fin":
+                rows = _bs(fetch, sym, key)
+                basis["fin"] = financial_values(rows)
+                basis["val"] = valuation_basis(_consolidated(rows))
+                basis.pop("val_cells", None)
+                period = basis["fin"].get("_latest_period")
+                _after_fetch(src.setdefault("fin", {}), period, today)
+                src["fin"]["period"] = period
+                src["fin"]["empty"] = not rows
+                try:
+                    ctx["mb_new"][sym] = score(sym, rows, annual_rows,
+                                               None if annual_rows is not None else (basis.get("ann") or {}).get("_cfo_ratio"))
+                    ctx["mb_failures"].pop(sym, None)
+                except Exception as exc:
+                    ctx["mb_failures"][sym] = {"symbol": sym, "error": str(exc)[:120]}
+            elif stage == "shp":
+                refresh_shareholding(sym, c, ctx)
+                _after_fetch(src.setdefault("shp", {}), src["shp"].get("quarter"), today)
+            elif stage == "fund":
+                mb_row = ctx["mb_new"].get(sym) or ctx["prior_mb"].get(sym)
+                if not _wants_fund(c, mb_row):
+                    continue
+                try:
+                    ins = insider_signal(_bs(fetch_insider, sym, key))
+                except QuotaGone:
+                    raise
+                except Exception as exc:
+                    ins = {"status": f"insider fetch failed: {str(exc)[:80]}"}
+                try:
+                    mf = mf_counts(_bs(fetch_mf, sym, key))
+                except QuotaGone:
+                    raise
+                except Exception as exc:
+                    mf = {"status": f"fund fetch failed: {str(exc)[:80]}"}
+                fund = {"_ins": ins, "_mf": mf}
+                if ins.get("net_shares") is not None:
+                    fund["insider_net_shares_6m"] = ins["net_shares"]
+                if mf.get("schemes_holding") is not None:
+                    holding = mf["schemes_holding"]
+                    fund["mf_schemes_holding"] = holding
+                    fund["mf_schemes_added"] = mf.get("schemes_added", 0)
+                    fund["mf_discovery_tier"] = 1 if holding < 5 else (2 if holding < 20 else 3)
+                basis["fund"] = fund
+                _after_fetch(src.setdefault("fund", {}), None, today)
+            done.append(stage)
+        except QuotaGone:
+            raise
+        except Exception as exc:
+            s = src.setdefault(stage, {})
+            s["error"] = str(exc)[:120]
+            s["retry"] = (today + timedelta(days=1)).isoformat()
+    return done
+
+
+def refresh_shareholding(sym: str, c: dict, ctx: dict) -> None:
+    """NSE shareholding (free): promoter/public history, and FII/DII/pledge plus named holders from the
+    detailed filings of the latest, previous and year-ago quarters."""
+    s = ctx["nse"]
+    try:
+        records = shp.fetch(s, sym)
+    except Exception:
+        ctx["nse"] = s = shp.session()     # one retry with fresh cookies
+        records = shp.fetch(s, sym)
+    inst_vals = shp.values(records)
+    targets = shp.institutional_targets(records)
+    texts = {}
+    for label, url in targets.items():
+        try:
+            texts[label] = shp.fetch_xbrl_text(url)
+        except Exception:
+            pass
+    inst = {label: shp.institutional_from_text(t) for label, t in texts.items()}
+    try:
+        q_dates = shp.target_dates(records)
+        c["holding_history"] = shp.holding_history(
+            records, {q_dates[lbl].isoformat(): v for lbl, v in inst.items() if lbl in q_dates},
+            c.get("holding_history"))
+    except Exception:
+        pass
+    if "latest" in inst:
+        inst_vals.update(inst["latest"])
+        if "prior_quarter" in inst:
+            for k, prior_k in (("fii_holding", "fii_change_qoq"), ("dii_holding", "dii_change_qoq")):
+                if k in inst["latest"] and k in inst["prior_quarter"]:
+                    inst_vals[prior_k] = inst["latest"][k] - inst["prior_quarter"][k]
+        if "year_ago" in inst and "pledge_pct" in inst["latest"] and "pledge_pct" in inst["year_ago"]:
+            inst_vals["pledge_change"] = inst["latest"]["pledge_pct"] - inst["year_ago"]["pledge_pct"]
+    # Named public holders matched against the investor registry. The matched names are stored and
+    # counted against the registry's CURRENT statuses at scoring time, so confirming an investor
+    # counts at the next run, not the next filing.
+    agg_latest = agg_prior = None
+    if "latest" in texts:
+        try:
+            holders = nh.named_holders_from_text(texts["latest"])
+            matches = nh.match_registry(holders, ctx["registry"])
+            if matches:
+                ctx["symbol_matches"][sym] = matches
+            inst_vals["_matched_latest"] = sorted({m["investor"] for m in matches})
+            agg_latest = nh.aggregate(holders)
+        except Exception:
+            pass
+    if "prior_quarter" in texts:
+        try:
+            holders = nh.named_holders_from_text(texts["prior_quarter"])
+            inst_vals["_matched_prior"] = sorted({m["investor"] for m in nh.match_registry(holders, ctx["registry"])})
+            agg_prior = nh.aggregate(holders)
+        except Exception:
+            pass
+    if agg_latest is not None and agg_prior is not None:
+        inst_vals["holder_count_change"] = agg_latest["holder_count"] - agg_prior["holder_count"]
+        if agg_latest["top10_pct"] is not None and agg_prior["top10_pct"] is not None:
+            inst_vals["top10_holding_change"] = agg_latest["top10_pct"] - agg_prior["top10_pct"]
+    inst_vals.pop("_promoter_period", None)
+    c["basis"]["inst"] = inst_vals
+    src = c["src"].setdefault("shp", {})
+    src["quarter"] = records[0]["date"].isoformat() if records else None
+    src["v"] = SHP_VERSION
+
+
+def company_values(sym: str, c: dict, ctx: dict, prior_entry: dict | None) -> tuple[dict, list | None]:
+    """Every parameter for one company from its stored figures, today's prices and today's corporate
+    actions -- no network calls except the per-sector news counts (cached per run)."""
+    b = c.get("basis") or {}
+    values = {}
+    values.update(b.get("fin") or {})
+    values.update({k: v for k, v in (b.get("ann") or {}).items() if not k.startswith("_")})
+    px = ctx["prices"].get(sym)
+    last = None
+    if px and px[0]:
+        series, volume, delivery = px
+        values.update(price_values(series, delivery, volume))
+        values.update(index_relative_values(series, ctx["nifty"]))
+        last = series[-1][1]
+    else:
+        values.update(_cells_of(prior_entry, PRICE_KEYS))     # no price file today: keep the last figures
+    if b.get("val") and last:
+        values.update(valuation_from_basis(b["val"], last))
+    else:
+        values.update(b.get("val_cells") or _cells_of(prior_entry, VAL_KEYS))
+    inst = b.get("inst") or {}
+    values.update({k: v for k, v in inst.items() if not k.startswith("_")})
+    if "_matched_latest" in inst:
+        status = ctx["investor_status"]
+        latest = {n for n in inst["_matched_latest"] if status.get(n) == "confirmed"}
+        values["registry_holders"] = len(latest)
+        if "_matched_prior" in inst:
+            prior = {n for n in inst["_matched_prior"] if status.get(n) == "confirmed"}
+            values["registry_new_entrants"] = len(latest - prior)
+    values.update({k: v for k, v in (b.get("fund") or {}).items() if not k.startswith("_")})
+    ca_list = None
+    if ctx["ca_by_sym"] is not None:
+        recs = ctx["ca_by_sym"].get(sym, [])
+        ca_list = ca.recent_and_upcoming(recs, ctx["today"])
+        cav = ca.values(recs, ctx["today"])
+        values["buyback_flag"] = cav["buyback_flag"]
+        if last and cav.get("dividend_per_share_ttm") is not None:
+            values["dividend_yield"] = cav["dividend_per_share_ttm"] / last * 100
+        else:
+            values.pop("dividend_yield", None)
+    sector = ctx["sector_map"].get(sym)
+    if sector:
+        cache = ctx["sector_cache"]
+        if sector not in cache:
+            try:
+                cache[sector] = {"sector_news_count": sector_news.sector_news_count(sector)}
+            except Exception:
+                cache[sector] = {}
+            try:
+                cache[sector]["regulatory_events"] = sector_news.regulatory_events(sector)
+            except Exception:
+                pass
+        values.update(cache[sector])
+    return values, ca_list
+
+
 def main() -> dict:
-    """Runs one batch, starting where the last batch left off. A single GitHub Actions job cannot
-    finish the full ~2,570-company universe once real API calls are happening (roughly 300 fit in
-    the 70-minute time budget) -- so each run picks up at `cursor_next` from the previous run's
-    published library.json, processes as much as its time budget allows, merges its results into
-    the prior stocks (other companies' entries are left untouched), and reports whether the pass
-    wrapped around (cycle_complete). The workflow uses cycle_complete to decide whether to dispatch
-    another run and keep the chain going."""
+    """One run: read the free market-wide lists (filings, corporate actions, prices), work out what
+    each company needs, fetch only that -- most-needed first, BharatStock calls within the day's
+    budget -- then rescore every company from stored figures and today's prices. Reports whether
+    doable work remains (more_work) so the workflow can start another run."""
     key = os.getenv("BHARATSTOCK_API_KEY")
     if not key:
         raise RuntimeError("BHARATSTOCK_API_KEY is not set")
     started = time.time()
+    today = datetime.now(config.IST).date()
+    utc_day = datetime.now(timezone.utc).date().isoformat()
     names = universe()
     existing, sha = fetch_existing()
+    state = load_state()
     company_names = dict(existing.get("names") or {})
     try:
         company_names.update(fetch_company_names())
@@ -744,254 +1119,177 @@ def main() -> dict:
         industries.update(fetch_industries())
     except Exception:
         pass   # same: sector analytics fall back to the last good map
-    scored_on = datetime.now(config.IST).date().isoformat()
-    start_idx = existing.get("cursor_next", 0)
-    if not isinstance(start_idx, int) or not (0 <= start_idx < len(names)):
-        start_idx = 0
     prior_stocks = {s["symbol"]: s for s in existing.get("stocks", []) if isinstance(s, dict) and s.get("symbol")}
-    prior_matches = {k: v for k, v in (existing.get("investor_matches") or {}).items()}
+    prior_matches = dict(existing.get("investor_matches") or {})
     already_alerted = dict(existing.get("alerted") or {})
     try:
         registry_investors = json.loads(REGISTRY_FILE.read_text(encoding="utf-8")).get("investors", [])
     except (OSError, ValueError):
         registry_investors = []
-    investor_status = {inv["name"]: inv.get("status") for inv in registry_investors if inv.get("name")}
-    symbol_matches = {}
     try:
         sector_map = json.loads(SECTOR_MAP_FILE.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         sector_map = {}
-    sector_cache = {}   # built lazily, one pair of Google News calls per sector actually seen this batch
-    nse_session = shp.session()
-    nifty_series = load_nifty_series()
     try:
         existing_mb = json.loads(MULTIBAGGER_FILE.read_text(encoding="utf-8")) if MULTIBAGGER_FILE.exists() else {}
     except (OSError, ValueError):
         existing_mb = {}
     prior_mb = {r["symbol"]: r for r in existing_mb.get("ranked", []) if isinstance(r, dict) and r.get("symbol")}
     mb_failures = {f["symbol"]: f for f in existing_mb.get("failures", []) if isinstance(f, dict) and f.get("symbol")}
-    stocks, mb_stocks, partial, processed = [], [], False, 0
-    for sym in names[start_idx:]:
+
+    usage = state.get("bs_usage") or {}
+    if usage.get("date") != utc_day:
+        usage = {"date": utc_day, "requests": 0, "exhausted": False}
+    companies = state.setdefault("companies", {})
+    migrated = 0
+    for sym in names:
+        if sym not in companies:
+            companies[sym] = migrate(prior_stocks.get(sym))
+            migrated += 1
+
+    # 1. Free market-wide lists.
+    nse = shp.session()
+    feeds = state.setdefault("feeds", {})
+    log = {"feeds": {}}
+    for name, func, stage, key_name in (("results", nse_feeds.results_filed, "fin", "period"),
+                                        ("shareholding", nse_feeds.shareholding_filed, "shp", "quarter")):
+        since = _date(feeds.get(name))
+        start = (since - timedelta(days=FEED_OVERLAP)) if since else today - timedelta(days=FIRST_FEED_LOOKBACK)
+        try:
+            filed = func(nse, start, today)
+            feeds[name] = today.isoformat()
+            log["feeds"][name] = {"from": start.isoformat(), "companies_filed": len(filed),
+                                  "newer_than_stored": _mark_wants(companies, filed, stage, key_name)}
+        except Exception as exc:
+            log["feeds"][name] = {"error": str(exc)[:120]}
+    ca_by_sym = None
+    try:
+        ca_by_sym = ca.fetch_bulk(nse, today - timedelta(days=bhav.LOOKBACK_DAYS + 5), today + timedelta(days=120))
+        state["price_factors"] = {s: [[e.isoformat(), f] for e, f in ca.price_factors(r)]
+                                  for s, r in ca_by_sym.items() if ca.price_factors(r)}
+        log["feeds"]["corporate_actions"] = {"companies": len(ca_by_sym)}
+    except Exception as exc:
+        log["feeds"]["corporate_actions"] = {"error": str(exc)[:120] + " (using the last good split/bonus list)"}
+    factors = {s: [(date.fromisoformat(e), f) for e, f in ev] for s, ev in (state.get("price_factors") or {}).items()}
+    prices = {}
+    try:
+        log["prices"] = bhav.refresh(today)
+        prices = bhav.load(factors, today)
+        latest_px = max((p[0][-1][0] for p in prices.values() if p[0]), default=None)
+        log["prices"].update({"companies": sum(1 for s in names if s in prices), "as_of": _iso(latest_px)})
+    except Exception as exc:
+        log["prices"] = {"error": str(exc)[:120] + " (price figures kept from the last run)"}
+
+    # 2. What each company needs, most-needed first.
+    plan = {sym: needs(companies[sym], prior_mb.get(sym), today) for sym in names}
+    work = sorted((s for s in names if plan[s]), key=lambda s: (_priority(plan[s], companies[s]), s))
+
+    def bs_ok():
+        return not usage["exhausted"] and usage["requests"] < BS_DAILY_BUDGET
+
+    ctx = {"today": today, "key": key, "nse": nse, "bs_ok": bs_ok, "mb_new": {}, "mb_failures": mb_failures,
+           "prior_mb": prior_mb, "registry": registry_investors, "symbol_matches": {}}
+    refreshed, stage_counts, partial = set(), {}, False
+    bs_start = BS_REQUESTS[0]
+    for sym in work:
         if time.time() - started > TIME_BUDGET_SECONDS:
             partial = True
             break
-        processed += 1
+        stages = [st_ for st_ in plan[sym] if st_ not in BS_STAGES or bs_ok()]
+        if not stages:
+            continue
+        before = BS_REQUESTS[0]
         try:
-            rows = fetch(sym, key)
-            values = financial_values(rows)
-            annual_rows = []
-            try:
-                annual_rows = fetch_annual(sym, key)
-                values.update(cash_flow_values(annual_rows))
-            except Exception as exc:
-                if _is_quota_exhausted(exc):
-                    raise
-            try:
-                px, px_volume, px_delivery = fetch_price_history(sym, key)
-            except Exception as exc:
-                if _is_quota_exhausted(exc):
-                    raise
-                px, px_volume, px_delivery = [], [], []
-            values.update(price_values(px, px_delivery, px_volume))
-            values.update(index_relative_values(px, nifty_series))
-            last = px[-1][1] if px else None
-            values.update(valuation_values(_consolidated(rows), last))
-            try:
-                nse_records = shp.fetch(nse_session, sym)
-            except Exception:
-                try:
-                    nse_session = shp.session()   # one retry with a fresh session/cookies
-                    nse_records = shp.fetch(nse_session, sym)
-                except Exception:
-                    nse_records = []
-            values.update(shp.values(nse_records))
-            targets = shp.institutional_targets(nse_records)
-            texts = {}
-            for label, url in targets.items():
-                try:
-                    texts[label] = shp.fetch_xbrl_text(url)
-                except Exception:
-                    pass
-            inst = {label: shp.institutional_from_text(t) for label, t in texts.items()}
-            # Quarterly holding history for the admin report's trend chart (9 Oct 2026): every quarter
-            # NSE lists for promoter/public, plus FII/DII for the filings read above, merged with what
-            # earlier batches stored so FII/DII build up over time.
-            try:
-                q_dates = shp.target_dates(nse_records)
-                holding_hist = shp.holding_history(
-                    nse_records, {q_dates[lbl].isoformat(): v for lbl, v in inst.items() if lbl in q_dates},
-                    (prior_stocks.get(sym) or {}).get("holding_history"))
-            except Exception:
-                holding_hist = (prior_stocks.get(sym) or {}).get("holding_history")
-            if "latest" in inst:
-                values.update(inst["latest"])
-                if "prior_quarter" in inst:
-                    for k, prior_k in (("fii_holding", "fii_change_qoq"), ("dii_holding", "dii_change_qoq")):
-                        if k in inst["latest"] and k in inst["prior_quarter"]:
-                            values[prior_k] = inst["latest"][k] - inst["prior_quarter"][k]
-                if "year_ago" in inst and "pledge_pct" in inst["latest"] and "pledge_pct" in inst["year_ago"]:
-                    values["pledge_change"] = inst["latest"]["pledge_pct"] - inst["year_ago"]["pledge_pct"]
-            # Named public holders above the 2-lakh disclosure threshold, matched against the investor
-            # registry. A match is evidence to review, not an automatic confirmation: registry_holders
-            # and registry_new_entrants only count investors whose registry status is already
-            # "confirmed", so they stay honestly at 0 until the owner reviews and confirms a match.
-            matches_latest = []
-            agg_latest = agg_prior = None
-            if "latest" in texts:
-                try:
-                    holders_latest = nh.named_holders_from_text(texts["latest"])
-                    matches_latest = nh.match_registry(holders_latest, registry_investors)
-                    if matches_latest:
-                        symbol_matches[sym] = matches_latest
-                    agg_latest = nh.aggregate(holders_latest)
-                except Exception:
-                    pass
-            confirmed_latest = {m["investor"] for m in matches_latest
-                                 if investor_status.get(m["investor"]) == "confirmed"}
-            values["registry_holders"] = len(confirmed_latest)
-            if "prior_quarter" in texts:
-                try:
-                    holders_prior = nh.named_holders_from_text(texts["prior_quarter"])
-                    matches_prior = nh.match_registry(holders_prior, registry_investors)
-                    confirmed_prior = {m["investor"] for m in matches_prior
-                                        if investor_status.get(m["investor"]) == "confirmed"}
-                    values["registry_new_entrants"] = len(confirmed_latest - confirmed_prior)
-                    agg_prior = nh.aggregate(holders_prior)
-                except Exception:
-                    pass
-            if agg_latest is not None and agg_prior is not None:
-                values["holder_count_change"] = agg_latest["holder_count"] - agg_prior["holder_count"]
-                if agg_latest["top10_pct"] is not None and agg_prior["top10_pct"] is not None:
-                    values["top10_holding_change"] = agg_latest["top10_pct"] - agg_prior["top10_pct"]
-            ca_list = None
-            try:
-                ca_records = ca.fetch(nse_session, sym)
-                ca_list = ca.recent_and_upcoming(ca_records)
-                ca_values = ca.values(ca_records)
-                if last and ca_values.get("dividend_per_share_ttm") is not None:
-                    values["dividend_yield"] = ca_values["dividend_per_share_ttm"] / last * 100
-                values["buyback_flag"] = ca_values["buyback_flag"]
-            except Exception:
-                pass
-            sector = sector_map.get(sym)
-            if sector:
-                if sector not in sector_cache:
-                    try:
-                        sector_cache[sector] = {"sector_news_count": sector_news.sector_news_count(sector)}
-                    except Exception:
-                        sector_cache[sector] = {}
-                    try:
-                        sector_cache[sector]["regulatory_events"] = sector_news.regulatory_events(sector)
-                    except Exception:
-                        pass
-                values.update(sector_cache[sector])
-            # Multi-bagger score from the SAME rows/annual_rows already fetched above for the
-            # 124-parameter screen -- this is the whole point of merging the two pipelines: one
-            # BharatStock fetch per company serves both screens instead of two separate weekly runs
-            # each pulling the same financials. Computed here (before the insider/fund fetch below)
-            # so its own ">= 2" gate and the library screen's "profit growing" gate can share a
-            # single insider/fund fetch when both happen to fire for the same company, instead of
-            # fetching the same two endpoints twice.
-            mb_res = None
-            try:
-                mb_res = score(sym, rows, annual_rows)
-            except Exception as exc:
-                mb_failures[sym] = {"symbol": sym, "error": str(exc)[:120]}
-            # Insider and fund data only for companies with profit growth, or a multi-bagger score of
-            # 2+: keeps the run inside the daily request limit while still covering either screen's
-            # reason to want it.
-            wants_fund_data = ((values.get("profit_yoy") is not None and values["profit_yoy"] > 0) or
-                                (mb_res is not None and mb_res.get("score") is not None and mb_res["score"] >= 2))
-            if wants_fund_data:
-                try:
-                    ins = insider_signal(fetch_insider(sym, key))
-                except Exception as exc:
-                    if _is_quota_exhausted(exc):
-                        raise
-                    ins = {"status": f"insider fetch failed: {str(exc)[:80]}"}
-                try:
-                    mf = mf_counts(fetch_mf(sym, key))
-                except Exception as exc:
-                    if _is_quota_exhausted(exc):
-                        raise
-                    mf = {"status": f"fund fetch failed: {str(exc)[:80]}"}
-                if ins.get("net_shares") is not None:
-                    values["insider_net_shares_6m"] = ins["net_shares"]
-                if mf.get("schemes_holding") is not None:
-                    holding = mf["schemes_holding"]
-                    values["mf_schemes_holding"] = holding
-                    values["mf_schemes_added"] = mf.get("schemes_added", 0)
-                    values["mf_discovery_tier"] = 1 if holding < 5 else (2 if holding < 20 else 3)
-                if mb_res is not None and mb_res.get("score") is not None and mb_res["score"] >= 2:
-                    mb_res["promoter"] = ins
-                    mb_res["mutual_funds"] = mf
-            result = evaluate({k: v for k, v in values.items() if not k.startswith("_")})
-            entry = {"symbol": sym, "latest_period": values.get("_latest_period"),
-                     "quarters": values.get("_quarters", 0), **result}
-            # For the admin stock report (9 Oct 2026): NSE corporate actions (public data, last year
-            # plus anything upcoming) and the sector, both already fetched above and previously dropped.
-            if ca_list is not None:
-                entry["actions"] = ca_list
-            if sector:
-                entry["sector"] = sector
-            if holding_hist:
-                entry["holding_history"] = holding_hist
-            # For the dashboard's "What changed" feed (9 Oct 2026): when this company was scored, and
-            # its key figures as of the previous time it was scored.
-            entry["scored_on"] = scored_on
-            # Shareholding read with the 10 Oct 2026 corrections (FII = FPI only; quarter-end filings
-            # only). The dashboard ignores FII changes on entries without this until they are re-read.
-            entry["shp_v"] = SHP_VERSION
-            prior_entry = prior_stocks.get(sym)
-            if prior_entry and prior_entry.get("cells"):
-                snap = snapshot(prior_entry, prior_mb.get(sym))
-                if snap:
-                    entry["prev"] = snap
-            stocks.append(entry)
-            if mb_res is not None:
-                mb_stocks.append(mb_res)
-                mb_failures.pop(sym, None)
-        except Exception as exc:
-            if _is_quota_exhausted(exc):
-                # The day's BharatStock quota is gone, not just this one call -- every remaining
-                # company in this batch would fail the exact same way. Stop here instead of
-                # "processing" all of them into a worthless all-empty error entry (seen 8 Oct: every
-                # company after the first 429 showed zero data on the admin dashboard). processed is
-                # rolled back so cursor_next points at this exact symbol again, not past it --
-                # nothing was actually learned about it this run, so the next batch should retry it
-                # fresh rather than wait a full cycle for this index range to come around again.
-                processed -= 1
-                partial = True
-                break
-            stocks.append({"symbol": sym, "error": str(exc)[:120]})
+            done = refresh_company(sym, companies[sym], stages, ctx)
+        except QuotaGone:
+            usage["exhausted"] = True
+            done = []
+        usage["requests"] += BS_REQUESTS[0] - before
+        if done:
+            refreshed.add(sym)
+            for st_ in done:
+                stage_counts[st_] = stage_counts.get(st_, 0) + 1
         time.sleep(0.2)
 
-    end_idx = start_idx + processed
-    cycle_complete = end_idx >= len(names)
-    cursor_next = 0 if cycle_complete else end_idx
-    prior_stocks.update({s["symbol"]: s for s in stocks})
-    merged_stocks = list(prior_stocks.values())
+    # 3. Rescore every company from stored figures and today's prices.
+    investor_status = {inv["name"]: inv.get("status") for inv in registry_investors if inv.get("name")}
+    ctx.update({"prices": prices, "nifty": load_nifty_series(), "ca_by_sym": ca_by_sym, "sector_map": sector_map,
+                "sector_cache": {}, "investor_status": investor_status})
+    stocks = []
+    for sym in names:
+        c, prior = companies[sym], prior_stocks.get(sym)
+        values, ca_list = company_values(sym, c, ctx, prior)
+        result = evaluate({k: v for k, v in values.items() if not k.startswith("_")})
+        fin = (c.get("basis") or {}).get("fin") or {}
+        entry = {"symbol": sym, "latest_period": fin.get("_latest_period"), "quarters": fin.get("_quarters", 0), **result}
+        if ca_list is not None:
+            entry["actions"] = ca_list
+        elif prior and prior.get("actions"):
+            entry["actions"] = prior["actions"]
+        if sector_map.get(sym):
+            entry["sector"] = sector_map[sym]
+        if c.get("holding_history"):
+            entry["holding_history"] = c["holding_history"]
+        shp_src = (c.get("src") or {}).get("shp") or {}
+        if shp_src.get("v"):
+            entry["shp_v"] = shp_src["v"]
+        # The "What changed" feed compares with the figures from before this company's last refresh.
+        if sym in refreshed or not prior:
+            entry["scored_on"] = today.isoformat()
+            if prior and prior.get("cells"):
+                snap = snapshot(prior, prior_mb.get(sym))
+                if snap:
+                    entry["prev"] = snap
+        else:
+            entry["scored_on"] = prior.get("scored_on") or today.isoformat()
+            if prior.get("prev"):
+                entry["prev"] = prior["prev"]
+        entry["fresh"] = {k: (c.get("src") or {}).get(k, {}).get("on") for k in ("fin", "ann", "shp", "fund")}
+        stocks.append(entry)
+        mb = ctx["mb_new"].get(sym)
+        fund = (c.get("basis") or {}).get("fund") or {}
+        if mb is not None and mb.get("score") is not None and mb["score"] >= 2 and "_ins" in fund:
+            mb["promoter"], mb["mutual_funds"] = fund["_ins"], fund.get("_mf")
+    names_set = set(names)
+    merged_stocks = stocks + [s for sym, s in prior_stocks.items() if sym not in names_set]
     apply_sector_aggregates(merged_stocks, sector_map)
-    prior_matches.update(symbol_matches)
-    mb_total = merge_and_write_multibagger(mb_stocks, prior_mb, mb_failures, names, cycle_complete)
+    prior_matches.update(ctx["symbol_matches"])
 
-    # Email alert for stocks newly in the discovery tier (thin mutual-fund ownership + strong
-    # fundamentals) -- scans the full merged set, not just this batch, since sector aggregation just
-    # above can push a company over the met-ratio threshold without it being re-scored this batch.
-    today_ist = datetime.now(config.IST).date().isoformat()
+    # 4. What is still needed, for the tracker and the workflow's decision to run again.
+    after = {sym: needs(companies[sym], ctx["mb_new"].get(sym) or prior_mb.get(sym), today) for sym in names}
+    pending = {st_: sum(1 for s in names if st_ in after[s]) for st_ in ("fin", "ann", "shp", "fund")}
+    doable = [s for s in names if any(st_ not in BS_STAGES or bs_ok() for st_ in after[s])]
+    more_work = bool(doable) and bool(refreshed)
+    cycle_complete = not doable
+    mb_total = merge_and_write_multibagger(list(ctx["mb_new"].values()), prior_mb, mb_failures, names, cycle_complete)
+    today_ist = today.isoformat()
     new_findings, alerted = alerts.find_new_discoveries(merged_stocks, prior_mb, already_alerted, today_ist)
     alert_result = alerts.send_alert(new_findings, os.getenv("RELAY_URL", ""), os.getenv("RELAY_KEY", ""))
+
+    tracker = {
+        "bharatstock": {"day_utc": usage["date"], "requests_today": usage["requests"], "budget": BS_DAILY_BUDGET,
+                        "allowance_used_up": usage["exhausted"], "requests_this_run": BS_REQUESTS[0] - bs_start},
+        "refreshed_this_run": {"companies": len(refreshed), **stage_counts},
+        "pending": pending,
+        "pending_waiting_for_bharatstock": sum(1 for s in names if after[s] and s not in doable),
+        "no_bharatstock_results": sum(1 for s in names if ((companies[s].get("src") or {}).get("fin") or {}).get("empty")),
+        "never_read": sum(1 for s in names if not (companies[s].get("src") or {}).get("fin")),
+        "migrated_this_run": migrated,
+        **log,
+    }
+    state["bs_usage"] = usage
+    state["tracker"] = tracker
+    save_state(state)
 
     payload = {
         "generated": datetime.now(config.IST).isoformat(timespec="minutes"),
         "partial": partial,
         "universe": len(names),
-        "processed": processed,
-        "batch_from": start_idx,
-        "batch_to": end_idx,
-        "cursor_next": cursor_next,
+        "processed": len(refreshed),
+        "cursor_next": 0,
         "cycle_complete": cycle_complete,
         "total_stocks": len(merged_stocks),
+        "tracker": tracker,
         "rules": {k: v[0] for k, v in RULES.items()},
         "not_yet_implemented": NOT_YET,
         "stocks": merged_stocks,
@@ -1009,17 +1307,13 @@ def main() -> dict:
     publish(payload, sha)
     return {k: v for k, v in payload.items()
             if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted", "names", "industries")} | {
-        "stocks_written": len(merged_stocks), "batch_written": len(stocks),
+        "more_work": more_work, "stocks_written": len(merged_stocks),
         "symbols_with_matches": len(prior_matches),
-        "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(mb_stocks),
+        "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(ctx["mb_new"]),
         "new_discovery_findings": len(new_findings), "alert_result": alert_result,
-        # Diagnostics only, so a zero-written batch (like 8 Oct's) can be explained from the GH
-        # Actions log directly instead of needing private-repo access to read the real failures.
-        "batch_error_count": sum(1 for s in stocks if "error" in s),
-        "batch_error_sample": [s for s in stocks if "error" in s][:3],
         "multibagger_failure_count": len(mb_failures),
         "multibagger_failure_sample": list(mb_failures.values())[:3]}
 
 
 if __name__ == "__main__":
-    print(json.dumps(main(), indent=2, ensure_ascii=False))
+    print(json.dumps(main(), indent=2, ensure_ascii=False, default=str))

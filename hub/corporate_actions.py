@@ -81,3 +81,52 @@ def values(records: list[dict], as_of: date | None = None) -> dict:
         out["dividend_per_share_ttm"] = div_total
     out["buyback_flag"] = buyback
     return out
+
+
+BULK_API = "https://www.nseindia.com/api/corporates-corporateActions?index=equities&from_date={a}&to_date={b}"
+_SPLIT_RE = re.compile(r"From\s+R[se]\.?\s*([\d.]+).*?To\s+R[se]\.?\s*([\d.]+)", re.I)
+_BONUS_RE = re.compile(r"^\s*Bonus\s+(\d+)\s*:\s*(\d+)", re.I)
+
+
+def fetch_bulk(s, start: date, end: date) -> dict:
+    """Every company's corporate actions with an ex-date in [start, end], in ONE request, grouped by
+    symbol: {symbol: [record]}. Records have the same shape as fetch()'s, so recent_and_upcoming()
+    and values() take them unchanged. Replaces one fetch() per company per batch (10 Oct 2026)."""
+    r = s.get(BULK_API.format(a=start.strftime("%d-%m-%Y"), b=end.strftime("%d-%m-%Y")),
+              headers={**_headers(), "Accept": "application/json"}, timeout=90)
+    r.raise_for_status()
+    body = r.json()
+    out = {}
+    for row in body if isinstance(body, list) else []:
+        sym = (row.get("symbol") or "").strip()
+        if sym:
+            out.setdefault(sym, []).append(row)
+    return out
+
+
+def price_factors(records: list[dict]) -> list[tuple[date, float]]:
+    """(ex_date, factor) for each face-value split/consolidation and bonus: earlier prices times the
+    factor are comparable with prices from the ex-date on. Split "From Rs 10/- To Re 1/-" -> 0.1;
+    "Bonus 1:1" -> 0.5. Rights issues and preference-share bonuses ("Scheme Of Arrangement - Bonus
+    NCRPS") are left out: they do not change the equity share count the way these do."""
+    out = []
+    for row in records:
+        ex = _parse_date(row.get("exDate"))
+        subj = row.get("subject") or ""
+        if ex is None:
+            continue
+        fac = None
+        m = _SPLIT_RE.search(subj)
+        if m and re.search(r"split|sub-?division|consolidat", subj, re.I):
+            a, b = float(m.group(1)), float(m.group(2))
+            if a > 0 and b > 0:
+                fac = b / a
+        else:
+            m = _BONUS_RE.match(subj)
+            if m:
+                new, held = int(m.group(1)), int(m.group(2))
+                if new > 0 and held > 0:
+                    fac = held / (new + held)
+        if fac and fac != 1:
+            out.append((ex, fac))
+    return out
