@@ -2,9 +2,10 @@
  * Stock report (9 Oct 2026): the live parts of the admin dashboard's per-company report. Everything
  * stored (the ~50 library measures, multi-bagger gates, corporate actions, sector, name) is already in
  * the page from adminLibrary/adminMultibagger; this adds what is not stored:
- *   - quarterly revenue / profit / EPS from BharatStock (consolidated, last 12 quarters)
- *   - three years of daily closes from BharatStock, and NIFTY 50 from the private state/prices.json
+ *   - quarterly revenue / profit / EPS from BharatStock (consolidated, up to 40 quarters = 10 years)
+ *   - annual revenue / profit / EPS / operating cash flow from BharatStock (up to 10 years)
  *   - recent headlines from Google News
+ * Prices for the chart come from adminChart (Research.gs) since 11 Oct 2026.
  * BharatStock figures are fetched on click and never stored or cached here: its licence forbids
  * re-serving raw financial data from storage. Needs BHARATSTOCK_API_KEY in the script properties
  * (entered by the owner). Each part fails on its own and says why; one slow source never blanks the rest.
@@ -17,8 +18,6 @@ function adminStock(token, symbol, companyName) {
   if (!/^[A-Z0-9&_-]{1,20}$/.test(sym)) return { error: 'Not a valid NSE symbol.' };
   const props = PropertiesService.getScriptProperties();
   const bsKey = props.getProperty('BHARATSTOCK_API_KEY') || '';
-  const readToken = props.getProperty('ADMIN_READ_TOKEN') || '';
-  const from = Utilities.formatDate(new Date(Date.now() - 3 * 366 * 86400000), 'Asia/Kolkata', 'yyyy-MM-dd');
   const name = String(companyName || '').replace(/\s+(limited|ltd\.?)$/i, '').trim();
   const newsQuery = '"' + (name || sym) + '" share OR stock OR results';
 
@@ -27,13 +26,9 @@ function adminStock(token, symbol, companyName) {
   function add(key, req) { idx[key] = reqs.length; reqs.push(Object.assign({ muteHttpExceptions: true }, req)); }
   if (bsKey) {
     add('fin', { url: BHARAT + encodeURIComponent(sym) + '/financials?period_type=quarterly', headers: { 'X-API-Key': bsKey } });
-    add('px', { url: BHARAT + encodeURIComponent(sym) + '/prices?from=' + from + '&page_size=1000', headers: { 'X-API-Key': bsKey } });
+    add('fina', { url: BHARAT + encodeURIComponent(sym) + '/financials?period_type=annual', headers: { 'X-API-Key': bsKey } });
   }
   add('news', { url: 'https://news.google.com/rss/search?q=' + encodeURIComponent(newsQuery) + '&hl=en-IN&gl=IN&ceid=IN:en' });
-  if (readToken) {
-    add('nifty', { url: 'https://api.github.com/repos/' + ADMIN_REPO + '/contents/state/prices.json',
-                   headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
-  }
   const res = UrlFetchApp.fetchAll(reqs);
   const out = { symbol: sym, errors: {}, news_query: newsQuery };
   const bsMissing = 'BHARATSTOCK_API_KEY is not set in the script properties (Project Settings).';
@@ -52,8 +47,8 @@ function adminStock(token, symbol, companyName) {
         let body = JSON.parse(r.getContentText());
         let rows = bsRows_(body);
         let page = 2;
-        // Follow pagination until 12 consolidated quarters or the end (at most 4 pages).
-        while (page <= 4 && bsHasNext_(body, page - 1) && consolidated_(rows).length < 12) {
+        // Follow pagination until 40 quarters (10 years) or the end (at most 10 pages).
+        while (page <= 10 && bsHasNext_(body, page - 1) && consolidated_(rows).length < 40) {
           const more = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/financials?period_type=quarterly&page=' + page,
                                          { muteHttpExceptions: true, headers: { 'X-API-Key': bsKey } });
           if (more.getResponseCode() !== 200) break;
@@ -61,47 +56,32 @@ function adminStock(token, symbol, companyName) {
           rows = rows.concat(bsRows_(body));
           page++;
         }
-        out.quarters = consolidated_(rows).slice(0, 12).reverse().map(function (x) {
+        out.quarters = consolidated_(rows).slice(0, 40).reverse().map(function (x) {
           return { period: String(x.period_end_date || '').slice(0, 10),
                    revenue: pick_(x, ['revenue', 'total_revenue', 'revenue_from_operations', 'total_income']),
                    net_profit: pick_(x, ['net_profit', 'profit_after_tax', 'pat']),
                    operating_profit: pick_(x, ['operating_profit', 'ebitda', 'operating_income']),
                    eps: pick_(x, ['eps', 'basic_eps', 'diluted_eps']) };
         });
-        if (!out.quarters.length) out.errors.financials = 'No consolidated quarters on BharatStock.';
+        if (!out.quarters.length) out.errors.financials = 'No quarterly results on BharatStock.';
       }
     } catch (e) { out.errors.financials = 'Could not read financials: ' + e.message; }
   }
 
-  // Price history
-  if (!bsKey) {
-    out.errors.prices = bsMissing;
-  } else {
+  // Annual results, up to 10 years
+  if (bsKey) {
     try {
-      const r = res[idx.px];
-      const code = r.getResponseCode();
-      if (code === 429) out.errors.prices = 'BharatStock daily limit reached; try again later.';
-      else if (code !== 200) out.errors.prices = 'BharatStock returned ' + code + ' for prices.';
-      else {
-        out.prices = bsRows_(JSON.parse(r.getContentText())).map(function (x) {
-          const c = x.adjusted_close != null ? x.adjusted_close : x.close;
-          return [String(x.trade_date || '').slice(0, 10), c == null ? null : Number(c)];
-        }).filter(function (p) { return p[0] && p[1] != null; })
-          .sort(function (a, b) { return a[0] < b[0] ? -1 : (a[0] > b[0] ? 1 : 0); });
-        if (!out.prices.length) out.errors.prices = 'No price history on BharatStock.';
-      }
-    } catch (e) { out.errors.prices = 'Could not read prices: ' + e.message; }
-  }
-
-  // NIFTY 50 for the relative-performance line
-  if (idx.nifty != null) {
-    try {
-      const r = res[idx.nifty];
+      const r = res[idx.fina];
       if (r.getResponseCode() === 200) {
-        const n = JSON.parse(r.getContentText()).NIFTY || {};
-        out.nifty = Object.keys(n).filter(function (d) { return d >= from; }).sort().map(function (d) { return [d, n[d]]; });
-      }
-    } catch (e) { /* the chart simply shows no benchmark line */ }
+        out.annual = consolidated_(bsRows_(JSON.parse(r.getContentText()))).slice(0, 10).reverse().map(function (x) {
+          return { period: String(x.period_end_date || '').slice(0, 10),
+                   revenue: pick_(x, ['revenue', 'total_revenue', 'revenue_from_operations', 'total_income']),
+                   net_profit: pick_(x, ['net_profit', 'profit_after_tax', 'pat']),
+                   eps: pick_(x, ['eps', 'basic_eps', 'diluted_eps']),
+                   cfo: pick_(x, ['cash_flow_operating']) };
+        });
+      } else if (r.getResponseCode() === 429) out.errors.annual = 'BharatStock daily limit reached; try again later.';
+    } catch (e) { out.errors.annual = 'Could not read annual results: ' + e.message; }
   }
 
   // Headlines
@@ -131,10 +111,13 @@ function bsHasNext_(body, page) {
   return p.has_next != null ? !!p.has_next : page < (p.total_pages || 1);
 }
 
-// Same rule as hub/multibagger.py _consolidated(): consolidated (or unlabelled) rows, newest first.
+// Same rule as hub/multibagger.py _consolidated(): consolidated (or unlabelled) rows, newest first -- or
+// standalone rows for a company that files no consolidated results.
 function consolidated_(rows) {
-  return rows.filter(function (x) { return (x.consolidation_type || 'consolidated') === 'consolidated' && x.period_end_date; })
-    .sort(function (a, b) { return a.period_end_date < b.period_end_date ? 1 : (a.period_end_date > b.period_end_date ? -1 : 0); });
+  const dated = rows.filter(function (x) { return x.period_end_date; });
+  let pick = dated.filter(function (x) { return (x.consolidation_type || 'consolidated') === 'consolidated'; });
+  if (!pick.length) pick = dated.filter(function (x) { return String(x.consolidation_type || '').toLowerCase() === 'standalone'; });
+  return pick.sort(function (a, b) { return a.period_end_date < b.period_end_date ? 1 : (a.period_end_date > b.period_end_date ? -1 : 0); });
 }
 
 function pick_(row, keys) {

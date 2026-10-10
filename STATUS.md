@@ -40,6 +40,10 @@ freshness" on the dashboard Overview. **Before adding any new BharatStock call, 
 stages (`needs()` in `hub/library.py`) with a refresh rule -- never fetch per company per run.** See
 CHANGELOG 10 Oct.
 
+**Stock report research tools (11 Oct):** interactive Kite charts, 10-year results, NSE documents and AI
+summaries -- see CHANGELOG 11 Oct. **Owner to add `ANTHROPIC_API_KEY` as a GitHub Actions secret** for the AI
+summaries; everything else works without it.
+
 **Relay deploys now go through `clasp`, not Chrome** -- see `relay/README.md`, "Deploying with clasp".
 
 **Always run `node relay/check.js` before pasting/deploying relay code.** It catches browser-side errors

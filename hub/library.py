@@ -27,6 +27,7 @@ from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf
                           FIELDS, ENDPOINT_COUNTS, BS_REQUESTS)
 from . import bhav
 from . import nse_feeds
+from . import documents as docs_mod
 from . import shareholding as shp
 from . import corporate_actions as ca
 from . import named_holders as nh
@@ -670,13 +671,17 @@ def fetch_company_names() -> dict:
 #   annual results         BharatStock, only when a new financial year's results are in
 #   shareholding           NSE (free), only after NSE shows a newer quarter's filing
 #   insider + fund data    BharatStock, at most monthly, only for companies either screen wants it for
+#   documents              NSE (free): links to annual reports, call transcripts, presentations and
+#                          recordings -- one market-wide request a run for new filings, plus each
+#                          company once (and its annual reports once a year)
 # Each company's last fetched figures are kept in state/library_state.json (private repo), so a run
 # recomputes every company's scores from stored figures plus today's prices without asking again.
 # Each source also has an age limit (REFRESH_DAYS) as a safety net in case a filing list is missed.
 # ---------------------------------------------------------------------------------------------------
 STATE_FILE = config.REPO / "state" / "library_state.json"
 BS_DAILY_BUDGET = int(os.getenv("BS_DAILY_BUDGET", "9000"))   # of 10,000: the rest is left for the admin stock report
-REFRESH_DAYS = {"fin": 120, "ann": 400, "shp": 120, "fund": 30}
+REFRESH_DAYS = {"fin": 120, "ann": 400, "shp": 120, "fund": 30, "docs": 180}
+DOCS_FILE = config.SITE_DIR / "data" / "docs.json"   # links to NSE annual reports, transcripts, presentations
 RETRY_DAYS = 3              # BharatStock can lag an NSE filing by a few days
 MAX_TRIES = 3               # per newly filed quarter; after that the age limit takes over
 FIRST_FEED_LOOKBACK = 100   # days of filing lists read on the first run (covers the current results season)
@@ -800,6 +805,11 @@ def needs(c: dict, mb_row: dict | None, today: date) -> list[str]:
         out.append("fin")
     if due("shp"):
         out.append("shp")
+    d = src.get("docs")
+    retry = _date((d or {}).get("retry"))
+    if not (retry and retry > today) and (
+            not d or due("docs") or docs_mod.annual_report_due(c.get("docs") or {}, d.get("ar_checked"), today)):
+        out.append("docs")
     # Fund data is wanted only for companies with profit growth or a multi-bagger score of 2+. Fresh
     # results can change that, so after a results refresh refresh_company() checks again itself.
     s = src.get("fund")
@@ -813,7 +823,7 @@ def _priority(stages: list[str], c: dict) -> int:
     src = c.get("src") or {}
     if "fin" in stages and not src.get("fin"):
         return 0                       # never read at all
-    if stages == ["shp"]:
+    if all(s in ("shp", "docs") for s in stages):
         return 1                       # free: costs no BharatStock requests
     if any((src.get(s) or {}).get("want") for s in stages):
         return 2                       # a newer quarter has been filed
@@ -938,6 +948,20 @@ def refresh_company(sym: str, c: dict, stages: list[str], ctx: dict) -> list[str
             elif stage == "shp":
                 refresh_shareholding(sym, c, ctx)
                 _after_fetch(src.setdefault("shp", {}), src["shp"].get("quarter"), today)
+            elif stage == "docs":
+                d = src.setdefault("docs", {})
+                on = _date(d.get("on"))
+                if on is None or (today - on).days >= REFRESH_DAYS["docs"]:
+                    fresh = docs_mod.fetch_company(ctx["nse"], sym, today)
+                    store = c.setdefault("docs", {})
+                    for kind, items in fresh.items():
+                        docs_mod.merge(store, kind, items)
+                    d["on"] = today.isoformat()
+                else:                      # only the yearly annual-report check is due
+                    docs_mod.merge(c.setdefault("docs", {}), "ar", docs_mod.annual_reports(ctx["nse"], sym))
+                d["ar_checked"] = today.isoformat()
+                d.pop("error", None)
+                d.pop("retry", None)
             elif stage == "fund":
                 mb_row = ctx["mb_new"].get(sym) or ctx["prior_mb"].get(sym)
                 if not _wants_fund(c, mb_row):
@@ -1162,6 +1186,19 @@ def main() -> dict:
                                   "newer_than_stored": _mark_wants(companies, filed, stage, key_name)}
         except Exception as exc:
             log["feeds"][name] = {"error": str(exc)[:120]}
+    since = _date(feeds.get("documents"))
+    if since:      # the first run fills each company from its own list instead
+        try:
+            filed = docs_mod.new_filings(nse, since - timedelta(days=FEED_OVERLAP), today)
+            added = 0
+            for sym, kinds in filed.items():
+                if sym in companies:
+                    for kind, items in kinds.items():
+                        added += docs_mod.merge(companies[sym].setdefault("docs", {}), kind, items)
+            log["feeds"]["documents"] = {"companies_filed": len(filed), "new_documents": added}
+        except Exception as exc:
+            log["feeds"]["documents"] = {"error": str(exc)[:120]}
+    feeds["documents"] = today.isoformat()
     ca_by_sym = None
     try:
         ca_by_sym = ca.fetch_bulk(nse, today - timedelta(days=bhav.LOOKBACK_DAYS + 5), today + timedelta(days=120))
@@ -1244,7 +1281,7 @@ def main() -> dict:
             entry["scored_on"] = prior.get("scored_on") or today.isoformat()
             if prior.get("prev"):
                 entry["prev"] = prior["prev"]
-        entry["fresh"] = {k: (c.get("src") or {}).get(k, {}).get("on") for k in ("fin", "ann", "shp", "fund")}
+        entry["fresh"] = {k: (c.get("src") or {}).get(k, {}).get("on") for k in ("fin", "ann", "shp", "fund", "docs")}
         stocks.append(entry)
         mb = ctx["mb_new"].get(sym)
         fund = (c.get("basis") or {}).get("fund") or {}
@@ -1259,8 +1296,11 @@ def main() -> dict:
 
     # 4. What is still needed, for the tracker and the workflow's decision to run again.
     after = {sym: needs(companies[sym], ctx["mb_new"].get(sym) or prior_mb.get(sym), today) for sym in names}
-    pending = {st_: sum(1 for s in names if st_ in after[s]) for st_ in ("fin", "ann", "shp", "fund")}
+    pending = {st_: sum(1 for s in names if st_ in after[s]) for st_ in ("fin", "ann", "shp", "fund", "docs")}
     doable = [s for s in names if any(st_ not in BS_STAGES or bs_ok() for st_ in after[s])]
+    DOCS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    DOCS_FILE.write_text(json.dumps({s: companies[s]["docs"] for s in names if companies[s].get("docs")},
+                                    ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     more_work = bool(doable) and bool(refreshed)
     cycle_complete = not doable
     mb_total = merge_and_write_multibagger(list(ctx["mb_new"].values()), prior_mb, mb_failures, names, cycle_complete)

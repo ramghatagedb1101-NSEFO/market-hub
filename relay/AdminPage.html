@@ -122,6 +122,12 @@ table.t tr:last-child td{border-bottom:0}
 .stats div{padding:12px 14px;border-right:1px solid var(--line2)} .stats div:last-child{border-right:0}
 .stats .k{font-size:11.5px;color:var(--muted);font-weight:600} .stats .v{font-size:16px;font-weight:700;font-family:var(--mono);margin-top:2px}
 .chart{position:relative;height:280px} .chart.sm{height:200px}
+.lwc{position:relative;height:400px} .lwc-legend{position:absolute;left:10px;top:6px;z-index:3;font-size:12px;font-family:var(--mono);color:var(--text2);pointer-events:none;background:var(--panel);padding:2px 6px;border-radius:6px;opacity:.92}
+.lwc-credit{font-size:11px;color:var(--faint);margin-top:6px} .lwc-credit a{color:var(--faint)}
+.docs h4{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:12px 0 6px} .docs h4:first-child{margin-top:0}
+.docs a.doc{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line2);color:var(--text);text-decoration:none;font-size:13px} .docs a.doc:hover{color:var(--brand)}
+.docs a.doc .d{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:86px}
+.ai h5{font-size:15px;margin:0 0 6px} .ai ul{margin:4px 0 10px 18px;padding:0} .ai li{margin:3px 0;font-size:13px} .ai .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:10px}
 .metrics{display:grid;grid-template-columns:1fr;gap:0}
 .cols{columns:3 300px;column-gap:28px;padding:6px 16px 14px}
 .cols>div{break-inside:avoid;display:inline-block;width:100%}
@@ -206,6 +212,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--panel2);border-radi
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 // ======================================================================================
 // Session (seven days on the server; the browser keeps the token in localStorage)
@@ -251,7 +258,7 @@ function logout(){
 // ======================================================================================
 // Data
 // ======================================================================================
-const S = { admin: null, lib: null, mb: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {} };
+const S = { admin: null, lib: null, mb: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {} };
 
 function start(){
   $('login').style.display = 'none'; $('app').style.display = 'block';
@@ -743,8 +750,27 @@ function pageTests(){
 // Stock report
 // ======================================================================================
 let charts = [];
-let pxRange = '1Y', pxRel = false;
-function destroyCharts(){ charts.forEach(c => { try { c.destroy(); } catch (e) {} }); charts = []; }
+let pxRange = '1Y', pxRel = false, pxType = 'candle', pxMA = true, pxVol = true, qMode = 'q', aiTab = 'tr';
+let lwcCharts = [];
+// The interactive chart (11 Oct 2026): 6M/1Y/3Y/5Y are cut from one 5-year daily series; 1D/5D/1M and
+// 10Y are separate requests. Kite candles through the relay, BharatStock daily prices as the fallback.
+const PX_RANGES = ['1D', '5D', '1M', '6M', '1Y', '3Y', '5Y', '10Y'];
+function pxKey(r){ return ['6M', '1Y', '3Y', '5Y'].includes(r) ? '5Y' : r; }
+function loadChart(sym, r){
+  const k = sym + '|' + pxKey(r);
+  if (S.charts[k]) return;
+  S.charts[k] = { loading: true };
+  call('adminChart', token, sym, pxKey(r)).then(d => { S.charts[k] = d; if (current.page === 'stock' && current.arg && current.arg.toUpperCase() === sym) rerender(); })
+    .catch(e => { S.charts[k] = { error: e.message }; if (current.page === 'stock') rerender(); });
+}
+function loadDocs(sym, force){
+  if (S.docs[sym] && !force) return;
+  S.docs[sym] = { loading: true };
+  call('adminDocs', token, sym).then(d => { S.docs[sym] = d; if (current.page === 'stock' && current.arg && current.arg.toUpperCase() === sym) rerender(); })
+    .catch(e => { S.docs[sym] = { error: e.message }; if (current.page === 'stock') rerender(); });
+}
+function destroyCharts(){ charts.forEach(c => { try { c.destroy(); } catch (e) {} }); charts = [];
+  lwcCharts.forEach(c => { try { c.remove(); } catch (e) {} }); lwcCharts = []; }
 function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
 function pageStock(sym){
@@ -762,7 +788,11 @@ function pageStock(sym){
       .catch(e => { S.reports[sym] = { error: e.message, errors: {} }; if (current.page === 'stock') rerender(); });
   }
   const R = S.reports[sym] || { loading: true };
-  const px = (R.prices || []);
+  loadChart(sym, '5Y');
+  loadChart(sym, pxRange);
+  loadDocs(sym);
+  const D5 = S.charts[sym + '|5Y'] || { loading: true };
+  const px = (D5.candles || []).map(c => [c[0], c[4]]);
   const last = px.length ? px[px.length - 1] : null;
   const prev = px.length > 1 ? px[px.length - 2] : null;
   const chg = last && prev ? (last[1] / prev[1] - 1) * 100 : null;
@@ -770,7 +800,8 @@ function pageStock(sym){
   const r1y = last && yAgo ? (last[1] / yAgo[1] - 1) * 100 : val(s,'ret_12m');
   const y52 = last ? px.filter(p => p[0] >= isoShift(last[0], -365)).map(p => p[1]) : [];
   const hi52 = y52.length ? Math.max(...y52) : null, lo52 = y52.length ? Math.min(...y52) : null;
-  const cagr3 = last && px.length > 500 ? (Math.pow(last[1] / px[0][1], 365 / daysBetween(px[0][0], last[0])) - 1) * 100 : null;
+  const p3 = last ? px.find(p => p[0] >= isoShift(last[0], -1096)) : null;
+  const cagr3 = last && p3 && daysBetween(p3[0], last[0]) > 1000 ? (Math.pow(last[1] / p3[1], 365 / daysBetween(p3[0], last[0])) - 1) * 100 : null;
 
   // Badges
   const badges = [];
@@ -784,7 +815,7 @@ function pageStock(sym){
     '<div class="rep-head"><div><h1 class="rep-title">' + esc(name || sym) + '</h1><div class="rep-meta"><span class="chip num">NSE: ' + esc(sym) + '</span>' +
     (sectorOf(sym) ? '<span class="chip">' + esc(sectorOf(sym)) + '</span>' : '') + (s && s.latest_period ? '<span class="chip">Results to ' + esc(fmtDate(s.latest_period)) + '</span>' : '') + badges.join('') + '</div></div>' +
     '<div class="price">' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:500">· ' + esc(fmtDate(last[0])) + '</span></div>'
-                            : R.loading ? '<div class="skel" style="width:140px;height:26px"></div>' : '') + '</div></div>';
+                            : D5.loading ? '<div class="skel" style="width:140px;height:26px"></div>' : '') + '</div></div>';
 
   html += '<div class="stats">' + [
     ['Market cap', crore(val(s,'market_value_bucket'))], ['P/E', val(s,'pe') == null ? '–' : num(val(s,'pe'), 1) + '×'],
@@ -793,14 +824,30 @@ function pageStock(sym){
     ['Dividend yield', val(s,'dividend_yield') == null ? '–' : num(val(s,'dividend_yield'), 2) + '%']
   ].map(([k, x]) => '<div><div class="k">' + k + '</div><div class="v">' + x + '</div></div>').join('') + '</div>';
 
-  // Price + quarterly charts
-  const finErr = (R.errors || {}).financials, pxErr = (R.errors || {}).prices;
+  // Interactive price chart (full width), then results and documents
+  const DK = S.charts[sym + '|' + pxKey(pxRange)] || { loading: true };
+  const intraday = ['1D', '5D', '1M'].includes(pxRange);
+  const segBtn = (on, label, js) => '<button class="' + (on ? 'on' : '') + '" onclick="' + js + ';rerender()">' + label + '</button>';
+  html += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Price</h3><div style="display:flex;gap:8px;flex-wrap:wrap">' +
+    '<div class="seg">' + PX_RANGES.map(x => segBtn(pxRange === x, x, 'pxRange=\'' + x + '\'')).join('') + '</div>' +
+    '<div class="seg">' + segBtn(pxType === 'candle' && !pxRel, 'Candles', 'pxType=\'candle\';pxRel=false') + segBtn(pxType === 'line' && !pxRel, 'Line', 'pxType=\'line\';pxRel=false') + segBtn(pxRel, 'vs NIFTY', 'pxRel=!pxRel') + '</div>' +
+    '<div class="seg">' + (intraday ? '' : segBtn(pxMA, '50/200 DMA', 'pxMA=!pxMA')) + segBtn(pxVol, 'Volume', 'pxVol=!pxVol') + '</div></div></div><div class="panel-b">' +
+    (DK.loading ? '<div class="lwc"><div class="skel" style="height:100%"></div></div>'
+      : DK.error ? '<div class="notice">' + esc(DK.error) + '</div>'
+      : '<div class="lwc" id="lwc"><div class="lwc-legend" id="lwcLegend"></div></div><div class="lwc-credit">' +
+        (DK.source === 'kite' ? 'Kite (Zerodha) prices' : 'BharatStock daily prices' + (DK.kite_note ? ' · ' + esc(DK.kite_note) : '')) +
+        ' · markers: D dividend, S split/bonus, B buyback, R results call · charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts</a></div>') + '</div></div>';
+
+  const finErr = (R.errors || {}).financials;
+  const qN = (R.quarters || []).length, aN = (R.annual || []).length;
   html += '<div class="grid g2" style="margin-bottom:14px">' +
-    '<div class="panel"><div class="panel-h"><h3>Price</h3><div style="display:flex;gap:8px"><div class="seg">' + ['6M', '1Y', '3Y'].map(x => '<button class="' + (pxRange === x ? 'on' : '') + '" onclick="pxRange=\'' + x + '\';rerender()">' + x + '</button>').join('') + '</div>' +
-    '<div class="seg"><button class="' + (pxRel ? 'on' : '') + '" onclick="pxRel=!pxRel;rerender()">vs NIFTY</button></div></div></div><div class="panel-b">' +
-    (R.loading ? '<div class="chart"><div class="skel" style="height:100%"></div></div>' : pxErr ? '<div class="notice">' + esc(pxErr) + '</div>' : '<div class="chart"><canvas id="cPx"></canvas></div>') + '</div></div>' +
-    '<div class="panel"><div class="panel-h"><h3>Quarterly revenue &amp; profit</h3><span class="muted" style="font-size:12px">₹ crore · consolidated · live from BharatStock</span></div><div class="panel-b">' +
-    (R.loading ? '<div class="chart"><div class="skel" style="height:100%"></div></div>' : finErr ? '<div class="notice">' + esc(finErr) + '</div>' : '<div class="chart"><canvas id="cQ"></canvas></div>') + '</div></div></div>';
+    '<div class="panel"><div class="panel-h"><h3>' + (qMode === 'a' ? 'Annual' : 'Quarterly') + ' revenue &amp; profit</h3><div class="seg">' +
+      segBtn(qMode === 'q', 'Quarterly' + (qN ? ' (' + qN + ')' : ''), 'qMode=\'q\'') + segBtn(qMode === 'a', 'Annual' + (aN ? ' (' + aN + ' yrs)' : ''), 'qMode=\'a\'') + '</div></div><div class="panel-b">' +
+    (R.loading ? '<div class="chart"><div class="skel" style="height:100%"></div></div>' : finErr && qMode === 'q' ? '<div class="notice">' + esc(finErr) + '</div>'
+      : qMode === 'a' && !aN ? '<div class="notice">' + esc((R.errors || {}).annual || 'No annual results on BharatStock.') + '</div>' : '<div class="chart"><canvas id="cQ"></canvas></div>') +
+    '<div class="muted" style="font-size:11.5px;margin-top:6px">₹ crore · live from BharatStock, not stored</div></div></div>' +
+    documentsPanel(sym) + '</div>';
+  html += aiPanel(sym);
 
   html += factorPanel(sym);
   // Scorecard
@@ -838,6 +885,7 @@ function pageStock(sym){
   }
   v.innerHTML = html;
   if (!R.loading) drawStockCharts(R, s);
+  drawPriceChart(sym, s);
   drawRadar(sym);
 }
 
@@ -906,6 +954,142 @@ function newsHtml(R){
   if (!items.length) return '<div class="muted">No recent headlines found.</div>';
   return items.slice(0, 7).map(n => '<a href="' + esc(n.link) + '" target="_blank" rel="noopener noreferrer"><div class="tt">' + esc((n.title || '').replace(/\s+-\s+[^-]+$/, '')) + '</div><div class="src">' + esc(n.source || '') + ' · ' + esc(fmtDate(n.date)) + '</div></a>').join('');
 }
+// Candles, moving averages, volume, NIFTY comparison and event markers, drawn with TradingView's
+// Lightweight Charts (Apache 2.0; the credit line under the chart is its required attribution).
+function sma(vals, n){ const out = []; let sum = 0; for (let i = 0; i < vals.length; i++) { sum += vals[i]; if (i >= n) sum -= vals[i - n]; out.push(i >= n - 1 ? sum / n : null); } return out; }
+function drawPriceChart(sym, s){
+  const el = $('lwc');
+  if (!el || typeof LightweightCharts === 'undefined') return;
+  const D = S.charts[sym + '|' + pxKey(pxRange)];
+  if (!D || !D.candles || !D.candles.length) return;
+  const daily = D.interval === 'day';
+  let all = D.candles;
+  const closes = all.map(c => c[4]);
+  const ma50 = sma(closes, 50), ma200 = sma(closes, 200);
+  let from = 0;
+  if (pxKey(pxRange) === '5Y' && pxRange !== '5Y') {
+    const cut = isoShift(all[all.length - 1][0], pxRange === '6M' ? -183 : pxRange === '1Y' ? -365 : -1096);
+    from = Math.max(0, all.findIndex(c => c[0] >= cut));
+  }
+  const c = all.slice(from);
+  const text = cssVar('--muted'), grid = cssVar('--line2'), brand = cssVar('--brand'), up = cssVar('--up'), down = cssVar('--down'), warn = cssVar('--warn'), faint = cssVar('--faint');
+  const chart = LightweightCharts.createChart(el, {
+    autoSize: true,
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: text, fontFamily: cssVar('--sans'), attributionLogo: false },
+    grid: { vertLines: { color: grid }, horzLines: { color: grid } },
+    rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false, timeVisible: !daily, secondsVisible: false },
+    crosshair: { mode: 0 },
+    localization: { priceFormatter: v => pxRel ? num(v, 1) : '₹' + num(v, 2) } });
+  lwcCharts.push(chart);
+  let main;
+  if (pxRel) {
+    const base = c[0][4];
+    main = chart.addLineSeries({ color: brand, lineWidth: 2, title: sym });
+    main.setData(c.map(x => ({ time: x[0], value: x[4] / base * 100 })));
+    const nm = {}; (D.nifty || []).forEach(n => { nm[n[0]] = n[1]; });
+    const first = c.find(x => nm[x[0]] != null);
+    if (first) {
+      const nb = nm[first[0]];
+      const ns = chart.addLineSeries({ color: faint, lineWidth: 1.5, lineStyle: 2, title: 'NIFTY 50' });
+      ns.setData(c.filter(x => nm[x[0]] != null).map(x => ({ time: x[0], value: nm[x[0]] / nb * 100 })));
+    }
+  } else if (pxType === 'candle' && c.every(x => x[1] != null && x[2] != null && x[3] != null)) {
+    main = chart.addCandlestickSeries({ upColor: up, downColor: down, borderVisible: false, wickUpColor: up, wickDownColor: down });
+    main.setData(c.map(x => ({ time: x[0], open: x[1], high: x[2], low: x[3], close: x[4] })));
+  } else {
+    main = chart.addAreaSeries({ lineColor: brand, topColor: brand + '33', bottomColor: brand + '05', lineWidth: 2 });
+    main.setData(c.map(x => ({ time: x[0], value: x[4] })));
+  }
+  if (pxMA && daily && !pxRel) {
+    [[ma50, warn, '50 DMA'], [ma200, faint, '200 DMA']].forEach(([m, col, title]) => {
+      const pts = c.map((x, i) => ({ time: x[0], value: m[from + i] })).filter(p => p.value != null);
+      if (pts.length) chart.addLineSeries({ color: col, lineWidth: 1.2, title, priceLineVisible: false, lastValueVisible: false }).setData(pts);
+    });
+  }
+  if (pxVol && c.some(x => x[5])) {
+    const vol = chart.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false });
+    chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    vol.setData(c.map(x => ({ time: x[0], value: x[5] || 0, color: (x[4] >= x[1] ? up : down) + '66' })));
+  }
+  if (daily) {
+    // Event markers snap to the first trading day on or after the event.
+    const times = c.map(x => x[0]);
+    const snap = d => { const t0 = times.find(x => x >= d); return t0 || null; };
+    const marks = [];
+    ((s && s.actions) || []).forEach(a => {
+      const subj = (a.subject || '').toLowerCase();
+      const kind = /split|bonus|sub-division/.test(subj) ? 'S' : /buy ?back/.test(subj) ? 'B' : /dividend/.test(subj) ? 'D' : null;
+      const tm = kind && snap(a.ex_date);
+      if (tm) marks.push({ time: tm, position: 'aboveBar', color: kind === 'D' ? up : warn, shape: 'circle', text: kind });
+    });
+    const docs = (S.docs[sym] || {}).docs || {};
+    (docs.tr || []).forEach(d => { const tm = d.date && snap(d.date); if (tm) marks.push({ time: tm, position: 'belowBar', color: brand, shape: 'arrowUp', text: 'R' }); });
+    marks.sort((a, b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
+    if (marks.length) main.setMarkers(marks);
+  }
+  chart.timeScale().fitContent();
+  const lg = $('lwcLegend');
+  const show = x => { if (!lg || !x) return; lg.textContent = pxRel ? '' : (x[1] != null ? 'O ' + num(x[1], 2) + '  H ' + num(x[2], 2) + '  L ' + num(x[3], 2) + '  ' : '') + 'C ' + num(x[4], 2) + (x[5] ? '  Vol ' + num(x[5], 0) : ''); };
+  show(c[c.length - 1]);
+  const byTime = {}; c.forEach(x => { byTime[x[0]] = x; });
+  chart.subscribeCrosshairMove(p => { show(p && p.time != null && byTime[typeof p.time === 'object' ? p.time.year + '-' + String(p.time.month).padStart(2, '0') + '-' + String(p.time.day).padStart(2, '0') : p.time] || c[c.length - 1]); });
+}
+
+// Documents: links to NSE's own PDFs (annual reports, call transcripts, presentations, recordings).
+function documentsPanel(sym){
+  const X = S.docs[sym] || { loading: true };
+  const head = '<div class="panel"><div class="panel-h"><h3>Documents</h3><span class="muted" style="font-size:12px">NSE filings · opens the PDF</span></div><div class="panel-b docs">';
+  if (X.loading) return head + '<div class="skel"></div><div class="skel" style="margin-top:10px;width:70%"></div></div></div>';
+  if (X.error) return head + '<div class="notice">' + esc(X.error) + '</div></div></div>';
+  const d = X.docs || {};
+  const link = (x, label) => '<a class="doc" href="' + esc(x.url) + '" target="_blank" rel="noopener noreferrer"><span class="d">' + esc(fmtDate(x.date)) + '</span><span>' + esc(label) + '</span></a>';
+  const groups = [['Annual reports', (d.ar || []).map(x => link(x, 'Annual report ' + (x.fy ? 'FY' + x.fy : '') + (x.size ? ' · ' + x.size : '')))],
+                  ['Earnings-call transcripts', (d.tr || []).map(x => link(x, 'Transcript'))],
+                  ['Investor presentations', (d.pr || []).map(x => link(x, 'Presentation'))],
+                  ['Call recordings', (d.rec || []).map(x => link(x, 'Recording link'))]].filter(g => g[1].length);
+  if (!groups.length) return head + '<div class="muted">' + esc(X.docs_note || 'No documents collected for this company yet. The daily library run gathers them from NSE, company by company.') + '</div></div></div>';
+  return head + groups.map(g => '<h4>' + g[0] + '</h4>' + g[1].join('')).join('') + '</div></div>';
+}
+
+// AI summaries (ai-summaries workflow, Claude): the latest transcript and annual report, on request.
+function startSummary(sym){
+  call('adminSummarise', token, sym).then(r => {
+    if (r && r.error) { alert(r.error); return; }
+    if (S.docs[sym]) S.docs[sym].summary_started = r.started;
+    rerender();
+  }).catch(e => alert(e.message));
+}
+function aiPanel(sym){
+  const X = S.docs[sym] || {};
+  if (X.loading || X.error) return '';
+  const sm = X.summaries || {}, st = sm._status;
+  const tabs = [['tr', 'Latest transcript'], ['ar', 'Latest annual report']].filter(x => sm[x[0]]);
+  const tab = sm[aiTab] ? aiTab : (tabs[0] || [null])[0];
+  const docsAny = X.docs && ((X.docs.tr || []).length || (X.docs.ar || []).length);
+  const pending = X.summary_started && (!st || st.at < X.summary_started);
+  let body;
+  if (tab) {
+    const e = sm[tab], z = e.summary || {};
+    const list = (label, arr) => arr && arr.length ? '<div class="lbl">' + label + '</div><ul>' + arr.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '';
+    body = '<div class="ai"><h5>' + esc(z.headline || '') + '</h5><div class="rep-meta" style="margin-bottom:8px"><span class="chip ' + ({ positive: 'up', negative: 'down', cautious: 'warn' }[z.management_tone] || '') + '">Tone: ' + esc(z.management_tone || '–') + '</span>' +
+      '<span class="chip">' + esc(tab === 'tr' ? 'Transcript of ' + fmtDate(e.date) : 'Annual report ' + (e.fy ? 'FY' + e.fy : fmtDate(e.date))) + '</span>' +
+      '<a class="chip" href="' + esc(e.url) + '" target="_blank" rel="noopener noreferrer">Source PDF</a></div>' +
+      '<div style="font-size:13.5px;line-height:1.55">' + esc(z.summary || '') + '</div>' +
+      list('Key points', z.key_points) + list('Guidance', z.guidance) + list('Risks', z.risks) +
+      (z.numbers && z.numbers.length ? '<div class="lbl">Numbers mentioned</div><table class="t" style="margin-top:4px"><tr><th class="l">Metric</th><th class="l">Value</th><th class="l">Context</th></tr>' +
+        z.numbers.map(n => '<tr><td class="l">' + esc(n.metric) + '</td><td class="l num">' + esc(n.value) + '</td><td class="l muted" style="white-space:normal">' + esc(n.context) + '</td></tr>').join('') + '</table>' : '') +
+      list('Watch next quarter', z.watch_next) +
+      '<div class="faint" style="font-size:11.5px;margin-top:8px">AI summary by ' + esc(e.model || 'Claude') + ', ' + esc(fmtTs(e.created)) + (e.coverage ? ' · covers ' + esc(e.coverage) : '') + '. Check figures against the source before acting.</div></div>';
+  } else {
+    body = '<div class="muted">' + (docsAny ? 'No AI summary yet for this company.' : 'No transcript or annual report on file yet, so nothing to summarise.') + '</div>';
+  }
+  const status = pending ? '<div class="notice" style="margin-bottom:10px">Summary run started at ' + esc(String(X.summary_started).slice(11)) + '. It usually takes 1–3 minutes. <button class="btn" style="padding:3px 9px;margin-left:6px" onclick="loadDocs(\'' + esc(sym) + '\', true)">Refresh</button></div>'
+    : st && st.state === 'error' ? '<div class="notice" style="margin-bottom:10px">' + esc(st.message) + '</div>' : '';
+  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>AI summary</h3><div style="display:flex;gap:8px;align-items:center">' +
+    (tabs.length > 1 ? '<div class="seg">' + tabs.map(x => '<button class="' + (tab === x[0] ? 'on' : '') + '" onclick="aiTab=\'' + x[0] + '\';rerender()">' + x[1] + '</button>').join('') + '</div>' : '') +
+    (docsAny ? '<button class="btn" onclick="startSummary(\'' + esc(sym) + '\')"' + (pending ? ' disabled' : '') + '>Summarise latest with AI</button>' : '') + '</div></div><div class="panel-b">' + status + body + '</div></div>';
+}
+
 function isoShift(iso, days){ const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
 function daysBetween(a, b){ return (new Date(b) - new Date(a)) / 86400000; }
 
@@ -915,32 +1099,10 @@ function drawStockCharts(R, s){
   Chart.defaults.font.family = cssVar('--sans'); Chart.defaults.color = tick;
   const scales = { x: { grid: { display: false }, ticks: { maxTicksLimit: 6, color: tick } }, y: { grid: { color: grid }, ticks: { color: tick } } };
 
-  const px = R.prices || [];
-  const el = $('cPx');
-  if (el && px.length) {
-    const last = px[px.length - 1][0];
-    const cut = isoShift(last, pxRange === '6M' ? -183 : pxRange === '1Y' ? -365 : -1100);
-    const p = px.filter(x => x[0] >= cut);
-    const ds = [];
-    if (pxRel) {
-      const nmap = {}; (R.nifty || []).forEach(x => { nmap[x[0]] = x[1]; });
-      const base = p[0][1];
-      let nb = null; const nser = p.map(x => { const n = nmap[x[0]]; if (n != null && nb == null) nb = n; return n != null && nb ? n / nb * 100 : null; });
-      ds.push({ label: s ? s.symbol : 'Stock', data: p.map(x => x[1] / base * 100), borderColor: brand, backgroundColor: 'transparent', borderWidth: 1.8, pointRadius: 0, tension: .15 });
-      ds.push({ label: 'NIFTY 50', data: nser, borderColor: faint, borderDash: [4, 3], borderWidth: 1.4, pointRadius: 0, spanGaps: true, tension: .15 });
-    } else {
-      ds.push({ label: 'Close', data: p.map(x => x[1]), borderColor: brand, backgroundColor: brand + '18', fill: true, borderWidth: 1.8, pointRadius: 0, tension: .15 });
-    }
-    charts.push(new Chart(el, { type: 'line', data: { labels: p.map(x => x[0]), datasets: ds },
-      options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-        plugins: { legend: { display: pxRel, labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + (pxRel ? num(c.parsed.y, 1) : '₹' + num(c.parsed.y, 2)) } } },
-        scales: { x: scales.x, y: Object.assign({}, scales.y, { ticks: { color: tick, callback: v => pxRel ? v : '₹' + num(v, 0) } }) } } }));
-  }
-
-  const q = R.quarters || [];
+  const q = qMode === 'a' ? (R.annual || []) : (R.quarters || []);
   const qel = $('cQ');
   if (qel && q.length) {
-    const lab = q.map(x => { const d = new Date(x.period); return isNaN(d) ? x.period : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); });
+    const lab = q.map(x => { const d = new Date(x.period); return isNaN(d) ? x.period : qMode === 'a' ? 'FY' + String(d.getFullYear()).slice(2) : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); });
     const margin = q.map(x => x.revenue ? x.net_profit / x.revenue * 100 : null);
     charts.push(new Chart(qel, { data: { labels: lab, datasets: [
       { type: 'bar', label: 'Revenue', data: q.map(x => rupeesToCr(x.revenue)), backgroundColor: brand + 'cc', borderRadius: 3, yAxisID: 'y' },
