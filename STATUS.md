@@ -41,8 +41,8 @@ stages (`needs()` in `hub/library.py`) with a refresh rule -- never fetch per co
 CHANGELOG 10 Oct.
 
 **Stock report research tools (11 Oct):** interactive Kite charts, 10-year results, NSE documents and AI
-summaries -- see CHANGELOG 11 Oct. **Owner to add `ANTHROPIC_API_KEY` as a GitHub Actions secret** for the AI
-summaries; everything else works without it.
+summaries -- see CHANGELOG 11 Oct. **Owner to add a free `GEMINI_API_KEY` (aistudio.google.com) as a GitHub Actions secret** for
+the AI summaries (Gemini free tier is the default since 11 Oct); everything else works without it.
 
 **Relay deploys now go through `clasp`, not Chrome** -- see `relay/README.md`, "Deploying with clasp".
 
