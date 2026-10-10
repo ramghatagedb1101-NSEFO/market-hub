@@ -97,6 +97,7 @@ ramghatagedb1101@gmail.com. Never `clasp deploy` without `-i` (that creates a ne
 - `Report.gs` -- `adminStock`: live parts of the stock report (BharatStock quarterly and annual results, up to 10 years; Google News).
 - `Research.gs` -- `adminChart` (Kite historical candles, BharatStock daily prices as fallback), `adminDocs` (NSE document links and AI summaries from the private repo), `adminSummarise` (starts the ai-summaries workflow through `GH_PAT`).
 - `Phone.gs` -- phone app additions: the stock sheet (`app_stock`), the watchlist shared with the dashboard (`app_watch`, `app_watch_toggle`, `adminWatch`, `adminWatchToggle`; script property `WATCHLIST`), and `?mode=watchlist&key=RELAY_KEY` for the daily digest.
+- `KiteWatch.gs` -- Kite login alarm: records and emails a refused (replaced) login once, shown on the phone and dashboard until the next relay login.
 - `AdminPage.html` -- the admin dashboard page (served by `adminPage()`).
 
 Script property for the stock report: **`BHARATSTOCK_API_KEY`** (the same key as the GitHub secret), entered by the owner in Project Settings -> Script properties. Without it the report's two charts show a notice; everything else works.

@@ -932,11 +932,12 @@
       let L;
       try{
         L = await (await fetch(RELAY_URL + "?mode=quote&t=" + Date.now(), {cache:"no-store"})).json();
+        if (L.kite_login === "rejected" || L.kite_login === "no_login") { kiteAlarm(L); }
         if (L.error || !L.indices) throw new Error(L.error || "no quotes");
       }catch(e){
         L = await (await fetch("data/live.json", {cache:"no-store"})).json();
       }
-      LIVE = L;
+      LIVE = L; KITE_ALARM = null; $("#status").style.color = ""; $("#status").onclick = null; $("#status").style.cursor = "";
       const open = marketOpenIst();
       $("#dot").classList.toggle("stale", ageMin(L.ts) > 15 && open);
       $("#status").textContent = asQuote(L.ts);
@@ -947,6 +948,15 @@
     }
   }
 
+  // Kite login alarm (11 Oct 2026): the relay reports a replaced or missing login; say so and offer the link.
+  let KITE_ALARM = null;
+  function kiteAlarm(L){
+    KITE_ALARM = L;
+    const s = $("#status");
+    s.textContent = L.kite_login === "rejected" ? "Kite login was replaced · tap to log in again" : "No Kite login yet today · tap to log in";
+    s.style.cursor = "pointer"; s.style.color = "var(--amb)";
+    s.onclick = () => { if (KITE_ALARM && KITE_ALARM.login_link) window.open(KITE_ALARM.login_link, "_blank", "noopener"); };
+  }
   async function refreshAll(){
     if (!SESSION) return;
     BUNDLE = null;

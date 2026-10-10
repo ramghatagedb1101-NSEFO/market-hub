@@ -36,6 +36,7 @@ function kiteLtp_(syms) {
   const qs = syms.map(s => 'i=' + encodeURIComponent('NSE:' + s)).concat(['i=' + encodeURIComponent('NSE:NIFTY 50')]).join('&');
   try {
     const body = JSON.parse(UrlFetchApp.fetch('https://api.kite.trade/quote/ltp?' + qs, { muteHttpExceptions: true, headers: headers }).getContentText());
+    if (body.status === 'error') kiteFailed_(body.message);
     const out = {};
     Object.keys(body.data || {}).forEach(k => { out[k === 'NSE:NIFTY 50' ? '__NIFTY' : k.replace(/^NSE:/, '')] = body.data[k].last_price; });
     return out;

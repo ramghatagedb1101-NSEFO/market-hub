@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-11
 
+### Kite login alarm: a replaced login now announces itself
+On 10 Oct the relay's Kite login (made at ~06:03 IST through the phone's "Log in to Kite" button -- the correct route) was cancelled some time before ~17:28 and nothing said so until a chart failed. Investigated: nothing in this project creates Kite logins except the relay (today: ~06:03 and ~18:00, each starting the daily run); `C:
+se_fo_analyserorecast_hub` is an older local copy of this same repository and relay, its old copy-paste login script belonged to a workflow retired on 6 Oct, and nothing in it changed that day. So the cancelling login came from outside (another login with the same Kite developer app elsewhere, or a Zerodha-side logout); Kite does not say which.
+- **`relay/KiteWatch.gs`**: every relay call to Kite (quotes, charts, watchlist prices) reports a refused login; the first refusal is recorded (script property `KITE_STATUS`) and **emailed once** with the login link; a fresh login through the relay clears it.
+- **Phone**: the status bar turns amber -- "Kite login was replaced · tap to log in again" (or "No Kite login yet today · tap to log in") -- and opens the login link.
+- **Dashboard**: a banner with a "Log in to Kite" button on every page while the login is missing or replaced (`adminKiteStatus`).
+- **live-quotes workflow**: one quote call through the relay every run (every 5 minutes in market hours), so a replaced login is caught within minutes on a trading day even with the app closed.
+- Deploy script now copies every `relay/*.gs` file (KiteWatch.gs added).
+
 ### Chart: when nothing is available, it says why -- source by source -- and what to do
 Owner: "if nothing is available, investigate why it's not available."
 - The chart (dashboard and phone) now asks every source and reports each answer when none can draw it: **Kite** (no login yet today / login rejected because a newer one replaced it / plan does not include historical data), **NSE daily closes** (not published yet -- written at 06:15 IST / company lists on a future date / no trades in the last year: suspended, delisted or renamed / the relay's read token is missing or refused), **BharatStock** (allowance used up, resets 05:30 IST / no prices for the company / key not set). Then one "What to do" line: log in through the Kite link; nothing to fix, it has not started trading; check the symbol is current; or which relay setting needs attention.

@@ -27,6 +27,12 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # Kite login alarm (11 Oct 2026): one quote call through the relay every run, so a login that
+      # another Kite login replaced is caught within 5 minutes and emailed (relay KiteWatch.gs).
+      - name: Check the relay's Kite login
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+        run: curl -s -L --max-time 30 "$RELAY_URL?mode=quote" > /dev/null || true
       - name: Fetch today's Kite access token from the relay
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
