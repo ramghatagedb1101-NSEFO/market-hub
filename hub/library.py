@@ -1250,8 +1250,10 @@ def main() -> dict:
         fund = (c.get("basis") or {}).get("fund") or {}
         if mb is not None and mb.get("score") is not None and mb["score"] >= 2 and "_ins" in fund:
             mb["promoter"], mb["mutual_funds"] = fund["_ins"], fund.get("_mf")
-    names_set = set(names)
-    merged_stocks = stocks + [s for sym, s in prior_stocks.items() if sym not in names_set]
+    # Only companies listed today. A symbol that has left NSE's list (delisted, merged, or a temporary
+    # rights-entitlement line such as CENTEXT-RE) is dropped instead of carried forever -- it made the
+    # dashboard read "2,575 of 2,574 listed" (10 Oct 2026).
+    merged_stocks = stocks
     apply_sector_aggregates(merged_stocks, sector_map)
     prior_matches.update(ctx["symbol_matches"])
 
