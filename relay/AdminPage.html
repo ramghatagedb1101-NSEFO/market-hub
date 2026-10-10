@@ -779,7 +779,7 @@ function pageStock(sym){
     html += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Scorecard</h3><span class="muted" style="font-size:12px">Bar shows where this company sits among all ' + num(S.lib.stocks.filter(x => x.cells).length, 0) + ' in the library</span></div><div class="panel-b" style="display:flex;gap:16px;align-items:center;border-bottom:1px solid var(--line2)">' +
       '<div class="ring" style="--p:' + p + '"><span>' + p + '%</span></div><div><div style="font-weight:700">' + met + ' of ' + testable + ' rules met</div><div class="muted" style="font-size:12.5px">' + (s.not_testable || 0) + ' not testable · data quality ' + num(s.data_quality_pct, 0) + '%</div></div></div>' +
       '<div class="cols">' + GROUPS.map(([g, label]) => {
-        const keys = Object.keys(M).filter(k => M[k][1] === g && cell(s, k) && cell(s, k).value != null);
+        const keys = Object.keys(M).filter(k => M[k][1] === g && cell(s, k) && cell(s, k).value != null && (k !== 'fii_change_qoq' || fiiOk(s)));
         if (!keys.length) return '';
         return '<div><div class="nav-h" style="color:var(--muted);padding:14px 0 4px">' + label + '</div><div class="metrics">' + keys.map(k => metricRow(s, k)).join('') + '</div></div>';
       }).join('') + '</div></div>';
@@ -821,9 +821,12 @@ function metricRow(s, k){
 }
 // Shareholding in plain words: "Promoter 51.44%, down 0.56 from 52.00% last quarter". The change is in
 // percentage points (the plain difference between the two percentages), so last quarter = now - change.
+// FII figures read before the 10 Oct 2026 correction mixed portfolio investors with strategic and ADR
+// holdings and compared mid-quarter filings; their changes are not shown until the batch re-reads them.
+function fiiOk(s){ return !!(s && s.shp_v >= 2); }
 function holders(s){
   const p = val(s,'promoter_holding'), f = val(s,'fii_holding'), d = val(s,'dii_holding');
-  const dp = val(s,'promoter_change_qoq'), df = val(s,'fii_change_qoq'), dd = val(s,'dii_change_qoq');
+  const dp = val(s,'promoter_change_qoq'), df = fiiOk(s) ? val(s,'fii_change_qoq') : null, dd = val(s,'dii_change_qoq');
   const rows = [['Promoter', p, dp], ['Foreign institutions (FII)', f, df], ['Domestic institutions (DII)', d, dd]];
   if (p != null && f != null && d != null) {
     // Whatever the three named groups gave up or took went to (or came from) the public and others.
@@ -964,6 +967,7 @@ const POSITIVE_ONLY = { pe: 1, pb: 1, ps: 1 };
 function scoreInput(s, k, dir){
   let v = val(s, k);
   if (typeof v !== 'number' || !isFinite(v)) return null;
+  if (k === 'fii_change_qoq' && !fiiOk(s)) return null;
   if (POSITIVE_ONLY[k] && v <= 0) return null;
   const p = percentileOf(k, v);
   return p == null ? null : (dir > 0 ? p : 100 - p);
@@ -1010,6 +1014,7 @@ function fieldList(){
 function fieldVal(sym, k){
   if (k === 'composite' || FACTORS.some(x => x[0] === k)) return fac(sym, k);
   if (k === 'mb_score') { const r = S.mbBySym[sym]; return r && r.score != null ? r.score : null; }
+  if (k === 'fii_change_qoq' && !fiiOk(S.bySym[sym])) return null;
   const v = val(S.bySym[sym], k);
   return typeof v === 'number' ? v : (typeof v === 'boolean' ? (v ? 1 : 0) : null);
 }
@@ -1244,6 +1249,7 @@ function pageSignals(){
       const mbNow = (S.mbBySym[sym] || {}).score;
       if (s.prev.mb_score != null && mbNow != null && mbNow !== s.prev.mb_score) add(sym, 'screen', 'Multibagger gates ' + s.prev.mb_score + ' → ' + mbNow, mbNow > s.prev.mb_score ? 'up' : 'down', s.scored_on, 6 + Math.abs(mbNow - s.prev.mb_score));
       [['promoter_holding', 'Promoter'], ['fii_holding', 'FII'], ['dii_holding', 'DII']].forEach(([k, l]) => {
+        if (k === 'fii_holding' && !(fiiOk(s) && s.prev.shp_v >= 2)) return;   // old and new FII methods are not comparable
         const a = pv[k], b = val(s, k); if (a != null && b != null && Math.abs(b - a) >= 1) add(sym, 'ownership', l + ' ' + num(b, 2) + '%, ' + (b > a ? 'up ' : 'down ') + num(Math.abs(b - a), 2) + ' from ' + num(a, 2) + '% at the previous scoring', b > a ? 'up' : 'down', s.scored_on, Math.abs(b - a));
       });
       const pa = pv.profit_yoy, pb = val(s, 'profit_yoy');
@@ -1253,6 +1259,7 @@ function pageSignals(){
     // From the latest quarterly filing (available now) -- only if that filing is recent, so old news stays out.
     const fresh = s.latest_period && (Date.now() - new Date(s.latest_period)) / 86400000 <= 210;
     if (fresh) [['promoter_change_qoq', 'Promoter'], ['fii_change_qoq', 'FII'], ['dii_change_qoq', 'DII']].forEach(([k, l]) => {
+      if (k === 'fii_change_qoq' && !fiiOk(s)) return;
       const c = val(s, k), lvl = val(s, k.replace('_change_qoq', '_holding'));
       if (c != null && lvl != null && Math.abs(c) >= 2) add(sym, 'ownership', l + ' ' + num(lvl, 2) + '%, ' + (c > 0 ? 'up ' : 'down ') + num(Math.abs(c), 2) + ' from ' + num(lvl - c, 2) + '% last quarter', c > 0 ? 'up' : 'down', s.latest_period, Math.abs(c));
     });

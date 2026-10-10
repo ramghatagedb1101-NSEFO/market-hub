@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-10
 
+### FII figures corrected: the big "FII jumps" were filing reclassifications, not trading
+- Owner asked to check the extreme FII moves in What changed. Only 18 of ~1,400 companies showed a 5+ point FII change; re-reading the actual NSE filings for the six largest:
+  - **ICICI Bank 34.49% -> 49.82%**: this quarter's filing put the ADR depository (16.03%) inside "Institutions (Foreign)"; real foreign portfolio holding 34.48% -> 33.79% (-0.69).
+  - **CleanMax 29.80% -> 11.21%, PPL Pharma 30.18% -> 12.52%**: a strategic foreign stake (~19% / ~18%) moved from "foreign direct investment" (inside the total) to "foreign companies" (outside it); real FPI +0.59 / +0.29.
+  - **Davangere 0 -> 15.88%, MIC Electronics 5.58 -> 20.35%, GA Technologies 0.35 -> 31.22%**: compared against **mid-quarter event filings** (25 Aug, 4 Sep, 17 Aug). MIC's FPI entry is real; GA Technologies' newer 30 Sep filing shows 0.24%.
+- **Fixes (`hub/shareholding.py`)**: FII is now **foreign portfolio investors only (FPI Category I + II)** -- the "Institutions (Foreign)" total also carries FDI, ADR/GDR depositories and foreign VC, which companies reclassify between quarters (fallback for older filings: total less those parts). And **only quarter-end filings** are used, so a mid-quarter allotment filing is never compared as "last quarter". Re-reading the same real filings: ICICI -0.69, CleanMax +0.59, PPL +0.29, GA Technologies -0.11.
+- Stored figures are corrected as the weekly batch re-reads each company; entries carry `shp_v: 2` once read the corrected way. Until then the dashboard does not show that company's FII change anywhere (What changed, report, Ownership factor score, screener, scorecard).
+- Tests: FII = FPI I + II with ADR depository and FDI excluded, older-filing fallback, event filings skipped.
+
 ### Admin dashboard: analysis tools -- factor scores, screener, scatter explorer, what changed, sectors, peers
 Owner: "so much data, it needs to be analytical." Built all six options the owner picked.
 - **Factor rankings** (new page): every company scored 0-100 on Quality (ROE, ROCE, margins, cash conversion, interest cover, debt, profit consistency), Growth (revenue, profit, EPS, profit streak, cash-flow growth), Value (P/E, P/B, P/S -- losses not counted as cheap -- and dividend yield), Momentum (3M/12M return, return vs NIFTY, distance from 52-week high) and Ownership (promoter, FII, DII and fund moves, pledge). Each = average of the company's percentile on its inputs against all scored companies; a factor needs half its inputs, the composite needs four of the five factors (so the smallest companies with patchy data don't float to the top). ~1,300 companies get a composite. Default view Rs 1,000 cr+.
