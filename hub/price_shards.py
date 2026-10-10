@@ -16,7 +16,25 @@ import requests
 BRANCH = "prices"
 
 
-def shards(prices: dict) -> dict:
+def listings() -> dict:
+    """{symbol: listing date} from NSE's equity list, so the chart can say "lists on 12 Oct" or "listed
+    5 Oct" instead of just "no prices"."""
+    import csv, io
+    from datetime import datetime
+    from .multibagger import EQUITY_LIST, UA
+    rows = list(csv.reader(io.StringIO(requests.get(EQUITY_LIST, headers=UA, timeout=30).text)))
+    head = [h.strip().upper() for h in rows[0]]
+    i_sym, i_date = head.index("SYMBOL"), head.index("DATE OF LISTING")
+    out = {}
+    for r in rows[1:]:
+        try:
+            out[r[i_sym].strip()] = datetime.strptime(r[i_date].strip(), "%d-%b-%Y").date().isoformat()
+        except (ValueError, IndexError):
+            pass
+    return out
+
+
+def shards(prices: dict, listed: dict | None = None) -> dict:
     days = sorted({d for series, _, _ in prices.values() for d, _ in series})
     idx = {d: i for i, d in enumerate(days)}
     out = {}
@@ -27,14 +45,25 @@ def shards(prices: dict) -> dict:
         key = sym[0].upper() if sym[:1].isalpha() else "0"
         out.setdefault(key, {})[sym] = row
     iso = [d.isoformat() for d in days]
-    return {k: {"dates": iso, "close": v} for k, v in out.items()}
+    res = {k: {"dates": iso, "close": v, "listed": {}} for k, v in out.items()}
+    # Listing dates for companies with no prices or a short history (new or about to list).
+    recent = iso[-60] if len(iso) >= 60 else (iso[0] if iso else "")
+    for sym, day in (listed or {}).items():
+        if sym not in prices or day >= recent:
+            key = sym[0].upper() if sym[:1].isalpha() else "0"
+            res.setdefault(key, {"dates": iso, "close": {}, "listed": {}})["listed"][sym] = day
+    return res
 
 
 def publish(repo: str, headers: dict, prices: dict) -> dict:
     api = f"https://api.github.com/repos/{repo}"
     tree = []
     total = 0
-    for key, payload in sorted(shards(prices).items()):
+    try:
+        listed = listings()
+    except Exception:
+        listed = {}
+    for key, payload in sorted(shards(prices, listed).items()):
         body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
         total += len(body)
         r = requests.post(f"{api}/git/blobs", headers=headers, timeout=60,

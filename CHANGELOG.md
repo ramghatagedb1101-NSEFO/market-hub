@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-11
 
+### Chart: when nothing is available, it says why -- source by source -- and what to do
+Owner: "if nothing is available, investigate why it's not available."
+- The chart (dashboard and phone) now asks every source and reports each answer when none can draw it: **Kite** (no login yet today / login rejected because a newer one replaced it / plan does not include historical data), **NSE daily closes** (not published yet -- written at 06:15 IST / company lists on a future date / no trades in the last year: suspended, delisted or renamed / the relay's read token is missing or refused), **BharatStock** (allowance used up, resets 05:30 IST / no prices for the company / key not set). Then one "What to do" line: log in through the Kite link; nothing to fix, it has not started trading; check the symbol is current; or which relay setting needs attention.
+- NSE listing dates are now published with the closes (from NSE's equity list), so a company that has not started trading says "AGOL lists on NSE on Mon 12 Oct 2026; prices appear after its first trading day".
+- Investigated today's gaps: 2,571 of 2,574 companies have NSE closes. The three without: **AGOL** (Ashapuri Gold Ornament) and **BELDING** (Belding India) list on 12 Oct 2026; **NATCO-RE** is a rights entitlement for Natco Pharma's rights issue. 218 more have under 60 trading days -- new listings (Nityas 8 Oct, Orient Cables 5 Oct) or rarely-traded BE-series shares (Kalyani Commercials traded on 1 day in the year).
+- **Rights-entitlement lines ("-RE") are no longer in the universe** (`multibagger.universe`): temporary instruments, not companies -- the same kind as CENTEXT-RE that made the count read 2,575 of 2,574. Universe now 2,573.
+
 ### Charts: free NSE fallback, plain wording, and Kite's real reason when it refuses
 Owner saw "BharatStock daily limit reached and no Kite login today" although today's Kite login had been done. Two faults: the message was hard-coded (any BharatStock failure blamed "no Kite login"), and the chart had no free fallback.
 - The actual cause on 10 Oct: **Kite was rejecting the relay's saved token** ("Incorrect `api_key` or `access_token`" -- the live quotes failed too). A Kite app has one valid token at a time, so a newer login made elsewhere (another link, a script, a token pasted by hand) invalidates the relay's copy even though it is dated today. Fix for the owner: log in once through the relay's Kite link.

@@ -50,7 +50,8 @@ def universe() -> list[str]:
     for row in rows[1:]:
         if len(row) > max(i_sym, i_ser) and row[i_ser].strip() in SERIES:
             s = row[i_sym].strip()
-            if s:
+            # "-RE" lines are rights entitlements (temporary, for a rights issue), not companies.
+            if s and not s.endswith("-RE"):
                 syms.add(s)
     return sorted(syms - EXCLUDED)
 

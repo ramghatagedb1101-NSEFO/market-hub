@@ -43,8 +43,13 @@ function chartData_(symbol, range) {
       nse.note = (spec.interval !== 'day' ? 'showing daily closes; ' : '') + why;
       out = nse;
     } else {
-      const fb = spec.interval === 'day' ? bsChart_(sym, spec.days) : { error: 'x' };
-      out = fb.error ? { error: 'The price chart is not available right now. It returns after the morning Kite login or the next daily run.' } : fb;
+      const fb = bsChart_(sym, spec.days);
+      if (!fb.error) {
+        fb.note = (spec.interval !== 'day' ? 'showing daily prices; ' : '') + 'NSE closes unavailable: ' + nse.error;
+        out = fb;
+      } else {
+        out = chartDiagnosis_(sym, out, nse, fb);
+      }
     }
   }
   if (!out.error) {
@@ -134,28 +139,50 @@ function kiteChart_(sym, spec) {
 // A year of split/bonus-adjusted NSE daily closes (hub/price_shards.py), one small file per first letter.
 function nseChart_(sym) {
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
-  if (!readToken) return { error: 'no read token' };
+  if (!readToken) return { error: 'the relay cannot read the private repo (ADMIN_READ_TOKEN is not set)', reason: 'config' };
   const key = /^[A-Z]/.test(sym) ? sym[0] : '0';
   const r = privateRaw_(readToken, 'px/' + key + '.json', 'prices');
-  if (r.getResponseCode() !== 200) return { error: 'NSE closes not published' };
+  const code = r.getResponseCode();
+  if (code === 404) return { error: 'the daily run has not published the NSE closes yet (they are written at 06:15 IST)', reason: 'not_published' };
+  if (code === 401 || code === 403) return { error: 'GitHub refused the relay's read token (' + code + '); it may have expired', reason: 'config' };
+  if (code !== 200) return { error: 'GitHub returned ' + code + ' when reading the NSE closes', reason: 'github' };
   const d = JSON.parse(r.getContentText()), row = (d.close || {})[sym];
-  if (!row) return { error: 'no NSE closes for ' + sym };
+  const last = (d.dates || [])[(d.dates || []).length - 1];
+  const listed = (d.listed || {})[sym];
+  const nice = iso => Utilities.formatDate(new Date(iso + 'T12:00:00Z'), 'Asia/Kolkata', 'EEE d MMM yyyy');
+  if (!row && listed && listed > last) return { error: sym + ' lists on NSE on ' + nice(listed) + '; prices appear after its first trading day', reason: 'not_listed_yet', listed: listed };
+  if (!row) return { error: 'NSE has no trades for ' + sym + ' in the last year up to ' + nice(last) + (listed ? ' (listed ' + nice(listed) + ')' : '') + ': suspended, delisted or renamed?', reason: 'no_trades' };
   const c = [];
   (d.dates || []).forEach((day, i) => { if (row[i] != null) c.push([day, null, null, null, row[i], null]); });
-  if (!c.length) return { error: 'no NSE closes for ' + sym };
+  if (!c.length) return { error: 'NSE has no trades for ' + sym + ' in the last year', reason: 'no_trades' };
   return { symbol: sym, source: 'nse', interval: 'day', candles: c, nifty: niftyDaily_(c[0][0]) };
+}
+
+// Nothing could draw the chart: say what each source said, and the quickest fix.
+function chartDiagnosis_(sym, kite, nse, bs) {
+  const kiteWhy = kite.reason === 'no_login' ? "no Kite login yet today" : (kite.reason || kite.error);
+  const why = ['Kite: ' + kiteWhy, 'NSE daily closes: ' + nse.error, 'BharatStock: ' + bs.error];
+  let fix;
+  if (nse.reason === 'not_listed_yet') fix = 'Nothing to fix: ' + sym + ' has not started trading yet. The chart appears after its first day.';
+  else if (nse.reason === 'no_trades' && bs.reason === 'no_trades') fix = sym + ' has no recent trading on NSE. Check that the symbol is still current (it may have been renamed, merged or suspended).';
+  else if (kite.reason === 'no_login' || /login/.test(kiteWhy)) fix = 'Log in through the Kite link: the chart then uses Kite straight away.';
+  else if (nse.reason === 'not_published') fix = 'The NSE closes appear after the next daily run at 06:15 IST.';
+  else if (nse.reason === 'config' || bs.reason === 'config') fix = 'A relay setting needs attention: ' + (nse.reason === 'config' ? nse.error : bs.error) + '.';
+  else fix = 'Try again in a few minutes.';
+  return { error: 'The price chart is not available right now.', why: why, fix: fix };
 }
 
 function bsChart_(sym, days) {
   const bsKey = PropertiesService.getScriptProperties().getProperty('BHARATSTOCK_API_KEY') || '';
-  if (!bsKey) return { error: 'No Kite login today and BHARATSTOCK_API_KEY is not set, so no price history.' };
+  if (!bsKey) return { error: 'BHARATSTOCK_API_KEY is not set in the relay', reason: 'config' };
   const from = Utilities.formatDate(new Date(Date.now() - Math.min(days, 1827) * 86400000), 'Asia/Kolkata', 'yyyy-MM-dd');
   let rows = [], page = 1, body;
   do {
     const r = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/prices?from=' + from + '&page_size=1000' + (page > 1 ? '&page=' + page : ''),
                                 { muteHttpExceptions: true, headers: { 'X-API-Key': bsKey } });
-    if (r.getResponseCode() === 429) return { error: 'BharatStock daily limit reached and no Kite login today.' };
-    if (r.getResponseCode() !== 200) return { error: 'BharatStock returned ' + r.getResponseCode() + ' for prices.' };
+    if (r.getResponseCode() === 429) return { error: 'today's BharatStock allowance is used up (it resets at 05:30 IST)', reason: 'quota' };
+    if (r.getResponseCode() === 404) return { error: 'BharatStock has no prices for ' + sym, reason: 'no_trades' };
+    if (r.getResponseCode() !== 200) return { error: 'BharatStock returned ' + r.getResponseCode(), reason: 'other' };
     body = JSON.parse(r.getContentText());
     rows = rows.concat(bsRows_(body));
     page++;
