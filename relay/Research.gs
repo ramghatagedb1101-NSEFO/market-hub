@@ -1,8 +1,9 @@
 /**
  * Research additions to the stock report (11 Oct 2026):
  *   adminChart      price candles for the interactive chart: Kite historical data (included in the paid
- *                   Kite Connect plan that already serves the live quotes), BharatStock daily prices
- *                   as the fallback when today's Kite login has not happened
+ *                   Kite Connect plan that already serves the live quotes); before the day's Kite login,
+ *                   a year of NSE daily closes published by the library run (prices branch, free), and
+ *                   BharatStock only if those are missing
  *   adminDocs       links to NSE annual reports, call transcripts, presentations and recordings
  *                   (site/docs.json, written by the library batch) and their AI summaries
  *                   (site/summaries.json, written by the ai-summaries workflow)
@@ -34,13 +35,21 @@ function chartData_(symbol, range) {
   if (hit) return JSON.parse(hit);
 
   let out = kiteChart_(sym, spec);
-  if (out.error && spec.interval === 'day') {
-    const fb = bsChart_(sym, spec.days);
-    fb.kite_note = out.error;
-    out = fb;
+  if (out.error) {
+    // No Kite login yet today (or Kite refused): NSE's daily closes, free; BharatStock as a last resort.
+    const nse = nseChart_(sym);
+    if (!nse.error) {
+      const why = out.reason === 'no_login' ? 'candles and intraday appear after the morning Kite login' : out.reason;
+      nse.note = (spec.interval !== 'day' ? 'showing daily closes; ' : '') + why;
+      out = nse;
+    } else {
+      const fb = spec.interval === 'day' ? bsChart_(sym, spec.days) : { error: 'x' };
+      out = fb.error ? { error: 'The price chart is not available right now. It returns after the morning Kite login or the next daily run.' } : fb;
+    }
   }
   if (!out.error) {
-    try { cache.put(key, JSON.stringify(out), spec.interval === 'day' ? 1800 : 120); } catch (e) { /* too large: fine */ }
+    const ttl = out.source === 'kite' ? (spec.interval === 'day' ? 1800 : 120) : 300;
+    try { cache.put(key, JSON.stringify(out), ttl); } catch (e) { /* too large: fine */ }
   }
   return out;
 }
@@ -52,6 +61,14 @@ function kiteHeaders_() {
   return { 'X-Kite-Version': '3', 'Authorization': 'token ' + apiKey + ':' + tok };
 }
 
+// Kite's refusal in plain words, for the chart's note.
+function kiteReason_(msg) {
+  msg = String(msg || '');
+  if (/api_key|access_token|token/i.test(msg)) return "Kite rejected today's saved login, usually because a newer Kite login replaced it; log in again with the Kite link";
+  if (/permission|subscription/i.test(msg)) return 'Kite says historical data needs the paid Kite Connect plan';
+  return 'Kite: ' + msg;
+}
+
 function kiteToken_(sym, headers) {
   const cache = CacheService.getScriptCache();
   const hit = cache.get('ktok_' + sym);
@@ -59,6 +76,7 @@ function kiteToken_(sym, headers) {
   const r = UrlFetchApp.fetch('https://api.kite.trade/quote/ohlc?i=' + encodeURIComponent('NSE:' + sym),
                               { muteHttpExceptions: true, headers: headers });
   const body = JSON.parse(r.getContentText());
+  if (body.status === 'error') throw new Error(body.message || 'quote refused');
   const q = body.data && body.data['NSE:' + sym];
   if (!q || !q.instrument_token) return null;
   cache.put('ktok_' + sym, String(q.instrument_token), 21600);
@@ -67,9 +85,10 @@ function kiteToken_(sym, headers) {
 
 function kiteChart_(sym, spec) {
   const headers = kiteHeaders_();
-  if (!headers) return { error: 'No Kite login for today yet, so intraday charts are unavailable (daily charts fall back to BharatStock).' };
-  const itok = kiteToken_(sym, headers);
-  if (!itok) return { error: 'Kite does not list NSE:' + sym + '.' };
+  if (!headers) return { error: 'no Kite login yet today', reason: 'no_login' };
+  let itok;
+  try { itok = kiteToken_(sym, headers); } catch (e) { return { error: 'Kite: ' + e.message, reason: kiteReason_(e.message) }; }
+  if (!itok) return { error: 'Kite does not list NSE:' + sym + '.', reason: 'Kite does not list this company' };
   const fmt = d => Utilities.formatDate(d, 'Asia/Kolkata', 'yyyy-MM-dd HH:mm:ss');
   const now = new Date();
   // Kite caps one request at 2,000 days of daily candles: split longer ranges.
@@ -93,8 +112,7 @@ function kiteChart_(sym, spec) {
   let candles = [], nifty = [];
   for (let i = 0; i < res.length; i++) {
     const body = JSON.parse(res[i].getContentText());
-    if (body.status !== 'success') return { error: 'Kite: ' + (body.message || 'historical data refused') +
-      (/permission/i.test(body.message || '') ? ' (historical data needs the paid Kite Connect plan)' : '') };
+    if (body.status !== 'success') return { error: 'Kite: ' + (body.message || 'historical data refused'), reason: kiteReason_(body.message) };
     const rows = (body.data && body.data.candles) || [];
     if (i % 2 === 0) candles = candles.concat(rows); else nifty = nifty.concat(rows);
   }
@@ -111,6 +129,21 @@ function kiteChart_(sym, spec) {
   }
   if (!c.length) return { error: 'Kite returned no candles for ' + sym + '.' };
   return { symbol: sym, source: 'kite', interval: spec.interval, candles: c, nifty: n };
+}
+
+// A year of split/bonus-adjusted NSE daily closes (hub/price_shards.py), one small file per first letter.
+function nseChart_(sym) {
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'no read token' };
+  const key = /^[A-Z]/.test(sym) ? sym[0] : '0';
+  const r = privateRaw_(readToken, 'px/' + key + '.json', 'prices');
+  if (r.getResponseCode() !== 200) return { error: 'NSE closes not published' };
+  const d = JSON.parse(r.getContentText()), row = (d.close || {})[sym];
+  if (!row) return { error: 'no NSE closes for ' + sym };
+  const c = [];
+  (d.dates || []).forEach((day, i) => { if (row[i] != null) c.push([day, null, null, null, row[i], null]); });
+  if (!c.length) return { error: 'no NSE closes for ' + sym };
+  return { symbol: sym, source: 'nse', interval: 'day', candles: c, nifty: niftyDaily_(c[0][0]) };
 }
 
 function bsChart_(sym, days) {

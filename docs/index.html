@@ -816,7 +816,7 @@
         <span class="${cls(chg)}" style="font:600 13px var(--mono)">${chg == null ? "" : pct(chg)}</span><span class="mut" style="font-size:11px">${last ? esc(asClose(last[0])) : ""}</span></div>
       <div class="seg">${["1M", "6M", "1Y", "5Y"].map(r => `<button class="${ST_RANGE === r ? "on" : ""}" onclick="setStRange('${r}')">${r}</button>`).join("")}</div>
       <div class="panel" style="margin-bottom:10px"><div class="pb">${C.error ? `<div class="mut">${esc(C.error)}</div>` : `<div class="lwc" id="st-chart"></div>`}
-        <div class="note" style="margin-top:4px">${C.source === "kite" ? "Kite prices" : C.source ? "BharatStock daily prices" : ""} · charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener" style="color:inherit">TradingView Lightweight Charts</a></div></div></div>
+        <div class="note" style="margin-top:4px">${C.error ? "" : ({ kite: "Prices: Kite", nse: "Prices: NSE daily closes", bharatstock: "Prices: BharatStock daily" }[C.source] || "") + (C.note ? " (" + esc(C.note) + ")" : "") + " · "}chart: <a href="https://www.tradingview.com/" target="_blank" rel="noopener" style="color:inherit">TradingView</a></div></div></div>
       ${x ? `<div class="sec">${x.style === "compounders" ? "Compounders" : "Emerging"} list · #${x.rank} · score ${x.score}</div>
         <div class="panel" style="margin-bottom:10px"><div class="pb"><ul class="st-list">${(x.why || []).map(w => `<li>${esc(w.split(" - better")[0])}</li>`).join("")}</ul>
         ${(x.watch || []).length ? `<ul class="st-list amb">${x.watch.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}</div></div>` : ""}
