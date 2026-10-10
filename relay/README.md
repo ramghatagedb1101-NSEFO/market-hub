@@ -89,6 +89,8 @@ clasp deployments                                     # both should show @N
 `appsscript.json` has `executeAs: USER_DEPLOYING`, so the relay runs as whoever deploys -- deploy only as
 ramghatagedb1101@gmail.com. Never `clasp deploy` without `-i` (that creates a new deployment and URL).
 
+**Strict deploy (10 Oct 2026):** `bash relay/tools/deploy_relay.sh <repo> <folder holding relay-live> <last deployed commit> "<label>"` runs every step above and stops at the first failure (pre-check, `check.js`, push, content check, version check, both deploys). Never pipe a check through `tail`/`grep`: on 10 Oct that hid a rejected push and an unchanged version was deployed.
+
 ## Files in the Apps Script project (since 9 Oct 2026)
 - `Code.gs` -- Kite login relay, quotes, routing (doGet/doPost).
 - `Admin.gs` -- sign-in (email code, 7-day sessions), admin data readers, phone app API.
