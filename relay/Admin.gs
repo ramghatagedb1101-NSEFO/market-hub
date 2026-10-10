@@ -201,12 +201,23 @@ function adminLibrary(token) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
   if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
-  const res = UrlFetchApp.fetch(
-    'https://api.github.com/repos/' + ADMIN_REPO + '/contents/library.json',
-    { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
+  // The dashboard copy (library_compact.json, 11 Oct 2026: ~3.6 MB instead of ~22 MB) when it exists,
+  // gzipped for the trip to the browser (~0.7 MB); the page unpacks and rebuilds the full shape.
+  let res = privateRaw_(readToken, 'library_compact.json');
+  if (res.getResponseCode() === 404) res = privateRaw_(readToken, 'library.json');
   if (res.getResponseCode() === 404) return { error: 'The stock library has not been published yet.' };
   if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for the library.' };
-  return JSON.parse(res.getContentText());
+  return gzipped_(res);
+}
+
+function privateRaw_(readToken, path) {
+  return UrlFetchApp.fetch('https://api.github.com/repos/' + ADMIN_REPO + '/contents/' + path,
+    { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
+}
+
+// One base64 string instead of a large object: far quicker for google.script.run to carry.
+function gzipped_(res) {
+  return { gz: Utilities.base64Encode(Utilities.gzip(res.getBlob()).getBytes()) };
 }
 
 /** Reads the multi-bagger ranked list (site/multibagger.json) from the private repo for the signed-in
@@ -221,5 +232,5 @@ function adminMultibagger(token) {
     { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
   if (res.getResponseCode() === 404) return { error: 'Multi-bagger data has not been published yet.' };
   if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for multi-bagger data.' };
-  return JSON.parse(res.getContentText());
+  return gzipped_(res);
 }

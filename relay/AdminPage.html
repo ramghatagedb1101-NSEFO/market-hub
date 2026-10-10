@@ -264,23 +264,46 @@ function start(){
   $('login').style.display = 'none'; $('app').style.display = 'block';
   route();
   call('adminData', token).then(d => { S.admin = d; renderFoot(); rerender(); }).catch(e => { S.admin = { error: e.message }; rerender(); });
-  call('adminLibrary', token).then(d => {
+  call('adminLibrary', token).then(unpack).then(hydrateLib).then(d => {
     if (d.error) { S.libErr = d.error; rerender(); return; }
     S.lib = d; S.names = d.names || {};
     (d.stocks || []).forEach(s => { S.bySym[s.symbol] = s; });
     if (!S.industries && d.industries && Object.keys(d.industries).length) S.industries = d.industries;
-    computeFactors();
+    computeFactors(); S._sl = null; S._indPE = null;
     renderNav(); rerender();
   }).catch(e => { S.libErr = e.message; rerender(); });
   call('adminIndustries', token).then(d => {
     S.industries = Object.assign({}, (S.lib && S.lib.industries) || {}, d.industries || {});
     if (current.page === 'sectors' || current.page === 'stock' || current.page === 'factors') rerender();
   }).catch(() => { S.industries = (S.lib && S.lib.industries) || {}; });
-  call('adminMultibagger', token).then(d => {
+  call('adminMultibagger', token).then(unpack).then(d => {
     if (d.error) { S.mbErr = d.error; rerender(); return; }
-    S.mb = d; (d.ranked || []).forEach(r => { S.mbBySym[r.symbol] = r; });
+    S.mb = d; S._sl = null; (d.ranked || []).forEach(r => { S.mbBySym[r.symbol] = r; });
     renderNav(); rerender();
   }).catch(e => { S.mbErr = e.message; rerender(); });
+}
+// The relay sends the library and multi-bagger files gzipped as one base64 string (11 Oct 2026).
+async function unpack(r){
+  if (!r || !r.gz) return r;
+  const bin = Uint8Array.from(atob(r.gz), c => c.charCodeAt(0));
+  const text = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return JSON.parse(text);
+}
+// library_compact.json -> the shape library.json has (cells with value/status/rule, holding_history rows).
+function hydrateLib(d){
+  if (!d || d.format !== 'compact-1') return d;
+  const pids = d.pids || [], rules = d.rules || {}, st = { Y: 'met', N: 'not_met', '.': 'not_testable' };
+  const hk = ['promoter', 'public', 'fii', 'dii'];
+  d.stocks = (d.stocks || []).map(x => {
+    const s = Object.assign({}, x); delete s.v; delete s.s; delete s.hh;
+    if (x.v) {
+      s.cells = {};
+      pids.forEach((k, i) => { const c = x.s[i]; if (c !== 'x') s.cells[k] = { value: x.v[i], status: st[c], rule: rules[k] }; });
+    }
+    if (x.hh) s.holding_history = x.hh.map(r => { const o = { quarter: r[0] }; hk.forEach((k, i) => { if (r[i + 1] != null) o[k] = r[i + 1]; }); return o; });
+    return s;
+  });
+  return d;
 }
 function renderFoot(){
   const s = (S.admin && S.admin.status) || {};
@@ -399,6 +422,7 @@ function isCompounder(sym){ const s = S.bySym[sym]; return !!(s && s.cells && CO
 // ======================================================================================
 const ICON = {
   overview:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  shortlist:'<svg viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.8-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1L3.2 9.4l6.1-.8L12 3Z"/></svg>',
   multibagger:'<svg viewBox="0 0 24 24"><path d="m3 17 6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>',
   compounders:'<svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
   library:'<svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2Z"/><path d="M8 7h6M8 11h6"/></svg>',
@@ -414,7 +438,7 @@ const ICON = {
 };
 const NAV = [
   ['', [['overview','Overview']]],
-  ['Screens', [['multibagger','Early multibaggers'], ['compounders','Proven compounders'], ['screener','Screener']]],
+  ['Screens', [['shortlist','Shortlist'], ['multibagger','Early multibaggers'], ['compounders','Proven compounders'], ['screener','Screener']]],
   ['Analysis', [['factors','Factor rankings'], ['explore','Scatter explorer'], ['sectors','Sectors'], ['signals','What changed']]],
   ['Data', [['library','Stock library'], ['registry','Investor registry'], ['bulk','Bulk deals'], ['params','Parameters'], ['tests','Back-tests']]]
 ];
@@ -440,12 +464,12 @@ window.addEventListener('hashchange', route);
 function go(h){ location.hash = h; }
 function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 
-const TITLES = { overview:'Overview', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
+const TITLES = { overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
                  registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report',
                  screener:'Screener', factors:'Factor rankings', explore:'Scatter explorer', sectors:'Sectors', signals:'What changed' };
 function rerender(){
   $('crumb').textContent = TITLES[current.page] || '';
-  const f = { overview: pageOverview, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
+  const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
               screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals }[current.page] || pageOverview;
   if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
@@ -512,10 +536,11 @@ function pageOverview(){
     (rows == null ? '<div class="panel-b">' + '<div class="skel"></div>' + '</div>' : rows.length ? '<table class="t"><tr>' + cols.map(c => '<th class="' + (c[2] || '') + '">' + c[0] + '</th>').join('') + '</tr>' +
       rows.map(r => '<tr class="click" onclick="openStock(\'' + esc(r.sym) + '\')">' + cols.map(c => '<td class="' + (c[2] || '') + '">' + c[1](r) + '</td>').join('') + '</tr>').join('') + '</table>'
       : '<div class="empty">None yet.</div>') + '</div>';
-  const topComp = comp ? comp.slice().sort((a, b) => b.quality - a.quality || (val(b.s,'market_value_bucket') || 0) - (val(a.s,'market_value_bucket') || 0)).slice(0, 6).map(x => ({ sym: x.s.symbol, s: x.s, q: x.quality })) : null;
+  const sl = S.lib && S.mb ? shortlist() : null;
+  const topSl = sl ? sl.slice(0, 6) : null;
   const topMb = mb4 ? mb4.slice().sort((a, b) => (a.rank || 1e9) - (b.rank || 1e9)).slice(0, 6).map(r => ({ sym: r.symbol, r, s: S.bySym[r.symbol] })) : null;
   html += '<div class="grid g2" style="margin-bottom:14px">' +
-    mini('Top proven compounders', 'compounders', topComp, [['Company', r => companyCell(r.sym), 'l'], ['Mkt cap', r => '<span class="num">' + crore(val(r.s,'market_value_bucket')) + '</span>'], ['12M', r => '<span class="num ' + cls(val(r.s,'ret_12m')) + '">' + pct(val(r.s,'ret_12m')) + '</span>'], ['Quality', r => dots(r.q, 5)]]) +
+    mini('Shortlist — strongest of both screens', 'shortlist', topSl, [['Company', r => companyCell(r.sym), 'l'], ['Score', r => scoreChip(r.score)], ['Screens', r => slScreens(r), 'l'], ['Top reason', r => '<span class="muted" style="font-size:12px">' + esc((r.why[0] || '').replace(/ — better than.*$/, '')) + '</span>', 'l']]) +
     mini('Early multibaggers (all four gates)', 'multibagger', topMb, [['Company', r => companyCell(r.sym), 'l'], ['Profit gr.', r => '<span class="num ' + cls((r.r.measures||{}).profit_growth_yoy_pct) + '">' + pct((r.r.measures||{}).profit_growth_yoy_pct) + '</span>'], ['Funds', r => '<span class="num">' + num(((r.r.mutual_funds||{}).schemes_holding), 0) + '</span>'], ['Score', r => dots(r.r.score || 0, 4)]]) +
     '</div>';
   // Upcoming corporate actions across the library
@@ -657,11 +682,113 @@ function pageCompounders(){
     (body || '<tr><td colspan="11" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
 }
 
+// ---- Shortlist (11 Oct 2026): the strongest companies of both screens, ranked, with reasons ----
+// Proven compounders (100 on 10 Oct) and four-gate early multibaggers (150) are too many to act on: the
+// multibagger gates test one quarter's growth plus a consistency count, which many companies pass. This
+// takes companies in either screen, drops the hard-to-trade, weak-cash, pledged and thinly-covered ones,
+// and ranks the rest by a conviction score built from the factor scores, with adjustments for being in
+// both screens, ownership trend, valuation against the industry, volatility, trend damage and promoter
+// selling. Reasons are the measures where the company ranks in the library's top fifth.
+const SL_SIZE = 15;
+const SL_WHY = [
+  ['roe', 'ROE', v => num(v, 1) + '%', 1], ['roce', 'ROCE', v => num(v, 1) + '%', 1], ['net_margin', 'Net margin', v => num(v, 1) + '%', 1],
+  ['profit_consistency_8q', 'Profit up in', v => v + ' of the last 8 quarters', 1], ['profit_yoy', 'Profit growth', v => pct(v), 1], ['rev_yoy', 'Revenue growth', v => pct(v), 1],
+  ['cfo_to_pat', 'Operating cash', v => num(v, 2) + '× profit', 1], ['debt_to_equity', 'Debt/equity', v => num(v, 2), -1],
+  ['interest_cover', 'Interest cover', v => v > 50 ? 'over 50× (practically debt-free)' : num(v, 1) + '×', 1],
+  ['rel_strength_vs_index', '6-month return vs NIFTY', v => pct(v), 1], ['mf_schemes_added', 'Fund schemes added', v => '+' + num(v, 0), 1], ['dii_change_qoq', 'Domestic institutions', v => '+' + num(v, 2) + ' pts', 1]
+];
+function industryPE(){
+  if (S._indPE) return S._indPE;
+  const g = {};
+  S.lib.stocks.forEach(s => { const pe = val(s, 'pe'), ind = industryOf(s.symbol) || s.sector; if (ind && pe > 0) (g[ind] = g[ind] || []).push(pe); });
+  const m = {};
+  Object.keys(g).forEach(k => { const a = g[k].sort((x, y) => x - y); if (a.length >= 5) m[k] = a[Math.floor(a.length / 2)]; });
+  return (S._indPE = m);
+}
+function shortlist(){
+  if (!S.lib || !S.fac) return null;
+  if (S._sl) return S._sl;
+  const indPE = industryPE(), out = [];
+  S.lib.stocks.forEach(s => {
+    if (!s.cells) return;
+    const sym = s.symbol, mb = S.mbBySym[sym], comp = isCompounder(sym), mb4 = !!(mb && mb.score === 4);
+    if (!comp && !mb4) return;
+    const f = S.fac[sym] || {};
+    const turnover = val(s, 'avg_turnover_20d'), mcap = val(s, 'market_value_bucket'), pe = val(s, 'pe'), pledge = val(s, 'pledge_pct'),
+          cfo = val(s, 'cfo_to_pat'), vol = val(s, 'volatility_60d'), off = val(s, 'from_52w_high'), pyoy = val(s, 'promoter_change_yoy');
+    const drop = (s.testable || 0) < 35 ? 'too little data' : (turnover != null ? turnover < 2 : !(mcap >= 1000)) ? 'hard to trade (under ₹2 cr a day)'
+      : pledge != null && pledge > 5 ? 'promoter pledge over 5%' : cfo != null && cfo < 0.6 ? 'operating cash under 0.6× profit' : f.composite == null ? 'not enough factor data' : null;
+    if (drop) { out.push({ s, sym, comp, mb4, dropped: drop }); return; }
+    const ind = industryOf(sym) || s.sector, ipe = ind ? indPE[ind] : null;
+    let score = 0.3 * f.composite + 0.2 * (f.quality ?? 50) + 0.2 * (f.growth ?? 50) + 0.15 * (f.value ?? 50) + 0.15 * (f.momentum ?? 50);
+    const watch = [];
+    if (comp && mb4) score += 8;
+    if (f.ownership != null) { if (f.ownership >= 70) score += 4; else if (f.ownership <= 30) { score -= 4; watch.push('Ownership trend weak (score ' + f.ownership + ')'); } }
+    if (pe > 0 && ipe && pe > 1.5 * ipe) { score -= 6; watch.push('P/E ' + num(pe, 1) + '× against an industry median of ' + num(ipe, 1) + '×'); }
+    if (vol != null && percentile('volatility_60d', vol) >= 90) { score -= 4; watch.push('Volatile: 60-day volatility ' + num(vol, 0) + '%'); }
+    if (off != null && off < -35) { score -= 4; watch.push(num(-off, 0) + '% below its 52-week high'); }
+    if (pyoy != null && pyoy < -2) { score -= 4; watch.push('Promoters sold ' + num(-pyoy, 2) + ' pts in a year'); }
+    if (val(s, 'above_200dma') === false) watch.push('Below its 200-day average');
+    // A huge jump in one quarter's profit is usually a low base or a one-off, not a trend.
+    const pg = val(s, 'profit_yoy');
+    if (pg != null && pg > 200) { score -= 3; watch.push('Profit up ' + num(pg, 0) + '% on a year ago: likely a low base or one-off; check the quarter'); }
+    if (fiiOk(s) && val(s, 'fii_change_qoq') != null && val(s, 'fii_change_qoq') <= -1) watch.push('Foreign investors cut ' + num(-val(s, 'fii_change_qoq'), 2) + ' pts last quarter');
+    const why = SL_WHY.map(([k, l, fmt, b]) => {
+      const v = val(s, k);
+      if (v == null || ((k === 'dii_change_qoq' || k === 'mf_schemes_added') && v <= 0) || (k === 'profit_yoy' && v > 200)) return null;
+      const pc = percentile(k, v); if (pc == null) return null;
+      const r = b > 0 ? pc : 100 - pc;
+      return { r, text: l + ' ' + fmt(v) + ' — better than ' + r + '% of the library' };
+    }).filter(x => x && x.r >= 80).sort((a, b) => b.r - a.r).slice(0, 4).map(x => x.text);
+    if (pe > 0 && ipe && pe < 0.8 * ipe) why.push('Valued below its industry: P/E ' + num(pe, 1) + '× against a median of ' + num(ipe, 1) + '×');
+    if (comp && mb4) why.unshift('In both screens: a proven compounder that also passes all four multibagger gates');
+    out.push({ s, sym, comp, mb4, f, why, watch, score: Math.round(score) });
+  });
+  const ranked = out.filter(x => !x.dropped).sort((a, b) => b.score - a.score);
+  ranked.dropped = out.filter(x => x.dropped);
+  return (S._sl = ranked);
+}
+function slScreens(x){
+  return (x.comp ? '<span class="chip up">Compounder</span> ' : '') + (x.mb4 ? '<span class="chip brand">Multibagger 4/4</span>' : '');
+}
+function pageShortlist(){
+  const v = $('view');
+  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
+  if (!S.lib || !S.mb) { v.innerHTML = loadingBlock('Loading the library and multi-bagger screen…'); return; }
+  const st = tableState('sl', { id: 'sl', sort: 'score', dir: -1, f: { all: false, dropped: false } });
+  const all = shortlist(), dropped = all.dropped || [];
+  const pool = new Set(dropped.map(x => x.sym).concat(all.map(x => x.sym))).size;
+  const ul = (arr, c) => arr.length ? '<ul style="margin:0;padding-left:16px">' + arr.map(x => '<li class="' + (c || '') + '" style="margin:2px 0">' + esc(x) + '</li>').join('') + '</ul>' : '<span class="faint">–</span>';
+  let body;
+  if (st.f.dropped) {
+    const byWhy = {}; dropped.forEach(x => { (byWhy[x.dropped] = byWhy[x.dropped] || []).push(x); });
+    body = '<div class="tbl-wrap"><table class="t"><tr><th class="l">Left out because</th><th>Companies</th><th class="l">Examples</th></tr>' +
+      Object.keys(byWhy).sort((a, b) => byWhy[b].length - byWhy[a].length).map(k => '<tr><td class="l">' + esc(k) + '</td><td class="num">' + byWhy[k].length + '</td><td class="l" style="white-space:normal">' +
+        byWhy[k].slice(0, 12).map(x => '<a href="#stock/' + esc(x.sym) + '">' + esc(x.sym) + '</a>').join(', ') + '</td></tr>').join('') + '</table></div>';
+  } else {
+    const rows = st.f.all ? all : all.slice(0, SL_SIZE);
+    body = '<div class="tbl-wrap"><table class="t"><thead><tr><th>#</th><th class="l">Company</th><th>Score</th><th class="l">Screens</th><th>Mkt cap</th><th>P/E</th><th>12M</th><th class="l">Why it ranks here</th><th class="l">Watch</th></tr></thead><tbody>' +
+      rows.map((x, i) => '<tr class="click" onclick="openStock(\'' + esc(x.sym) + '\')"><td class="num">' + (i + 1) + '</td><td class="l">' + companyCell(x.sym) + '</td><td>' + scoreChip(x.score) + '</td>' +
+        '<td class="l">' + slScreens(x) + '</td><td class="num">' + crore(val(x.s, 'market_value_bucket')) + '</td><td class="num">' + (val(x.s, 'pe') == null ? '–' : num(val(x.s, 'pe'), 1) + '×') + '</td>' +
+        '<td class="num ' + cls(val(x.s, 'ret_12m')) + '">' + pct(val(x.s, 'ret_12m')) + '</td>' +
+        '<td class="l" style="white-space:normal;min-width:280px;font-size:12.5px">' + ul(x.why) + '</td><td class="l" style="white-space:normal;min-width:200px;font-size:12.5px">' + ul(x.watch, 'down') + '</td></tr>').join('') +
+      '</tbody></table></div>';
+  }
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Shortlist</h1><p class="sub">The strongest of both screens. Of the ' + num(pool, 0) + ' companies that are proven compounders or pass all four early-multibagger gates, ' +
+    num(dropped.length, 0) + ' are left out as hard to trade, weakly cash-backed, pledged or thinly covered; the other ' + num(all.length, 0) + ' are ranked by a conviction score and the top ' + SL_SIZE + ' shown. ' +
+    'A ranked screen of your own rules, not a recommendation: check each report before acting.</p></div></div>' +
+    '<div class="rules"><span class="chip">Score = 30% composite + 20% quality + 20% growth + 15% value + 15% momentum</span><span class="chip">+8 in both screens</span><span class="chip">±4 ownership trend</span>' +
+    '<span class="chip">−6 P/E over 1.5× industry</span><span class="chip">−4 volatile · −4 over 35% off high · −4 promoter selling</span></div>' +
+    '<div class="toolbar"><div class="seg"><button class="' + (!st.f.all && !st.f.dropped ? 'on' : '') + '" onclick="setF(\'sl\',\'all\',false);setF(\'sl\',\'dropped\',false)">Top ' + SL_SIZE + '</button>' +
+    '<button class="' + (st.f.all && !st.f.dropped ? 'on' : '') + '" onclick="setF(\'sl\',\'dropped\',false);setF(\'sl\',\'all\',true)">All ' + all.length + ' ranked</button>' +
+    '<button class="' + (st.f.dropped ? 'on' : '') + '" onclick="setF(\'sl\',\'dropped\',true)">Left out (' + dropped.length + ')</button></div></div>' + body;
+}
+
 // ---- Library ----
 function pageLibrary(){
   const v = $('view');
   if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
-  if (!S.lib) { v.innerHTML = loadingBlock('Loading the stock library (about 12 MB)…'); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading the stock library…'); return; }
   const st = tableState('lib', { id: 'lib', sort: 'met', dir: -1, f: { p: '', ps: 'met', dq: 0 } });
   let rows = S.lib.stocks.filter(s => matchQ(s.symbol, st.q) && (s.data_quality_pct || 0) >= (st.f.dq || 0) &&
     (!st.f.p || (s.cells && s.cells[st.f.p] && s.cells[st.f.p].status === st.f.ps)));

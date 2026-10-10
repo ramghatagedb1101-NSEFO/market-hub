@@ -28,6 +28,7 @@ from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf
 from . import bhav
 from . import nse_feeds
 from . import documents as docs_mod
+from . import library_compact
 from . import shareholding as shp
 from . import corporate_actions as ca
 from . import named_holders as nh
@@ -1347,6 +1348,10 @@ def main() -> dict:
         "alerted": alerted,
     }
     publish(payload, sha)
+    try:      # the admin dashboard's compact copy; library.json above is the record
+        library_compact.publish(PRIVATE_REPO, "library_compact.json", payload, _private_headers())
+    except Exception as exc:
+        print(f"compact copy not published: {exc}")
     return {k: v for k, v in payload.items()
             if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted", "names", "industries")} | {
         "more_work": more_work, "stocks_written": len(merged_stocks),
