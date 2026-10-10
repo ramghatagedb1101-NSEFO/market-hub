@@ -670,6 +670,44 @@ def merge_and_write_multibagger(mb_stocks: list[dict], prior_mb: dict, mb_failur
     return len(merged)
 
 
+INDUSTRY_LIST = "https://nsearchives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv"
+
+# The measures the admin dashboard compares between batches for its "What changed" feed: the six
+# Proven-compounder rules, the factor-score inputs that move most, and the ownership levels.
+SNAPSHOT_KEYS = ("profit_consistency_8q", "net_margin", "cfo_to_pat", "mf_schemes_holding", "pledge_pct",
+                 "market_value_bucket", "promoter_holding", "fii_holding", "dii_holding", "pe", "ret_12m",
+                 "profit_yoy", "rev_yoy", "roe")
+
+
+def fetch_industries() -> dict:
+    """Symbol -> NSE industry (22 broad industries) for the ~750 companies in the NIFTY Total Market
+    index. NSE's per-company quote API (which has the industry for every company) blocks scripted
+    access, so companies outside this index stay unclassified rather than guessed."""
+    r = requests.get(INDUSTRY_LIST, headers=UA, timeout=30)
+    r.raise_for_status()
+    rows = csv.DictReader(io.StringIO(r.text))
+    return {row["Symbol"].strip(): row["Industry"].strip() for row in rows
+            if (row.get("Symbol") or "").strip() and (row.get("Industry") or "").strip()}
+
+
+def snapshot(prior_entry: dict, prior_mb_row: dict | None) -> dict | None:
+    """The key figures from a company's previous library entry, for the dashboard's change feed.
+    Never nests (only the listed values are copied), so it stays small."""
+    cells = prior_entry.get("cells") or {}
+    vals = {}
+    for k in SNAPSHOT_KEYS:
+        v = (cells.get(k) or {}).get("value")
+        if v is not None:
+            vals[k] = round(v, 2) if isinstance(v, float) else v
+    if not vals:
+        return None
+    out = {"scored_on": prior_entry.get("scored_on"), "met": prior_entry.get("met"),
+           "testable": prior_entry.get("testable"), "values": vals}
+    if prior_mb_row and prior_mb_row.get("score") is not None:
+        out["mb_score"] = prior_mb_row["score"]
+    return out
+
+
 def fetch_company_names() -> dict:
     """Symbol -> company name, from the same NSE EQUITY_L list universe() reads."""
     r = requests.get(EQUITY_LIST, headers=UA, timeout=30)
@@ -700,6 +738,12 @@ def main() -> dict:
         company_names.update(fetch_company_names())
     except Exception:
         pass   # names are a nicety for the stock report; never fail a batch over them
+    industries = dict(existing.get("industries") or {})
+    try:
+        industries.update(fetch_industries())
+    except Exception:
+        pass   # same: sector analytics fall back to the last good map
+    scored_on = datetime.now(config.IST).date().isoformat()
     start_idx = existing.get("cursor_next", 0)
     if not isinstance(start_idx, int) or not (0 <= start_idx < len(names)):
         start_idx = 0
@@ -891,6 +935,14 @@ def main() -> dict:
                 entry["sector"] = sector
             if holding_hist:
                 entry["holding_history"] = holding_hist
+            # For the dashboard's "What changed" feed (9 Oct 2026): when this company was scored, and
+            # its key figures as of the previous time it was scored.
+            entry["scored_on"] = scored_on
+            prior_entry = prior_stocks.get(sym)
+            if prior_entry and prior_entry.get("cells"):
+                snap = snapshot(prior_entry, prior_mb.get(sym))
+                if snap:
+                    entry["prev"] = snap
             stocks.append(entry)
             if mb_res is not None:
                 mb_stocks.append(mb_res)
@@ -941,6 +993,8 @@ def main() -> dict:
         "stocks": merged_stocks,
         # Symbol -> company name from NSE's EQUITY_L list, for the admin stock report.
         "names": company_names,
+        # Symbol -> NSE industry (NIFTY Total Market constituents), for sector analytics and peers.
+        "industries": industries,
         # Review list, every name-alias match regardless of registry status -- the owner confirms an
         # investor in hub/registry.json before it counts toward registry_holders/registry_new_entrants.
         "investor_matches": prior_matches,
@@ -950,7 +1004,7 @@ def main() -> dict:
     }
     publish(payload, sha)
     return {k: v for k, v in payload.items()
-            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted", "names")} | {
+            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted", "names", "industries")} | {
         "stocks_written": len(merged_stocks), "batch_written": len(stocks),
         "symbols_with_matches": len(prior_matches),
         "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(mb_stocks),

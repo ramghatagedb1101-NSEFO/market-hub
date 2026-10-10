@@ -2,6 +2,20 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-10
+
+### Admin dashboard: analysis tools -- factor scores, screener, scatter explorer, what changed, sectors, peers
+Owner: "so much data, it needs to be analytical." Built all six options the owner picked.
+- **Factor rankings** (new page): every company scored 0-100 on Quality (ROE, ROCE, margins, cash conversion, interest cover, debt, profit consistency), Growth (revenue, profit, EPS, profit streak, cash-flow growth), Value (P/E, P/B, P/S -- losses not counted as cheap -- and dividend yield), Momentum (3M/12M return, return vs NIFTY, distance from 52-week high) and Ownership (promoter, FII, DII and fund moves, pledge). Each = average of the company's percentile on its inputs against all scored companies; a factor needs half its inputs, the composite needs four of the five factors (so the smallest companies with patchy data don't float to the top). ~1,300 companies get a composite. Default view Rs 1,000 cr+.
+- **Screener** (new page): combine any measure or factor score with above/below/at least/at most; results table with the condition columns and medians; five starter ideas (quality at a fair price, momentum leaders, promoters and funds buying, cash-rich growers, undiscovered quality). **Saved screens are stored on the relay** (`adminScreens`/`adminSaveScreens`, script property `SAVED_SCREENS`, ~9 KB cap) so they follow the owner across devices.
+- **Scatter explorer** (new page): any two measures or scores against each other, bubble size by market cap, colour by industry / screen membership / composite band, dashed median lines, outlier trimming, log X; read-out with correlation and a "sweet spot" list (better than the median on both). Click a dot to open the company.
+- **What changed** (new page): companies entering or leaving Proven compounders, multibagger gate changes, promoter/FII/DII moves of 1+ point and profit growth turning, all since each company's previous scoring; plus 2+ point ownership moves in recent quarterly filings (last ~7 months) and upcoming corporate actions. Strongest first, filterable.
+- **Sectors** (new page): medians by NSE industry (companies, market cap, revenue/profit growth, margin, ROE, P/E, 12M return, composite, compounder and multibagger counts) with green/red shading between industries, a median 12-month-return chart, and click-through to each industry's companies by composite score. Industries with fewer than 5 companies are faded and left out of the chart.
+- **Stock report**: new **factor profile** (radar vs the industry median, plus each score) and **peers** table (same industry, closest in size; best in group in bold). Library table gains a composite column.
+- **Industry data**: NSE's per-company quote API (which has every company's industry) blocks scripted access, so industries come from NSE's NIFTY Total Market constituent list: 755 companies, 22 industries; smaller companies stay unclassified, never guessed. Served live by the relay (`adminIndustries`, cached 6 h) and saved by the weekly batch as `industries`.
+- **Weekly batch** now also stores `scored_on` and a compact `prev` snapshot per company (its previous key figures: the six compounder-rule inputs, P/E, returns, growth, ROE, ownership levels, rules met, multibagger score) so "What changed" can compare. Starts filling in as companies are re-scored.
+- Verified on this machine against the real private data with a stand-in relay: all six pages and the report panels render with no script errors; batch helpers tested (`fetch_industries` against the live NSE list, `snapshot` only copies listed keys, rounds, never nests).
+
 ## 2026-10-09
 
 ### Stock report: shareholding in plain words, who-bought/who-sold chart, quarterly holding history

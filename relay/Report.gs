@@ -143,3 +143,58 @@ function pick_(row, keys) {
   }
   return null;
 }
+
+/**
+ * Symbol -> NSE industry for the ~750 NIFTY Total Market companies (9 Oct 2026), for sector analytics
+ * and peer comparison. The weekly batch also stores this map in library.json; serving it here means the
+ * sector views work before every company has been re-scored. Cached for six hours.
+ */
+function adminIndustries(token) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('industries_v1');
+  if (hit) return JSON.parse(hit);
+  const r = UrlFetchApp.fetch('https://nsearchives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv',
+                              { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (r.getResponseCode() !== 200) return { error: 'NSE returned ' + r.getResponseCode() + ' for the industry list.' };
+  const rows = Utilities.parseCsv(r.getContentText());
+  const head = rows[0].map(function (h) { return String(h).trim(); });
+  const iSym = head.indexOf('Symbol'), iInd = head.indexOf('Industry');
+  if (iSym < 0 || iInd < 0) return { error: 'Unexpected industry list format.' };
+  const map = {};
+  rows.slice(1).forEach(function (row) {
+    const s = String(row[iSym] || '').trim(), ind = String(row[iInd] || '').trim();
+    if (s && ind) map[s] = ind;
+  });
+  const out = { industries: map };
+  try { cache.put('industries_v1', JSON.stringify(out), 21600); } catch (e) { /* too large to cache: fine */ }
+  return out;
+}
+
+/**
+ * Saved screener screens (9 Oct 2026), kept in the script properties so they follow the owner across
+ * devices. A list of {name, conditions:[{field, op, value}], sort}. Script property values are capped
+ * at 9 KB, which is a few dozen screens.
+ */
+function adminScreens(token) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  const raw = PropertiesService.getScriptProperties().getProperty('SAVED_SCREENS');
+  try { return { screens: raw ? JSON.parse(raw) : [] }; } catch (e) { return { screens: [] }; }
+}
+
+function adminSaveScreens(token, screens) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  if (!Array.isArray(screens)) return { error: 'Expected a list of screens.' };
+  const clean = screens.slice(0, 60).map(function (s) {
+    return { name: String(s.name || 'Untitled').slice(0, 60),
+             sort: s.sort ? String(s.sort).slice(0, 40) : null,
+             conditions: (Array.isArray(s.conditions) ? s.conditions : []).slice(0, 15).map(function (c) {
+               return { field: String(c.field || '').slice(0, 40), op: String(c.op || '').slice(0, 4),
+                        value: typeof c.value === 'number' ? c.value : String(c.value == null ? '' : c.value).slice(0, 60) };
+             }) };
+  });
+  const json = JSON.stringify(clean);
+  if (json.length > 9000) return { error: 'Too many saved screens to store (limit about 9 KB). Delete a few first.' };
+  PropertiesService.getScriptProperties().setProperty('SAVED_SCREENS', json);
+  return { ok: true, screens: clean };
+}

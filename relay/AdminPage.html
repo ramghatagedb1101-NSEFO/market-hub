@@ -261,8 +261,14 @@ function start(){
     if (d.error) { S.libErr = d.error; rerender(); return; }
     S.lib = d; S.names = d.names || {};
     (d.stocks || []).forEach(s => { S.bySym[s.symbol] = s; });
+    if (!S.industries && d.industries && Object.keys(d.industries).length) S.industries = d.industries;
+    computeFactors();
     renderNav(); rerender();
   }).catch(e => { S.libErr = e.message; rerender(); });
+  call('adminIndustries', token).then(d => {
+    S.industries = Object.assign({}, (S.lib && S.lib.industries) || {}, d.industries || {});
+    if (current.page === 'sectors' || current.page === 'stock' || current.page === 'factors') rerender();
+  }).catch(() => { S.industries = (S.lib && S.lib.industries) || {}; });
   call('adminMultibagger', token).then(d => {
     if (d.error) { S.mbErr = d.error; rerender(); return; }
     S.mb = d; (d.ranked || []).forEach(r => { S.mbBySym[r.symbol] = r; });
@@ -278,7 +284,7 @@ function renderFoot(){
 function cell(s, k){ return s && s.cells ? s.cells[k] : null; }
 function val(s, k){ const c = cell(s, k); return c && c.value != null ? c.value : null; }
 function nameOf(sym){ const n = S.names[sym]; return n ? n.replace(/\s+(Limited|Ltd\.?)$/i, '') : ''; }
-function sectorOf(sym){ const s = S.bySym[sym]; return (s && s.sector) || ''; }
+function sectorOf(sym){ const s = S.bySym[sym]; return industryOf(sym) || (s && s.sector) || ''; }
 
 // Distribution of a measure across the library (sorted), for "better than X% of companies".
 function dist(k){
@@ -392,11 +398,17 @@ const ICON = {
   registry:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.8-3.5 3.2-5.5 6-5.5s5.2 2 6 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c1.6.8 2.6 2.6 3 5.5"/></svg>',
   bulk:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   params:'<svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>',
-  tests:'<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/></svg>'
+  tests:'<svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/></svg>',
+  screener:'<svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z"/></svg>',
+  factors:'<svg viewBox="0 0 24 24"><path d="M12 3 21 9.5 17.5 20h-11L3 9.5 12 3Z"/><path d="M12 8l4 3-1.5 5h-5L8 11l4-3Z"/></svg>',
+  explore:'<svg viewBox="0 0 24 24"><path d="M4 4v16h16"/><circle cx="9" cy="14" r="1.6"/><circle cx="13" cy="9" r="1.6"/><circle cx="17" cy="12" r="1.6"/><circle cx="16" cy="6" r="1.6"/></svg>',
+  sectors:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg>',
+  signals:'<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>'
 };
 const NAV = [
   ['', [['overview','Overview']]],
-  ['Screens', [['multibagger','Early multibaggers'], ['compounders','Proven compounders']]],
+  ['Screens', [['multibagger','Early multibaggers'], ['compounders','Proven compounders'], ['screener','Screener']]],
+  ['Analysis', [['factors','Factor rankings'], ['explore','Scatter explorer'], ['sectors','Sectors'], ['signals','What changed']]],
   ['Data', [['library','Stock library'], ['registry','Investor registry'], ['bulk','Bulk deals'], ['params','Parameters'], ['tests','Back-tests']]]
 ];
 let current = { page: 'overview', arg: null };
@@ -422,11 +434,14 @@ function go(h){ location.hash = h; }
 function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 
 const TITLES = { overview:'Overview', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
-                 registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report' };
+                 registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report',
+                 screener:'Screener', factors:'Factor rankings', explore:'Scatter explorer', sectors:'Sectors', signals:'What changed' };
 function rerender(){
   $('crumb').textContent = TITLES[current.page] || '';
   const f = { overview: pageOverview, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
-              registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock }[current.page] || pageOverview;
+              registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
+              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals }[current.page] || pageOverview;
+  if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
   f(current.arg);
 }
 function loadingBlock(t){ return '<div class="panel"><div class="panel-b"><div class="muted" style="margin-bottom:10px">' + esc(t) + '</div><div class="skel" style="width:60%"></div><div class="skel" style="width:85%;margin-top:8px"></div><div class="skel" style="width:40%;margin-top:8px"></div></div></div>'; }
@@ -613,17 +628,17 @@ function pageLibrary(){
   const st = tableState('lib', { id: 'lib', sort: 'met', dir: -1, f: { p: '', ps: 'met', dq: 0 } });
   let rows = S.lib.stocks.filter(s => matchQ(s.symbol, st.q) && (s.data_quality_pct || 0) >= (st.f.dq || 0) &&
     (!st.f.p || (s.cells && s.cells[st.f.p] && s.cells[st.f.p].status === st.f.ps)));
-  const G = { met: s => s.testable ? (s.met || 0) / s.testable : null, dq: s => s.data_quality_pct, mcap: s => val(s,'market_value_bucket'), pe: s => val(s,'pe'), r12: s => val(s,'ret_12m'), pg: s => val(s,'profit_yoy'), sym: s => s.symbol };
+  const G = { cs: s => fac(s.symbol, 'composite'), met: s => s.testable ? (s.met || 0) / s.testable : null, dq: s => s.data_quality_pct, mcap: s => val(s,'market_value_bucket'), pe: s => val(s,'pe'), r12: s => val(s,'ret_12m'), pg: s => val(s,'profit_yoy'), sym: s => s.symbol };
   rows = sortRows(rows, st, G);
   const pg = pager(st, rows.length, 50);
   const opts = Object.keys(S.lib.rules || {}).map(k => '<option value="' + esc(k) + '" ' + (st.f.p === k ? 'selected' : '') + '>' + esc((M[k] || [k])[0]) + '</option>').join('');
   const body = rows.slice(pg.from, pg.from + 50).map(s => {
-    if (!s.cells) return '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l">' + companyCell(s.symbol) + '</td><td colspan="6" class="l down" style="font-size:12px">' + esc(String(s.error || 'No data yet').slice(0, 90)) + '</td></tr>';
+    if (!s.cells) return '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l">' + companyCell(s.symbol) + '</td><td colspan="7" class="l down" style="font-size:12px">' + esc(String(s.error || 'No data yet').slice(0, 90)) + '</td></tr>';
     const r = s.testable ? s.met / s.testable : 0;
     return '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l">' + companyCell(s.symbol) + '</td>' +
       '<td class="num">' + crore(val(s,'market_value_bucket')) + '</td><td class="num">' + (val(s,'pe') == null ? '–' : num(val(s,'pe'), 1) + '×') + '</td>' +
       '<td class="num ' + cls(val(s,'ret_12m')) + '">' + pct(val(s,'ret_12m')) + '</td><td class="num ' + cls(val(s,'profit_yoy')) + '">' + pct(val(s,'profit_yoy')) + '</td>' +
-      '<td><span class="num" style="margin-right:8px">' + (s.met || 0) + '/' + (s.testable || 0) + '</span><span class="bar"><i style="width:' + Math.round(r * 100) + '%"></i></span></td>' +
+      '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td><td><span class="num" style="margin-right:8px">' + (s.met || 0) + '/' + (s.testable || 0) + '</span><span class="bar"><i style="width:' + Math.round(r * 100) + '%"></i></span></td>' +
       '<td class="num ' + ((s.data_quality_pct || 0) >= 70 ? 'up' : (s.data_quality_pct || 0) >= 40 ? '' : 'faint') + '">' + num(s.data_quality_pct, 0) + '%</td></tr>';
   }).join('');
   v.innerHTML = '<div class="page-head"><div><h1 class="h1">Stock library</h1><p class="sub">Every listed NSE equity, scored on up to 124 parameters by the weekly batch. ' + num(S.lib.stocks.filter(s => s.cells).length, 0) + ' with data · updated ' + esc(fmtTs(S.lib.generated)) + (S.lib.partial ? ' (pass in progress)' : '') + '.</p></div></div>' +
@@ -631,8 +646,8 @@ function pageLibrary(){
     '<select class="field" onchange="setF(\'lib\',\'p\',this.value)"><option value="">Any parameter</option>' + opts + '</select>' +
     '<select class="field" onchange="setF(\'lib\',\'ps\',this.value)">' + [['met','is met'],['not_met','is not met'],['not_testable','is not testable']].map(o => '<option value="' + o[0] + '" ' + (st.f.ps === o[0] ? 'selected' : '') + '>' + o[1] + '</option>').join('') + '</select>' +
     '<div class="seg">' + [0, 40, 70].map(n => '<button class="' + ((st.f.dq || 0) === n ? 'on' : '') + '" onclick="setF(\'lib\',\'dq\',' + n + ')">' + (n ? 'Data ' + n + '%+' : 'Any data') + '</button>').join('') + '</div></div>' +
-    '<div class="tbl-wrap"><table class="t"><thead><tr>' + th('sym', 'Company', st, 'l') + th('mcap', 'Mkt cap', st) + th('pe', 'P/E', st) + th('r12', '12M return', st) + th('pg', 'Profit gr.', st) + th('met', 'Rules met', st) + th('dq', 'Data', st) + '</tr></thead><tbody>' +
-    (body || '<tr><td colspan="7" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
+    '<div class="tbl-wrap"><table class="t"><thead><tr>' + th('sym', 'Company', st, 'l') + th('mcap', 'Mkt cap', st) + th('pe', 'P/E', st) + th('r12', '12M return', st) + th('pg', 'Profit gr.', st) + th('cs', 'Composite', st) + th('met', 'Rules met', st) + th('dq', 'Data', st) + '</tr></thead><tbody>' +
+    (body || '<tr><td colspan="8" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
 }
 
 // ---- Registry ----
@@ -757,6 +772,7 @@ function pageStock(sym){
     '<div class="panel"><div class="panel-h"><h3>Quarterly revenue &amp; profit</h3><span class="muted" style="font-size:12px">₹ crore · consolidated · live from BharatStock</span></div><div class="panel-b">' +
     (R.loading ? '<div class="chart"><div class="skel" style="height:100%"></div></div>' : finErr ? '<div class="notice">' + esc(finErr) + '</div>' : '<div class="chart"><canvas id="cQ"></canvas></div>') + '</div></div></div>';
 
+  html += factorPanel(sym);
   // Scorecard
   if (s && s.cells) {
     const testable = s.testable || 0, met = s.met || 0, p = testable ? Math.round(met / testable * 100) : 0;
@@ -770,6 +786,7 @@ function pageStock(sym){
   }
 
   // Ownership, corporate actions, news
+  html += peersPanel(sym);
   html += shareholdingPanel(s);
   html += '<div class="grid g2" style="margin-bottom:14px">' +
     '<div class="panel"><div class="panel-h"><h3>Corporate actions</h3><span class="muted" style="font-size:12px">NSE · upcoming first</span></div><div class="panel-b timeline">' + actionsHtml(s) + '</div></div>' +
@@ -791,6 +808,7 @@ function pageStock(sym){
   }
   v.innerHTML = html;
   if (!R.loading) drawStockCharts(R, s);
+  drawRadar(sym);
 }
 
 function statusChip(st){ return '<span class="chip ' + ({ met: 'up', not_met: 'down' }[st] || '') + '">' + esc(String(st || '–').replace(/_/g, ' ')) + '</span>'; }
@@ -926,6 +944,438 @@ function drawStockCharts(R, s){
         plugins: { legend: { labels: { usePointStyle: true, boxWidth: 7, boxHeight: 7, font: { size: 11 } } }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + num(c.parsed.y, 2) + '%' } } },
         scales: { x: scales.x, y: { grid: { color: grid }, ticks: { color: tick, callback: v => v + '%' } } } } }));
   }
+}
+
+// ======================================================================================
+// Analytics (9 Oct 2026): factor scores, screener, scatter explorer, what changed, sectors, peers
+// ======================================================================================
+// Factor scores: each input's percentile among all companies (flipped where lower is better), averaged.
+// A factor needs at least half its inputs (and two) to be scored; the composite needs four of the five,
+// so a company missing whole factors (common for the smallest) cannot float to the top on partial data.
+const FACTORS = [
+  ['quality', 'Quality', [['roe', 1], ['roce', 1], ['net_margin', 1], ['operating_margin', 1], ['cfo_to_pat', 1], ['interest_cover', 1], ['debt_to_equity', -1], ['profit_consistency_8q', 1]]],
+  ['growth', 'Growth', [['rev_yoy', 1], ['profit_yoy', 1], ['eps_yoy', 1], ['profit_run', 1], ['cfo_growth', 1]]],
+  ['value', 'Value', [['pe', -1], ['pb', -1], ['ps', -1], ['dividend_yield', 1]]],
+  ['momentum', 'Momentum', [['ret_3m', 1], ['ret_12m', 1], ['rel_strength_vs_index', 1], ['from_52w_high', 1]]],
+  ['ownership', 'Ownership', [['promoter_change_yoy', 1], ['fii_change_qoq', 1], ['dii_change_qoq', 1], ['mf_schemes_added', 1], ['pledge_pct', -1]]]
+];
+// Valuation multiples at or below zero mean losses or negative book: not "cheap", so not scored.
+const POSITIVE_ONLY = { pe: 1, pb: 1, ps: 1 };
+function scoreInput(s, k, dir){
+  let v = val(s, k);
+  if (typeof v !== 'number' || !isFinite(v)) return null;
+  if (POSITIVE_ONLY[k] && v <= 0) return null;
+  const p = percentileOf(k, v);
+  return p == null ? null : (dir > 0 ? p : 100 - p);
+}
+// Percentile over the positive-only distribution for valuation multiples.
+function percentileOf(k, v){
+  if (!POSITIVE_ONLY[k]) return percentile(k, v);
+  const key = k + '__pos';
+  if (!S.dist[key]) S.dist[key] = dist(k).filter(x => x > 0);
+  const a = S.dist[key]; if (!a.length) return null;
+  let below = 0, upto = 0; for (const x of a) { if (x < v) below++; if (x <= v) upto++; }
+  return Math.round((below + (upto - below) / 2) / a.length * 100);
+}
+function computeFactors(){
+  S.fac = {};
+  if (!S.lib) return;
+  S.lib.stocks.forEach(s => {
+    if (!s.cells) return;
+    const f = {};
+    FACTORS.forEach(([key, , inputs]) => {
+      const xs = inputs.map(([k, d]) => scoreInput(s, k, d)).filter(x => x != null);
+      f[key] = xs.length >= Math.max(2, Math.ceil(inputs.length / 2)) ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+    });
+    const got = FACTORS.map(([k]) => f[k]).filter(x => x != null);
+    f.composite = got.length >= 4 ? Math.round(got.reduce((a, b) => a + b, 0) / got.length) : null;
+    S.fac[s.symbol] = f;
+  });
+}
+function fac(sym, k){ return S.fac && S.fac[sym] ? S.fac[sym][k] : null; }
+function scoreChip(v){
+  if (v == null) return '<span class="faint">–</span>';
+  const c = v >= 70 ? 'up' : v >= 40 ? '' : 'down';
+  return '<span class="chip ' + c + ' num" style="min-width:38px;justify-content:center">' + v + '</span>';
+}
+function industryOf(sym){ return (S.industries && S.industries[sym]) || (S.lib && S.lib.industries && S.lib.industries[sym]) || ''; }
+
+// Fields available to the screener and the scatter explorer.
+function fieldList(){
+  const f = [['composite', 'Composite score', 'score'], ...FACTORS.map(([k, l]) => [k, l + ' score', 'score'])];
+  Object.keys(M).forEach(k => { if (!['bool'].includes(M[k][2])) f.push([k, M[k][0], M[k][2]]); });
+  f.push(['mb_score', 'Multibagger gates (0–4)', 'int']);
+  return f;
+}
+function fieldVal(sym, k){
+  if (k === 'composite' || FACTORS.some(x => x[0] === k)) return fac(sym, k);
+  if (k === 'mb_score') { const r = S.mbBySym[sym]; return r && r.score != null ? r.score : null; }
+  const v = val(S.bySym[sym], k);
+  return typeof v === 'number' ? v : (typeof v === 'boolean' ? (v ? 1 : 0) : null);
+}
+function fieldLabel(k){ const f = fieldList().find(x => x[0] === k); return f ? f[1] : k; }
+function fieldFmt(k, v){
+  if (v == null) return '–';
+  if (k === 'composite' || FACTORS.some(x => x[0] === k)) return String(v);
+  if (k === 'mb_score') return v + '/4';
+  return fmtMeasure(k, v);
+}
+
+// ---------------- Factor rankings ----------------
+function pageFactors(){
+  const v = $('view');
+  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading the library to compute factor scores…'); return; }
+  const st = tableState('fac', { id: 'fac', sort: 'composite', dir: -1, f: { ind: '', minmc: 1000 } });
+  let rows = S.lib.stocks.filter(s => s.cells && fac(s.symbol, 'composite') != null && matchQ(s.symbol, st.q) &&
+    (!st.f.ind || industryOf(s.symbol) === st.f.ind) && (val(s, 'market_value_bucket') || 0) >= (st.f.minmc || 0));
+  const G = { mcap: s => val(s, 'market_value_bucket') };
+  ['composite', ...FACTORS.map(f => f[0])].forEach(k => { G[k] = s => fac(s.symbol, k); });
+  rows = sortRows(rows, st, G);
+  const pg = pager(st, rows.length, 50);
+  const inds = [...new Set(Object.values(S.industries || {}))].sort();
+  const body = rows.slice(pg.from, pg.from + 50).map((s, i) => '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l num faint">' + (pg.from + i + 1) + '</td><td class="l">' + companyCell(s.symbol) + '</td>' +
+    '<td class="l muted" style="font-size:12px">' + esc(industryOf(s.symbol) || '–') + '</td><td class="num">' + crore(val(s, 'market_value_bucket')) + '</td>' +
+    '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td>' + FACTORS.map(([k]) => '<td>' + scoreChip(fac(s.symbol, k)) + '</td>').join('') + '</tr>').join('');
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Factor rankings</h1><p class="sub">Every company scored 0–100 on five factors — the average of its percentile on each input against all ' + num(Object.keys(S.fac).length, 0) + ' scored companies (100 = best). Composite = average of the five (needs at least four). Hover a column for its inputs.</p></div></div>' +
+    '<div class="toolbar"><input id="facq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'fac\',this)">' +
+    '<select class="field" onchange="setF(\'fac\',\'ind\',this.value)"><option value="">All industries</option>' + inds.map(x => '<option ' + (st.f.ind === x ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
+    '<div class="seg">' + [[0, 'Any size'], [1000, '₹1,000 cr+'], [5000, '₹5,000 cr+'], [20000, '₹20,000 cr+']].map(([n, l]) => '<button class="' + ((st.f.minmc || 0) === n ? 'on' : '') + '" onclick="setF(\'fac\',\'minmc\',' + n + ')">' + l + '</button>').join('') + '</div></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">#</th><th class="l">Company</th><th class="l">Industry</th>' + th('mcap', 'Mkt cap', st) + th('composite', 'Composite', st) +
+    FACTORS.map(([k, l, inputs]) => th(k, '<span title="' + esc(inputs.map(([i, d]) => (M[i] || [i])[0] + (d < 0 ? ' (lower is better)' : '')).join(', ')) + '">' + l + '</span>', st)).join('') + '</tr></thead><tbody>' +
+    (body || '<tr><td colspan="10" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
+}
+
+// ---------------- Screener builder ----------------
+const OPS = [['>', 'above'], ['<', 'below'], ['>=', 'at least'], ['<=', 'at most']];
+const PRESETS = [
+  { name: 'Quality at a fair price', conditions: [{ field: 'quality', op: '>=', value: 70 }, { field: 'pe', op: '<', value: 30 }, { field: 'market_value_bucket', op: '>=', value: 2000 }] },
+  { name: 'Momentum leaders', conditions: [{ field: 'momentum', op: '>=', value: 85 }, { field: 'growth', op: '>=', value: 60 }] },
+  { name: 'Promoters and funds buying', conditions: [{ field: 'promoter_change_yoy', op: '>', value: 0.5 }, { field: 'fii_change_qoq', op: '>', value: 0 }, { field: 'pledge_pct', op: '<', value: 5 }] },
+  { name: 'Cash-rich growers', conditions: [{ field: 'cfo_to_pat', op: '>=', value: 1 }, { field: 'rev_yoy', op: '>', value: 15 }, { field: 'debt_to_equity', op: '<', value: 0.5 }] },
+  { name: 'Undiscovered quality', conditions: [{ field: 'mf_schemes_holding', op: '<', value: 5 }, { field: 'quality', op: '>=', value: 65 }, { field: 'market_value_bucket', op: '>=', value: 500 }] }
+];
+let SCR = { conditions: PRESETS[0].conditions.map(c => Object.assign({}, c)), name: PRESETS[0].name, saved: null, savedErr: null, page: 0, sort: 'composite', dir: -1 };
+function loadScreens(){
+  call('adminScreens', token).then(d => { SCR.saved = d.screens || []; if (current.page === 'screener') rerender(); })
+    .catch(e => { SCR.savedErr = e.message; SCR.saved = []; });
+}
+function runScreen(conds){
+  if (!S.lib) return [];
+  const ok = conds.filter(c => c.field && OPS.some(o => o[0] === c.op) && c.value !== '' && isFinite(Number(c.value)));
+  return S.lib.stocks.filter(s => s.cells && ok.every(c => {
+    const x = fieldVal(s.symbol, c.field); const v = Number(c.value);
+    if (x == null) return false;
+    return c.op === '>' ? x > v : c.op === '<' ? x < v : c.op === '>=' ? x >= v : x <= v;
+  })).map(s => s.symbol);
+}
+function scrSet(i, k, v){ SCR.conditions[i][k] = k === 'value' ? v : v; SCR.page = 0; rerenderKeepFocus(); }
+function scrAdd(){ SCR.conditions.push({ field: 'roe', op: '>', value: 15 }); SCR.page = 0; rerender(); }
+function scrDel(i){ SCR.conditions.splice(i, 1); SCR.page = 0; rerender(); }
+function scrLoad(cfg){ SCR.conditions = cfg.conditions.map(c => Object.assign({}, c)); SCR.name = cfg.name; if (cfg.sort) SCR.sort = cfg.sort; SCR.page = 0; rerender(); }
+function scrLoadPreset(i){ scrLoad(PRESETS[i]); }
+function scrLoadSaved(i){ scrLoad(SCR.saved[i]); }
+function scrSave(){
+  const name = ($('scrname').value || '').trim() || 'Untitled screen';
+  const list = (SCR.saved || []).filter(x => x.name !== name).concat([{ name, conditions: SCR.conditions, sort: SCR.sort }]);
+  $('scrmsg').textContent = 'Saving…';
+  call('adminSaveScreens', token, list).then(d => { if (d.error) { $('scrmsg').textContent = d.error; return; } SCR.saved = d.screens; SCR.name = name; rerender(); })
+    .catch(e => { $('scrmsg').textContent = 'Could not save: ' + e.message; });
+}
+function scrDelete(i){
+  const list = (SCR.saved || []).filter((_, j) => j !== i);
+  call('adminSaveScreens', token, list).then(d => { if (!d.error) { SCR.saved = d.screens; rerender(); } });
+}
+function scrSort(k){ if (SCR.sort === k) SCR.dir *= -1; else { SCR.sort = k; SCR.dir = -1; } rerender(); }
+function scrPage(p){ SCR.page = p; rerender(); }
+let _focusId = null;
+function rerenderKeepFocus(){ const a = document.activeElement; _focusId = a && a.id ? a.id : null; const pos = a && a.selectionStart; rerender(); if (_focusId && $(_focusId)) { $(_focusId).focus(); try { $(_focusId).setSelectionRange(pos, pos); } catch (e) {} } }
+function pageScreener(){
+  const v = $('view');
+  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading the library…'); return; }
+  if (SCR.saved == null && !SCR.loading) { SCR.loading = true; loadScreens(); }
+  const fields = fieldList();
+  const fieldOpts = sel => fields.map(([k, l]) => '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + esc(l) + '</option>').join('');
+  const syms = runScreen(SCR.conditions);
+  const condFields = [...new Set(SCR.conditions.map(c => c.field).filter(Boolean))];
+  const cols = ['composite', ...condFields.filter(k => k !== 'composite')].slice(0, 7);
+  const sorted = syms.slice().sort((a, b) => { const x = fieldVal(a, SCR.sort), y = fieldVal(b, SCR.sort);
+    if (x == null && y == null) return 0; if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * SCR.dir; });
+  const size = 50, pages = Math.max(1, Math.ceil(sorted.length / size)); if (SCR.page >= pages) SCR.page = pages - 1;
+  const from = SCR.page * size;
+  const hdr = k => '<th class="sortable" onclick="scrSort(\'' + k + '\')">' + esc(fieldLabel(k)) + (SCR.sort === k ? (SCR.dir < 0 ? ' ↓' : ' ↑') : '') + '</th>';
+  const body = sorted.slice(from, from + size).map(sym => '<tr class="click" onclick="openStock(\'' + esc(sym) + '\')"><td class="l">' + companyCell(sym) + '</td><td class="l muted" style="font-size:12px">' + esc(industryOf(sym) || '–') + '</td><td class="num">' + crore(val(S.bySym[sym], 'market_value_bucket')) + '</td>' +
+    cols.map(k => '<td class="num">' + (k === 'composite' || FACTORS.some(f => f[0] === k) ? scoreChip(fieldVal(sym, k)) : fieldFmt(k, fieldVal(sym, k))) + '</td>').join('') + '</tr>').join('');
+  const med = k => { const xs = syms.map(s => fieldVal(s, k)).filter(x => x != null).sort((a, b) => a - b); return xs.length ? xs[Math.floor(xs.length / 2)] : null; };
+  const condRows = SCR.conditions.map((c, i) => '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">' +
+    '<select id="scf' + i + '" class="field" style="width:auto;min-width:230px" onchange="scrSet(' + i + ',\'field\',this.value)">' + fieldOpts(c.field) + '</select>' +
+    '<select class="field" style="width:auto;min-width:110px" onchange="scrSet(' + i + ',\'op\',this.value)">' + OPS.map(([o, l]) => '<option value="' + o + '"' + (o === c.op ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>' +
+    '<input id="scv' + i + '" class="field num" style="width:110px;flex:none" value="' + esc(c.value) + '" oninput="scrSet(' + i + ',\'value\',this.value)">' +
+    '<span class="muted" style="font-size:12px">' + esc(unitHint(c.field)) + '</span>' +
+    '<button class="btn ghost" title="Remove" onclick="scrDel(' + i + ')">✕</button></div>').join('');
+  const saved = SCR.saved == null ? '<div class="skel"></div>' : SCR.saved.length ? SCR.saved.map((x, i) => '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed var(--line2)"><a href="javascript:void 0" onclick="scrLoadSaved(' + i + ')" style="flex:1">' + esc(x.name) + '</a><span class="faint num" style="font-size:12px">' + runScreen(x.conditions).length + '</span><button class="btn ghost" style="padding:2px 6px" title="Delete" onclick="scrDelete(' + i + ')">✕</button></div>').join('') : '<div class="muted" style="font-size:12.5px">No saved screens yet.</div>';
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Screener</h1><p class="sub">Combine any measures or factor scores. A company must have a value for every condition to pass. Saved screens are stored on the relay and follow you across devices.</p></div></div>' +
+    '<div class="grid" style="grid-template-columns:minmax(0,1fr) 280px;align-items:start;margin-bottom:14px">' +
+    '<div class="panel"><div class="panel-h"><h3>Conditions</h3><span class="muted" style="font-size:12.5px"><b class="num" style="color:var(--text);font-size:15px">' + num(syms.length, 0) + '</b> companies match</span></div><div class="panel-b">' + condRows +
+    '<button class="btn" onclick="scrAdd()">+ Add condition</button>' +
+    '<div style="display:flex;gap:8px;margin-top:14px;align-items:center;flex-wrap:wrap"><input id="scrname" class="field" style="width:240px" placeholder="Screen name" value="' + esc(SCR.name || '') + '"><button class="btn primary" onclick="scrSave()">Save screen</button><span id="scrmsg" class="muted" style="font-size:12.5px">' + esc(SCR.savedErr || '') + '</span></div>' +
+    (syms.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' + condFields.map(k => '<span class="chip">median ' + esc(fieldLabel(k)) + ': ' + fieldFmt(k, med(k)) + '</span>').join('') + '</div>' : '') +
+    '</div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Screens</h3></div><div class="panel-b"><div class="nav-h" style="color:var(--muted);padding:0 0 6px">Saved</div>' + saved +
+    '<div class="nav-h" style="color:var(--muted);padding:14px 0 6px">Ideas to start from</div>' + PRESETS.map((x, i) => '<div style="padding:5px 0"><a href="javascript:void 0" onclick="scrLoadPreset(' + i + ')">' + esc(x.name) + '</a></div>').join('') + '</div></div></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th><th class="l">Industry</th>' + hdr('market_value_bucket').replace('Market cap', 'Mkt cap') + cols.map(hdr).join('') + '</tr></thead><tbody>' +
+    (body || '<tr><td colspan="' + (3 + cols.length) + '" class="empty">No company meets every condition. Loosen one.</td></tr>') + '</tbody></table></div>' +
+    '<div class="pager"><span>' + (sorted.length ? (from + 1) + '–' + Math.min(from + size, sorted.length) + ' of ' + num(sorted.length, 0) : '0 results') + '</span><button class="btn" ' + (SCR.page === 0 ? 'disabled' : '') + ' onclick="scrPage(' + (SCR.page - 1) + ')">‹</button><button class="btn" ' + (SCR.page >= pages - 1 ? 'disabled' : '') + ' onclick="scrPage(' + (SCR.page + 1) + ')">›</button></div>';
+}
+function unitHint(k){
+  if (k === 'composite' || FACTORS.some(f => f[0] === k)) return '0–100';
+  const u = (M[k] || [])[2];
+  return { pct: '%', pct0: '%', pp: 'points', x: '×', cr: '₹ crore', rs: '₹ (rupees)', int: '' }[u] || '';
+}
+
+// ---------------- Scatter explorer ----------------
+const SX = { x: 'pe', y: 'profit_yoy', size: 'market_value_bucket', color: 'industry', set: 'all', clip: true, logx: false };
+function sxSet(k, v){ SX[k] = v; rerender(); }
+function pageExplore(){
+  const v = $('view');
+  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading the library…'); return; }
+  destroyCharts();
+  const fields = fieldList();
+  const opt = (sel, list) => list.map(([k, l]) => '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + esc(l) + '</option>').join('');
+  const sets = [['all', 'All companies'], ['compounders', 'Proven compounders'], ['mb3', 'Multibaggers 3+ gates'], ...(SCR.saved || []).map((x, i) => ['saved:' + i, 'Screen: ' + x.name])];
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Scatter explorer</h1><p class="sub">Plot any two measures against each other. Dashed lines are the medians, so the four corners read at a glance — e.g. low P/E and high growth bottom-right. Click a dot to open the company.</p></div></div>' +
+    '<div class="toolbar">' +
+    '<label class="muted" style="font-size:12px">X <select class="field" onchange="sxSet(\'x\',this.value)">' + opt(SX.x, fields) + '</select></label>' +
+    '<label class="muted" style="font-size:12px">Y <select class="field" onchange="sxSet(\'y\',this.value)">' + opt(SX.y, fields) + '</select></label>' +
+    '<label class="muted" style="font-size:12px">Size <select class="field" onchange="sxSet(\'size\',this.value)">' + opt(SX.size, [['', 'Same size'], ['market_value_bucket', 'Market cap']]) + '</select></label>' +
+    '<label class="muted" style="font-size:12px">Colour <select class="field" onchange="sxSet(\'color\',this.value)">' + opt(SX.color, [['industry', 'Industry'], ['screen', 'Compounder / multibagger'], ['composite', 'Composite score']]) + '</select></label>' +
+    '<label class="muted" style="font-size:12px">Companies <select class="field" onchange="sxSet(\'set\',this.value)">' + opt(SX.set, sets) + '</select></label>' +
+    '<div class="seg"><button class="' + (SX.clip ? 'on' : '') + '" onclick="sxSet(\'clip\',' + !SX.clip + ')" title="Hide the most extreme 2% at each end so the bulk is readable">Trim outliers</button><button class="' + (SX.logx ? 'on' : '') + '" onclick="sxSet(\'logx\',' + !SX.logx + ')">Log X</button></div></div>' +
+    '<div class="grid" style="grid-template-columns:minmax(0,1fr) 260px;align-items:start"><div class="panel"><div class="panel-b"><div style="position:relative;height:560px"><canvas id="cSx"></canvas></div></div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Read-out</h3></div><div class="panel-b" id="sxinfo"></div></div></div>';
+  drawScatter();
+}
+function sxSymbols(){
+  if (SX.set === 'compounders') return (compounders() || []).filter(x => x.fails === 0).map(x => x.s.symbol);
+  if (SX.set === 'mb3') return (S.mb ? S.mb.ranked : []).filter(r => (r.score || 0) >= 3).map(r => r.symbol);
+  if (SX.set.startsWith('saved:')) { const sc = (SCR.saved || [])[Number(SX.set.slice(6))]; return sc ? runScreen(sc.conditions) : []; }
+  return S.lib.stocks.filter(s => s.cells).map(s => s.symbol);
+}
+function quantile(xs, q){ const a = xs.slice().sort((x, y) => x - y); return a.length ? a[Math.min(a.length - 1, Math.max(0, Math.floor(q * (a.length - 1))))] : null; }
+const PALETTE = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+function drawScatter(){
+  const el = $('cSx'); if (!el || typeof Chart === 'undefined') return;
+  let pts = sxSymbols().map(sym => ({ sym, x: fieldVal(sym, SX.x), y: fieldVal(sym, SX.y), m: val(S.bySym[sym], 'market_value_bucket') }))
+    .filter(p => p.x != null && p.y != null && (!SX.logx || p.x > 0));
+  const n0 = pts.length;
+  if (SX.clip && pts.length > 20) {
+    const xl = quantile(pts.map(p => p.x), .02), xh = quantile(pts.map(p => p.x), .98), yl = quantile(pts.map(p => p.y), .02), yh = quantile(pts.map(p => p.y), .98);
+    pts = pts.filter(p => p.x >= xl && p.x <= xh && p.y >= yl && p.y <= yh);
+  }
+  const mx = quantile(pts.map(p => p.x), .5), my = quantile(pts.map(p => p.y), .5);
+  // Colour groups
+  let groups;
+  if (SX.color === 'industry') {
+    const counts = {}; pts.forEach(p => { const k = industryOf(p.sym) || 'Unclassified'; counts[k] = (counts[k] || 0) + 1; });
+    const top = Object.keys(counts).filter(k => k !== 'Unclassified').sort((a, b) => counts[b] - counts[a]).slice(0, 7);
+    groups = p => { const k = industryOf(p.sym); return top.includes(k) ? k : (k ? 'Other industries' : 'Unclassified'); };
+  } else if (SX.color === 'screen') {
+    groups = p => isCompounder(p.sym) ? 'Proven compounder' : ((S.mbBySym[p.sym] || {}).score >= 3 ? 'Multibagger 3+' : 'Other');
+  } else {
+    groups = p => { const c = fac(p.sym, 'composite'); return c == null ? 'Not scored' : c >= 70 ? 'Composite 70+' : c >= 40 ? 'Composite 40–70' : 'Composite under 40'; };
+  }
+  const byG = {}; pts.forEach(p => { const g = groups(p); (byG[g] = byG[g] || []).push(p); });
+  const order = Object.keys(byG).sort((a, b) => (/Other|Unclassified|Not scored/.test(a) ? 1 : 0) - (/Other|Unclassified|Not scored/.test(b) ? 1 : 0) || byG[b].length - byG[a].length);
+  const grey = cssVar('--faint');
+  const fixed = { 'Proven compounder': '#1baf7a', 'Multibagger 3+': '#2a78d6', 'Composite 70+': '#1baf7a', 'Composite 40–70': '#eda100', 'Composite under 40': '#e34948' };
+  const mcs = pts.map(p => p.m || 0).filter(x => x > 0), mmax = Math.max(1, ...mcs);
+  const radius = p => SX.size ? 2.5 + 9 * Math.sqrt(Math.max(0, p.m || 0) / mmax) : 3.5;
+  let ci = 0;
+  const ds = order.map(g => { const color = fixed[g] || (/Other|Unclassified|Not scored/.test(g) ? grey : PALETTE[ci++ % PALETTE.length]);
+    return { label: g + ' (' + byG[g].length + ')', data: byG[g].map(p => ({ x: p.x, y: p.y, r: radius(p), sym: p.sym })), backgroundColor: color + '99', borderColor: color, borderWidth: 0.6 }; });
+  const tick = cssVar('--muted'), grid = cssVar('--line2'), line = cssVar('--faint');
+  const medians = { id: 'medians', afterDatasetsDraw(c){ const { ctx, chartArea: a, scales: { x, y } } = c; ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = line; ctx.lineWidth = 1;
+    if (mx != null) { const px = x.getPixelForValue(mx); if (px >= a.left && px <= a.right) { ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke(); } }
+    if (my != null) { const py = y.getPixelForValue(my); if (py >= a.top && py <= a.bottom) { ctx.beginPath(); ctx.moveTo(a.left, py); ctx.lineTo(a.right, py); ctx.stroke(); } }
+    ctx.restore(); } };
+  charts.push(new Chart(el, { type: 'bubble', data: { datasets: ds }, plugins: [medians],
+    options: { maintainAspectRatio: false, animation: false,
+      onClick: (e, els) => { if (els.length) { const p = ds[els[0].datasetIndex].data[els[0].index]; openStock(p.sym); } },
+      onHover: (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+      plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 7, boxHeight: 7, font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => { const p = c.raw; return p.sym + (nameOf(p.sym) ? ' · ' + nameOf(p.sym) : '') + ' — ' + fieldLabel(SX.x) + ': ' + fieldFmt(SX.x, p.x) + ', ' + fieldLabel(SX.y) + ': ' + fieldFmt(SX.y, p.y); } } } },
+      scales: { x: { type: SX.logx ? 'logarithmic' : 'linear', title: { display: true, text: fieldLabel(SX.x), color: tick }, grid: { color: grid }, ticks: { color: tick, maxTicksLimit: 8 } },
+                y: { title: { display: true, text: fieldLabel(SX.y), color: tick }, grid: { color: grid }, ticks: { color: tick } } } } }));
+  // Read-out: count, medians, correlation, best corner
+  const corr = (() => { const n = pts.length; if (n < 3) return null; const ax = pts.reduce((a, p) => a + p.x, 0) / n, ay = pts.reduce((a, p) => a + p.y, 0) / n;
+    let sxy = 0, sxx = 0, syy = 0; pts.forEach(p => { sxy += (p.x - ax) * (p.y - ay); sxx += (p.x - ax) ** 2; syy += (p.y - ay) ** 2; }); return sxx && syy ? sxy / Math.sqrt(sxx * syy) : null; })();
+  const dirX = dirOf(SX.x), dirY = dirOf(SX.y);
+  const corner = pts.filter(p => (dirX >= 0 ? p.x > mx : p.x < mx) && (dirY >= 0 ? p.y > my : p.y < my));
+  corner.sort((a, b) => (fac(b.sym, 'composite') || 0) - (fac(a.sym, 'composite') || 0));
+  $('sxinfo').innerHTML = '<div class="metric" style="grid-template-columns:1fr auto"><span class="n">Companies plotted</span><span class="val">' + num(pts.length, 0) + '</span></div>' +
+    (n0 !== pts.length ? '<div class="faint" style="font-size:12px">' + (n0 - pts.length) + ' outliers trimmed</div>' : '') +
+    '<div class="metric" style="grid-template-columns:1fr auto"><span class="n">Median ' + esc(fieldLabel(SX.x)) + '</span><span class="val">' + fieldFmt(SX.x, mx) + '</span></div>' +
+    '<div class="metric" style="grid-template-columns:1fr auto"><span class="n">Median ' + esc(fieldLabel(SX.y)) + '</span><span class="val">' + fieldFmt(SX.y, my) + '</span></div>' +
+    '<div class="metric" style="grid-template-columns:1fr auto"><span class="n">Correlation</span><span class="val">' + (corr == null ? '–' : num(corr, 2)) + '</span></div>' +
+    '<div class="faint" style="font-size:12px;margin:2px 0 12px">' + (corr == null ? '' : Math.abs(corr) < 0.1 ? 'No real relationship.' : Math.abs(corr) < 0.3 ? 'Weak relationship.' : Math.abs(corr) < 0.6 ? 'Moderate relationship.' : 'Strong relationship.') + '</div>' +
+    '<div style="font-weight:600;font-size:13px;margin-bottom:4px">Sweet spot (' + corner.length + ')</div><div class="faint" style="font-size:12px;margin-bottom:6px">Better than the median on both, by composite score</div>' +
+    corner.slice(0, 10).map(p => '<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed var(--line2)"><a href="javascript:void 0" onclick="openStock(\'' + esc(p.sym) + '\')" class="num">' + esc(p.sym) + '</a>' + scoreChip(fac(p.sym, 'composite')) + '</div>').join('');
+}
+function dirOf(k){ if (k === 'composite' || FACTORS.some(f => f[0] === k) || k === 'mb_score') return 1; return (M[k] || [])[3] || 1; }
+
+// ---------------- What changed ----------------
+function pageSignals(){
+  const v = $('view');
+  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading the library…'); return; }
+  const st = tableState('sig', { id: 'sig', f: { kind: '' } });
+  const ev = [];
+  const add = (sym, kind, text, tone, when, weight) => ev.push({ sym, kind, text, tone, when, weight: weight || 0 });
+  S.lib.stocks.forEach(s => {
+    if (!s.cells) return; const sym = s.symbol;
+    // Since this company's previous scoring
+    if (s.prev && s.prev.values) {
+      const pv = s.prev.values, fake = { cells: Object.fromEntries(Object.keys(pv).map(k => [k, { value: pv[k] }])) };
+      const was = COMPOUNDER_RULES.every(([, f]) => f(fake) === true), is = isCompounder(sym);
+      if (is && !was) add(sym, 'screen', 'Entered Proven compounders', 'up', s.scored_on, 9);
+      if (was && !is) add(sym, 'screen', 'Left Proven compounders', 'down', s.scored_on, 8);
+      const mbNow = (S.mbBySym[sym] || {}).score;
+      if (s.prev.mb_score != null && mbNow != null && mbNow !== s.prev.mb_score) add(sym, 'screen', 'Multibagger gates ' + s.prev.mb_score + ' → ' + mbNow, mbNow > s.prev.mb_score ? 'up' : 'down', s.scored_on, 6 + Math.abs(mbNow - s.prev.mb_score));
+      [['promoter_holding', 'Promoter'], ['fii_holding', 'FII'], ['dii_holding', 'DII']].forEach(([k, l]) => {
+        const a = pv[k], b = val(s, k); if (a != null && b != null && Math.abs(b - a) >= 1) add(sym, 'ownership', l + ' ' + num(b, 2) + '%, ' + (b > a ? 'up ' : 'down ') + num(Math.abs(b - a), 2) + ' from ' + num(a, 2) + '% at the previous scoring', b > a ? 'up' : 'down', s.scored_on, Math.abs(b - a));
+      });
+      const pa = pv.profit_yoy, pb = val(s, 'profit_yoy');
+      if (pa != null && pb != null && Math.sign(pa) !== Math.sign(pb) && Math.abs(pb) > 5) add(sym, 'results', 'Profit growth turned ' + (pb > 0 ? 'positive' : 'negative') + ' (' + pct(pa) + ' → ' + pct(pb) + ')', pb > 0 ? 'up' : 'down', s.scored_on, 5);
+      if (s.prev.met != null && s.met != null && Math.abs(s.met - s.prev.met) >= 5) add(sym, 'results', 'Rules met ' + s.prev.met + ' → ' + s.met, s.met > s.prev.met ? 'up' : 'down', s.scored_on, Math.abs(s.met - s.prev.met) / 2);
+    }
+    // From the latest quarterly filing (available now) -- only if that filing is recent, so old news stays out.
+    const fresh = s.latest_period && (Date.now() - new Date(s.latest_period)) / 86400000 <= 210;
+    if (fresh) [['promoter_change_qoq', 'Promoter'], ['fii_change_qoq', 'FII'], ['dii_change_qoq', 'DII']].forEach(([k, l]) => {
+      const c = val(s, k), lvl = val(s, k.replace('_change_qoq', '_holding'));
+      if (c != null && lvl != null && Math.abs(c) >= 2) add(sym, 'ownership', l + ' ' + num(lvl, 2) + '%, ' + (c > 0 ? 'up ' : 'down ') + num(Math.abs(c), 2) + ' from ' + num(lvl - c, 2) + '% last quarter', c > 0 ? 'up' : 'down', s.latest_period, Math.abs(c));
+    });
+    const pl = val(s, 'pledge_pct'), plc = val(s, 'pledge_change');
+    if (pl != null && pl >= 10 && plc != null && plc > 0) add(sym, 'ownership', 'Promoter pledge high and rising: ' + num(pl, 1) + '% of their shares', 'down', s.latest_period, 4);
+    (s.actions || []).forEach(a => { if (a.upcoming) add(sym, 'action', a.subject + ' — ex-date ' + fmtDate(a.ex_date), 'brand', a.ex_date, 3); });
+  });
+  const kinds = [['', 'All'], ['screen', 'Screens'], ['ownership', 'Ownership'], ['results', 'Results'], ['action', 'Corporate actions']];
+  const list = ev.filter(e => (!st.f.kind || e.kind === st.f.kind) && matchQ(e.sym, st.q)).sort((a, b) => (b.weight - a.weight) || String(b.when || '').localeCompare(String(a.when || '')));
+  const withPrev = S.lib.stocks.filter(s => s.prev).length;
+  const pg = pager(st, list.length, 60);
+  const icon = { screen: '◆', ownership: '◐', results: '▲', action: '◷' };
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">What changed</h1><p class="sub">Changes since each company was last scored (screens entered or left, gates, big ownership moves, results turning), plus notable moves in the latest quarterly filings and upcoming corporate actions. Strongest first.</p></div></div>' +
+    (withPrev < 50 ? '<div class="notice" style="margin-bottom:12px">Change tracking started on 9 Oct 2026: ' + withPrev + ' companies have a previous scoring to compare with so far. It fills in as the weekly batch re-scores each company. Filing-based moves and corporate actions below are already complete.</div>' : '') +
+    '<div class="toolbar"><input id="sigq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'sig\',this)"><div class="seg">' +
+    kinds.map(([k, l]) => '<button class="' + ((st.f.kind || '') === k ? 'on' : '') + '" onclick="setF(\'sig\',\'kind\',\'' + k + '\')">' + l + ' <span class="faint">' + (k ? ev.filter(e => e.kind === k).length : ev.length) + '</span></button>').join('') + '</div></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th><th class="l">What happened</th><th class="l">Type</th><th>As of</th><th>Composite</th></tr></thead><tbody>' +
+    (list.slice(pg.from, pg.from + 60).map(e => '<tr class="click" onclick="openStock(\'' + esc(e.sym) + '\')"><td class="l">' + companyCell(e.sym) + '</td><td class="l" style="white-space:normal"><span class="' + (e.tone === 'up' ? 'up' : e.tone === 'down' ? 'down' : '') + '">' + esc(e.text) + '</span></td>' +
+      '<td class="l"><span class="chip">' + icon[e.kind] + ' ' + esc((kinds.find(k => k[0] === e.kind) || ['', e.kind])[1]) + '</span></td><td class="num muted">' + esc(fmtDate(e.when)) + '</td><td>' + scoreChip(fac(e.sym, 'composite')) + '</td></tr>').join('') ||
+      '<tr><td colspan="5" class="empty">Nothing to show for this filter.</td></tr>') + '</tbody></table></div>' + pg.html;
+}
+
+// ---------------- Sectors ----------------
+const SEC = { sel: '', sort: 'composite', dir: -1 };
+function median(xs){ const a = xs.filter(x => x != null && isFinite(x)).sort((p, q) => p - q); return a.length ? a[Math.floor(a.length / 2)] : null; }
+function sectorStats(){
+  const by = {};
+  S.lib.stocks.forEach(s => { if (!s.cells) return; const ind = industryOf(s.symbol); if (!ind) return; (by[ind] = by[ind] || []).push(s); });
+  return Object.keys(by).map(ind => { const ss = by[ind];
+    return { ind, n: ss.length, mcap: ss.reduce((a, s) => a + (val(s, 'market_value_bucket') || 0), 0),
+      rev: median(ss.map(s => val(s, 'rev_yoy'))), profit: median(ss.map(s => val(s, 'profit_yoy'))), margin: median(ss.map(s => val(s, 'net_margin'))),
+      roe: median(ss.map(s => val(s, 'roe'))), pe: median(ss.map(s => { const x = val(s, 'pe'); return x > 0 ? x : null; })), r12: median(ss.map(s => val(s, 'ret_12m'))),
+      composite: median(ss.map(s => fac(s.symbol, 'composite'))), comp: ss.filter(s => isCompounder(s.symbol)).length,
+      mb: ss.filter(s => ((S.mbBySym[s.symbol] || {}).score || 0) >= 3).length, stocks: ss }; });
+}
+function secSort(k){ if (SEC.sort === k) SEC.dir *= -1; else { SEC.sort = k; SEC.dir = -1; } rerender(); }
+function secPick(ind){ SEC.sel = SEC.sel === ind ? '' : ind; rerender(); }
+function heat(v, all, better){
+  if (v == null) return '';
+  const xs = all.filter(x => x != null).sort((a, b) => a - b); if (xs.length < 3) return '';
+  let r = xs.filter(x => x < v).length / (xs.length - 1); if (better < 0) r = 1 - r;
+  const c = r >= 0.5 ? cssVar('--up') : cssVar('--down'); const a = Math.round(Math.abs(r - 0.5) * 2 * 38);
+  return 'background:' + c + (a < 16 ? '0' : '') + a.toString(16) + ';';
+}
+function pageSectors(){
+  const v = $('view');
+  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading the library…'); return; }
+  if (!S.industries) { v.innerHTML = loadingBlock('Loading NSE industry classifications…'); return; }
+  destroyCharts();
+  const rows = sectorStats();
+  // Industries with fewer than 5 companies are too small for medians to mean much: ranked last, faded, kept out of the chart.
+  const SMALL = 5;
+  const g = r => r[SEC.sort]; rows.sort((a, b) => { if ((a.n < SMALL) !== (b.n < SMALL)) return a.n < SMALL ? 1 : -1;
+    const x = g(a), y = g(b); if (x == null) return 1; if (y == null) return -1; return (x < y ? -1 : x > y ? 1 : 0) * SEC.dir; });
+  const cols = [['n', 'Companies', 0, v => num(v, 0)], ['mcap', 'Total mkt cap', 0, v => crore(v)], ['rev', 'Revenue gr.', 1, v => pct(v)], ['profit', 'Profit gr.', 1, v => pct(v)], ['margin', 'Net margin', 1, v => v == null ? '–' : num(v, 1) + '%'],
+                ['roe', 'ROE', 1, v => v == null ? '–' : num(v, 1) + '%'], ['pe', 'P/E', -1, v => v == null ? '–' : num(v, 1) + '×'], ['r12', '12M return', 1, v => pct(v)], ['composite', 'Composite', 1, v => v == null ? '–' : String(v)], ['comp', 'Compounders', 0, v => v || '–'], ['mb', 'Multibaggers 3+', 0, v => v || '–']];
+  const covered = rows.reduce((a, r) => a + r.n, 0);
+  let html = '<div class="page-head"><div><h1 class="h1">Sectors</h1><p class="sub">Medians by NSE industry for the ' + num(covered, 0) + ' companies in the NIFTY Total Market index (NSE classifies these; smaller companies are not covered). Green/red shading compares industries with each other; industries with fewer than 5 companies are faded and left out of the chart. Click an industry for its companies.</p></div></div>' +
+    '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Median 12-month return by industry</h3></div><div class="panel-b"><div style="position:relative;height:' + Math.max(260, rows.length * 22 + 40) + 'px"><canvas id="cSec"></canvas></div></div></div>' +
+    '<div class="tbl-wrap" style="max-height:none;margin-bottom:14px"><table class="t"><thead><tr><th class="l sortable" onclick="secSort(\'ind\')">Industry</th>' + cols.map(([k, l]) => '<th class="sortable" onclick="secSort(\'' + k + '\')">' + l + (SEC.sort === k ? (SEC.dir < 0 ? ' ↓' : ' ↑') : '') + '</th>').join('') + '</tr></thead><tbody>' +
+    rows.map(r => '<tr class="click"' + (r.n < SMALL ? ' title="Fewer than ' + SMALL + ' companies: medians are not reliable" style="opacity:.55"' : '') + ' onclick="secPick(\'' + esc(r.ind).replace(/'/g, '\\\'') + '\')"' + (SEC.sel === r.ind ? ' style="outline:2px solid var(--brand);outline-offset:-2px"' : '') + '><td class="l"><b>' + esc(r.ind) + '</b></td>' +
+      cols.map(([k, , better, f]) => '<td class="num" style="' + (better && r.n >= SMALL ? heat(r[k], rows.filter(x => x.n >= SMALL).map(x => x[k]), better) : '') + '">' + f(r[k]) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
+  const sel = rows.find(r => r.ind === SEC.sel);
+  if (sel) {
+    const ss = sel.stocks.slice().sort((a, b) => (fac(b.symbol, 'composite') || -1) - (fac(a.symbol, 'composite') || -1));
+    html += '<div class="panel"><div class="panel-h"><h3>' + esc(sel.ind) + ' — ' + sel.n + ' companies, best composite score first</h3><a href="javascript:void 0" onclick="secPick(\'\')">Close</a></div><table class="t"><tr><th class="l">Company</th><th>Mkt cap</th><th>P/E</th><th>Revenue gr.</th><th>Profit gr.</th><th>Net margin</th><th>12M</th><th>Composite</th></tr>' +
+      ss.map(s => '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l">' + companyCell(s.symbol) + '</td><td class="num">' + crore(val(s, 'market_value_bucket')) + '</td><td class="num">' + (val(s, 'pe') > 0 ? num(val(s, 'pe'), 1) + '×' : '–') + '</td><td class="num ' + cls(val(s, 'rev_yoy')) + '">' + pct(val(s, 'rev_yoy')) + '</td><td class="num ' + cls(val(s, 'profit_yoy')) + '">' + pct(val(s, 'profit_yoy')) + '</td><td class="num">' + (val(s, 'net_margin') == null ? '–' : num(val(s, 'net_margin'), 1) + '%') + '</td><td class="num ' + cls(val(s, 'ret_12m')) + '">' + pct(val(s, 'ret_12m')) + '</td><td>' + scoreChip(fac(s.symbol, 'composite')) + '</td></tr>').join('') + '</table></div>';
+  }
+  v.innerHTML = html;
+  const el = $('cSec');
+  if (el && typeof Chart !== 'undefined') {
+    const rr = rows.filter(r => r.r12 != null && r.n >= SMALL).sort((a, b) => b.r12 - a.r12);
+    const up = cssVar('--up'), down = cssVar('--down'), tick = cssVar('--muted'), grid = cssVar('--line2');
+    charts.push(new Chart(el, { type: 'bar', data: { labels: rr.map(r => r.ind), datasets: [{ data: rr.map(r => Math.round(r.r12 * 10) / 10), backgroundColor: rr.map(r => r.r12 >= 0 ? up : down), borderRadius: 3, barThickness: 14 }] },
+      options: { indexAxis: 'y', maintainAspectRatio: false, onClick: (e, els) => { if (els.length) secPick(rr[els[0].index].ind); },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => 'Median 12M return ' + pct(c.parsed.x) + ' · ' + rr[c.dataIndex].n + ' companies' } } },
+        scales: { x: { grid: { color: grid }, ticks: { color: tick, callback: v => v + '%' } }, y: { grid: { display: false }, ticks: { color: tick, font: { size: 11.5 } } } } } }));
+  }
+}
+
+// ---------------- Stock report additions: factor profile and peers ----------------
+function peersOf(sym){
+  const ind = industryOf(sym), me = S.bySym[sym], mc = val(me, 'market_value_bucket');
+  if (!me || !me.cells || !mc) return { basis: null, list: [] };
+  const pool = S.lib.stocks.filter(s => s.cells && s.symbol !== sym && val(s, 'market_value_bucket') > 0 && (ind ? industryOf(s.symbol) === ind : !industryOf(s.symbol)));
+  pool.sort((a, b) => Math.abs(Math.log(val(a, 'market_value_bucket') / mc)) - Math.abs(Math.log(val(b, 'market_value_bucket') / mc)));
+  return { basis: ind ? 'same industry (' + ind + '), closest in size' : 'unclassified companies closest in size (no NSE industry for this company)', list: pool.slice(0, 6) };
+}
+function factorPanel(sym){
+  const f = S.fac && S.fac[sym];
+  if (!f || f.composite == null) return '';
+  const ind = industryOf(sym);
+  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Factor profile</h3><span class="muted" style="font-size:12px">0–100 vs all companies' + (ind ? ' · dashed = ' + esc(ind) + ' median' : '') + '</span></div>' +
+    '<div class="grid g2" style="gap:0"><div class="panel-b" style="border-right:1px solid var(--line2)"><div class="chart sm" style="height:240px"><canvas id="cRadar"></canvas></div></div>' +
+    '<div class="panel-b">' + [['composite', 'Composite']].concat(FACTORS.map(x => [x[0], x[1]])).map(([k, l]) => '<div class="metric" style="grid-template-columns:1fr auto"><span class="n"' + (k === 'composite' ? ' style="font-weight:700;color:var(--text)"' : '') + '>' + l + '</span><span>' + scoreChip(f[k]) + '</span>' +
+      (k !== 'composite' && f[k] != null ? '<span class="pct"><span class="track"><i style="left:' + f[k] + '%"></i></span><span style="min-width:116px;text-align:right">' + (f[k] >= 70 ? 'strong' : f[k] >= 40 ? 'middling' : 'weak') + '</span></span>' : '') + '</div>').join('') + '</div></div></div>';
+}
+function peersPanel(sym){
+  if (!S.lib) return '';
+  const p = peersOf(sym);
+  if (!p.list.length) return '';
+  const rows = [S.bySym[sym], ...p.list];
+  const cols = [['market_value_bucket', 'Mkt cap'], ['pe', 'P/E'], ['rev_yoy', 'Revenue gr.'], ['profit_yoy', 'Profit gr.'], ['net_margin', 'Net margin'], ['roe', 'ROE'], ['ret_12m', '12M']];
+  const best = {}; cols.forEach(([k]) => { const d = dirOf(k); const xs = rows.map(s => val(s, k)).filter(x => x != null && (k !== 'pe' || x > 0)); if (xs.length > 1 && k !== 'market_value_bucket') best[k] = d < 0 ? Math.min(...xs) : Math.max(...xs); });
+  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Peers</h3><span class="muted" style="font-size:12px">' + esc(p.basis) + ' · bold = best in group</span></div><div class="tbl-wrap" style="border:0;box-shadow:none;border-radius:0;max-height:none"><table class="t"><tr><th class="l">Company</th>' + cols.map(([, l]) => '<th>' + l + '</th>').join('') + '<th>Composite</th></tr>' +
+    rows.map((s, i) => '<tr class="' + (i ? 'click' : '') + '"' + (i ? ' onclick="openStock(\'' + esc(s.symbol) + '\')"' : ' style="background:var(--brand-soft)"') + '><td class="l">' + companyCell(s.symbol) + '</td>' +
+      cols.map(([k]) => { const x = val(s, k); return '<td class="num' + (best[k] != null && x === best[k] ? '" style="font-weight:800' : '') + '">' + (k === 'pe' && !(x > 0) ? '–' : fmtMeasure(k, x)) + '</td>'; }).join('') + '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td></tr>').join('') + '</table></div></div>';
+}
+function drawRadar(sym){
+  const el = $('cRadar'); const f = S.fac && S.fac[sym];
+  if (!el || !f || typeof Chart === 'undefined') return;
+  const ind = industryOf(sym);
+  const labels = FACTORS.map(x => x[1]);
+  const me = FACTORS.map(([k]) => f[k]);
+  const ds = [{ label: sym, data: me, borderColor: cssVar('--brand'), backgroundColor: cssVar('--brand') + '33', borderWidth: 2, pointRadius: 3 }];
+  if (ind) {
+    const peers = S.lib.stocks.filter(s => s.cells && industryOf(s.symbol) === ind);
+    ds.push({ label: ind + ' median', data: FACTORS.map(([k]) => median(peers.map(s => fac(s.symbol, k)))), borderColor: cssVar('--faint'), borderDash: [4, 3], backgroundColor: 'transparent', borderWidth: 1.5, pointRadius: 0 });
+  }
+  charts.push(new Chart(el, { type: 'radar', data: { labels, datasets: ds },
+    options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
+      scales: { r: { min: 0, max: 100, ticks: { stepSize: 25, display: false }, grid: { color: cssVar('--line') }, angleLines: { color: cssVar('--line') }, pointLabels: { color: cssVar('--text2'), font: { size: 11.5 } } } } } }));
 }
 
 // ======================================================================================
