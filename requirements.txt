@@ -5,3 +5,4 @@ scipy>=1.11
 python-dotenv>=1.0
 anthropic>=1.13.0
 pypdf>=6.0
+google-genai>=2.29.0

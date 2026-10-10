@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-11
 
+### AI summaries switched to Google Gemini's free tier
+Owner: "why should I be spending money on Anthropic? There are so many free AI models." Agreed for this job: the inputs are public NSE filings, so a free tier's use of inputs for product improvement does not matter, and the summaries are checked against the source anyway.
+- **Default now `AI_PROVIDER=gemini`**: Gemini 3.8 Flash on the free tier (listed "Free of charge" on Google's pricing page), retrying once on Gemini 3.5 Flash-Lite after a rate limit. Gemini reads PDFs up to 50 MB / 1,000 pages, so transcripts and most annual reports go in whole (Titan's 473-page FY26 report included); larger ones fall back to the extracted-text path.
+- Checked the other free options: GitHub Models caps a request at about 8K tokens and Groq's free per-minute token limit is 6-12K, both smaller than one transcript (~40K); a model inside GitHub Actions has no GPU.
+- Claude stays available: set the repository variable `AI_PROVIDER=anthropic` and the `ANTHROPIC_API_KEY` secret.
+- **Owner to create a free key at aistudio.google.com and add it as the GitHub Actions secret `GEMINI_API_KEY`.** Until then the report's AI panel says exactly that.
+- Verified: a request with a deliberately invalid key reaches Google and is refused only for the key (request shape correct); the missing-key message is written for the requested company; the rate-limit fallback was tested with a stand-in client.
+
 ### Stock report: interactive charts, 10-year results, NSE documents, AI summaries
 Owner asked to close the gaps found against the paid tools (Screener, Trendlyne, Tijori, Tickertape, StockEdge) and to add charting; picked all four.
 - **Interactive price chart** (TradingView Lightweight Charts 4.2.0, Apache 2.0, credit line under the chart): candles or line, 1D / 5D / 1M intraday and 6M / 1Y / 3Y / 5Y / 10Y daily, 50- and 200-day averages, volume, comparison with NIFTY 50, OHLC read-out on hover, and markers for dividends (D), splits and bonuses (S), buybacks (B) and results calls (R). Data: **Kite historical candles** through the relay (`adminChart`, Research.gs) -- included in the paid Kite Connect plan that already serves the live quotes, so no extra cost and no BharatStock calls; BharatStock daily prices are the fallback before the day's Kite login (intraday needs Kite). TradingView's embeddable widgets were rejected: their licence can block NSE symbols.

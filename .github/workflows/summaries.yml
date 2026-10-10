@@ -3,7 +3,8 @@ name: ai-summaries
 # AI summaries of earnings-call transcripts and annual reports for the admin stock report (hub/summaries.py).
 # On demand: the report's "Summarise" button dispatches this with the company's symbol (through the relay's
 # GH_PAT). Daily: the newest transcripts of companies scoring 3+ on the multi-bagger screen, capped by
-# AI_DAILY_LIMIT. Needs the ANTHROPIC_API_KEY secret; without it the company's entry says so and nothing is sent.
+# AI_DAILY_LIMIT. Default model: Google Gemini's free tier (GEMINI_API_KEY secret); Claude is an option
+# (repository variable AI_PROVIDER=anthropic + ANTHROPIC_API_KEY). Without the key the company's entry says so.
 on:
   workflow_dispatch:
     inputs:
@@ -39,6 +40,8 @@ jobs:
         run: python -m hub.site_data pull
       - name: Summarise
         env:
+          AI_PROVIDER: ${{ vars.AI_PROVIDER || 'gemini' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SYMBOL: ${{ github.event.inputs.symbol }}
         run: python -m hub.summaries
