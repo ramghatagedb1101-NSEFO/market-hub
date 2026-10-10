@@ -23,7 +23,7 @@ const ADMIN_CODE_SECONDS = 600;        // ten minutes
 const ADMIN_MAX_TRIES = 5;
 // Phone app data: the files the daily jobs keep in the private repo's site/ folder (hub/site_data.py).
 const APP_DIR = 'site';
-const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger'];
+const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest'];
 
 /**
  * Sessions live in the script properties, not CacheService: CacheService caps any entry at six hours,
@@ -171,6 +171,10 @@ function appApi_(mode, body) {
   if (mode === 'app_verify') return adminVerify(p.code);
   if (mode === 'app_data') return appData_(p.token, p.files);
   if (mode === 'app_logout') return adminLogout(p.token);
+  if (mode === 'app_stock') return appStock_(p.token, p.symbol, p.range);
+  if (mode === 'app_summarise') return sessionValid_(p.token) ? summariseStart_(p.symbol) : { error: 'session_expired' };
+  if (mode === 'app_watch') return adminWatch(p.token);
+  if (mode === 'app_watch_toggle') return adminWatchToggle(p.token, p.symbol);
   return { error: 'unknown mode' };
 }
 

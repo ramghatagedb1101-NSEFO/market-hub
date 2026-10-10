@@ -20,6 +20,11 @@ const CHART_RANGES = {
 
 function adminChart(token, symbol, range) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
+  return chartData_(symbol, range);
+}
+
+// Shared by the dashboard (adminChart) and the phone (app_stock in Phone.gs).
+function chartData_(symbol, range) {
   const sym = String(symbol || '').toUpperCase();
   if (!/^[A-Z0-9&_-]{1,20}$/.test(sym)) return { error: 'Not a valid NSE symbol.' };
   const spec = CHART_RANGES[range] || CHART_RANGES['5Y'];
@@ -146,6 +151,10 @@ function niftyDaily_(from) {
 
 function adminDocs(token, symbol) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
+  return docsData_(symbol);
+}
+
+function docsData_(symbol) {
   const sym = String(symbol || '').toUpperCase();
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
   if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
@@ -163,6 +172,10 @@ function adminDocs(token, symbol) {
 
 function adminSummarise(token, symbol) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
+  return summariseStart_(symbol);
+}
+
+function summariseStart_(symbol) {
   const sym = String(symbol || '').toUpperCase();
   if (!/^[A-Z0-9&_-]{1,20}$/.test(sym)) return { error: 'Not a valid NSE symbol.' };
   const props = PropertiesService.getScriptProperties();

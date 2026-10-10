@@ -118,6 +118,29 @@
   .sheet .pb{font-size:12.5px;line-height:1.55}
   .sheet a.btn{display:inline-block;text-decoration:none;margin:8px 0;border-color:var(--blu);color:var(--blu)}
   .foot{margin-top:14px;color:var(--dim);font-size:10.5px;line-height:1.55}
+  /* ideas, digest and the stock sheet (11 Oct 2026) */
+  .seg{display:flex;border:1px solid var(--ln2);border-radius:3px;overflow:hidden;margin:2px 0 10px}
+  .seg button{flex:1;background:transparent;border:0;border-right:1px solid var(--ln2);color:var(--mut);font:600 11px var(--sans);padding:8px 4px;cursor:pointer}
+  .seg button:last-child{border-right:0}
+  .seg button.on{background:var(--pnl2);color:var(--txt)}
+  .card{margin-bottom:8px;cursor:pointer}
+  .card .why{font-size:12px;line-height:1.45;margin:4px 0 0}
+  .card .why li,.st-list li{margin:2px 0 2px 16px}
+  .card .kv{display:flex;gap:12px;flex-wrap:wrap;font:11.5px var(--mono);color:var(--mut);margin-top:6px}
+  .card .kv b{color:var(--txt);font-weight:600}
+  .dg{display:flex;gap:10px;padding:8px 0;border-bottom:1px dotted var(--ln);cursor:pointer}
+  .dg:last-child{border-bottom:0}
+  .dg .ic{flex:0 0 22px;height:22px;border-radius:3px;display:flex;align-items:center;justify-content:center;font:700 11px var(--mono);background:var(--pnl2);border:1px solid var(--ln2)}
+  .dg .tt{font-weight:600} .dg .sb{color:var(--mut);font-size:11.5px}
+  .stock-bg{display:none;position:fixed;inset:0;background:var(--bg);z-index:25;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .stock-bg.on{display:block}
+  .stock-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;background:var(--pnl);border-bottom:1px solid var(--ln)}
+  .stock-top .nm{flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stock-body{padding:10px 10px calc(18px + env(safe-area-inset-bottom))}
+  .lwc{position:relative;height:230px}
+  .st-list{margin:4px 0;padding:0;font-size:12.5px;line-height:1.5}
+  .docl a{display:flex;gap:10px;padding:6px 0;border-bottom:1px dotted var(--ln);color:var(--txt);text-decoration:none}
+  .docl a span:first-child{font:11.5px var(--mono);color:var(--mut);min-width:78px}
 
   /* sign-in (same email code as the admin dashboard) */
   .gate{display:none;position:fixed;inset:0;background:var(--bg);z-index:30;align-items:flex-start;justify-content:center;
@@ -151,7 +174,7 @@
   <div class="t"><span class="k">SENSEX</span><div class="v">–</div></div></div>
 
 <main>
-  <section class="pane on" id="home"><div class="grid" id="home-body"></div></section>
+  <section class="pane on" id="home"><div id="home-today"></div><div class="grid" id="home-body"></div></section>
   <section class="pane" id="brief"><div id="brief-body"></div></section>
   <section class="pane" id="fno"><div id="fno-body"></div></section>
   <section class="pane" id="mb"><div id="mb-body"></div></section>
@@ -162,7 +185,7 @@
   <button class="on" data-pane="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></svg><span>Home</span></button>
   <button data-pane="brief"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.5"/></svg><span>Brief</span></button>
   <button data-pane="fno"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16V11M12 16V7M17 16v-3"/></svg><span>F&amp;O</span></button>
-  <button data-pane="mb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l5-5 4 3 7-8"/><path d="M15 7h5v5"/></svg><span>Multi-bagger</span></button>
+  <button data-pane="mb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3.5 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8L12 3.5Z"/></svg><span>Ideas</span></button>
   <button data-pane="desk"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg><span>Desk</span></button>
 </nav>
 
@@ -197,12 +220,50 @@
   </div>
 </div>
 
+<div class="stock-bg" id="stock" role="dialog" aria-modal="true">
+  <div class="stock-top"><button class="btn" type="button" onclick="closeStock()">Back</button><span class="nm" id="st-title"></span><button class="btn" type="button" id="st-star" onclick="toggleStar()">☆ Star</button></div>
+  <div class="stock-body" id="st-body"></div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 (function(){
   const $ = s => document.querySelector(s);
   const RELAY_URL = "https://script.google.com/macros/s/AKfycbye12r6sWmdKQhSA6cpFnKnSUFjBhKDUm9BF5mGXsFmqeWer8-F0uVOoZ6NVPXF4SZ1ww/exec";
   const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  // When a number is from, said one way everywhere (11 Oct 2026):
+  //   Live · 10:42 IST                  a quote taken during market hours today
+  //   Last quote · 15:30 IST · Fri 9 Oct a quote from outside market hours
+  //   As of 06:05 IST · Sat 10 Oct      the morning snapshot the daily job takes
+  //   Close · Fri 9 Oct                 an end-of-day figure
+  //   24 h · 10:42 IST                  a rolling 24-hour change (crypto trades round the clock)
+  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const pad2 = n => String(n).padStart(2, "0");
+  function toIst(ts){
+    if (!ts) return null;
+    let s = String(ts).trim();
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s)) s += "+05:30";      // no zone: the jobs write IST
+    const d = new Date(s);
+    return isNaN(d) ? null : new Date(d.getTime() + 5.5 * 3600e3);              // read with getUTC* = IST
+  }
+  function parseDay(s){
+    if (!s) return null;
+    let m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    m = String(s).match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})/);
+    if (m) { const i = MON.findIndex(x => x.toLowerCase() === m[2].toLowerCase()); if (i >= 0) return new Date(Date.UTC(+m[3], i, +m[1])); }
+    return null;
+  }
+  const dayTxt = d => d ? DOW[d.getUTCDay()] + " " + d.getUTCDate() + " " + MON[d.getUTCMonth()] : "";
+  const timeTxt = d => d ? pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + " IST" : "";
+  const asClose = day => day ? "Close · " + dayTxt(parseDay(day)) : "Close";
+  const asSnap = ts => { const d = toIst(ts); return d ? "As of " + timeTxt(d) + " · " + dayTxt(d) : ""; };
+  function asQuote(ts){
+    const d = toIst(ts); if (!d) return "";
+    const now = toIst(new Date().toISOString());
+    return marketOpenIst() && dayTxt(d) === dayTxt(now) ? "Live · " + timeTxt(d) : "Last quote · " + timeTxt(d) + " · " + dayTxt(d);
+  }
+  const as24h = ts => { const d = toIst(ts); return "24 h · " + timeTxt(d); };
   const f = (x, d=0) => x == null ? "–" : Number(x).toLocaleString("en-IN", {minimumFractionDigits:d, maximumFractionDigits:d});
   const pct = (x, d=2) => x == null ? "–" : (x >= 0 ? "+" : "") + f(x, d) + "%";
   const cls = x => x == null ? "" : (x > 0 ? "up" : x < 0 ? "dn" : "");
@@ -240,7 +301,7 @@
     }
     throw lastErr;
   }
-  const APP_FILES = ["feed", "brief", "context", "stocks", "fno", "multibagger", "backtest_multibagger"];
+  const APP_FILES = ["feed", "brief", "context", "stocks", "fno", "shortlist", "digest"];
   let BUNDLE = null;
   function loadBundle(){
     if (!BUNDLE) {
@@ -266,7 +327,7 @@
   }
   function signOut(msg){
     SESSION = null; BUNDLE = null; FEED = null; store.clear();
-    ["#home-body", "#brief-body", "#fno-body", "#mb-body", "#desk-body"].forEach(s => $(s).innerHTML = "");
+    ["#home-today", "#home-body", "#brief-body", "#fno-body", "#mb-body", "#desk-body"].forEach(s => $(s).innerHTML = "");
     $("#settings").classList.remove("on");
     showGate(msg || "Signed out.");
   }
@@ -306,7 +367,7 @@
     document.querySelectorAll(".pane").forEach(p => p.classList.toggle("on", p.id === b.dataset.pane));
     document.querySelector("main").scrollTop = 0;
     if (b.dataset.pane === "desk") drawChart();
-    if (b.dataset.pane === "mb") renderMultibagger();
+    if (b.dataset.pane === "mb") renderIdeas();
   });
   $("#gear").onclick = () => $("#settings").classList.add("on");
   $("#set-close").onclick = () => $("#settings").classList.remove("on");
@@ -337,9 +398,9 @@
       <div class="ph"><span>${esc(NAMES[name] || name)}</span>${flag}</div>
       <div class="pb">
         <div class="row"><span class="l">Last</span><span class="r ${cls(chg)}">${f(last,2)} &nbsp;${pct(chg)}</span></div>
-        <div class="row"><span class="l">Estimate ${esc(t.target || "")}</span><span class="r">${f(t.pred,0)} &nbsp;<span class="${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)}</span></span></div>
+        <div class="row"><span class="l">Estimate · ${esc(t.target ? "close " + dayTxt(parseDay(t.target)) : "")}</span><span class="r">${f(t.pred,0)} &nbsp;<span class="${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)}</span></span></div>
         ${band(t.base, t.pred, t.lo, t.hi)}
-        <div class="row"><span class="l">Actual close</span><span class="r">${t.actual == null ? "after 15:30 IST" : f(t.actual,2) + " &nbsp;" + pct((t.actual / t.pred - 1) * 100)}</span></div>
+        <div class="row"><span class="l">Actual close</span><span class="r">${t.actual == null ? "after the 15:30 IST close" : f(t.actual,2) + " &nbsp;" + pct((t.actual / t.pred - 1) * 100)}</span></div>
         <div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>
         <div class="row"><span class="l">${LABEL.day} est.</span><span class="r">${ahead ? f(ahead.pred,0) : "–"}</span></div>
         <div class="row"><span class="l">Settled outcomes</span><span class="r amb">${trk ? trk : "0 · no verdict yet"}</span></div>
@@ -364,8 +425,7 @@
 
   function renderStatus(){
     if (!FEED) return;
-    const built = FEED.generated_at.replace("T"," ").slice(0,16);
-    $("#status").textContent = "forecast built " + built + " IST";
+    $("#status").textContent = "Forecast · " + asSnap(FEED.generated_at).replace(/^As of /, "");
   }
 
   // Brief tab: a graphic summary first (tiles and bars), the written brief behind a toggle.
@@ -429,13 +489,13 @@
     const nifty = idx.find(i => i.n === "NIFTY");
     const bank = idx.find(i => i.n === "BANKNIFTY");
     const tiles = [
-      tile("GOLD ₹/10g", goldRaw ? f(goldRaw.last, 0) : "–", goldRaw ? chgTxt(goldRaw.change_pct) : "no data", cls(goldRaw && goldRaw.change_pct)),
-      tile("CRUDE US$", crudeUsd ? f(crudeUsd.last, 2) : "–", crudeUsd ? chgTxt(crudeUsd.change_pct) + " · same day" : "no data", cls(crudeUsd && crudeUsd.change_pct)),
+      tile("GOLD ₹/10g", goldRaw ? f(goldRaw.last, 0) : "–", goldRaw ? chgTxt(goldRaw.change_pct) + "<br>" + (ex.gold ? asQuote(LIVE.ts) : asSnap(C.ts)) : "no data", cls(goldRaw && goldRaw.change_pct)),
+      tile("CRUDE US$", crudeUsd ? f(crudeUsd.last, 2) : "–", crudeUsd ? chgTxt(crudeUsd.change_pct) + "<br>" + (ex.crude ? asQuote(LIVE.ts) : asSnap(C.ts)) : "no data", cls(crudeUsd && crudeUsd.change_pct)),
       tile("USD/INR", usd ? f(usd.last, 2) : (C.fx ? f(C.fx.usd_inr, 2) : "–"),
-           usd ? chgTxt(usd.change_pct) + " · live" : (C.fx ? "ECB " + C.fx.date : "no data"), cls(usd && usd.change_pct)),
-      tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) : "no data", cls(vixNow && vixNow.change_pct)),
-      tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) + " · " + sp.date : "no data", cls(sp && sp.change_pct)),
-      tile("BITCOIN US$", BTC ? f(BTC.usd, 0) : "–", BTC ? chgTxt(BTC.chg) + " · 24h" : "no data", cls(BTC && BTC.chg))
+           usd ? chgTxt(usd.change_pct) + "<br>" + (ex.usd_inr ? asQuote(LIVE.ts) : asSnap(C.ts)) : (C.fx ? "ECB rate<br>" + asClose(C.fx.date) : "no data"), cls(usd && usd.change_pct)),
+      tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) + "<br>" + (LIVE && LIVE.india_vix ? asQuote(LIVE.ts) : asSnap(C.ts)) : "no data", cls(vixNow && vixNow.change_pct)),
+      tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) + "<br>" + asClose(sp.date) : "no data", cls(sp && sp.change_pct)),
+      tile("BITCOIN US$", BTC ? f(BTC.usd, 0) : "–", BTC ? chgTxt(BTC.chg) + "<br>" + as24h(BTC.ts) : "no data", cls(BTC && BTC.chg))
     ].join("");
 
     const moves = barRows([
@@ -447,21 +507,21 @@
     const flows = barRows(Object.keys(fii).map(k => ({
       label: FII_LABELS[k] || k, v: fii[k], txt: (fii[k] >= 0 ? "+" : "") + f(fii[k], 0) + " cr" })));
 
-    const liveNote = LIVE && LIVE.ts ? "quotes " + LIVE.ts.replace("T"," ").slice(0,16) : "";
+    const glanceWhen = LIVE && LIVE.ts ? asQuote(LIVE.ts) : asSnap(B.ts);
     $("#brief-body").innerHTML = `
-      <div class="sec">At a glance · ${esc(liveNote || (B.ts || "").replace("T"," ").slice(0,16) + " IST")}</div>
+      <div class="sec">At a glance · ${esc(glanceWhen)}</div>
       <div class="glance">${tiles}</div>
-      <div class="panel"><div class="ph"><span>Moves</span><span class="flag">% today</span></div>
+      <div class="panel"><div class="ph"><span>Moves</span><span class="flag">% · latest session of each</span></div>
         <div class="pb">${moves || '<div class="mut">No market data yet.</div>'}</div></div>
       <div class="sec">Institutional flows</div>
-      <div class="panel"><div class="ph"><span>FII and DII</span><span class="flag">cash${fiiDate ? " · " + esc(fiiDate) : ""}</span></div>
+      <div class="panel"><div class="ph"><span>FII and DII</span><span class="flag">cash${fiiDate ? " · " + esc(asClose(fiiDate)) : ""}</span></div>
         <div class="pb">${flows || '<div class="mut">Flow data not available today.</div>'}</div>
         <div class="note" style="padding:0 12px 10px">NSE publishes this once a day for the previous session's settled trades, not live.</div></div>
       <div class="sec">Written brief</div>
       <div class="panel"><div class="pb">
         ${failed ? `<div class="amb">Brief pending: the AI service did not respond. It updates on the next daily run.</div>` :
           `<details><summary>Show full brief</summary><div class="brief">${esc(plain)}</div></details>`}
-        <div class="note">${esc(B.source || "")}. Written from this dashboard's numbers and headlines. Not advice.</div>
+        <div class="note">Written ${esc(asSnap(B.ts).replace(/^As of /, ""))} by ${esc(B.source || "")}, from this dashboard's numbers and headlines. Not advice.</div>
       </div></div>`;
   }
 
@@ -580,7 +640,8 @@
     }).join("");
     const rej = catOrder.filter(c => (g[c] || []).length)
       .map(c => `<details><summary>${esc(CAT_LABEL[c])} · ${g[c].length}</summary>${reasonTable(g[c], c)}</details>`).join("");
-    return `<div class="sec">NIFTY 50 stocks · option screen · ${esc((d.generated_at || "").replace("T"," ").slice(0,16))} UTC</div>
+    const gen = d.generated_at ? (/[zZ]|[+-]\d{2}:?\d{2}$/.test(d.generated_at) ? d.generated_at : d.generated_at + "Z") : null;
+    return `<div class="sec">NIFTY 50 stocks · option screen · ${esc(gen ? asSnap(gen) : "")}</div>
       <div class="glance">${tiles}</div>
       <div class="panel"><div class="ph"><span>Why names were rejected</span><span class="flag">${d.symbol_count || 0} names</span></div>
         <div class="pb">${counts}</div></div>
@@ -612,45 +673,189 @@
   }
 
   // Multi-bagger tab: derived scores, gates and signals (no raw financials or fund names are published).
-  async function renderMultibagger(){
+  // ---- Ideas (11 Oct 2026): the Shortlist's two lists and the watchlist, as cards ----
+  let SL = null, WATCH = null, IDEAS_TAB = "compounders";
+  const crore = v => v == null ? "–" : "₹" + (v >= 100000 ? f(v / 100000, 2) + " L cr" : f(v, v >= 1000 ? 0 : 1) + " cr");
+  async function renderIdeas(){
     const el = $("#mb-body");
-    try{
-      const M = await getFile("multibagger");
-      let B = null;
-      try { B = await getFile("backtest_multibagger"); } catch(e) { B = null; }
-      const top = (M.ranked || []).slice(0, 30);
-      const gateTxt = g => Object.entries(g || {}).map(([k, v]) =>
-        `<span class="flag ${v === true ? "g" : v === false ? "r" : ""}">${esc(k.replace(/_/g, " "))}</span>`).join(" ");
-      const rows = top.map(r => {
-        const m = r.measures || {};
-        const pr = r.promoter || {};
-        const mf = r.mutual_funds || {};
-        const flag = pr.flag ? `<span class="flag ${pr.flag === "promoter buying" ? "g" : pr.flag === "promoter selling" ? "r" : ""}">${esc(pr.flag)}</span>` : `<span class="flag">no promoter trades</span>`;
-        return `<div class="panel" style="margin-bottom:8px"><div class="ph"><span>#${r.rank} ${esc(r.symbol)}</span><span class="flag">${r.score}/4 gates</span></div>
-          <div class="pb">
-            <div class="row"><span class="l">Revenue growth YoY</span><span class="r">${m.revenue_growth_yoy_pct != null ? pct(m.revenue_growth_yoy_pct, 1) : "–"}</span></div>
-            <div class="row"><span class="l">Profit growth YoY</span><span class="r">${m.profit_growth_yoy_pct != null ? pct(m.profit_growth_yoy_pct, 1) : "–"}</span></div>
-            <div class="row"><span class="l">Profitable quarters (last 8)</span><span class="r">${m.profit_growth_quarters_of_last_8 ?? "–"}</span></div>
-            <div class="row"><span class="l">Promoter</span><span class="r">${flag}</span></div>
-            <div class="row"><span class="l">Mutual funds</span><span class="r">${mf.schemes_holding != null ? `${mf.schemes_holding} hold · +${mf.schemes_added} · −${mf.schemes_reduced}` : "–"}</span></div>
-            <div style="margin-top:6px">${gateTxt(r.gates)}</div>
-            ${(r.gaps || []).length ? `<div class="note">Not tested: ${esc(r.gaps.join(", "))}</div>` : ""}
-          </div></div>`;
-      }).join("");
-      const bt = B && B.by_score ? `<div class="panel" style="margin-bottom:8px"><div class="ph"><span>Back-test (summary)</span><span class="flag">${B.observations || 0} observations</span></div>
-          <div class="pb">${Object.entries(B.by_score).map(([k, v]) => `<div class="row"><span class="l">Score ${esc(k)}</span><span class="r">${v.n ? `n ${v.n} · 1y beat median ${v.beat_median_1y_pct}% · 3y ${v.beat_median_3y_pct}%` : "no data"}</span></div>`).join("")}
-          <div class="note">Survivorship bias: today's index members only, so results are optimistic.</div></div></div>` : `<div class="panel" style="margin-bottom:8px"><div class="pb mut">Back-test not run yet.</div></div>`;
-      el.innerHTML = `<div class="glance">
-          ${tile("UNIVERSE", String(M.universe || 0), "every NSE EQ + BE equity", "")}
-          ${tile("SCORED", String(M.scored || 0), "with financials", "")}
-          ${tile("ALL 4 GATES", String(M.rated_all_four_gates || 0), "tested and passed", "up")}
-        </div>
-        <div class="sec">Back-test</div>${bt}
-        <div class="sec">Top 30 by score</div>${rows || '<div class="panel"><div class="pb mut">No scores yet.</div></div>'}
-        <div class="foot">Derived scores and signals only. Not advice. Gates with missing data are shown as not tested, never as passed.</div>`;
-    }catch(e){
-      el.innerHTML = `<div class="panel"><div class="pb mut">The multi-bagger screen appears after its first daily run.</div></div>`;
+    try { SL = await getFile("shortlist"); }
+    catch(e){ el.innerHTML = `<div class="panel"><div class="pb mut">The shortlist appears after the daily library run.</div></div>`; return; }
+    drawIdeas();
+  }
+  function setIdeasTab(t){ IDEAS_TAB = t; drawIdeas(); }
+  function slItem(sym){
+    if (!SL) return null;
+    for (const st of ["compounders", "emerging"]) {
+      const L = SL.lists[st] || {};
+      const x = (L.top || []).concat(L.next || []).find(i => i.symbol === sym);
+      if (x) return Object.assign({ style: st }, x);
     }
+    return null;
+  }
+  function sinceTxt(p){ return p ? `${p.excess >= 0 ? "+" : ""}${f(p.excess, 1)} pts vs NIFTY` : "new this week"; }
+  function ideaCard(x){
+    const p = x.since_entry;
+    return `<div class="panel card" onclick="openStock('${esc(x.symbol)}')"><div class="ph"><span>#${x.rank} ${esc(x.symbol)}</span><span class="flag ${x.score >= 70 ? "g" : ""}">score ${x.score}</span></div>
+      <div class="pb"><div class="mut" style="font-size:11.5px">${esc(x.name || "")}${x.industry ? " · " + esc(x.industry) : ""}</div>
+        <div style="margin-top:5px">${x.core ? `<span class="flag g">core · ${x.weeks_on} wk</span> ` : `<span class="flag">${x.weeks_on || 1} wk on list</span> `}<span class="flag ${p && p.excess > 0 ? "g" : p && p.excess < 0 ? "r" : ""}">${esc(sinceTxt(p))}</span></div>
+        <ul class="why" style="padding:0">${(x.why || []).slice(0, 2).map(w => `<li>${esc(w.split(" - better")[0])}</li>`).join("")}</ul>
+        ${(x.watch || []).length ? `<div class="note amb" style="margin-top:4px">⚠ ${esc(x.watch[0])}${x.watch.length > 1 ? ` (+${x.watch.length - 1} more)` : ""}</div>` : ""}
+        <div class="kv"><span>Mkt cap <b>${crore(x.mcap)}</b></span><span>P/E <b>${x.pe == null ? "–" : f(x.pe, 1) + "×"}</b></span><span>1M <b class="${cls(x.ret_1m)}">${x.ret_1m == null ? "–" : pct(x.ret_1m)}</b>${x.ret_1m > 20 ? " ⚠" : ""}</span></div>
+      </div></div>`;
+  }
+  function watchCard(w){
+    const g = w.figures || {};
+    return `<div class="panel card" onclick="openStock('${esc(w.symbol)}')"><div class="ph"><span>★ ${esc(w.symbol)}</span><span class="flag ${w.excess > 0 ? "g" : w.excess < 0 ? "r" : ""}">${w.excess == null ? "price pending" : (w.excess >= 0 ? "+" : "") + f(w.excess, 1) + " pts vs NIFTY"}</span></div>
+      <div class="pb"><div class="mut" style="font-size:11.5px">${esc(w.name || "")} · starred ${esc(dayTxt(parseDay(w.starred_on)))}${w.ret != null ? ` · ${pct(w.ret)} vs NIFTY ${pct(w.nifty)}` : ""}</div>
+        <div class="kv"><span>Mkt cap <b>${crore(g.market_value_bucket)}</b></span><span>P/E <b>${g.pe == null ? "–" : f(g.pe, 1) + "×"}</b></span><span>ROE <b>${g.roe == null ? "–" : f(g.roe, 1) + "%"}</b></span><span>12M <b class="${cls(g.ret_12m)}">${g.ret_12m == null ? "–" : pct(g.ret_12m)}</b></span></div>
+      </div></div>`;
+  }
+  async function drawIdeas(){
+    const el = $("#mb-body");
+    if (!SL) return;
+    const L = SL.lists, tr = SL.track_record || {}, st = (tr.styles || {});
+    const seg = `<div class="seg">${[["compounders", "Compounders"], ["emerging", "Emerging"], ["watch", "★ Watchlist"]].map(([k, l]) =>
+      `<button class="${IDEAS_TAB === k ? "on" : ""}" onclick="setIdeasTab('${k}')">${l}</button>`).join("")}</div>`;
+    const rec = s => s && s.stints ? `${s.avg_excess >= 0 ? "+" : ""}${f(s.avg_excess, 1)} pts` : "–";
+    const tiles = `<div class="glance">${tile("COMPOUNDERS", rec(st.compounders), st.compounders ? `${st.compounders.beat_nifty} of ${st.compounders.stints} beat NIFTY` : "", cls(st.compounders && st.compounders.avg_excess))}
+      ${tile("EMERGING", rec(st.emerging), st.emerging ? `${st.emerging.beat_nifty} of ${st.emerging.stints} beat NIFTY` : "", cls(st.emerging && st.emerging.avg_excess))}
+      ${tile("RECORDS", String(tr.weekly_records || 0), "weekly, since " + esc(dayTxt(parseDay(tr.first_week))), "")}</div>`;
+    let body;
+    if (IDEAS_TAB === "watch") {
+      if (!WATCH) {
+        el.innerHTML = seg + `<div class="panel"><div class="pb mut">Loading the watchlist…</div></div>`;
+        try { WATCH = await relayPost("app_watch", { token: SESSION }); } catch(e){ WATCH = { error: e.message }; }
+        if (IDEAS_TAB !== "watch") return;
+      }
+      body = WATCH.error ? `<div class="panel"><div class="pb mut">${esc(WATCH.error)}</div></div>`
+        : (WATCH.items || []).length ? WATCH.items.map(watchCard).join("") + (WATCH.live ? "" : `<div class="note">Returns since starring need today's Kite login.</div>`)
+        : `<div class="panel"><div class="pb mut">Nothing starred yet. Open any company and tap ☆ Star; the watchlist also appears on the dashboard.</div></div>`;
+    } else {
+      const X = L[IDEAS_TAB] || {};
+      body = (X.top || []).map(ideaCard).join("") || `<div class="panel"><div class="pb mut">No companies qualify today.</div></div>`;
+    }
+    el.innerHTML = `<div class="sec">Track record · average vs NIFTY since joining</div>${tiles}${seg}${body}
+      <div class="foot">Ranked from your own screen rules, updated by the daily run (${esc(asSnap(SL.generated).replace(/^As of /, ""))}). Not advice: open a company and read its documents before acting.</div>`;
+  }
+
+  // ---- Today (11 Oct 2026): what changed for the Shortlist and the watchlist ----
+  async function renderToday(){
+    const el = $("#home-today");
+    let D;
+    try { D = await getFile("digest"); } catch(e){ el.innerHTML = ""; return; }
+    try { if (!SL) SL = await getFile("shortlist"); } catch(e){ /* cards still open */ }
+    const icon = { shortlist: "★", filing: "▤", move: "↕", upcoming: "◷" };
+    const items = D.items || [];
+    const rows = items.slice(0, 12).map(x => `<div class="dg" onclick="openStock('${esc(x.symbol)}')"><span class="ic ${x.type === "move" ? (x.change > 0 ? "up" : "dn") : ""}">${icon[x.type] || "•"}</span>
+      <div><div class="tt">${esc(x.symbol)} · ${esc(x.title)}</div><div class="sb">${esc([x.scope, x.detail].filter(Boolean).join(" · "))}</div></div></div>`).join("");
+    el.innerHTML = `<div class="sec">Today · ${esc(D.since ? "since " + dayTxt(parseDay(D.since)) : asSnap(D.generated))}</div>
+      <div class="panel" style="margin-bottom:10px"><div class="pb">${rows || `<div class="mut">Nothing new for your ${D.scope || 0} shortlisted and watched companies.</div>`}
+      ${items.length > 12 ? `<div class="note">+${items.length - 12} more</div>` : ""}</div></div>`;
+  }
+
+  // ---- Stock sheet (11 Oct 2026): chart, figures, reasons, AI summary, documents ----
+  let ST = null, stChart = null, ST_RANGE = "1Y";
+  async function openStock(sym){
+    ST = { symbol: sym, item: slItem(sym), watch: WATCH && (WATCH.items || []).find(w => w.symbol === sym), data: null, ranges: {} };
+    $("#st-title").textContent = sym + (ST.item && ST.item.name ? " · " + ST.item.name : "");
+    $("#st-body").innerHTML = `<div class="panel"><div class="pb mut">Loading ${esc(sym)}…</div></div>`;
+    $("#stock").classList.add("on");
+    try {
+      const r = await relayPost("app_stock", { token: SESSION, symbol: sym, range: "5Y" });
+      if (r.error === "session_expired") { closeStock(); signOut("Your session ended. Sign in again."); return; }
+      if (ST.symbol !== sym) return;
+      ST.data = r; ST.ranges["5Y"] = r.chart;
+      drawStock();
+    } catch(e){ $("#st-body").innerHTML = `<div class="panel"><div class="pb mut">Could not load ${esc(sym)}: ${esc(e.message)}</div></div>`; }
+  }
+  function closeStock(){ $("#stock").classList.remove("on"); if (stChart) { try { stChart.remove(); } catch(e){} stChart = null; } ST = null; }
+  async function setStRange(r){
+    ST_RANGE = r;
+    const key = r === "1M" ? "1M" : "5Y";
+    if (!ST.ranges[key]) {
+      try { const x = await relayPost("app_stock", { token: SESSION, symbol: ST.symbol, range: key }); ST.ranges[key] = x.chart; } catch(e){ ST.ranges[key] = { error: e.message }; }
+    }
+    drawStock();
+  }
+  async function toggleStar(){
+    if (!ST) return;
+    try {
+      const r = await relayPost("app_watch_toggle", { token: SESSION, symbol: ST.symbol });
+      if (r.error) { alert(r.error); return; }
+      if (ST.data) ST.data.starred = r.starred;
+      WATCH = null;
+      $("#st-star").textContent = r.starred ? "★ Starred" : "☆ Star";
+    } catch(e){ alert(e.message); }
+  }
+  async function summariseStock(){
+    try {
+      const r = await relayPost("app_summarise", { token: SESSION, symbol: ST.symbol });
+      alert(r.error ? r.error : "Summary started. It usually takes 1–3 minutes; open the company again to read it.");
+    } catch(e){ alert(e.message); }
+  }
+  function drawStock(){
+    if (!ST || !ST.data) return;
+    const d = ST.data, x = ST.item, g = (x && x.figures) || (ST.watch && ST.watch.figures) || {};
+    $("#st-star").textContent = d.starred ? "★ Starred" : "☆ Star";
+    const C = ST.ranges[ST_RANGE === "1M" ? "1M" : "5Y"] || {};
+    const daily = (ST.ranges["5Y"] || {}).candles || [];
+    const last = daily.length ? daily[daily.length - 1] : null, prev = daily.length > 1 ? daily[daily.length - 2] : null;
+    const chg = last && prev ? (last[4] / prev[4] - 1) * 100 : null;
+    const fig = (k, label, fmt) => g[k] == null ? "" : tile(label, fmt(g[k]), "", "");
+    const tiles = [fig("roe", "ROE", v => f(v, 1) + "%"), fig("net_margin", "NET MARGIN", v => f(v, 1) + "%"), fig("rev_yoy", "REVENUE YOY", v => pct(v)),
+      fig("profit_yoy", "PROFIT YOY", v => pct(v)), fig("promoter_holding", "PROMOTER", v => f(v, 1) + "%"), fig("fii_holding", "FII", v => f(v, 1) + "%"),
+      fig("dii_holding", "DII", v => f(v, 1) + "%"), fig("debt_to_equity", "DEBT/EQUITY", v => f(v, 2)), fig("mf_schemes_holding", "FUND SCHEMES", v => f(v, 0)),
+      fig("market_value_bucket", "MKT CAP", v => crore(v)), fig("pe", "P/E", v => f(v, 1) + "×"), fig("ret_12m", "12M", v => pct(v))].filter(Boolean).slice(0, 9).join("");
+    const docs = (d.docs && d.docs.docs) || {}, sm = (d.docs && d.docs.summaries) || {};
+    const s = sm.tr || sm.ar, z = s && s.summary;
+    const docLink = (it, label) => `<a href="${esc(it.url)}" target="_blank" rel="noopener"><span>${esc(dayTxt(parseDay(it.date)))}</span><span>${esc(label)}</span></a>`;
+    const docList = [...(docs.tr || []).slice(0, 2).map(i => docLink(i, "Earnings-call transcript")), ...(docs.pr || []).slice(0, 1).map(i => docLink(i, "Investor presentation")),
+      ...(docs.ar || []).slice(0, 2).map(i => docLink(i, "Annual report " + (i.fy ? "FY" + i.fy : ""))), ...(docs.rec || []).slice(0, 1).map(i => docLink(i, "Call recording"))].join("");
+    $("#st-body").innerHTML = `
+      <div style="display:flex;align-items:baseline;gap:10px;margin:2px 2px 8px"><span class="big">${last ? "₹" + f(last[4], 2) : "–"}</span>
+        <span class="${cls(chg)}" style="font:600 13px var(--mono)">${chg == null ? "" : pct(chg)}</span><span class="mut" style="font-size:11px">${last ? esc(asClose(last[0])) : ""}</span></div>
+      <div class="seg">${["1M", "6M", "1Y", "5Y"].map(r => `<button class="${ST_RANGE === r ? "on" : ""}" onclick="setStRange('${r}')">${r}</button>`).join("")}</div>
+      <div class="panel" style="margin-bottom:10px"><div class="pb">${C.error ? `<div class="mut">${esc(C.error)}</div>` : `<div class="lwc" id="st-chart"></div>`}
+        <div class="note" style="margin-top:4px">${C.source === "kite" ? "Kite prices" : C.source ? "BharatStock daily prices" : ""} · charts by <a href="https://www.tradingview.com/" target="_blank" rel="noopener" style="color:inherit">TradingView Lightweight Charts</a></div></div></div>
+      ${x ? `<div class="sec">${x.style === "compounders" ? "Compounders" : "Emerging"} list · #${x.rank} · score ${x.score}</div>
+        <div class="panel" style="margin-bottom:10px"><div class="pb"><ul class="st-list">${(x.why || []).map(w => `<li>${esc(w.split(" - better")[0])}</li>`).join("")}</ul>
+        ${(x.watch || []).length ? `<ul class="st-list amb">${x.watch.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}</div></div>` : ""}
+      ${tiles ? `<div class="sec">Key figures</div><div class="glance">${tiles}</div>` : ""}
+      <div class="sec">AI summary</div>
+      <div class="panel" style="margin-bottom:10px"><div class="pb">${z ? `<div style="font-weight:700;margin-bottom:6px">${esc(z.headline || "")}</div>
+          <div style="font-size:13px;line-height:1.55">${esc(z.summary || "")}</div>
+          <details><summary>Key points, guidance and risks</summary><ul class="st-list">${(z.key_points || []).map(k => `<li>${esc(k)}</li>`).join("")}</ul>
+            ${(z.guidance || []).length ? `<div class="mut" style="margin-top:6px">Guidance</div><ul class="st-list">${z.guidance.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
+            ${(z.risks || []).length ? `<div class="mut" style="margin-top:6px">Risks</div><ul class="st-list">${z.risks.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}</details>
+          <div class="note">From the ${sm.tr ? "earnings-call transcript of " + esc(dayTxt(parseDay(sm.tr.date))) : "annual report"}. AI-written; check figures against the source.</div>`
+        : `<div class="mut">No AI summary yet.</div>`}
+        ${(docs.tr || docs.ar) ? `<button class="btn" style="margin-top:8px" onclick="summariseStock()">${z ? "Refresh with the latest documents" : "Summarise latest with AI"}</button>` : ""}</div></div>
+      <div class="sec">Documents</div>
+      <div class="panel"><div class="pb docl">${docList || `<div class="mut">No documents collected for this company yet.</div>`}</div></div>
+      <div class="foot">Not advice. Figures from the daily library run; prices live from Kite when today's login exists.</div>`;
+    drawStockChart(C);
+  }
+  function drawStockChart(C){
+    if (stChart) { try { stChart.remove(); } catch(e){} stChart = null; }
+    const el = document.getElementById("st-chart");
+    if (!el || !C || !C.candles || !C.candles.length || typeof LightweightCharts === "undefined") return;
+    let c = C.candles;
+    if (C.interval === "day" && ST_RANGE !== "5Y") {
+      const lastDay = parseDay(c[c.length - 1][0]);
+      const cut = new Date(lastDay.getTime() - (ST_RANGE === "6M" ? 183 : 365) * 86400e3).toISOString().slice(0, 10);
+      c = c.filter(r => r[0] >= cut);
+    }
+    const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+    stChart = LightweightCharts.createChart(el, { autoSize: true,
+      layout: { background: { type: "solid", color: "transparent" }, textColor: css("--mut"), fontFamily: css("--sans"), attributionLogo: false },
+      grid: { vertLines: { visible: false }, horzLines: { color: css("--ln") } },
+      rightPriceScale: { borderVisible: false }, timeScale: { borderVisible: false, timeVisible: C.interval !== "day" },
+      handleScroll: false, handleScale: false });
+    const up = c[c.length - 1][4] >= c[0][4];
+    const line = up ? css("--grn") : css("--red");
+    stChart.addAreaSeries({ lineColor: line, topColor: line + "33", bottomColor: line + "05", lineWidth: 2 })
+      .setData(c.map(r => ({ time: r[0], value: r[4] })));
+    stChart.timeScale().fitContent();
   }
 
   function renderDesk(){
@@ -718,7 +923,7 @@
   async function fetchBitcoin(){
     try{
       const j = await (await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true", {cache:"no-store"})).json();
-      BTC = { usd: j.bitcoin.usd, chg: j.bitcoin.usd_24h_change };
+      BTC = { usd: j.bitcoin.usd, chg: j.bitcoin.usd_24h_change, ts: new Date().toISOString() };
     }catch(e){ /* keep the last value */ }
   }
   async function liveTick(){
@@ -734,7 +939,7 @@
       LIVE = L;
       const open = marketOpenIst();
       $("#dot").classList.toggle("stale", ageMin(L.ts) > 15 && open);
-      $("#status").textContent = (open ? "quotes " : "last quotes ") + L.ts.replace("T"," ").slice(0,16) + " IST";
+      $("#status").textContent = asQuote(L.ts);
       renderTape(); renderHome(); drawBrief();
     }catch(e){
       $("#dot").classList.add("stale");
@@ -746,7 +951,8 @@
     if (!SESSION) return;
     BUNDLE = null;
     await init(); await renderFno(); await renderBrief(); await liveTick();
-    if ($("#mb").classList.contains("on")) renderMultibagger();
+    if ($("#mb").classList.contains("on")) renderIdeas();
+    renderToday();
   }
 
   // Pull to refresh (drag down from the top of the main pane)
@@ -764,12 +970,14 @@
   // Quotes are public (the relay's mode=quote), so the ticker runs whether or not anyone is signed in.
   let ticking = false;
   function start(){
-    init().then(renderBrief); renderFno(); renderMultibagger();
+    init().then(renderBrief); renderFno(); renderToday();
     if (!ticking) { ticking = true; liveTick(); setInterval(liveTick, 60000); }
     else liveTick();
   }
   if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(liveTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+  // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
+  Object.assign(window, { openStock, closeStock, setIdeasTab, toggleStar, setStRange, summariseStock });
 })();
 </script>
 </body>
