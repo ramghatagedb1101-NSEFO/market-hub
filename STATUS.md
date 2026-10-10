@@ -28,6 +28,10 @@ stock report -- see CHANGELOG. Owner to add `BHARATSTOCK_API_KEY` to the relay's
 report's price and quarterly charts. Corporate actions, sectors and company names fill in as the weekly
 batch revisits companies.
 
+**Analysis tools added (10 Oct):** Factor rankings, Screener (saved screens on the relay), Scatter explorer,
+What changed, Sectors, and factor profile + peers on each stock report -- see CHANGELOG 10 Oct. "What changed"
+since-last-scoring events start once companies are re-scored by the batch.
+
 **Relay deploys now go through `clasp`, not Chrome** -- see `relay/README.md`, "Deploying with clasp".
 
 **Always run `node relay/check.js` before pasting/deploying relay code.** It catches browser-side errors
