@@ -35,6 +35,7 @@ function doPost(e) {
   const p = (e && e.parameter) || {};
   if (p.mode === 'publish_admin') return json_(publishAdmin_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'alert') return json_(sendDiscoveryAlert_(p.key || '', (e.postData && e.postData.contents) || ''));
+  if (p.mode === 'health') return json_(sendHealth_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (/^app_/.test(p.mode || '')) return json_(appApi_(p.mode, (e.postData && e.postData.contents) || ''));
   return json_({ error: 'unknown mode' });
 }
