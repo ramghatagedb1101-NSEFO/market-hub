@@ -937,7 +937,7 @@ function pageStock(sym){
     '<div class="seg">' + segBtn(pxType === 'candle' && !pxRel, 'Candles', 'pxType=\'candle\';pxRel=false') + segBtn(pxType === 'line' && !pxRel, 'Line', 'pxType=\'line\';pxRel=false') + segBtn(pxRel, 'vs NIFTY', 'pxRel=!pxRel') + '</div>' +
     '<div class="seg">' + (intraday ? '' : segBtn(pxMA, '50/200 DMA', 'pxMA=!pxMA')) + segBtn(pxVol, 'Volume', 'pxVol=!pxVol') + '</div></div></div><div class="panel-b">' +
     (DK.loading ? '<div class="lwc"><div class="skel" style="height:100%"></div></div>'
-      : DK.error ? '<div class="notice">' + esc(DK.error) + '</div>'
+      : DK.error ? '<div class="notice"><b>' + esc(DK.error) + '</b>' + (DK.why ? '<ul style="margin:6px 0 4px 16px;padding:0">' + DK.why.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul>' : '') + (DK.fix ? '<div><b>What to do:</b> ' + esc(DK.fix) + '</div>' : '') + '</div>'
       : '<div class="lwc" id="lwc"><div class="lwc-legend" id="lwcLegend"></div></div><div class="lwc-credit">' +
         ({ kite: 'Prices: Kite', nse: 'Prices: NSE daily closes', bharatstock: 'Prices: BharatStock daily' }[DK.source] || '') + (DK.note ? ' (' + esc(DK.note) + ')' : '') +
         ' · markers: D dividend, S split/bonus, B buyback, R results call · chart: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a></div>') + '</div></div>';
