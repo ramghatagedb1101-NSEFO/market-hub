@@ -632,6 +632,8 @@ function freshnessPanel(trk){
     row('Results filings list', '', feed(fd.results)) +
     row('Shareholding filings list', '', feed(fd.shareholding)) +
     row('Corporate actions list', '', feed(fd.corporate_actions)) +
+    row('Checked against NSE filings', '', trk.checks ? ['ok', 'mismatch', 'period_differs', 'unavailable', 'not checked yet'].filter(k => trk.checks[k]).map(k => ({ ok: 'match', mismatch: 'disagree (NSE used)', period_differs: 'BharatStock behind', unavailable: 'not checkable', 'not checked yet': 'not checked yet' })[k] + ' ' + num(trk.checks[k], 0)).join(' · ') : '–') +
+    row('Figures that cannot be right', num((trk.flagged || {}).severe || 0, 0), 'kept out of the Shortlist ranking; shown on each report') +
     '</table></div></div>';
 }
 
@@ -925,6 +927,10 @@ function pageStock(sym){
   if (r && (r.measures || {}).turnaround) badges.push('<span class="chip brand">Turnaround</span>');
   if (val(s,'mf_discovery_tier') === 1) badges.push('<span class="chip warn">Undiscovered (&lt;5 funds)</span>');
   if (val(s,'pledge_pct') > 10) badges.push('<span class="chip down">Pledge ' + num(val(s,'pledge_pct'), 1) + '%</span>');
+  const ck = (s && s.check) || {}, severe = ((s && s.flags) || []).filter(f => f.level === 'severe');
+  if (ck.status === 'ok') badges.push('<span class="chip up" title="Growth rebuilt from the company&#39;s own NSE filing matches">✓ Matches NSE filing</span>');
+  if (ck.status === 'mismatch') badges.push('<span class="chip down" title="' + esc((ck.diffs || []).join('; ')) + '">NSE filing disagreed · NSE figures used</span>');
+  if (severe.length) badges.push('<span class="chip down" title="' + esc(severe.map(f => f.text).join('; ')) + '">Data check: ' + severe.length + '</span>');
 
   let html = '<button class="back" onclick="history.length > 1 ? history.back() : go(\'overview\')">← Back</button>' +
     '<div class="rep-head"><div><h1 class="rep-title">' + esc(name || sym) + '</h1><div class="rep-meta"><span class="chip num">NSE: ' + esc(sym) + '</span>' +

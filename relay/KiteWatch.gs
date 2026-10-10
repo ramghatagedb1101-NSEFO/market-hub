@@ -55,3 +55,26 @@ function adminKiteStatus(token) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
   return kiteStatus_();
 }
+
+/** Weekly data-health email from the library run (hub/library.py, first run of each week), behind RELAY_KEY. */
+function sendHealth_(key, body) {
+  const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
+  if (!relayKey || key !== relayKey) return { error: 'forbidden' };
+  let d;
+  try { d = JSON.parse(body); } catch (e) { return { error: 'bad JSON body' }; }
+  const c = d.checks || {}, f = d.flagged || {}, p = d.pending || {};
+  const lines = [
+    "Results checked against each company's own NSE filing:",
+    '  match: ' + (c.ok || 0) + '   disagree (NSE figures used): ' + (c.mismatch || 0) +
+      '   BharatStock behind NSE: ' + (c.period_differs || 0) + '   not checkable: ' + (c.unavailable || 0) + '   not checked yet: ' + (c['not checked yet'] || 0),
+    'Companies with a figure that cannot be right: ' + (f.severe || 0) + '   with a note (stale or late results): ' + (f.info || 0),
+    'Still to fetch: results ' + (p.fin || 0) + ', annual ' + (p.ann || 0) + ', shareholding ' + (p.shp || 0) + ', documents ' + (p.docs || 0) + ', checks ' + (p.verify || 0),
+    'BharatStock requests today: ' + ((d.bharatstock || {}).requests_today || 0) + ' of ' + ((d.bharatstock || {}).budget || 0)];
+  if ((d.examples || []).length) {
+    lines.push('', 'To look at:');
+    d.examples.forEach(x => lines.push('  ' + x.symbol + ': ' + (x.issue || '')));
+  }
+  lines.push('', 'Details: dashboard Overview, Data freshness panel.');
+  MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Market Hub: weekly data health (' + (d.week || '') + ')', lines.join(String.fromCharCode(10)));
+  return { ok: true };
+}

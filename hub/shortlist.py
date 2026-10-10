@@ -204,19 +204,31 @@ def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, n
         # growth is not rewarded: the growth score is held at neutral and the company flagged.
         rg, pg = v("rev_yoy"), v("profit_yoy")
         suspect = False
-        if mcap and mcap >= 20000 and ((rg or 0) > 40 or (pg or 0) > 80):
+        chk = s.get("check") or {}
+        if chk.get("status") == "mismatch":
             suspect = True
-            watch.append("Check the latest quarter: growth this fast is unusual for a company this size (one-off or data issue?)")
+            watch.append("BharatStock disagreed with the company's NSE filing (" + "; ".join(chk.get("diffs") or []) + "); the NSE figures are used")
+        elif chk.get("status") != "ok" and mcap and mcap >= 20000 and ((rg or 0) > 40 or (pg or 0) > 80):
+            # Not yet confirmed against the filing: unusually fast growth for the size is held at neutral.
+            suspect = True
+            watch.append("Growth this fast is unusual for a company this size and not yet confirmed against its NSE filing")
         if pg is not None and pg > 200:
             suspect = True
             watch.append(f"Profit up {pg:.0f}% on a year ago: likely a low base or one-off")
+        severe = [f["text"] for f in s.get("flags") or [] if f.get("level") == "severe"]
+        if severe:
+            suspect = True
+            score_penalty = 4
+            watch.extend(severe)
+        else:
+            score_penalty = 0
         if suspect and f["growth"] is not None:
             f["growth"] = min(f["growth"], 50)
         financial = "financial" in ind.lower() or "bank" in ind.lower()
         if financial:
             watch.append("Bank / financial: operating cash flow and net margin are not comparable with other companies; judge on asset quality and returns")
         w = WEIGHTS[style]
-        score = sum(w[k] * (f[k] if f[k] is not None else 50) for k in w)
+        score = sum(w[k] * (f[k] if f[k] is not None else 50) for k in w) - score_penalty
         if pe and pe > 0 and ipe and pe > 1.5 * ipe:
             score -= 6
             watch.append(f"P/E {pe:.1f}x against an industry median of {ipe:.1f}x")
@@ -255,8 +267,13 @@ def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, n
             why.append(f"Trend intact: above its 50- and 200-day averages, within {-m['off_high']:.0f}% of its 52-week high")
         if pe and pe > 0 and ipe and pe < 0.8 * ipe:
             why.append(f"Valued below its industry: P/E {pe:.1f}x against a median of {ipe:.1f}x")
+        if chk.get("status") == "ok":
+            why.append(f"Results confirmed against the company's NSE filing (quarter to {chk.get('period')})")
         figs = {k: v(k) for k in FIGURES if v(k) is not None and (k != "fii_holding" or fii_ok(s))}
-        pools[style].append({"symbol": sym, "name": (names or {}).get(sym, ""), "figures": figs,
+        check_note = ("Results match the company's NSE filing." if chk.get("status") == "ok" else
+                      "BharatStock disagreed with the NSE filing; NSE figures used." if chk.get("status") == "mismatch" else
+                      "BharatStock is behind; growth and margin from the latest NSE filing." if chk.get("status") == "period_differs" else "")
+        pools[style].append({"symbol": sym, "name": (names or {}).get(sym, ""), "figures": figs, "check_note": check_note,
                              "industry": ind, "score": _rnd(score), "factors": f, "why": why,
                              "watch": watch, "ret_1m": m.get("ret_1m"), "last": m.get("last"),
                              "mcap": mcap, "pe": pe, "ret_12m": v("ret_12m")})

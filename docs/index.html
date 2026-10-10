@@ -821,6 +821,7 @@
         <div class="panel" style="margin-bottom:10px"><div class="pb"><ul class="st-list">${(x.why || []).map(w => `<li>${esc(w.split(" - better")[0])}</li>`).join("")}</ul>
         ${(x.watch || []).length ? `<ul class="st-list amb">${x.watch.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}</div></div>` : ""}
       ${tiles ? `<div class="sec">Key figures</div><div class="glance">${tiles}</div>` : ""}
+      ${x && x.check_note ? `<div class="note" style="margin:-6px 2px 10px">${esc(x.check_note)}</div>` : ""}
       <div class="sec">AI summary</div>
       <div class="panel" style="margin-bottom:10px"><div class="pb">${z ? `<div style="font-weight:700;margin-bottom:6px">${esc(z.headline || "")}</div>
           <div style="font-size:13px;line-height:1.55">${esc(z.summary || "")}</div>
