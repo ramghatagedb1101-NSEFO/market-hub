@@ -33,6 +33,13 @@ jobs:
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
         run: curl -s -L --max-time 30 "$RELAY_URL?mode=quote" > /dev/null || true
+      # Watchlist move emails (11 Oct 2026): 4%+ (and again at 8%) since yesterday's close, once per
+      # company per step per day (relay Alerts.gs; switchable on the dashboard).
+      - name: Check the watchlist for big moves
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: curl -s -L -G --max-time 40 "$RELAY_URL" --data-urlencode "mode=watch_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
       - name: Fetch today's Kite access token from the relay
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}

@@ -24,6 +24,7 @@ function doGet(e) {
   if (p.mode === 'check') return handleCheck_(p);
   if (p.mode === 'admin') return adminPage();
   if (p.mode === 'watchlist') return json_(watchlistForBatch_(p.key || ''));
+  if (p.mode === 'watch_check') return json_(watchCheck_(p.key || ''));
   if (p.request_token) return handleLogin_(p.request_token);
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
 }
@@ -36,6 +37,7 @@ function doPost(e) {
   if (p.mode === 'publish_admin') return json_(publishAdmin_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'alert') return json_(sendDiscoveryAlert_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'health') return json_(sendHealth_(p.key || '', (e.postData && e.postData.contents) || ''));
+  if (p.mode === 'digest') return json_(sendDigest_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (/^app_/.test(p.mode || '')) return json_(appApi_(p.mode, (e.postData && e.postData.contents) || ''));
   return json_({ error: 'unknown mode' });
 }
