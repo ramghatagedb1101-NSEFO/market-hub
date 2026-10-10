@@ -29,6 +29,7 @@ from . import bhav
 from . import nse_feeds
 from . import documents as docs_mod
 from . import library_compact
+from . import shortlist as shortlist_mod
 from . import shareholding as shp
 from . import corporate_actions as ca
 from . import named_holders as nh
@@ -1305,6 +1306,13 @@ def main() -> dict:
     more_work = bool(doable) and bool(refreshed)
     cycle_complete = not doable
     mb_total = merge_and_write_multibagger(list(ctx["mb_new"].values()), prior_mb, mb_failures, names, cycle_complete)
+    # Shortlist: two lists by style, weekly record and track record (hub/shortlist.py). prior_mb now holds
+    # the merged multi-bagger scores.
+    try:
+        shortlist_summary = shortlist_mod.publish(merged_stocks, prior_mb, industries, prices, ctx["nifty"], today,
+                                                  datetime.now(config.IST).isoformat(timespec="minutes"))
+    except Exception as exc:
+        shortlist_summary = {"error": str(exc)[:200]}
     today_ist = today.isoformat()
     new_findings, alerted = alerts.find_new_discoveries(merged_stocks, prior_mb, already_alerted, today_ist)
     alert_result = alerts.send_alert(new_findings, os.getenv("RELAY_URL", ""), os.getenv("RELAY_KEY", ""))
@@ -1354,7 +1362,7 @@ def main() -> dict:
         print(f"compact copy not published: {exc}")
     return {k: v for k, v in payload.items()
             if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted", "names", "industries")} | {
-        "more_work": more_work, "stocks_written": len(merged_stocks),
+        "more_work": more_work, "stocks_written": len(merged_stocks), "shortlist": shortlist_summary,
         "symbols_with_matches": len(prior_matches),
         "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(ctx["mb_new"]),
         "new_discovery_findings": len(new_findings), "alert_result": alert_result,

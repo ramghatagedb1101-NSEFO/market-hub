@@ -177,3 +177,15 @@ function adminSummarise(token, symbol) {
   CacheService.getScriptCache().put('sum_' + sym, at, 1800);
   return { ok: true, started: at };
 }
+
+/** The Shortlist (site/shortlist.json, written by the daily library run: two lists by style, reasons,
+ * weekly persistence and the track record against NIFTY). Small, read on dashboard load. */
+function adminShortlist(token) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  const res = privateRaw_(readToken, 'site/shortlist.json');
+  if (res.getResponseCode() === 404) return { error: 'The shortlist is published by the daily library run; not yet available.' };
+  if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for the shortlist.' };
+  return JSON.parse(res.getContentText());
+}

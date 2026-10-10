@@ -258,7 +258,7 @@ function logout(){
 // ======================================================================================
 // Data
 // ======================================================================================
-const S = { admin: null, lib: null, mb: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {} };
+const S = { admin: null, lib: null, mb: null, sl: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {} };
 
 function start(){
   $('login').style.display = 'none'; $('app').style.display = 'block';
@@ -269,16 +269,18 @@ function start(){
     S.lib = d; S.names = d.names || {};
     (d.stocks || []).forEach(s => { S.bySym[s.symbol] = s; });
     if (!S.industries && d.industries && Object.keys(d.industries).length) S.industries = d.industries;
-    computeFactors(); S._sl = null; S._indPE = null;
+    computeFactors();
     renderNav(); rerender();
   }).catch(e => { S.libErr = e.message; rerender(); });
+  call('adminShortlist', token).then(d => { S.sl = d; if (current.page === 'shortlist' || current.page === 'overview') rerender(); })
+    .catch(e => { S.sl = { error: e.message }; rerender(); });
   call('adminIndustries', token).then(d => {
     S.industries = Object.assign({}, (S.lib && S.lib.industries) || {}, d.industries || {});
     if (current.page === 'sectors' || current.page === 'stock' || current.page === 'factors') rerender();
   }).catch(() => { S.industries = (S.lib && S.lib.industries) || {}; });
   call('adminMultibagger', token).then(unpack).then(d => {
     if (d.error) { S.mbErr = d.error; rerender(); return; }
-    S.mb = d; S._sl = null; (d.ranked || []).forEach(r => { S.mbBySym[r.symbol] = r; });
+    S.mb = d; (d.ranked || []).forEach(r => { S.mbBySym[r.symbol] = r; });
     renderNav(); rerender();
   }).catch(e => { S.mbErr = e.message; rerender(); });
 }
@@ -536,11 +538,12 @@ function pageOverview(){
     (rows == null ? '<div class="panel-b">' + '<div class="skel"></div>' + '</div>' : rows.length ? '<table class="t"><tr>' + cols.map(c => '<th class="' + (c[2] || '') + '">' + c[0] + '</th>').join('') + '</tr>' +
       rows.map(r => '<tr class="click" onclick="openStock(\'' + esc(r.sym) + '\')">' + cols.map(c => '<td class="' + (c[2] || '') + '">' + c[1](r) + '</td>').join('') + '</tr>').join('') + '</table>'
       : '<div class="empty">None yet.</div>') + '</div>';
-  const sl = S.lib && S.mb ? shortlist() : null;
-  const topSl = sl ? sl.slice(0, 6) : null;
+  const L = S.sl && S.sl.lists;
+  const topSl = L ? [].concat((L.compounders.top || []).slice(0, 3).map(x => Object.assign({ style: 'compounders' }, x)),
+                              (L.emerging.top || []).slice(0, 3).map(x => Object.assign({ style: 'emerging' }, x))).map(x => Object.assign({ sym: x.symbol }, x)) : (S.sl && S.sl.error ? [] : null);
   const topMb = mb4 ? mb4.slice().sort((a, b) => (a.rank || 1e9) - (b.rank || 1e9)).slice(0, 6).map(r => ({ sym: r.symbol, r, s: S.bySym[r.symbol] })) : null;
   html += '<div class="grid g2" style="margin-bottom:14px">' +
-    mini('Shortlist — strongest of both screens', 'shortlist', topSl, [['Company', r => companyCell(r.sym), 'l'], ['Score', r => scoreChip(r.score)], ['Screens', r => slScreens(r), 'l'], ['Top reason', r => '<span class="muted" style="font-size:12px">' + esc((r.why[0] || '').replace(/ — better than.*$/, '')) + '</span>', 'l']]) +
+    mini('Shortlist — top 3 of each list', 'shortlist', topSl, [['Company', r => companyCell(r.sym), 'l'], ['List', r => slStyle(r.style), 'l'], ['Score', r => scoreChip(r.score)], ['Top reason', r => '<span class="muted" style="font-size:12px">' + esc((r.why[0] || '').replace(/ - better than.*$/, '')) + '</span>', 'l']]) +
     mini('Early multibaggers (all four gates)', 'multibagger', topMb, [['Company', r => companyCell(r.sym), 'l'], ['Profit gr.', r => '<span class="num ' + cls((r.r.measures||{}).profit_growth_yoy_pct) + '">' + pct((r.r.measures||{}).profit_growth_yoy_pct) + '</span>'], ['Funds', r => '<span class="num">' + num(((r.r.mutual_funds||{}).schemes_holding), 0) + '</span>'], ['Score', r => dots(r.r.score || 0, 4)]]) +
     '</div>';
   // Upcoming corporate actions across the library
@@ -682,106 +685,56 @@ function pageCompounders(){
     (body || '<tr><td colspan="11" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
 }
 
-// ---- Shortlist (11 Oct 2026): the strongest companies of both screens, ranked, with reasons ----
-// Proven compounders (100 on 10 Oct) and four-gate early multibaggers (150) are too many to act on: the
-// multibagger gates test one quarter's growth plus a consistency count, which many companies pass. This
-// takes companies in either screen, drops the hard-to-trade, weak-cash, pledged and thinly-covered ones,
-// and ranks the rest by a conviction score built from the factor scores, with adjustments for being in
-// both screens, ownership trend, valuation against the industry, volatility, trend damage and promoter
-// selling. Reasons are the measures where the company ranks in the library's top fifth.
-const SL_SIZE = 15;
-const SL_WHY = [
-  ['roe', 'ROE', v => num(v, 1) + '%', 1], ['roce', 'ROCE', v => num(v, 1) + '%', 1], ['net_margin', 'Net margin', v => num(v, 1) + '%', 1],
-  ['profit_consistency_8q', 'Profit up in', v => v + ' of the last 8 quarters', 1], ['profit_yoy', 'Profit growth', v => pct(v), 1], ['rev_yoy', 'Revenue growth', v => pct(v), 1],
-  ['cfo_to_pat', 'Operating cash', v => num(v, 2) + '× profit', 1], ['debt_to_equity', 'Debt/equity', v => num(v, 2), -1],
-  ['interest_cover', 'Interest cover', v => v > 50 ? 'over 50× (practically debt-free)' : num(v, 1) + '×', 1],
-  ['rel_strength_vs_index', '6-month return vs NIFTY', v => pct(v), 1], ['mf_schemes_added', 'Fund schemes added', v => '+' + num(v, 0), 1], ['dii_change_qoq', 'Domestic institutions', v => '+' + num(v, 2) + ' pts', 1]
-];
-function industryPE(){
-  if (S._indPE) return S._indPE;
-  const g = {};
-  S.lib.stocks.forEach(s => { const pe = val(s, 'pe'), ind = industryOf(s.symbol) || s.sector; if (ind && pe > 0) (g[ind] = g[ind] || []).push(pe); });
-  const m = {};
-  Object.keys(g).forEach(k => { const a = g[k].sort((x, y) => x - y); if (a.length >= 5) m[k] = a[Math.floor(a.length / 2)]; });
-  return (S._indPE = m);
+// ---- Shortlist (11 Oct 2026): computed in the daily batch (hub/shortlist.py), displayed here ----
+// Two lists by style -- Compounders (quality at a sensible price) and Emerging (early growth the market
+// is starting to see) -- at most 2 per industry, momentum measured over 6-12 months (latest month
+// skipped), suspect growth neutralised, and a weekly record so each pick's return since it joined the
+// list can be compared with NIFTY.
+function slStyle(st){ return st === 'compounders' ? '<span class="chip up">Compounder</span>' : '<span class="chip brand">Emerging</span>'; }
+function slSince(x){
+  const p = x.since_entry;
+  if (!p) return '<span class="faint">new</span>';
+  return '<span class="num ' + cls(p.excess) + '">' + (p.excess > 0 ? '+' : '') + num(p.excess, 1) + ' pts</span><div class="faint" style="font-size:11px">' + pct(p.ret) + ' vs NIFTY ' + pct(p.nifty) + '</div>';
 }
-function shortlist(){
-  if (!S.lib || !S.fac) return null;
-  if (S._sl) return S._sl;
-  const indPE = industryPE(), out = [];
-  S.lib.stocks.forEach(s => {
-    if (!s.cells) return;
-    const sym = s.symbol, mb = S.mbBySym[sym], comp = isCompounder(sym), mb4 = !!(mb && mb.score === 4);
-    if (!comp && !mb4) return;
-    const f = S.fac[sym] || {};
-    const turnover = val(s, 'avg_turnover_20d'), mcap = val(s, 'market_value_bucket'), pe = val(s, 'pe'), pledge = val(s, 'pledge_pct'),
-          cfo = val(s, 'cfo_to_pat'), vol = val(s, 'volatility_60d'), off = val(s, 'from_52w_high'), pyoy = val(s, 'promoter_change_yoy');
-    const drop = (s.testable || 0) < 35 ? 'too little data' : (turnover != null ? turnover < 2 : !(mcap >= 1000)) ? 'hard to trade (under ₹2 cr a day)'
-      : pledge != null && pledge > 5 ? 'promoter pledge over 5%' : cfo != null && cfo < 0.6 ? 'operating cash under 0.6× profit' : f.composite == null ? 'not enough factor data' : null;
-    if (drop) { out.push({ s, sym, comp, mb4, dropped: drop }); return; }
-    const ind = industryOf(sym) || s.sector, ipe = ind ? indPE[ind] : null;
-    let score = 0.3 * f.composite + 0.2 * (f.quality ?? 50) + 0.2 * (f.growth ?? 50) + 0.15 * (f.value ?? 50) + 0.15 * (f.momentum ?? 50);
-    const watch = [];
-    if (comp && mb4) score += 8;
-    if (f.ownership != null) { if (f.ownership >= 70) score += 4; else if (f.ownership <= 30) { score -= 4; watch.push('Ownership trend weak (score ' + f.ownership + ')'); } }
-    if (pe > 0 && ipe && pe > 1.5 * ipe) { score -= 6; watch.push('P/E ' + num(pe, 1) + '× against an industry median of ' + num(ipe, 1) + '×'); }
-    if (vol != null && percentile('volatility_60d', vol) >= 90) { score -= 4; watch.push('Volatile: 60-day volatility ' + num(vol, 0) + '%'); }
-    if (off != null && off < -35) { score -= 4; watch.push(num(-off, 0) + '% below its 52-week high'); }
-    if (pyoy != null && pyoy < -2) { score -= 4; watch.push('Promoters sold ' + num(-pyoy, 2) + ' pts in a year'); }
-    if (val(s, 'above_200dma') === false) watch.push('Below its 200-day average');
-    // A huge jump in one quarter's profit is usually a low base or a one-off, not a trend.
-    const pg = val(s, 'profit_yoy');
-    if (pg != null && pg > 200) { score -= 3; watch.push('Profit up ' + num(pg, 0) + '% on a year ago: likely a low base or one-off; check the quarter'); }
-    if (fiiOk(s) && val(s, 'fii_change_qoq') != null && val(s, 'fii_change_qoq') <= -1) watch.push('Foreign investors cut ' + num(-val(s, 'fii_change_qoq'), 2) + ' pts last quarter');
-    const why = SL_WHY.map(([k, l, fmt, b]) => {
-      const v = val(s, k);
-      if (v == null || ((k === 'dii_change_qoq' || k === 'mf_schemes_added') && v <= 0) || (k === 'profit_yoy' && v > 200)) return null;
-      const pc = percentile(k, v); if (pc == null) return null;
-      const r = b > 0 ? pc : 100 - pc;
-      return { r, text: l + ' ' + fmt(v) + ' — better than ' + r + '% of the library' };
-    }).filter(x => x && x.r >= 80).sort((a, b) => b.r - a.r).slice(0, 4).map(x => x.text);
-    if (pe > 0 && ipe && pe < 0.8 * ipe) why.push('Valued below its industry: P/E ' + num(pe, 1) + '× against a median of ' + num(ipe, 1) + '×');
-    if (comp && mb4) why.unshift('In both screens: a proven compounder that also passes all four multibagger gates');
-    out.push({ s, sym, comp, mb4, f, why, watch, score: Math.round(score) });
-  });
-  const ranked = out.filter(x => !x.dropped).sort((a, b) => b.score - a.score);
-  ranked.dropped = out.filter(x => x.dropped);
-  return (S._sl = ranked);
+function slTable(rows){
+  const ul = (arr, c) => arr && arr.length ? '<ul style="margin:0;padding-left:16px">' + arr.map(x => '<li class="' + (c || '') + '" style="margin:2px 0">' + esc(x) + '</li>').join('') + '</ul>' : '<span class="faint">–</span>';
+  return '<div class="tbl-wrap"><table class="t"><thead><tr><th>#</th><th class="l">Company</th><th>Score</th><th>On list</th><th>Since joining</th><th>Mkt cap</th><th>P/E</th><th>1M</th><th class="l">Why it ranks here</th><th class="l">Watch</th></tr></thead><tbody>' +
+    rows.map(x => '<tr class="click" onclick="openStock(\'' + esc(x.symbol) + '\')"><td class="num">' + x.rank + '</td><td class="l">' + companyCell(x.symbol) +
+      (x.industry ? '<div class="faint" style="font-size:11px">' + esc(x.industry) + '</div>' : '') + '</td><td>' + scoreChip(x.score) + '</td>' +
+      '<td>' + (x.core ? '<span class="chip up" title="On the list in ' + x.weeks_on + ' consecutive weekly records">Core · ' + x.weeks_on + ' wk</span>' : '<span class="chip">' + (x.weeks_on || 1) + ' wk</span>') + '</td>' +
+      '<td>' + slSince(x) + '</td><td class="num">' + crore(x.mcap) + '</td><td class="num">' + (x.pe == null ? '–' : num(x.pe, 1) + '×') + '</td>' +
+      '<td class="num ' + cls(x.ret_1m) + '"' + (x.ret_1m > 20 ? ' title="Stretched: up over 20% in a month"' : '') + '>' + pct(x.ret_1m) + (x.ret_1m > 20 ? ' ⚠' : '') + '</td>' +
+      '<td class="l" style="white-space:normal;min-width:260px;font-size:12.5px">' + ul((x.why || []).map(w => w.replace(' - better than', ' — better than'))) + '</td>' +
+      '<td class="l" style="white-space:normal;min-width:200px;font-size:12.5px">' + ul(x.watch, 'down') + '</td></tr>').join('') + '</tbody></table></div>';
 }
-function slScreens(x){
-  return (x.comp ? '<span class="chip up">Compounder</span> ' : '') + (x.mb4 ? '<span class="chip brand">Multibagger 4/4</span>' : '');
+function slRecord(tr){
+  if (!tr) return '';
+  const row = (st, label) => { const r = (tr.styles || {})[st] || {};
+    return '<tr><td class="l">' + label + '</td><td class="num">' + num(r.stints || 0, 0) + '</td><td class="num">' + num(r.open || 0, 0) + '</td><td class="num">' + num(r.closed || 0, 0) + '</td>' +
+      '<td class="num ' + cls(r.avg_excess) + '">' + (r.avg_excess == null ? '–' : (r.avg_excess > 0 ? '+' : '') + num(r.avg_excess, 1) + ' pts') + '</td><td class="num">' + (r.stints ? r.beat_nifty + ' of ' + r.stints : '–') + '</td></tr>'; };
+  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Track record</h3><span class="muted" style="font-size:12px">since ' + esc(fmtDate(tr.first_week)) + ' · ' + tr.weekly_records + ' weekly record' + (tr.weekly_records === 1 ? '' : 's') + '</span></div><div class="panel-b">' +
+    '<table class="t"><tr><th class="l">List</th><th>Picks</th><th>Still on</th><th>Dropped</th><th>Average vs NIFTY</th><th>Beat NIFTY</th></tr>' + row('compounders', 'Compounders') + row('emerging', 'Emerging') + '</table>' +
+    '<div class="muted" style="font-size:12px;margin-top:8px">Each pick is measured from the close on the day it joined the list (to the day it left, or today), against NIFTY 50 over the same dates. ' +
+    'A weekly record is taken on the first run of each week. This needs 3–6 months before it says anything; until then treat it as a log, not a verdict.</div></div></div>';
 }
 function pageShortlist(){
   const v = $('view');
-  if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
-  if (!S.lib || !S.mb) { v.innerHTML = loadingBlock('Loading the library and multi-bagger screen…'); return; }
-  const st = tableState('sl', { id: 'sl', sort: 'score', dir: -1, f: { all: false, dropped: false } });
-  const all = shortlist(), dropped = all.dropped || [];
-  const pool = new Set(dropped.map(x => x.sym).concat(all.map(x => x.sym))).size;
-  const ul = (arr, c) => arr.length ? '<ul style="margin:0;padding-left:16px">' + arr.map(x => '<li class="' + (c || '') + '" style="margin:2px 0">' + esc(x) + '</li>').join('') + '</ul>' : '<span class="faint">–</span>';
-  let body;
-  if (st.f.dropped) {
-    const byWhy = {}; dropped.forEach(x => { (byWhy[x.dropped] = byWhy[x.dropped] || []).push(x); });
-    body = '<div class="tbl-wrap"><table class="t"><tr><th class="l">Left out because</th><th>Companies</th><th class="l">Examples</th></tr>' +
-      Object.keys(byWhy).sort((a, b) => byWhy[b].length - byWhy[a].length).map(k => '<tr><td class="l">' + esc(k) + '</td><td class="num">' + byWhy[k].length + '</td><td class="l" style="white-space:normal">' +
-        byWhy[k].slice(0, 12).map(x => '<a href="#stock/' + esc(x.sym) + '">' + esc(x.sym) + '</a>').join(', ') + '</td></tr>').join('') + '</table></div>';
-  } else {
-    const rows = st.f.all ? all : all.slice(0, SL_SIZE);
-    body = '<div class="tbl-wrap"><table class="t"><thead><tr><th>#</th><th class="l">Company</th><th>Score</th><th class="l">Screens</th><th>Mkt cap</th><th>P/E</th><th>12M</th><th class="l">Why it ranks here</th><th class="l">Watch</th></tr></thead><tbody>' +
-      rows.map((x, i) => '<tr class="click" onclick="openStock(\'' + esc(x.sym) + '\')"><td class="num">' + (i + 1) + '</td><td class="l">' + companyCell(x.sym) + '</td><td>' + scoreChip(x.score) + '</td>' +
-        '<td class="l">' + slScreens(x) + '</td><td class="num">' + crore(val(x.s, 'market_value_bucket')) + '</td><td class="num">' + (val(x.s, 'pe') == null ? '–' : num(val(x.s, 'pe'), 1) + '×') + '</td>' +
-        '<td class="num ' + cls(val(x.s, 'ret_12m')) + '">' + pct(val(x.s, 'ret_12m')) + '</td>' +
-        '<td class="l" style="white-space:normal;min-width:280px;font-size:12.5px">' + ul(x.why) + '</td><td class="l" style="white-space:normal;min-width:200px;font-size:12.5px">' + ul(x.watch, 'down') + '</td></tr>').join('') +
-      '</tbody></table></div>';
-  }
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Shortlist</h1><p class="sub">The strongest of both screens. Of the ' + num(pool, 0) + ' companies that are proven compounders or pass all four early-multibagger gates, ' +
-    num(dropped.length, 0) + ' are left out as hard to trade, weakly cash-backed, pledged or thinly covered; the other ' + num(all.length, 0) + ' are ranked by a conviction score and the top ' + SL_SIZE + ' shown. ' +
-    'A ranked screen of your own rules, not a recommendation: check each report before acting.</p></div></div>' +
-    '<div class="rules"><span class="chip">Score = 30% composite + 20% quality + 20% growth + 15% value + 15% momentum</span><span class="chip">+8 in both screens</span><span class="chip">±4 ownership trend</span>' +
-    '<span class="chip">−6 P/E over 1.5× industry</span><span class="chip">−4 volatile · −4 over 35% off high · −4 promoter selling</span></div>' +
-    '<div class="toolbar"><div class="seg"><button class="' + (!st.f.all && !st.f.dropped ? 'on' : '') + '" onclick="setF(\'sl\',\'all\',false);setF(\'sl\',\'dropped\',false)">Top ' + SL_SIZE + '</button>' +
-    '<button class="' + (st.f.all && !st.f.dropped ? 'on' : '') + '" onclick="setF(\'sl\',\'dropped\',false);setF(\'sl\',\'all\',true)">All ' + all.length + ' ranked</button>' +
-    '<button class="' + (st.f.dropped ? 'on' : '') + '" onclick="setF(\'sl\',\'dropped\',true)">Left out (' + dropped.length + ')</button></div></div>' + body;
+  if (!S.sl) { v.innerHTML = loadingBlock('Loading the shortlist…'); return; }
+  if (S.sl.error) { v.innerHTML = errBlock(S.sl.error); return; }
+  const L = S.sl.lists, st = tableState('sl', { id: 'sl', sort: 'rank', dir: 1, f: { tab: 'compounders' } });
+  const tab = st.f.tab, X = L[tab] || {};
+  const w = (S.sl.weights || {})[tab] || {};
+  const extra = st.f.tab === 'out' ? '' :
+    ((X.next || []).length ? '<details class="all" style="margin-top:12px"><summary>Next in line (' + X.next.length + ')</summary>' + slTable(X.next) + '</details>' : '') +
+    ((X.industry_cap_held_back || []).length ? '<div class="muted" style="font-size:12.5px;margin-top:10px">Held back by the two-per-industry limit: ' + X.industry_cap_held_back.map(s => '<a href="#stock/' + esc(s) + '">' + esc(s) + '</a>').join(', ') + '</div>' : '') +
+    ((X.left_out || []).length ? '<div class="muted" style="font-size:12.5px;margin-top:6px">Left out: ' + X.left_out.map(o => '<a href="#stock/' + esc(o.symbol) + '" title="' + esc(o.reason) + '">' + esc(o.symbol) + '</a>').join(', ') + ' (hover for the reason)</div>' : '');
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Shortlist</h1><p class="sub">Two lists, because the screens answer different questions. <b>Compounders</b>: proven compounders ranked for quality at a sensible price. ' +
+    '<b>Emerging</b>: four-gate early multibaggers (not already compounders) ranked for growth the market is starting to see. Hard-to-trade, weakly cash-backed, pledged and thinly covered companies are left out; at most ' + S.sl.per_industry + ' per industry. ' +
+    'Updated by the daily run, ' + esc(fmtTs(S.sl.generated)) + '. A ranked screen of your own rules, not a recommendation.</p></div></div>' +
+    '<div class="toolbar"><div class="seg"><button class="' + (tab === 'compounders' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'compounders\')">Compounders (' + L.compounders.ranked + ' ranked)</button>' +
+    '<button class="' + (tab === 'emerging' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'emerging\')">Emerging (' + L.emerging.ranked + ' ranked)</button></div>' +
+    '<span class="muted" style="margin-left:auto;font-size:12px">Score: ' + Object.keys(w).map(k => Math.round(w[k] * 100) + '% ' + k).join(' · ') + ' · momentum = 6–12 month trend ÷ volatility, latest month skipped</span></div>' +
+    slTable(X.top || []) + extra + slRecord(S.sl.track_record);
 }
 
 // ---- Library ----
