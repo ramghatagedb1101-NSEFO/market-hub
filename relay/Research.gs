@@ -81,7 +81,7 @@ function kiteToken_(sym, headers) {
   const r = UrlFetchApp.fetch('https://api.kite.trade/quote/ohlc?i=' + encodeURIComponent('NSE:' + sym),
                               { muteHttpExceptions: true, headers: headers });
   const body = JSON.parse(r.getContentText());
-  if (body.status === 'error') throw new Error(body.message || 'quote refused');
+  if (body.status === 'error') { kiteFailed_(body.message); throw new Error(body.message || 'quote refused'); }
   const q = body.data && body.data['NSE:' + sym];
   if (!q || !q.instrument_token) return null;
   cache.put('ktok_' + sym, String(q.instrument_token), 21600);
@@ -117,7 +117,7 @@ function kiteChart_(sym, spec) {
   let candles = [], nifty = [];
   for (let i = 0; i < res.length; i++) {
     const body = JSON.parse(res[i].getContentText());
-    if (body.status !== 'success') return { error: 'Kite: ' + (body.message || 'historical data refused'), reason: kiteReason_(body.message) };
+    if (body.status !== 'success') { kiteFailed_(body.message); return { error: 'Kite: ' + (body.message || 'historical data refused'), reason: kiteReason_(body.message) }; }
     const rows = (body.data && body.data.candles) || [];
     if (i % 2 === 0) candles = candles.concat(rows); else nifty = nifty.concat(rows);
   }

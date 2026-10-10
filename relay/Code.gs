@@ -59,6 +59,7 @@ function handleLogin_(requestToken) {
   }
 
   props.setProperties({ KITE_ACCESS_TOKEN: body.data.access_token, KITE_TOKEN_DATE: todayIst_() });
+  kiteLoginOk_();   // clears a 'login replaced' alarm (KiteWatch.gs)
   const started = startDailyRun_();
   return html_('Logged in for ' + todayIst_() + '. ' +
                (started ? 'Today\'s daily run has started.' : 'Token saved, but the daily run did not start. Check GH_PAT has Actions: Read and write.'));
@@ -118,7 +119,7 @@ function handleQuote_() {
   const token = props.getProperty('KITE_ACCESS_TOKEN');
   const date = props.getProperty('KITE_TOKEN_DATE');
   const apiKey = props.getProperty('KITE_API_KEY');
-  if (!token || date !== todayIst_() || !apiKey) return json_({ error: 'no token for today; log in with Kite first' });
+  if (!token || date !== todayIst_() || !apiKey) return json_({ error: 'no token for today; log in with Kite first', kite_login: 'no_login', login_link: kiteLoginLink_() });
 
   const front = frontMonths_();   // nearest-expiry MCX gold and crude, and USD/INR (CDS)
   const symbols = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX'];
@@ -132,7 +133,11 @@ function handleQuote_() {
     headers: { 'X-Kite-Version': '3', 'Authorization': 'token ' + apiKey + ':' + token },
   });
   const body = JSON.parse(res.getContentText());
-  if (body.status !== 'success') return json_({ error: 'Kite: ' + (body.message || 'quote failed') });
+  if (body.status !== 'success') {
+    kiteFailed_(body.message);
+    const st = kiteStatus_();
+    return json_({ error: 'Kite: ' + (body.message || 'quote failed'), kite_login: st.state, login_link: st.login_link || null });
+  }
 
   const d = body.data;
   const pick = (sym, name) => {

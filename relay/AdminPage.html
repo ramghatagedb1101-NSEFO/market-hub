@@ -258,7 +258,7 @@ function logout(){
 // ======================================================================================
 // Data
 // ======================================================================================
-const S = { admin: null, lib: null, mb: null, sl: null, watch: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {} };
+const S = { admin: null, lib: null, mb: null, sl: null, watch: null, kite: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {} };
 
 function start(){
   $('login').style.display = 'none'; $('app').style.display = 'block';
@@ -273,6 +273,7 @@ function start(){
     renderNav(); rerender();
   }).catch(e => { S.libErr = e.message; rerender(); });
   loadWatch();
+  call('adminKiteStatus', token).then(d => { S.kite = d; rerender(); }).catch(() => {});
   call('adminShortlist', token).then(d => { S.sl = d; if (current.page === 'shortlist' || current.page === 'overview') rerender(); })
     .catch(e => { S.sl = { error: e.message }; rerender(); });
   call('adminIndustries', token).then(d => {
@@ -592,7 +593,17 @@ function pageOverview(){
   html += freshnessPanel(trk);
   if (S.libErr) html = errBlock('Library: ' + S.libErr) + html;
   if (S.mbErr) html = errBlock('Multi-bagger data: ' + S.mbErr) + html;
+  html = kiteBanner() + html;
   v.innerHTML = html;
+}
+// Kite login alarm (relay KiteWatch.gs): a replaced login is otherwise invisible until something breaks.
+function kiteBanner(){
+  const k = S.kite;
+  if (!k || k.error || k.state === 'ok') return '';
+  const msg = k.state === 'rejected' ? 'Kite refused the saved login at ' + esc(k.at || '') + ' IST: another login replaced it. Live quotes and candle charts are off until you log in again.'
+                                     : 'No Kite login yet today. Live quotes and candle charts start after the morning login.';
+  return '<div class="notice" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;justify-content:space-between"><span>' + msg + '</span>' +
+    (k.login_link ? '<a class="btn" href="' + esc(k.login_link) + '" target="_blank" rel="noopener noreferrer">Log in to Kite</a>' : '') + '</div>';
 }
 
 // What the library still needs, and how much of the BharatStock allowance is used (library tracker, 10 Oct 2026).
