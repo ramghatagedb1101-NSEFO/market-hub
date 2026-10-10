@@ -144,7 +144,7 @@ function nseChart_(sym) {
   const r = privateRaw_(readToken, 'px/' + key + '.json', 'prices');
   const code = r.getResponseCode();
   if (code === 404) return { error: 'the daily run has not published the NSE closes yet (they are written at 06:15 IST)', reason: 'not_published' };
-  if (code === 401 || code === 403) return { error: 'GitHub refused the relay's read token (' + code + '); it may have expired', reason: 'config' };
+  if (code === 401 || code === 403) return { error: "GitHub refused the relay's read token (" + code + "); it may have expired", reason: 'config' };
   if (code !== 200) return { error: 'GitHub returned ' + code + ' when reading the NSE closes', reason: 'github' };
   const d = JSON.parse(r.getContentText()), row = (d.close || {})[sym];
   const last = (d.dates || [])[(d.dates || []).length - 1];
@@ -180,7 +180,7 @@ function bsChart_(sym, days) {
   do {
     const r = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/prices?from=' + from + '&page_size=1000' + (page > 1 ? '&page=' + page : ''),
                                 { muteHttpExceptions: true, headers: { 'X-API-Key': bsKey } });
-    if (r.getResponseCode() === 429) return { error: 'today's BharatStock allowance is used up (it resets at 05:30 IST)', reason: 'quota' };
+    if (r.getResponseCode() === 429) return { error: "today's BharatStock allowance is used up (it resets at 05:30 IST)", reason: 'quota' };
     if (r.getResponseCode() === 404) return { error: 'BharatStock has no prices for ' + sym, reason: 'no_trades' };
     if (r.getResponseCode() !== 200) return { error: 'BharatStock returned ' + r.getResponseCode(), reason: 'other' };
     body = JSON.parse(r.getContentText());
