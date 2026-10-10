@@ -258,7 +258,7 @@ function logout(){
 // ======================================================================================
 // Data
 // ======================================================================================
-const S = { admin: null, lib: null, mb: null, sl: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {} };
+const S = { admin: null, lib: null, mb: null, sl: null, watch: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {} };
 
 function start(){
   $('login').style.display = 'none'; $('app').style.display = 'block';
@@ -272,6 +272,7 @@ function start(){
     computeFactors();
     renderNav(); rerender();
   }).catch(e => { S.libErr = e.message; rerender(); });
+  loadWatch();
   call('adminShortlist', token).then(d => { S.sl = d; if (current.page === 'shortlist' || current.page === 'overview') rerender(); })
     .catch(e => { S.sl = { error: e.message }; rerender(); });
   call('adminIndustries', token).then(d => {
@@ -306,6 +307,28 @@ function hydrateLib(d){
     return s;
   });
   return d;
+}
+// Watchlist (11 Oct 2026), shared with the phone app (relay Phone.gs, script property WATCHLIST).
+function loadWatch(){
+  call('adminWatch', token).then(d => { S.watch = d; if (current.page === 'overview' || current.page === 'stock') rerender(); })
+    .catch(e => { S.watch = { error: e.message }; });
+}
+function isStarred(sym){ return !!(S.watch && (S.watch.items || []).some(w => w.symbol === sym)); }
+function toggleStar(sym){
+  call('adminWatchToggle', token, sym).then(r => { if (r && r.error) { alert(r.error); return; } loadWatch(); }).catch(e => alert(e.message));
+}
+function watchPanel(){
+  const W = S.watch;
+  const head = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Watchlist</h3><span class="muted" style="font-size:12px">shared with the phone · return since starred vs NIFTY</span></div>';
+  if (!W) return head + '<div class="panel-b"><div class="skel"></div></div></div>';
+  if (W.error) return head + '<div class="panel-b"><div class="notice">' + esc(W.error) + '</div></div></div>';
+  if (!(W.items || []).length) return head + '<div class="empty">Nothing starred yet. Use ☆ Star on any stock report, here or on the phone.</div></div>';
+  return head + '<table class="t"><tr><th class="l">Company</th><th>Starred</th><th>Since starred</th><th>vs NIFTY</th><th>Mkt cap</th><th>P/E</th><th>12M</th></tr>' +
+    W.items.map(w => { const g = w.figures || {};
+      return '<tr class="click" onclick="openStock(\'' + esc(w.symbol) + '\')"><td class="l">' + companyCell(w.symbol) + '</td><td class="num">' + esc(fmtDate(w.starred_on)) + '</td>' +
+        '<td class="num ' + cls(w.ret) + '">' + pct(w.ret) + '</td><td class="num ' + cls(w.excess) + '">' + (w.excess == null ? '–' : (w.excess > 0 ? '+' : '') + num(w.excess, 1) + ' pts') + '</td>' +
+        '<td class="num">' + crore(g.market_value_bucket) + '</td><td class="num">' + (g.pe == null ? '–' : num(g.pe, 1) + '×') + '</td><td class="num ' + cls(g.ret_12m) + '">' + pct(g.ret_12m) + '</td></tr>'; }).join('') +
+    '</table>' + (W.live ? '' : '<div class="muted" style="font-size:12px;padding:8px 12px">Returns since starring need today\'s Kite login.</div>') + '</div>';
 }
 function renderFoot(){
   const s = (S.admin && S.admin.status) || {};
@@ -565,6 +588,7 @@ function pageOverview(){
       const tot = dq.reduce((a, b) => a + b, 0) || 1;
       return '<div style="display:flex;align-items:center;gap:10px;margin:8px 0"><span style="width:170px;font-size:13px">' + l + '</span><span style="flex:1;height:8px;border-radius:4px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:' + (n / tot * 100) + '%;background:' + c + '"></i></span><span class="num" style="width:56px;text-align:right">' + num(n, 0) + '</span></div>';
     }).join('')) + '</div></div></div>';
+  html += watchPanel();
   html += freshnessPanel(trk);
   if (S.libErr) html = errBlock('Library: ' + S.libErr) + html;
   if (S.mbErr) html = errBlock('Multi-bagger data: ' + S.mbErr) + html;
@@ -894,7 +918,7 @@ function pageStock(sym){
   let html = '<button class="back" onclick="history.length > 1 ? history.back() : go(\'overview\')">← Back</button>' +
     '<div class="rep-head"><div><h1 class="rep-title">' + esc(name || sym) + '</h1><div class="rep-meta"><span class="chip num">NSE: ' + esc(sym) + '</span>' +
     (sectorOf(sym) ? '<span class="chip">' + esc(sectorOf(sym)) + '</span>' : '') + (s && s.latest_period ? '<span class="chip">Results to ' + esc(fmtDate(s.latest_period)) + '</span>' : '') + badges.join('') + '</div></div>' +
-    '<div class="price">' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:500">· ' + esc(fmtDate(last[0])) + '</span></div>'
+    '<div class="price"><button class="btn" style="margin-bottom:6px" onclick="toggleStar(\'' + esc(sym) + '\')">' + (isStarred(sym) ? '★ Starred' : '☆ Star') + '</button>' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:500">· ' + esc(fmtDate(last[0])) + '</span></div>'
                             : D5.loading ? '<div class="skel" style="width:140px;height:26px"></div>' : '') + '</div></div>';
 
   html += '<div class="stats">' + [

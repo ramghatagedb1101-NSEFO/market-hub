@@ -128,8 +128,12 @@ def momentum_measures(series) -> dict:
     return out
 
 
+FIGURES = ("roe", "net_margin", "rev_yoy", "profit_yoy", "profit_consistency_8q", "promoter_holding",
+           "fii_holding", "dii_holding", "pledge_pct", "mf_schemes_holding", "debt_to_equity")
+
+
 def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, nifty: dict,
-          today: date) -> dict:
+          today: date, names: dict | None = None) -> dict:
     by_sym = {s["symbol"]: s for s in stocks if s.get("cells")}
 
     def value(s, k):
@@ -251,7 +255,9 @@ def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, n
             why.append(f"Trend intact: above its 50- and 200-day averages, within {-m['off_high']:.0f}% of its 52-week high")
         if pe and pe > 0 and ipe and pe < 0.8 * ipe:
             why.append(f"Valued below its industry: P/E {pe:.1f}x against a median of {ipe:.1f}x")
-        pools[style].append({"symbol": sym, "industry": ind, "score": _rnd(score), "factors": f, "why": why,
+        figs = {k: v(k) for k in FIGURES if v(k) is not None and (k != "fii_holding" or fii_ok(s))}
+        pools[style].append({"symbol": sym, "name": (names or {}).get(sym, ""), "figures": figs,
+                             "industry": ind, "score": _rnd(score), "factors": f, "why": why,
                              "watch": watch, "ret_1m": m.get("ret_1m"), "last": m.get("last"),
                              "mcap": mcap, "pe": pe, "ret_12m": v("ret_12m")})
 
@@ -355,8 +361,8 @@ def track(lists: dict, prices: dict, nifty: dict, today: date) -> dict:
     return out
 
 
-def publish(stocks, mb_by_sym, industries, prices, nifty, today, generated) -> dict:
-    lists = build(stocks, mb_by_sym, industries, prices, nifty, today)
+def publish(stocks, mb_by_sym, industries, prices, nifty, today, generated, names=None) -> dict:
+    lists = build(stocks, mb_by_sym, industries, prices, nifty, today, names)
     record = track(lists, prices, nifty, today)
     payload = {"generated": generated, "list_size": LIST_SIZE, "per_industry": PER_INDUSTRY, "core_weeks": CORE_WEEKS,
                "weights": WEIGHTS, "lists": lists, "track_record": record}

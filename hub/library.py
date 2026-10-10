@@ -30,6 +30,7 @@ from . import nse_feeds
 from . import documents as docs_mod
 from . import library_compact
 from . import shortlist as shortlist_mod
+from . import digest as digest_mod
 from . import shareholding as shp
 from . import corporate_actions as ca
 from . import named_holders as nh
@@ -1177,12 +1178,15 @@ def main() -> dict:
     nse = shp.session()
     feeds = state.setdefault("feeds", {})
     log = {"feeds": {}}
+    results_filed = {}
     for name, func, stage, key_name in (("results", nse_feeds.results_filed, "fin", "period"),
                                         ("shareholding", nse_feeds.shareholding_filed, "shp", "quarter")):
         since = _date(feeds.get(name))
         start = (since - timedelta(days=FEED_OVERLAP)) if since else today - timedelta(days=FIRST_FEED_LOOKBACK)
         try:
             filed = func(nse, start, today)
+            if name == "results":
+                results_filed = filed
             feeds[name] = today.isoformat()
             log["feeds"][name] = {"from": start.isoformat(), "companies_filed": len(filed),
                                   "newer_than_stored": _mark_wants(companies, filed, stage, key_name)}
@@ -1310,9 +1314,16 @@ def main() -> dict:
     # the merged multi-bagger scores.
     try:
         shortlist_summary = shortlist_mod.publish(merged_stocks, prior_mb, industries, prices, ctx["nifty"], today,
-                                                  datetime.now(config.IST).isoformat(timespec="minutes"))
+                                                  datetime.now(config.IST).isoformat(timespec="minutes"), company_names)
     except Exception as exc:
         shortlist_summary = {"error": str(exc)[:200]}
+    # The phone's "Today" digest (hub/digest.py), for the Shortlist and the watchlist.
+    try:
+        sl_payload = json.loads(shortlist_mod.OUT_FILE.read_text(encoding="utf-8"))
+        shortlist_summary["digest"] = digest_mod.build(sl_payload, companies, merged_stocks, prices, results_filed,
+                                                       company_names, today)
+    except Exception as exc:
+        shortlist_summary["digest"] = {"error": str(exc)[:200]}
     today_ist = today.isoformat()
     new_findings, alerted = alerts.find_new_discoveries(merged_stocks, prior_mb, already_alerted, today_ist)
     alert_result = alerts.send_alert(new_findings, os.getenv("RELAY_URL", ""), os.getenv("RELAY_KEY", ""))
