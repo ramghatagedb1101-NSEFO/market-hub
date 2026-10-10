@@ -1,2 +1,3 @@
 re-walk from cursor 499 to fix the 1,397 corrupted entries, 2026-10-08T09:00Z
 manual start 2026-10-10T00:38:00Z -- owner request; first batch with corrected FII reading (b745ece)
+2026-10-10 10:16 IST: first run on the tracker (free FII/shareholding pass; BharatStock allowance used up today)
