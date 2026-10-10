@@ -670,6 +670,7 @@ def merge_and_write_multibagger(mb_stocks: list[dict], prior_mb: dict, mb_failur
     return len(merged)
 
 
+SHP_VERSION = 2
 INDUSTRY_LIST = "https://nsearchives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv"
 
 # The measures the admin dashboard compares between batches for its "What changed" feed: the six
@@ -701,7 +702,7 @@ def snapshot(prior_entry: dict, prior_mb_row: dict | None) -> dict | None:
             vals[k] = round(v, 2) if isinstance(v, float) else v
     if not vals:
         return None
-    out = {"scored_on": prior_entry.get("scored_on"), "met": prior_entry.get("met"),
+    out = {"scored_on": prior_entry.get("scored_on"), "shp_v": prior_entry.get("shp_v"), "met": prior_entry.get("met"),
            "testable": prior_entry.get("testable"), "values": vals}
     if prior_mb_row and prior_mb_row.get("score") is not None:
         out["mb_score"] = prior_mb_row["score"]
@@ -938,6 +939,9 @@ def main() -> dict:
             # For the dashboard's "What changed" feed (9 Oct 2026): when this company was scored, and
             # its key figures as of the previous time it was scored.
             entry["scored_on"] = scored_on
+            # Shareholding read with the 10 Oct 2026 corrections (FII = FPI only; quarter-end filings
+            # only). The dashboard ignores FII changes on entries without this until they are re-read.
+            entry["shp_v"] = SHP_VERSION
             prior_entry = prior_stocks.get(sym)
             if prior_entry and prior_entry.get("cells"):
                 snap = snapshot(prior_entry, prior_mb.get(sym))

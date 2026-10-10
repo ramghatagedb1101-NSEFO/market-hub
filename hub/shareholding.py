@@ -30,6 +30,9 @@ def session() -> requests.Session:
     return s
 
 
+QUARTER_ENDS = {(3, 31), (6, 30), (9, 30), (12, 31)}
+
+
 def _parse_date(s: str):
     try:
         return datetime.strptime(s, "%d-%b-%Y").date()
@@ -52,6 +55,11 @@ def fetch(s: requests.Session, symbol: str) -> list[dict]:
         d = _parse_date(row.get("date"))
         pr = row.get("pr_and_prgrp")
         if d is None or pr in (None, ""):
+            continue
+        # Quarter-end filings only. NSE also lists event filings (after an allotment, say) dated mid-
+        # quarter -- 17 Aug, 4 Sep -- and comparing one of those with the previous filing was being
+        # reported as a "quarter-on-quarter" change (found 10 Oct 2026: GATECH, MICEL, DAVANGERE).
+        if (d.month, d.day) not in QUARTER_ENDS:
             continue
         prev = by_quarter.get(d)
         if prev is None or (row.get("broadcastDate") or "") > (prev.get("broadcastDate") or ""):
@@ -87,12 +95,32 @@ def institutional_from_text(text: str) -> dict:
     "...EncumberedUnderPledgedForPromoterAndPromoterGroup" flag disambiguates a genuine zero from a
     fact that is simply missing, so pledge_pct is 0.0 (not "not testable") when that flag says false."""
     out = {}
-    fii = _xbrl_fact(text, "ShareholdingAsAPercentageOfTotalNumberOfShares", "InstitutionsForeign_ContextI")
-    dii = _xbrl_fact(text, "ShareholdingAsAPercentageOfTotalNumberOfShares", "InstitutionsDomestic_ContextI")
-    if fii not in (None, ""):
-        out["fii_holding"] = float(fii) * 100
-    if dii not in (None, ""):
-        out["dii_holding"] = float(dii) * 100
+    tag = "ShareholdingAsAPercentageOfTotalNumberOfShares"
+
+    def pct(context):
+        v = _xbrl_fact(text, tag, context)
+        return None if v in (None, "") else float(v) * 100
+
+    # FII means foreign portfolio investors: FPI Category I + II. The filing's "Institutions (Foreign)"
+    # total also holds foreign direct investment, overseas depositories (ADR/GDR shares) and foreign
+    # VC funds -- strategic or custodial holdings that companies move in and out of that heading
+    # between quarters. Using the total produced false 15-30 point "FII" jumps (found 10 Oct 2026:
+    # ICICI Bank's ADR depository counted one quarter and not the previous; CleanMax and PPL Pharma's
+    # strategic foreign stakes reclassified from FDI to "foreign companies").
+    fpi = [pct("InstitutionsForeignPortfolioInvestorCategoryOne_ContextI"),
+           pct("InstitutionsForeignPortfolioInvestorCategoryTwo_ContextI")]
+    if any(x is not None for x in fpi):
+        out["fii_holding"] = sum(x for x in fpi if x is not None)
+    else:
+        # Older filings without the FPI split: the total less the non-portfolio parts it carries.
+        total = pct("InstitutionsForeign_ContextI")
+        if total is not None:
+            parts = [pct(c) for c in ("ForeignDirectInvestment_ContextI", "OverseasDepositories_ContextI",
+                                      "ForeignVentureCapitalInvestors_ContextI")]
+            out["fii_holding"] = max(0.0, total - sum(x for x in parts if x is not None))
+    dii = pct("InstitutionsDomestic_ContextI")
+    if dii is not None:
+        out["dii_holding"] = dii
     pledged_flag = _xbrl_fact(text, "WhetherAnySharesHeldByPromotersAreEncumberedUnderPledgedForPromoterAndPromoterGroup", "MainI")
     if pledged_flag is not None:
         if pledged_flag.lower() == "false":
