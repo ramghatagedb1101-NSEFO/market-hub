@@ -51,6 +51,19 @@ def _pct(x):
     return f"{x:+.1f}%"
 
 
+# Compliance filings every company makes on a calendar; they never explain a price move (owner, 11 Oct:
+# "Certificate under SEBI (Depositories and Participants) Regulations" was shown as the reason for a fall).
+ROUTINE = ("74(5)", "74 (5)", "depositories and participants", "newspaper", "trading window", "share certificate",
+           "duplicate", "compliance certificate", "investor complaint", "statement of deviation", "loss of share",
+           "transfer of shares to iepf", "iepf", "change in rta", "registrar", "closure of register",
+           "secretarial compliance", "certificate under regulation", "regulation 40(9)", "regulation 7(3)")
+
+
+def _routine(subject: str) -> bool:
+    s = (subject or "").lower()
+    return any(k in s for k in ROUTINE)
+
+
 def move_reason(sym: str, prices: dict, industries: dict, announcements: dict, nifty: dict) -> str:
     """Why a stock moved, from what the run already holds: NIFTY and its industry that day (median move
     of the industry's stocks that traded), volume against its 20-day average, and any announcement."""
@@ -85,7 +98,7 @@ def move_reason(sym: str, prices: dict, industries: dict, announcements: dict, n
         elif r <= 0.7:
             parts.append("on light volume")
     lo = (d1 - timedelta(days=1)).isoformat()
-    anns = [a for a in announcements.get(sym, []) if a[0] and lo <= a[0] <= d1.isoformat()]
+    anns = [a for a in announcements.get(sym, []) if a[0] and lo <= a[0] <= d1.isoformat() and not _routine(a[1])]
     if anns:
         parts.append("filed: " + anns[-1][1])
     elif not with_industry:
@@ -154,13 +167,25 @@ def build(shortlist: dict, companies: dict, stocks: list[dict], prices: dict, re
 
         def first_why(st, s):
             item = next((x for x in shortlist["lists"][st]["top"] if x["symbol"] == s), {})
-            return (item.get("why") or [""])[0].split(" - better")[0]
+            first = (item.get("why") or [""])[0].split(" - better")[0]
+            if st != "compounders":
+                return first
+            # a compounder qualifies on its record: lead with it
+            cells = (by_sym.get(s) or {}).get("cells") or {}
+            val = lambda k: (cells.get(k) or {}).get("value")
+            rec = []
+            if val("profitable_share_10y") is not None:
+                rec.append(f"Profitable in {val('profitable_share_10y'):.0f}% of the last 10 years")
+            if val("profit_cagr_5y") is not None:
+                rec.append(f"profit {val('profit_cagr_5y'):+.0f}% a year over 5 years")
+            return "; ".join(rec + ([first] if first else [])) if rec else first
         for st in lists:
             other = "emerging" if st == "compounders" else "compounders"
             for s in joined[st]:
                 if s in left.get(other, []):          # one line for a move between the two lists
                     add("shortlist", s, f"Moved from {label[other]} to {label[st]}", "",
-                        why=left_reason(s, other, shortlist, by_sym, joined[other]) + ". " + first_why(st, s))
+                        why=f"Out of {label[other]}: " + left_reason(s, other, shortlist, by_sym, joined[other])[0].lower()
+                        + left_reason(s, other, shortlist, by_sym, joined[other])[1:] + f". Into {label[st]}: " + first_why(st, s).lower())
                 else:
                     add("shortlist", s, f"Joined the {label[st]} list", "", why=first_why(st, s))
             for s in left[st]:
