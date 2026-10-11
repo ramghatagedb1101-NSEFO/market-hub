@@ -390,8 +390,16 @@
     const last = live ? live.last : b.last_close;
     const chg = live ? live.change_pct : (b.history.length > 1 ? (b.last_close / b.history[b.history.length-2].c - 1) * 100 : null);
     const inside = t.actual != null && t.lo <= t.actual && t.actual <= t.hi;
-    const flag = t.actual == null ? `<span class="flag">PENDING CLOSE</span>`
-      : inside ? `<span class="flag g">IN BAND</span>` : `<span class="flag r">OUT OF BAND</span>`;
+    // Before the target session (a weekend, a holiday, or the evening before) there is nothing pending
+    // today: show the last close instead (owner, 11 Oct 2026). On the target day itself the close is due at 15:30.
+    const lastDay = b.history.length ? b.history[b.history.length - 1].d : null;
+    const todayIst = toIst(new Date().toISOString()).toISOString().slice(0, 10);
+    const dueToday = t.target && String(t.target).slice(0, 10) === todayIst;
+    const flag = t.actual != null ? (inside ? `<span class="flag g">IN BAND</span>` : `<span class="flag r">OUT OF BAND</span>`)
+      : dueToday ? `<span class="flag">CLOSES 15:30 IST</span>` : `<span class="flag">${esc(asClose(lastDay).toUpperCase())}</span>`;
+    const actualRow = t.actual != null ? `<span class="l">Actual close</span><span class="r">${f(t.actual,2)} &nbsp;${pct((t.actual / t.pred - 1) * 100)}</span>`
+      : dueToday ? `<span class="l">Actual close</span><span class="r">today, after 15:30 IST</span>`
+      : `<span class="l">${esc(asClose(lastDay))}</span><span class="r">${f(b.last_close,2)}</span>`;
     const ahead = b.horizons.day.forecast;
     const trk = HZ.map(h => b.horizons[h].stats.n).reduce((a, n) => a + n, 0);
     return `<div class="panel">
@@ -400,7 +408,7 @@
         <div class="row"><span class="l">Last</span><span class="r ${cls(chg)}">${f(last,2)} &nbsp;${pct(chg)}</span></div>
         <div class="row"><span class="l">Estimate · ${esc(t.target ? "close " + dayTxt(parseDay(t.target)) : "")}</span><span class="r">${f(t.pred,0)} &nbsp;<span class="${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)}</span></span></div>
         ${band(t.base, t.pred, t.lo, t.hi)}
-        <div class="row"><span class="l">Actual close</span><span class="r">${t.actual == null ? "after the 15:30 IST close" : f(t.actual,2) + " &nbsp;" + pct((t.actual / t.pred - 1) * 100)}</span></div>
+        <div class="row">${actualRow}</div>
         <div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>
         <div class="row"><span class="l">${LABEL.day} est.</span><span class="r">${ahead ? f(ahead.pred,0) : "–"}</span></div>
         <div class="row"><span class="l">Settled outcomes</span><span class="r amb">${trk ? trk : "0 · no verdict yet"}</span></div>
@@ -748,7 +756,8 @@
     const items = D.items || [];
     const rows = items.slice(0, 12).map(x => `<div class="dg" onclick="openStock('${esc(x.symbol)}')"><span class="ic ${x.type === "move" ? (x.change > 0 ? "up" : "dn") : ""}">${icon[x.type] || "•"}</span>
       <div><div class="tt">${esc(x.symbol)} · ${esc(x.title)}</div><div class="sb">${esc([x.scope, x.detail].filter(Boolean).join(" · "))}</div></div></div>`).join("");
-    el.innerHTML = `<div class="sec">Today · ${esc(D.since ? "since " + dayTxt(parseDay(D.since)) : asSnap(D.generated))}</div>
+    el.innerHTML = `<div class="sec">What changed for your stocks</div>
+      <div class="note" style="margin:-2px 2px 6px">Shortlist and watchlist · ${esc(asSnap(D.generated))}</div>
       <div class="panel" style="margin-bottom:10px"><div class="pb">${rows || `<div class="mut">Nothing new for your ${D.scope || 0} shortlisted and watched companies.</div>`}
       ${items.length > 12 ? `<div class="note">+${items.length - 12} more</div>` : ""}</div></div>`;
   }

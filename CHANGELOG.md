@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-11
 
+### Phone: index cards show the last close outside the target session; clearer digest header
+Owner feedback on a weekend screenshot: "Pending close" and "after the 15:30 IST close" read as if a close was due that day.
+- **Index forecast cards** (Home): until the forecast's target session, the badge and row show the last close ("Close · Fri 9 Oct" with its value). On the target day before the close they say "Closes 15:30 IST" / "today, after 15:30 IST"; after settling, "In band" or "Out of band" with the actual close, as before.
+- **Today box** renamed "What changed for your stocks", with "Shortlist and watchlist · As of HH:MM IST · Day d Mon" underneath.
+- Service-worker cache bumped to v12 so phones pick up the change.
+
 ### Chart indicators; email alerts for the daily digest and watchlist moves
 Owner approved two quick wins from the improvement list. Telegram was built first and dropped the same hour (owner: "I dont use telegram"); the alerts go to Gmail instead, which already reaches the phone.
 - **Chart indicators** (dashboard stock report, `drawPriceChart`): one lower panel at a time -- Volume, RSI (14, Wilder; 70/30 lines) or MACD (12, 26, 9 with histogram) -- plus Bollinger bands (20, 2) and 52-week high/low lines as overlays. Computed in the page from the same candles (Kite, NSE closes or BharatStock), so nothing new is fetched. The hover legend shows the RSI or MACD reading. Checked against the textbook Wilder RSI example (70.46 vs 70.53 published, the difference is the published rounding).
