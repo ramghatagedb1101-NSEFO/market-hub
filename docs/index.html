@@ -396,21 +396,26 @@
     const todayIst = toIst(new Date().toISOString()).toISOString().slice(0, 10);
     const dueToday = t.target && String(t.target).slice(0, 10) === todayIst;
     const flag = t.actual != null ? (inside ? `<span class="flag g">IN BAND</span>` : `<span class="flag r">OUT OF BAND</span>`)
-      : dueToday ? `<span class="flag">CLOSES 15:30 IST</span>` : `<span class="flag">${esc(asClose(lastDay).toUpperCase())}</span>`;
+      : dueToday ? `<span class="flag">CLOSES 15:30 IST</span>` : `<span class="flag">${esc(("Next session · " + dayTxt(parseDay(t.target))).toUpperCase())}</span>`;
     const actualRow = t.actual != null ? `<span class="l">Actual close</span><span class="r">${f(t.actual,2)} &nbsp;${pct((t.actual / t.pred - 1) * 100)}</span>`
       : dueToday ? `<span class="l">Actual close</span><span class="r">today, after 15:30 IST</span>`
-      : `<span class="l">${esc(asClose(lastDay))}</span><span class="r">${f(b.last_close,2)}</span>`;
+      : null;   // shown in the first row instead (no duplicate)
+    const lastLabel = marketOpenIst() ? "Last" : asClose(lastDay);   // outside market hours the figure is a close
     const ahead = b.horizons.day.forecast;
+    // The next-session forecast is often the same one as the card's estimate (same target day): show it only
+    // when it is a later day, with that day's date (owner, 11 Oct 2026: duplicates).
+    const nextRow = ahead && ahead.target && String(ahead.target).slice(0, 10) !== String(t.target || "").slice(0, 10)
+      ? `<div class="row"><span class="l">Estimate · close ${esc(dayTxt(parseDay(ahead.target)))}</span><span class="r">${f(ahead.pred,0)} &nbsp;<span class="${cls(ahead.expected_move_pct)}">${pct(ahead.expected_move_pct)}</span></span></div>` : "";
     const trk = HZ.map(h => b.horizons[h].stats.n).reduce((a, n) => a + n, 0);
     return `<div class="panel">
       <div class="ph"><span>${esc(NAMES[name] || name)}</span>${flag}</div>
       <div class="pb">
-        <div class="row"><span class="l">Last</span><span class="r ${cls(chg)}">${f(last,2)} &nbsp;${pct(chg)}</span></div>
+        <div class="row"><span class="l">${esc(lastLabel)}</span><span class="r ${cls(chg)}">${f(last,2)} &nbsp;${pct(chg)}</span></div>
         <div class="row"><span class="l">Estimate · ${esc(t.target ? "close " + dayTxt(parseDay(t.target)) : "")}</span><span class="r">${f(t.pred,0)} &nbsp;<span class="${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)}</span></span></div>
         ${band(t.base, t.pred, t.lo, t.hi)}
-        <div class="row">${actualRow}</div>
+        ${actualRow ? `<div class="row">${actualRow}</div>` : ""}
         <div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>
-        <div class="row"><span class="l">${LABEL.day} est.</span><span class="r">${ahead ? f(ahead.pred,0) : "–"}</span></div>
+        ${nextRow}
         <div class="row"><span class="l">Settled outcomes</span><span class="r amb">${trk ? trk : "0 · no verdict yet"}</span></div>
       </div>
     </div>`;
