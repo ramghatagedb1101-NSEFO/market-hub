@@ -7,6 +7,7 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 ### Phone: index cards show the last close outside the target session; clearer digest header
 Owner feedback on a weekend screenshot: "Pending close" and "after the 15:30 IST close" read as if a close was due that day.
 - **Index forecast cards** (Home): until the forecast's target session, the badge and row show the last close ("Close · Fri 9 Oct" with its value). On the target day before the close they say "Closes 15:30 IST" / "today, after 15:30 IST"; after settling, "In band" or "Out of band" with the actual close, as before.
+- **No duplicate rows** (owner, same day): outside market hours the first row is labelled with the close date ("Close · Fri 9 Oct") and the separate close row is dropped; the badge names the next session ("Next session · Mon 12 Oct"); "Next session est." appears only when it is a later day than the card's estimate, with its date.
 - **Today box** renamed "What changed for your stocks", with "Shortlist and watchlist · As of HH:MM IST · Day d Mon" underneath.
 - Service-worker cache bumped to v12 so phones pick up the change.
 
