@@ -941,7 +941,8 @@
       return { running: true, html: `Summary run started at ${esc(hhmm(started))} IST. A transcript takes about 3–5 minutes, an annual report up to 10.` };
     if (st && st.state === "error") {
       const busy = /503|high demand|unavailable|disconnected|timed out|429/i.test(st.message || "");
-      return { html: `<span class="amb">Last attempt at ${esc(hhmm(st.at))} IST did not finish: ${busy ? "Google's free AI service was busy." : esc(st.message || "")}</span> Try again in a few minutes.` };
+      const which = /annual report/i.test(st.message || "") ? "The annual-report summary" : /transcript/i.test(st.message || "") ? "The transcript summary" : "The last summary run";
+      return { html: `<span class="amb">${which} at ${esc(hhmm(st.at))} IST did not finish: ${busy ? "Google's free AI service was busy." : esc(st.message || "")}</span> Try again in a few minutes.` };
     }
     if (st && st.state === "skipped") return { html: esc(st.message || "") };
     return null;
