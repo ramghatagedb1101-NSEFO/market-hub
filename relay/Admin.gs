@@ -144,17 +144,19 @@ function sendDiscoveryAlert_(key, body) {
   try { payload = JSON.parse(body); } catch (err) { return { error: 'bad JSON body' }; }
   const findings = payload.findings || [];
   if (!findings.length) return { ok: true, sent: 0 };
-  const tierLabel = { 1: 'Tier 1 -- pounce (fewer than 5 mutual fund schemes hold it)',
-                      2: 'Tier 2 -- watch (5-20 schemes)' };
+  const tierLabel = { 1: 'Tier 1: fewer than 5 fund schemes hold it',
+                      2: 'Tier 2: 5-20 fund schemes hold it' };
   const lines = findings.map(function (f) {
     return f.symbol + ': ' + (tierLabel[f.tier] || ('tier ' + f.tier)) +
       ' -- library ' + f.met + '/' + f.testable + ' gates met (' + f.data_quality_pct + '% data quality)' +
-      (f.mb_score != null ? ', multi-bagger score ' + f.mb_score + '/4' : '');
+      (f.mb_score != null ? ', multi-bagger score ' + f.mb_score + '/4' : '') +
+      (f.dii_pct != null ? '\n    institutions own ' + f.dii_pct + '% · profit up in ' + f.profit_up_8q + ' of 8 quarters · Rs ' + f.turnover_cr + ' cr traded a day' : '');
   });
-  const subject = 'Market Hub: ' + findings.length + ' new discovery-tier stock' + (findings.length > 1 ? 's' : '');
+  const subject = 'Market Hub: ' + findings.length + ' little-owned stock' + (findings.length > 1 ? 's' : '') + ' worth a look';
   const body_ = 'New this batch (' + todayIst_() + '):\n\n' + lines.join('\n') +
-    '\n\nFewer mutual fund schemes holding a stock is the bullish read here: the market has not ' +
-    'found it yet. Check the admin dashboard\'s Library tab for the full parameter breakdown before acting.';
+    '\n\nEach passed 70%+ of its checks and 3+ of the 4 multi-bagger gates, has profit up in 5+ of the last 8 quarters, trades Rs 2 cr+ a day, ' +
+    'and institutions own under 5% of it. Little fund ownership means the market may not have found it yet, ' +
+    'not that it is a buy: open the stock report (Mutual funds holding it, Documents) before acting.';
   MailApp.sendEmail(Session.getEffectiveUser().getEmail(), subject, body_);
   return { ok: true, sent: findings.length };
 }

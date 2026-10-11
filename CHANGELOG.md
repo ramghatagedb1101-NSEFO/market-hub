@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-11
 
+### Mutual funds holding it (stock report); stricter discovery alert
+Owner fact-checked the first Sunday discovery email (SESHAPAPER, SOUTHWEST, TIMETECHNO) and asked to see which funds hold a stock.
+- **Fact check**: scheme counts were right for the two Tier 1 names (1 scheme; public trackers show 0% fund ownership), overstated for Time Technoplast (18 here vs 12 schemes on Trendlyne). The alert's logic was the real problem: Time Technoplast was sent as "watch" with funds owning 13.5% of it; Seshasayee Paper as "pounce" with profit up in only 2 of 8 quarters and Rs 1.5 cr traded a day.
+- **Discovery alert** (`hub/alerts.py`) now also needs: domestic institutions owning under 5% (NSE shareholding; funds are part of it), Rs 2 cr+ traded a day, profit up in 5+ of the last 8 quarters, 70%+ of checks passed (was 60%) and 3+ of the 4 multi-bagger gates. None of the three original names would pass. The email says "worth a look" (no "pounce") and shows the ownership, profit and turnover figures.
+- **Mutual funds holding it** (`relay/Funds.gs`, `adminFunds`; stock report): each scheme with shares held, % of the company (BharatStock's figure when given, else shares / shares outstanding from market value and the latest close), last month's change (new / added / cut), % of the scheme and the portfolio date. Live from BharatStock when the report opens, never stored (licence); one request per report. BharatStock gives no first-purchase date, so "new" means first seen in the latest monthly portfolio. The endpoint's field names were never logged, so the panel lists the fields returned when a column comes back empty.
+
 ### Compounders fixed: 10-year record required, ROE only where reported; digest gives the reason for each change
 Found while adding reasons to the digest (owner: the list name under each change added nothing). The first catch-up run on the long-term rules replaced 7 of 8 compounders, and the new list held PNB, YES Bank and Vedanta.
 - **Cause 1: the ROE rule could almost never be tested.** BharatStock reports shareholders' equity for very few companies: 5-year average ROE exists for 30 of 2,573 (current ROE for 91). A missing figure counted as a fail, so HAL, CAMS, Glaxo, Caplin Point and National Aluminium left for a number that was never computed. The rule now counts only where ROE is reported.

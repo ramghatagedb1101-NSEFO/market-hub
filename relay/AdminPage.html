@@ -258,7 +258,7 @@ function logout(){
 // ======================================================================================
 // Data
 // ======================================================================================
-const S = { admin: null, lib: null, mb: null, sl: null, watch: null, kite: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {} };
+const S = { admin: null, lib: null, mb: null, sl: null, watch: null, kite: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {}, funds: {} };
 
 function start(){
   $('login').style.display = 'none'; $('app').style.display = 'block';
@@ -923,6 +923,42 @@ function loadChart(sym, r){
   call('adminChart', token, sym, pxKey(r)).then(d => { S.charts[k] = d; if (current.page === 'stock' && current.arg && current.arg.toUpperCase() === sym) rerender(); })
     .catch(e => { S.charts[k] = { error: e.message }; if (current.page === 'stock') rerender(); });
 }
+// Mutual funds holding it (relay Funds.gs): live from BharatStock when the report opens, never stored.
+function loadFunds(sym){
+  if (S.funds[sym]) return;
+  S.funds[sym] = { loading: true };
+  call('adminFunds', token, sym).then(d => { S.funds[sym] = d; if (current.page === 'stock' && current.arg && current.arg.toUpperCase() === sym) rerender(); })
+    .catch(e => { S.funds[sym] = { error: e.message }; if (current.page === 'stock') rerender(); });
+}
+function fundsPanel(sym, s){
+  const X = S.funds[sym] || { loading: true };
+  const head = '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Mutual funds holding it</h3><span class="muted" style="font-size:12px">latest monthly fund portfolios · live from BharatStock, not stored</span></div><div class="panel-b">';
+  if (X.loading) return head + '<div class="skel"></div></div></div>';
+  if (X.error) return head + '<div class="notice">' + esc(X.error) + '</div></div></div>';
+  const items = X.items || [];
+  if (!items.length) return head + '<div class="muted">No mutual fund scheme holds it in the latest monthly portfolios.</div></div></div>';
+  // % of the company: BharatStock's own figure when it gives one, else shares / shares outstanding
+  // (market value / latest close).
+  const C = S.charts[sym + '|' + pxKey(pxRange)] || {};
+  const lastPx = (C.candles || []).length ? C.candles[C.candles.length - 1][4] : null;
+  const mcap = s ? val(s, 'market_value_bucket') : null;
+  const outstanding = mcap && lastPx ? mcap * 1e7 / lastPx : null;
+  const pctOf = i => i.pct_company != null ? Number(i.pct_company) : (i.shares != null && outstanding ? Number(i.shares) / outstanding * 100 : null);
+  const chg = i => i.change == null ? '' : Number(i.change) > 0 && Number(i.change) === Number(i.shares) ? '<span style="color:var(--up)">new</span>'
+    : Number(i.change) > 0 ? '<span style="color:var(--up)">+' + num(Number(i.change), 0) + '</span>' : Number(i.change) < 0 ? '<span style="color:var(--down)">' + num(Number(i.change), 0) + '</span>' : 'unchanged';
+  const total = items.reduce((a, i) => a + (pctOf(i) || 0), 0);
+  const missing = ['shares', 'date'].filter(k => items.every(i => i[k] == null));
+  return head + '<div class="muted" style="font-size:12.5px;margin-bottom:8px">' + items.length + ' scheme' + (items.length > 1 ? 's' : '') +
+    (total ? ' · together about ' + num(total, 2) + '% of the company' : '') + '</div>' +
+    '<div style="overflow-x:auto"><table class="t"><tr><th class="l">Scheme</th><th>Shares</th><th>% of company</th><th>Last month</th><th>% of the scheme</th><th class="l">Portfolio date</th></tr>' +
+    items.map(i => '<tr><td class="l">' + esc(i.scheme) + (i.amc ? '<div class="muted" style="font-size:11.5px">' + esc(i.amc) + '</div>' : '') + '</td>' +
+      '<td class="num">' + (i.shares != null ? num(Number(i.shares), 0) : '–') + '</td><td class="num">' + (pctOf(i) != null ? num(pctOf(i), 3) + '%' : '–') + '</td>' +
+      '<td class="num">' + (chg(i) || '–') + '</td><td class="num">' + (i.pct_scheme != null ? num(Number(i.pct_scheme), 2) + '%' : '–') + '</td>' +
+      '<td class="l">' + esc(i.date ? fmtDate(String(i.date).slice(0, 10)) : '–') + '</td></tr>').join('') + '</table></div>' +
+    '<div class="muted" style="font-size:11.5px;margin-top:6px">"New" means the scheme first appears in its latest monthly portfolio; BharatStock does not give the date a fund first bought.' +
+    (pctOf(items[0]) != null && items[0].pct_company == null ? ' % of company is estimated from market value and the latest close.' : '') +
+    (missing.length ? ' Fields returned: ' + esc((X.fields || []).join(', ')) + '.' : '') + '</div></div></div>';
+}
 function loadDocs(sym, force){
   if (S.docs[sym] && !force) return;
   S.docs[sym] = { loading: true };
@@ -951,6 +987,7 @@ function pageStock(sym){
   loadChart(sym, '5Y');
   loadChart(sym, pxRange);
   loadDocs(sym);
+  loadFunds(sym);
   const D5 = S.charts[sym + '|5Y'] || { loading: true };
   const px = (D5.candles || []).map(c => [c[0], c[4]]);
   const last = px.length ? px[px.length - 1] : null;
@@ -1013,6 +1050,7 @@ function pageStock(sym){
     '<div class="muted" style="font-size:11.5px;margin-top:6px">₹ crore · live from BharatStock, not stored</div></div></div>' +
     documentsPanel(sym) + '</div>';
   html += aiPanel(sym);
+  html += fundsPanel(sym, S.bySym[sym]);
 
   html += factorPanel(sym);
   // Scorecard

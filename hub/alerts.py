@@ -13,7 +13,14 @@ other best-effort network call in this codebase.
 import requests
 
 MIN_TESTABLE = 10     # too little data tested is not a real signal either way
-MIN_MET_RATIO = 0.6   # at least 60% of what was actually testable must be a pass
+MIN_MET_RATIO = 0.7   # at least 70% of what was actually testable must be a pass (was 60%)
+# Tightened 11 Oct 2026 after a fact check of the first Sunday alert (owner): Time Technoplast was sent as
+# "watch" with mutual funds already owning 13.5% of it; Seshasayee Paper as "pounce" with profit up in
+# only 2 of 8 quarters and Rs 1.5 cr traded a day. Few schemes is not enough on its own:
+MAX_DII_PCT = 5.0       # funds (with insurers and banks) own under 5% of the company: really undiscovered
+MIN_TURNOVER_CR = 2.0   # tradable: the Shortlist's floor, Rs 2 cr a day over 20 days
+MIN_PROFIT_UP_8Q = 5    # profit grew in 5+ of the last 8 quarters: an improving business, not one good quarter
+MIN_MB_SCORE = 3        # at least 3 of the 4 multi-bagger gates
 
 
 def find_new_discoveries(stocks: list[dict], mb_by_symbol: dict, already_alerted: dict,
@@ -33,6 +40,13 @@ def find_new_discoveries(stocks: list[dict], mb_by_symbol: dict, already_alerted
         testable, met = s.get("testable", 0), s.get("met", 0)
         if testable < min_testable or (met / testable) < min_met_ratio:
             continue
+        val = lambda k: ((s.get("cells") or {}).get(k) or {}).get("value")
+        dii, turnover, up8 = val("dii_holding"), val("avg_turnover_20d"), val("profit_consistency_8q")
+        if dii is None or dii >= MAX_DII_PCT or turnover is None or turnover < MIN_TURNOVER_CR \
+                or up8 is None or up8 < MIN_PROFIT_UP_8Q:
+            continue
+        if ((mb_by_symbol.get(s.get("symbol")) or {}).get("score") or 0) < MIN_MB_SCORE:
+            continue
         sym = s.get("symbol")
         tier = cell["value"]
         prev = already_alerted.get(sym)
@@ -41,6 +55,7 @@ def find_new_discoveries(stocks: list[dict], mb_by_symbol: dict, already_alerted
         findings.append({
             "symbol": sym, "tier": tier, "met": met, "testable": testable,
             "data_quality_pct": s.get("data_quality_pct"),
+            "dii_pct": round(dii, 2), "turnover_cr": round(turnover, 1), "profit_up_8q": up8,
             "mb_score": (mb_by_symbol.get(sym) or {}).get("score"),
         })
         updated[sym] = {"tier": tier, "date": today}
