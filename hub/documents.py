@@ -107,8 +107,13 @@ def fetch_company(s, sym: str, today: date) -> dict:
     return docs
 
 
-def new_filings(s, start: date, end: date) -> dict:
-    """{symbol: {kind: [items]}} for transcripts, presentations and recordings filed in [start, end]."""
+GENERIC_SUBJECTS = {"updates", "general updates", "other", "others"}
+
+
+def new_filings(s, start: date, end: date, subjects: dict | None = None) -> dict:
+    """{symbol: {kind: [items]}} for transcripts, presentations and recordings filed in [start, end].
+    subjects, if given, also collects every announcement's (date, subject) per symbol from the same
+    request -- the digest uses them to say whether a big price move came with an announcement."""
     out = {}
     a = start
     while a <= end:
@@ -117,6 +122,9 @@ def new_filings(s, start: date, end: date) -> dict:
         for row in rows if isinstance(rows, list) else []:
             k = classify(row)
             sym = (row.get("symbol") or "").strip()
+            if subjects is not None and sym:
+                desc, text = (row.get("desc") or "").strip(), (row.get("attchmntText") or "").strip()
+                subjects.setdefault(sym, []).append((_when(row), (text if desc.lower() in GENERIC_SUBJECTS and text else desc)[:90]))
             if k and sym:
                 out.setdefault(sym, {}).setdefault(k, []).append(_item(row))
         a = b + timedelta(days=1)

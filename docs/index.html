@@ -773,8 +773,11 @@
   }
   function dgRow(x){
     return `<div class="dg" onclick="openStock('${esc(x.symbol)}')"><span class="ic ${x.type === "move" ? (x.change > 0 ? "up" : "dn") : ""}">${DG_ICON[x.type] || "•"}</span>
-      <div><div class="tt">${esc(x.symbol)} · ${esc(x.title)}</div><div class="sb">${esc([x.scope, x.detail].filter(Boolean).join(" · "))}</div></div></div>`;
+      <div><div class="tt">${esc(x.symbol)} · ${esc(x.title)}</div><div class="sb">${esc(dgWhy(x))}</div></div></div>`;
   }
+  // The reason the change happened (hub/digest.py "why"); the list name it belongs to adds nothing (owner, 11 Oct).
+  // Digests written before the reasons existed fall back to their detail line.
+  function dgWhy(x){ return x.why || x.detail || ""; }
   async function renderToday(){
     const el = $("#home-today");
     try { DG = await getFile("digest"); } catch(e){ el.innerHTML = ""; return; }

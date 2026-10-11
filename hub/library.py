@@ -1295,10 +1295,11 @@ def main() -> dict:
                                   "newer_than_stored": _mark_wants(companies, filed, stage, key_name)}
         except Exception as exc:
             log["feeds"][name] = {"error": str(exc)[:120]}
+    announcements = {}     # every announcement subject in the window, for the digest's move reasons
     since = _date(feeds.get("documents"))
     if since:      # the first run fills each company from its own list instead
         try:
-            filed = docs_mod.new_filings(nse, since - timedelta(days=FEED_OVERLAP), today)
+            filed = docs_mod.new_filings(nse, since - timedelta(days=FEED_OVERLAP), today, announcements)
             added = 0
             for sym, kinds in filed.items():
                 if sym in companies:
@@ -1442,7 +1443,7 @@ def main() -> dict:
     try:
         sl_payload = json.loads(shortlist_mod.OUT_FILE.read_text(encoding="utf-8"))
         shortlist_summary["digest"] = digest_mod.build(sl_payload, companies, merged_stocks, prices, results_filed,
-                                                       company_names, today)
+                                                       company_names, today, industries, announcements, ctx["nifty"])
     except Exception as exc:
         shortlist_summary["digest"] = {"error": str(exc)[:200]}
     today_ist = today.isoformat()

@@ -43,12 +43,14 @@ OUT_FILE = config.SITE_DIR / "data" / "shortlist.json"
 
 _ge = lambda v, k, x: v(k) is not None and v(k) >= x
 # Proven compounders (11 Oct 2026): judged on years of annual results, plus "still delivering" and the
-# ownership / size gates. Companies whose long-term figures have not arrived yet (until the next annual
-# refresh) are judged on the earlier 8-quarter rules, so the screen never goes blank in between.
+# ownership / size gates. A company qualifies only once its 10-year record is loaded: the first catch-up
+# run let companies without it through on the easier 8-quarter rules, which put PNB, YES Bank and Vedanta
+# on the list while companies with a real record were judged harder. BharatStock reports equity for very
+# few companies (5-year ROE for 30 of 2,573), so the ROE rule counts only where ROE is reported.
 COMPOUNDER_RULES = (
     ("Profitable in 90%+ of the last 10 years", lambda v: _ge(v, "profitable_share_10y", 90)),
     ("Profit grew 12%+ a year over 5 years", lambda v: _ge(v, "profit_cagr_5y", 12)),
-    ("Average ROE 15%+ over 5 years", lambda v: _ge(v, "roe_avg_5y", 15)),
+    ("Average ROE 15%+ over 5 years (where reported)", lambda v: v("roe_avg_5y") is None or v("roe_avg_5y") >= 15),
     ("Operating cash 0.8x+ profit over 5 years", lambda v: _ge(v, "cfo_to_pat_5y", 0.8)),
     ("Still delivering: profit grew in 5+ of the last 8 quarters", lambda v: _ge(v, "profit_consistency_8q", 5)),
     ("Held by 30+ fund schemes", lambda v: _ge(v, "mf_schemes_holding", 30)),
@@ -64,11 +66,12 @@ LEGACY_COMPOUNDER_RULES = (
     ("Market cap >= Rs 5,000 cr", lambda v: _ge(v, "market_value_bucket", 5000)),
 )
 LONGTERM_KEYS = ("profitable_share_10y", "profit_cagr_5y", "roe_avg_5y", "cfo_to_pat_5y")
+WAITING_RULES = (("Waiting for its 10-year record to load", lambda v: False),)
 
 
 def compounder_rules(v):
-    """The long-term rule set when the company has its long-term figures, else the earlier one."""
-    return COMPOUNDER_RULES if any(v(k) is not None for k in LONGTERM_KEYS) else LEGACY_COMPOUNDER_RULES
+    """The long-term rules once the company's 10-year record is loaded; until then it cannot qualify."""
+    return COMPOUNDER_RULES if v("profitable_share_10y") is not None else WAITING_RULES
 # Same factor definitions as the dashboard's factor rankings, except momentum (see the module note).
 FACTORS = {
     "quality": [("roe", 1), ("roce", 1), ("net_margin", 1), ("operating_margin", 1), ("cfo_to_pat", 1),
