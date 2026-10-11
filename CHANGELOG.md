@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-11
 
+### AI summaries: retry when Gemini is busy; the phone shows a run's progress and failures
+Owner: IOLCP's "Summarise latest with AI" said 1-3 minutes, but reopening kept showing "No AI summary yet".
+- **Cause 1:** the free Gemini model answered 503 "high demand" and dropped a connection; the code fell back to the lighter model only on the daily rate limit and never retried, so the documents failed (the 21:40 run, PGIL). Now a rate limit, an overload or a dropped connection gets the same model again after 20 s, then the lighter model twice (`ask_gemini`, `hub/summaries.py`).
+- **Cause 2:** the phone ignored the run's state, so a running or failed summary looked like nothing happened. The AI section now says "Summary run started at HH:MM IST..." with a **Check again** button (re-reads only the documents), or "Last attempt at HH:MM did not finish: Google's free AI service was busy" with **Try again**. Its closed line reads "Summary being written…" while a run is going.
+- **Timing:** a run takes minutes per document (8 minutes for one company today); the message now says about 3-5 minutes for a transcript and up to 10 for an annual report (phone and dashboard).
+
 ### Phone: search any company; full company page in sections
 Owner: the phone could open a company only from the Shortlist, the digest or the watchlist, with a few figures; everything should be reachable, arranged for the small screen with drill-down.
 - **Search** (magnifier next to Settings): all 2,573 library companies by symbol or name (symbol matches first, then name words), recently opened companies when the box is empty. The list (with the measure catalogue) comes from the relay (`app_names`, `relay/Company.gs`) and is kept on the phone for a day.

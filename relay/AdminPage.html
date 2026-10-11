@@ -1350,7 +1350,7 @@ function aiPanel(sym){
   } else {
     body = '<div class="muted">' + (docsAny ? 'No AI summary yet for this company.' : 'No transcript or annual report on file yet, so nothing to summarise.') + '</div>';
   }
-  const status = pending ? '<div class="notice" style="margin-bottom:10px">Summary run started at ' + esc(String(X.summary_started).slice(11)) + '. It usually takes 1–3 minutes. <button class="btn" style="padding:3px 9px;margin-left:6px" onclick="loadDocs(\'' + esc(sym) + '\', true)">Refresh</button></div>'
+  const status = pending ? '<div class="notice" style="margin-bottom:10px">Summary run started at ' + esc(String(X.summary_started).slice(11)) + '. A transcript takes about 3–5 minutes, an annual report up to 10. <button class="btn" style="padding:3px 9px;margin-left:6px" onclick="loadDocs(\'' + esc(sym) + '\', true)">Refresh</button></div>'
     : st && st.state === 'error' ? '<div class="notice" style="margin-bottom:10px">' + esc(st.message) + '</div>' : '';
   return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>AI summary</h3><div style="display:flex;gap:8px;align-items:center">' +
     (tabs.length > 1 ? '<div class="seg">' + tabs.map(x => '<button class="' + (tab === x[0] ? 'on' : '') + '" onclick="aiTab=\'' + x[0] + '\';rerender()">' + x[1] + '</button>').join('') + '</div>' : '') +

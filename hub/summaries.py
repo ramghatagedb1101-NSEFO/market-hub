@@ -23,6 +23,7 @@ Output: site/summaries.json in the private repo, {symbol: {"tr": {...}, "ar": {.
 """
 import base64
 import io
+import time
 import json
 import os
 import sys
@@ -125,23 +126,37 @@ def pdf_pages(pdf: bytes) -> int:
     return len(PdfReader(io.BytesIO(pdf)).pages)
 
 
+TRANSIENT_CODES = (429, 500, 502, 503, 504)
+TRANSIENT_WORDS = ("high demand", "unavailable", "overloaded", "disconnected", "timed out", "timeout", "connection reset")
+
+
+def _transient(exc) -> bool:
+    """Rate limits, overloads and dropped connections: worth another try (11 Oct 2026: a 503 "high demand"
+    and a "Server disconnected" each failed a summary outright)."""
+    if any(c in TRANSIENT_CODES for c in (getattr(exc, "status_code", None), getattr(exc, "code", None))):
+        return True
+    return any(w in str(exc).lower() for w in TRANSIENT_WORDS)
+
+
 def ask_gemini(client, pdf: bytes | None, text: str | None, instructions: str) -> tuple[str, str]:
-    """(JSON text, model used). Free-tier rate limits: one retry on the lighter free model."""
+    """(JSON text, model used). On a rate limit, an overload or a dropped connection: the same model again
+    after 20 s, then the lighter free model (GEMINI_FALLBACK_MODEL), twice."""
     part = ({"type": "document", "data": base64.b64encode(pdf).decode("ascii"), "mime_type": "application/pdf"}
             if pdf is not None else {"type": "text", "text": text})
     fmt = {"type": "text", "mime_type": "application/json", "schema": SCHEMA}
-    for model in (GEMINI_MODEL, GEMINI_FALLBACK_MODEL):
+    last = None
+    for model, wait in ((GEMINI_MODEL, 0), (GEMINI_MODEL, 20), (GEMINI_FALLBACK_MODEL, 0), (GEMINI_FALLBACK_MODEL, 30)):
+        if wait:
+            time.sleep(wait)
         try:
             r = client.interactions.create(model=model, input=[part, {"type": "text", "text": instructions}],
                                            response_format=fmt)
             return r.output_text, model
         except Exception as exc:
-            # The SDK's interactions call raises its own status errors (status_code), older calls
-            # ClientError (code); a 429 from either is the free tier's rate limit.
-            limited = 429 in (getattr(exc, "status_code", None), getattr(exc, "code", None))
-            if not limited or model == GEMINI_FALLBACK_MODEL:
+            if not _transient(exc):
                 raise
-    raise RuntimeError("unreachable")
+            last = exc
+    raise last
 
 
 def ask_claude(client, pdf: bytes | None, text: str | None, instructions: str) -> tuple[str, str]:

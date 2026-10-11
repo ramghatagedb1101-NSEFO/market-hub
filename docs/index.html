@@ -919,8 +919,32 @@
   async function summariseStock(){
     try {
       const r = await relayPost("app_summarise", { token: SESSION, symbol: ST.symbol });
-      alert(r.error ? r.error : "Summary started. It usually takes 1–3 minutes; open the company again to read it.");
+      if (r.error) { alert(r.error); return; }
+      if (ST && ST.data && ST.data.docs) { ST.data.docs.summary_started = r.started; OPEN.ai = true; drawStock(); }
     } catch(e){ alert(e.message); }
+  }
+  // Re-reads the documents and summaries only (the "Check again" button in the AI section).
+  async function refreshSummary(){
+    if (!ST) return;
+    const sym = ST.symbol;
+    try {
+      const r = await relayPost("app_stock", { token: SESSION, symbol: sym, range: "5Y" });
+      if (ST && ST.symbol === sym && !r.error) { ST.data.docs = r.docs; OPEN.ai = true; drawStock(); }
+    } catch(e){ alert(e.message); }
+  }
+  // Where the last summary run for this company stands, in words (relay docsData_: summary_started,
+  // summaries._status written by hub/summaries.py).
+  function summaryState(docs){
+    const st = (docs.summaries || {})._status, started = docs.summary_started;
+    const hhmm = s => String(s || "").slice(11, 16);
+    if (started && (!st || String(st.at || "").slice(0, 16) < String(started).slice(0, 16)))
+      return { running: true, html: `Summary run started at ${esc(hhmm(started))} IST. A transcript takes about 3–5 minutes, an annual report up to 10.` };
+    if (st && st.state === "error") {
+      const busy = /503|high demand|unavailable|disconnected|timed out|429/i.test(st.message || "");
+      return { html: `<span class="amb">Last attempt at ${esc(hhmm(st.at))} IST did not finish: ${busy ? "Google's free AI service was busy." : esc(st.message || "")}</span> Try again in a few minutes.` };
+    }
+    if (st && st.state === "skipped") return { html: esc(st.message || "") };
+    return null;
   }
 
   // Measures: the dashboard's catalogue (relay app_names). [label, group, format, direction]
@@ -1081,7 +1105,8 @@
     // 6 AI summary and documents
     const docs = (d.docs && d.docs.docs) || {}, sm = (d.docs && d.docs.summaries) || {};
     const s = sm.tr || sm.ar, z = s && s.summary;
-    html += sect("ai", "AI summary", esc(z ? z.headline || "" : d.docs ? "No AI summary yet" : "loading…"),
+    const sumSt = d.docs ? summaryState(d.docs) : null;
+    html += sect("ai", "AI summary", esc(z ? z.headline || "" : sumSt && sumSt.running ? "Summary being written…" : d.docs ? "No AI summary yet" : "loading…"),
       (z ? `<div style="font-size:13px;line-height:1.55">${esc(z.summary || "")}</div>
           <ul class="st-list">${(z.key_points || []).map(k => `<li>${esc(k)}</li>`).join("")}</ul>
           ${(z.guidance || []).length ? `<div class="mut" style="margin-top:6px">Guidance</div><ul class="st-list">${z.guidance.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
@@ -1089,7 +1114,10 @@
           ${(z.numbers || []).length ? `<div class="mut" style="margin-top:6px">Numbers</div>${z.numbers.map(n => `<div class="mrow"><div class="ml"><div>${esc(n.metric)}</div><div>${esc(n.context || "")}</div></div><div class="mv">${esc(n.value)}</div></div>`).join("")}` : ""}
           <div class="note">From the ${sm.tr ? "earnings-call transcript of " + esc(dayTxt(parseDay(sm.tr.date))) : "annual report"}. AI-written; check figures against the source.</div>`
         : `<div class="mut">No AI summary yet.</div>`) +
-      ((docs.tr || docs.ar) ? `<button class="btn" style="margin-top:8px" onclick="summariseStock()">${z ? "Refresh with the latest documents" : "Summarise latest with AI"}</button>` : ""));
+      (() => { const S2 = d.docs ? summaryState(d.docs) : null;
+        return (S2 ? `<div class="note" style="margin-top:8px">${S2.html}</div>` : "") +
+          (S2 && S2.running ? `<button class="btn" style="margin-top:8px" onclick="refreshSummary()">Check again</button>`
+            : (docs.tr || docs.ar) ? `<button class="btn" style="margin-top:8px" onclick="summariseStock()">${z ? "Refresh with the latest documents" : S2 ? "Try again" : "Summarise latest with AI"}</button>` : ""); })());
     const docLink = (it, label) => `<a href="${esc(it.url)}" target="_blank" rel="noopener"><span>${esc(dayTxt(parseDay(it.date)))}</span><span>${esc(label)}</span></a>`;
     const docItems = [...(docs.tr || []).map(i => docLink(i, "Earnings-call transcript")), ...(docs.pr || []).map(i => docLink(i, "Investor presentation")),
       ...(docs.ar || []).map(i => docLink(i, "Annual report " + (i.fy ? "FY" + i.fy : ""))), ...(docs.rec || []).map(i => docLink(i, "Call recording"))];
@@ -1274,7 +1302,7 @@
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
   Object.assign(window, { openStock, closeStock, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
-                          openSearch, closeSearch, drawSearch, sxToggle, setResMode });
+                          openSearch, closeSearch, drawSearch, sxToggle, setResMode, refreshSummary });
 })();
 </script>
 </body>
