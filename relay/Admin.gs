@@ -177,6 +177,10 @@ function appApi_(mode, body) {
   if (mode === 'app_summarise') return sessionValid_(p.token) ? summariseStart_(p.symbol) : { error: 'session_expired' };
   if (mode === 'app_watch') return adminWatch(p.token);
   if (mode === 'app_watch_toggle') return adminWatchToggle(p.token, p.symbol);
+  if (mode === 'app_names') return appNames_(p.token);
+  if (mode === 'app_profile') return appProfile_(p.token, p.symbol);
+  if (mode === 'app_results') return adminStock(p.token, p.symbol, p.name);
+  if (mode === 'app_funds') return adminFunds(p.token, p.symbol);
   return { error: 'unknown mode' };
 }
 

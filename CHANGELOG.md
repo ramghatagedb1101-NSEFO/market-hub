@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-11
 
+### Phone: search any company; full company page in sections
+Owner: the phone could open a company only from the Shortlist, the digest or the watchlist, with a few figures; everything should be reachable, arranged for the small screen with drill-down.
+- **Search** (magnifier next to Settings): all 2,573 library companies by symbol or name (symbol matches first, then name words), recently opened companies when the box is empty. The list (with the measure catalogue) comes from the relay (`app_names`, `relay/Company.gs`) and is kept on the phone for a day.
+- **Company page**: a summary card that is always visible (price and day change, industry, market value, P/E, distance from the 52-week high, Shortlist / watchlist / NSE-check / data-check / upcoming ex-date tags, checks passed) and sections that open on tap, each with a one-line summary so the closed page still reads as an overview:
+  Price (open by default) · Why it's on the list (when listed) · Key figures (every library measure by group, "passes x of y", each with its value, the rule it is judged on and ✓ / ✗ / not testable) · Ownership (pledge, shareholding by quarter from NSE, and Mutual funds holding it) · Results (40 quarters and 10 years: revenue, profit, margin, EPS) · AI summary (with guidance, risks and numbers) · Documents (all filings) · News · Corporate actions · Data checks (NSE cross-check, flags, latest results, data completeness).
+- **BharatStock requests only on demand**: Results (2 requests, with News) and Mutual funds (1 request) load when their section is opened; the rest comes from the library (`app_profile`, from library_compact.json) and costs none.
+- Measure labels, groups and formats are read by the relay from the dashboard's own definitions, so phone and dashboard always describe a measure the same way.
+
 ### Mutual funds holding it (stock report); stricter discovery alert
 Owner fact-checked the first Sunday discovery email (SESHAPAPER, SOUTHWEST, TIMETECHNO) and asked to see which funds hold a stock.
 - **Fact check**: scheme counts were right for the two Tier 1 names (1 scheme; public trackers show 0% fund ownership), overstated for Time Technoplast (18 here vs 12 schemes on Trendlyne). The alert's logic was the real problem: Time Technoplast was sent as "watch" with funds owning 13.5% of it; Seshasayee Paper as "pounce" with profit up in only 2 of 8 quarters and Rs 1.5 cr traded a day.
