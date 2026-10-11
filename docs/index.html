@@ -132,6 +132,9 @@
   .dg:last-child{border-bottom:0}
   .dg .ic{flex:0 0 22px;height:22px;border-radius:3px;display:flex;align-items:center;justify-content:center;font:700 11px var(--mono);background:var(--pnl2);border:1px solid var(--ln2)}
   .dg .tt{font-weight:600} .dg .sb{color:var(--mut);font-size:11.5px}
+  .dg-sum{font-size:12px;color:var(--mut);padding:0 0 4px;border-bottom:1px solid var(--ln)}
+  .dg-all{width:100%;margin-top:8px}
+  #home-today{margin-top:6px}
   .stock-bg{display:none;position:fixed;inset:0;background:var(--bg);z-index:25;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .stock-bg.on{display:block}
   .stock-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;background:var(--pnl);border-bottom:1px solid var(--ln)}
@@ -174,7 +177,7 @@
   <div class="t"><span class="k">SENSEX</span><div class="v">–</div></div></div>
 
 <main>
-  <section class="pane on" id="home"><div id="home-today"></div><div class="grid" id="home-body"></div></section>
+  <section class="pane on" id="home"><div class="grid" id="home-body"></div><div id="home-today"></div></section>
   <section class="pane" id="brief"><div id="brief-body"></div></section>
   <section class="pane" id="fno"><div id="fno-body"></div></section>
   <section class="pane" id="mb"><div id="mb-body"></div></section>
@@ -220,6 +223,10 @@
   </div>
 </div>
 
+<div class="stock-bg" id="dgsheet" role="dialog" aria-modal="true">
+  <div class="stock-top"><button class="btn" type="button" onclick="closeDigest()">Back</button><span class="nm">What changed for your stocks</span></div>
+  <div class="stock-body" id="dg-body"></div>
+</div>
 <div class="stock-bg" id="stock" role="dialog" aria-modal="true">
   <div class="stock-top"><button class="btn" type="button" onclick="closeStock()">Back</button><span class="nm" id="st-title"></span><button class="btn" type="button" id="st-star" onclick="toggleStar()">☆ Star</button></div>
   <div class="stock-body" id="st-body"></div>
@@ -751,21 +758,46 @@
       <div class="foot">Ranked from your own screen rules, updated by the daily run (${esc(asSnap(SL.generated).replace(/^As of /, ""))}). Not advice: open a company and read its documents before acting.</div>`;
   }
 
-  // ---- Today (11 Oct 2026): what changed for the Shortlist and the watchlist ----
+  // ---- What changed for your stocks (11 Oct 2026) ----
+  // Home shows a one-line count by type and the three most important items; "See all" opens the full
+  // list, grouped, on its own screen (owner: no long list on the landing page, no dead-end "+n more").
+  // Importance: watchlist first, then list joins and exits, results and documents filed, big moves,
+  // coming ex-dates; bigger moves before smaller ones.
+  let DG = null;
+  const DG_ICON = { shortlist: "★", filing: "▤", move: "↕", upcoming: "◷" };
+  const DG_GROUP = [["shortlist", "Shortlist changes"], ["filing", "Filings"], ["move", "Big moves"], ["upcoming", "Coming up"]];
+  const DG_COUNT = { shortlist: ["list change", "list changes"], filing: ["filing", "filings"], move: ["big move", "big moves"], upcoming: ["ex-date", "ex-dates"] };
+  function dgRank(x){
+    const type = { shortlist: 0, filing: 1, move: 2, upcoming: 3 }[x.type] ?? 4;
+    return (x.scope === "Watchlist" ? 0 : 10) + type - Math.min(Math.abs(x.change || 0), 20) / 100;
+  }
+  function dgRow(x){
+    return `<div class="dg" onclick="openStock('${esc(x.symbol)}')"><span class="ic ${x.type === "move" ? (x.change > 0 ? "up" : "dn") : ""}">${DG_ICON[x.type] || "•"}</span>
+      <div><div class="tt">${esc(x.symbol)} · ${esc(x.title)}</div><div class="sb">${esc([x.scope, x.detail].filter(Boolean).join(" · "))}</div></div></div>`;
+  }
   async function renderToday(){
     const el = $("#home-today");
-    let D;
-    try { D = await getFile("digest"); } catch(e){ el.innerHTML = ""; return; }
+    try { DG = await getFile("digest"); } catch(e){ el.innerHTML = ""; return; }
     try { if (!SL) SL = await getFile("shortlist"); } catch(e){ /* cards still open */ }
-    const icon = { shortlist: "★", filing: "▤", move: "↕", upcoming: "◷" };
-    const items = D.items || [];
-    const rows = items.slice(0, 12).map(x => `<div class="dg" onclick="openStock('${esc(x.symbol)}')"><span class="ic ${x.type === "move" ? (x.change > 0 ? "up" : "dn") : ""}">${icon[x.type] || "•"}</span>
-      <div><div class="tt">${esc(x.symbol)} · ${esc(x.title)}</div><div class="sb">${esc([x.scope, x.detail].filter(Boolean).join(" · "))}</div></div></div>`).join("");
+    const items = (DG.items || []).slice().sort((p, q) => dgRank(p) - dgRank(q));
+    const counts = DG_GROUP.map(([k]) => [k, items.filter(x => x.type === k).length]).filter(([, n]) => n)
+      .map(([k, n]) => n + " " + DG_COUNT[k][n > 1 ? 1 : 0]).join(" · ");
     el.innerHTML = `<div class="sec">What changed for your stocks</div>
-      <div class="note" style="margin:-2px 2px 6px">Shortlist and watchlist · ${esc(asSnap(D.generated))}</div>
-      <div class="panel" style="margin-bottom:10px"><div class="pb">${rows || `<div class="mut">Nothing new for your ${D.scope || 0} shortlisted and watched companies.</div>`}
-      ${items.length > 12 ? `<div class="note">+${items.length - 12} more</div>` : ""}</div></div>`;
+      <div class="note" style="margin:-2px 2px 6px">Shortlist and watchlist · ${esc(asSnap(DG.generated))}</div>
+      <div class="panel" style="margin-bottom:10px"><div class="pb">${items.length
+        ? `<div class="dg-sum">${esc(counts)}</div>${items.slice(0, 3).map(dgRow).join("")}
+           ${items.length > 3 ? `<button class="btn dg-all" type="button" onclick="openDigest()">See all ${items.length}</button>` : ""}`
+        : `<div class="mut">Nothing new for your ${DG.scope || 0} shortlisted and watched companies.</div>`}</div></div>`;
   }
+  function openDigest(){
+    if (!DG) return;
+    const items = (DG.items || []).slice().sort((p, q) => dgRank(p) - dgRank(q));
+    $("#dg-body").innerHTML = `<div class="note" style="margin:0 2px 8px">Shortlist and watchlist · ${esc(asSnap(DG.generated))}</div>` +
+      DG_GROUP.map(([k, label]) => { const xs = items.filter(x => x.type === k); return xs.length
+        ? `<div class="sec">${label} · ${xs.length}</div><div class="panel"><div class="pb">${xs.map(dgRow).join("")}</div></div>` : ""; }).join("");
+    $("#dgsheet").classList.add("on");
+  }
+  function closeDigest(){ $("#dgsheet").classList.remove("on"); }
 
   // ---- Stock sheet (11 Oct 2026): chart, figures, reasons, AI summary, documents ----
   let ST = null, stChart = null, ST_RANGE = "1Y";
@@ -1002,7 +1034,7 @@
   if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(liveTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
-  Object.assign(window, { openStock, closeStock, setIdeasTab, toggleStar, setStRange, summariseStock });
+  Object.assign(window, { openStock, closeStock, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest });
 })();
 </script>
 </body>
