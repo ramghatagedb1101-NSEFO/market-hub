@@ -13,6 +13,7 @@ Found while adding reasons to the digest (owner: the list name under each change
   - big move: stock-specific or with its industry, against NIFTY and the industry's median move that day; volume against its 20-day average; any announcement filed that day or the day before (every announcement subject from the run's existing market-wide request, `documents.new_filings(..., subjects)`), or "no company announcement";
   - left a list: the real cause -- a rule it fails, excluded (with the reason), still qualifies but overtaken (by whom), the two-per-industry limit, or not judged until its 10-year record loads;
   - joined: the Shortlist's first reason; a move between the two lists is one line ("Moved from Compounders to Emerging") instead of a "left" and a "joined";
+  - routine compliance filings (Reg 74(5) certificates, newspaper notices, trading-window closures and similar) never count as the reason for a move; a compounder that joins is described by its record ("Profitable in 100% of the last 10 years; profit +19% a year over 5 years");
   - results filed: revenue and profit growth from the NSE filing once read; documents: the AI summary's headline; ex-dates: what the date means.
 
 ### Phone: index cards show the last close outside the target session; clearer digest header
