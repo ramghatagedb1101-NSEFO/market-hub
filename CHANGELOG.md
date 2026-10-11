@@ -4,6 +4,17 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-11
 
+### Compounders fixed: 10-year record required, ROE only where reported; digest gives the reason for each change
+Found while adding reasons to the digest (owner: the list name under each change added nothing). The first catch-up run on the long-term rules replaced 7 of 8 compounders, and the new list held PNB, YES Bank and Vedanta.
+- **Cause 1: the ROE rule could almost never be tested.** BharatStock reports shareholders' equity for very few companies: 5-year average ROE exists for 30 of 2,573 (current ROE for 91). A missing figure counted as a fail, so HAL, CAMS, Glaxo, Caplin Point and National Aluminium left for a number that was never computed. The rule now counts only where ROE is reported.
+- **Cause 2: uneven rules during the switch.** Only 1,195 companies have their 10-year record so far. They were judged on the long-term rules while the rest fell back to the easier 8-quarter rules, and all 8 new compounders came from the second group. A company now qualifies only once its 10-year record is loaded (`compounder_rules` in `hub/shortlist.py`; the same on the dashboard), and the rest load with each company's annual refresh.
+- **On today's data**: 68 companies pass all eight rules (e.g. Bajaj Finance, Adani Ports, HAL, NTPC, DMart, Eicher, Pidilite, Polycab, Persistent), 110 miss one.
+- **Digest reasons** (`hub/digest.py`, shown under each change on the phone instead of "Compounders"/"Emerging"):
+  - big move: stock-specific or with its industry, against NIFTY and the industry's median move that day; volume against its 20-day average; any announcement filed that day or the day before (every announcement subject from the run's existing market-wide request, `documents.new_filings(..., subjects)`), or "no company announcement";
+  - left a list: the real cause -- a rule it fails, excluded (with the reason), still qualifies but overtaken (by whom), the two-per-industry limit, or not judged until its 10-year record loads;
+  - joined: the Shortlist's first reason; a move between the two lists is one line ("Moved from Compounders to Emerging") instead of a "left" and a "joined";
+  - results filed: revenue and profit growth from the NSE filing once read; documents: the AI summary's headline; ex-dates: what the date means.
+
 ### Phone: index cards show the last close outside the target session; clearer digest header
 Owner feedback on a weekend screenshot: "Pending close" and "after the 15:30 IST close" read as if a close was due that day.
 - **Index forecast cards** (Home): until the forecast's target session, the badge and row show the last close ("Close · Fri 9 Oct" with its value). On the target day before the close they say "Closes 15:30 IST" / "today, after 15:30 IST"; after settling, "In band" or "Out of band" with the actual close, as before.

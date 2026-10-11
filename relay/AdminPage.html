@@ -418,16 +418,16 @@ function fmtMeasure(k, v){
 // Proven compounders: established companies with a long record. Rules tuned on the 9 Oct data
 // (76 of ~1,860 companies pass all six).
 // 11 Oct 2026: judged on years of annual results (hub/library.py longterm_values), plus "still delivering"
-// and the ownership / size gates -- the same rules as the batch's Shortlist (hub/shortlist.py). Companies
-// whose long-term figures have not arrived yet are judged on the earlier 8-quarter rules (LEGACY) until the
-// next annual refresh. Operating cash flow is not comparable for banks and financials, so that rule passes
-// for them.
+// and the ownership / size gates -- the same rules as the batch's Shortlist (hub/shortlist.py). A company
+// qualifies only once its 10-year record is loaded (the easier 8-quarter fallback let PNB, YES Bank and
+// Vedanta in). The ROE rule counts only where BharatStock reports equity (5-year ROE for 30 companies).
+// Operating cash flow is not comparable for banks and financials, so that rule passes for them.
 const ge = (s, k, x) => val(s, k) != null ? val(s, k) >= x : null;
 const isFinancial = s => /financial|bank/i.test(industryOf(s.symbol) || s.sector || '');
 const COMPOUNDER_RULES = [
   ['Profitable in 90%+ of the last 10 years', s => ge(s, 'profitable_share_10y', 90)],
   ['Profit grew 12%+ a year over 5 years', s => ge(s, 'profit_cagr_5y', 12)],
-  ['Average ROE 15%+ over 5 years', s => ge(s, 'roe_avg_5y', 15)],
+  ['Average ROE 15%+ over 5 years (where reported)', s => val(s, 'roe_avg_5y') == null ? true : val(s, 'roe_avg_5y') >= 15],
   ['Operating cash 0.8×+ profit over 5 years', s => isFinancial(s) ? true : ge(s, 'cfo_to_pat_5y', 0.8)],
   ['Still delivering: profit grew in 5+ of the last 8 quarters', s => ge(s, 'profit_consistency_8q', 5)],
   ['Held by 30+ fund schemes', s => ge(s, 'mf_schemes_holding', 30)],
@@ -442,8 +442,8 @@ const LEGACY_COMPOUNDER_RULES = [
   ['Promoter pledge ≤ 5%', s => val(s,'pledge_pct') == null ? true : val(s,'pledge_pct') <= 5],
   ['Market cap ≥ ₹5,000 cr', s => ge(s, 'market_value_bucket', 5000)],
 ];
-const hasLongTerm = s => ['profitable_share_10y', 'profit_cagr_5y', 'roe_avg_5y', 'cfo_to_pat_5y'].some(k => val(s, k) != null);
-const rulesFor = s => hasLongTerm(s) ? COMPOUNDER_RULES : LEGACY_COMPOUNDER_RULES;
+const hasLongTerm = s => val(s, 'profitable_share_10y') != null;
+const rulesFor = s => hasLongTerm(s) ? COMPOUNDER_RULES : [['Waiting for its 10-year record to load', () => false]];
 const QUALITY_CHECKS = [
   ['Revenue growing', s => val(s,'rev_yoy') == null ? null : val(s,'rev_yoy') > 0],
   ['Interest cover ≥ 3×', s => val(s,'interest_cover') == null ? null : val(s,'interest_cover') >= 3],
@@ -455,7 +455,7 @@ function compounders(){
   if (!S.lib) return null;
   const out = [];
   S.lib.stocks.forEach(s => {
-    if (!s.cells) return;
+    if (!s.cells || !hasLongTerm(s)) return;      // not judged until the 10-year record is loaded
     const R = rulesFor(s);
     const res = R.map(([, f]) => f(s));
     const fails = res.filter(r => r !== true).length;
@@ -754,9 +754,9 @@ function pageCompounders(){
       '<td>' + (st.f.near ? '<span class="chip warn" title="' + esc(x.failed.join(', ')) + '">misses: ' + esc(x.failed[0]) + '</span>' : dots(x.quality, 5)) + '</td></tr>'; }).join('');
   v.innerHTML = '<div class="page-head"><div><h1 class="h1">Proven compounders</h1><p class="sub">Established, widely-held companies with a long record of profitable, cash-backed growth — the opposite end from early multibaggers. Judged on years of annual results: must pass all eight rules; ranked by five extra quality checks, then size.</p></div></div>' +
     '<div class="rules">' + COMPOUNDER_RULES.map(r => '<span class="chip">' + esc(r[0]) + '</span>').join('') + '</div>' +
-    (S.lib.stocks.some(s => s.cells && !hasLongTerm(s)) ? '<div class="notice" style="margin-bottom:12px">' + num(S.lib.stocks.filter(s => s.cells && !hasLongTerm(s)).length, 0) + ' companies have no long-term figures yet (they arrive with each company&#39;s next annual refresh) and are judged on the earlier rules: profit up in 6 of 8 quarters, net margin 8%+, operating cash 0.8× profit, plus the same ownership and size gates.</div>' : '') +
+    (S.lib.stocks.some(s => s.cells && !hasLongTerm(s)) ? '<div class="notice" style="margin-bottom:12px">' + num(S.lib.stocks.filter(s => s.cells && !hasLongTerm(s)).length, 0) + ' companies are not judged yet: their 10-year record arrives with each company&#39;s next annual refresh.</div>' : '') +
     '<div class="toolbar"><input id="cpq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'cp\',this)">' +
-    '<div class="seg"><button class="' + (!st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',false)">Pass all six</button><button class="' + (st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',true)">Near misses (one rule)</button></div>' +
+    '<div class="seg"><button class="' + (!st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',false)">Pass all eight</button><button class="' + (st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',true)">Near misses (one rule)</button></div>' +
     '<span class="muted" style="margin-left:auto;font-size:12.5px" title="' + esc(QUALITY_CHECKS.map(q => q[0]).join(' · ')) + '">Quality: ' + esc(QUALITY_CHECKS.map(q => q[0]).join(' · ')) + '</span></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th>' + th('mcap', 'Mkt cap', st) + th('pe', 'P/E', st) + th('r12', '12M return', st) + th('rev', 'Revenue gr.', st) + th('pg', 'Profit gr.', st) + th('nm', 'Net margin', st) + th('cons', 'Consistency', st) + th('funds', 'Fund schemes', st) + th('prom', 'Promoter', st) + th('quality', st.f.near ? 'Missed rule' : 'Quality', st) + '</tr></thead><tbody>' +
     (body || '<tr><td colspan="11" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
