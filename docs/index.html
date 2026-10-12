@@ -1047,7 +1047,7 @@
     const chk = P.check || {};
     const tags = [x ? `<span class="tag g">${x.style === "compounders" ? "Compounders" : "Emerging"} list #${x.rank}</span>` : "",
       d.starred ? `<span class="tag a">★ Watchlist</span>` : "",
-      chk.status === "ok" ? `<span class="tag g">✓ Matches NSE filing</span>` : chk.status === "mismatch" ? `<span class="tag r">NSE filing disagreed</span>` : chk.status === "period_differs" ? `<span class="tag a">BharatStock behind NSE</span>` : chk.status === "nse_only" ? `<span class="tag">Figures from NSE filing</span>` : "",
+      chk.status === "ok" ? `<span class="tag g">✓ Matches ${chk.source === "bse" ? "BSE results" : "NSE filing"}</span>` : chk.status === "mismatch" ? `<span class="tag r">NSE filing disagreed</span>` : chk.status === "period_differs" ? `<span class="tag a">BharatStock behind NSE</span>` : chk.status === "nse_only" ? `<span class="tag">Figures from NSE filing</span>` : chk.status === "bse_only" ? `<span class="tag">Figures from BSE results</span>` : "",
       (P.flags || []).some(fl => fl.level === "severe") ? `<span class="tag r">Data check: suspect figure</span>` : "",
       ...(P.actions || []).filter(a => a.upcoming).slice(0, 1).map(a => `<span class="tag">${esc(a.subject)} · ex ${esc(dayTxt(parseDay(a.ex_date)))}</span>`)].filter(Boolean).join("");
     const head = `<div style="margin:2px 2px 10px">
@@ -1149,7 +1149,7 @@
 
     // 9 data checks
     if (P.values || P.check) {
-      const st = { ok: "Results match the company's NSE filing", mismatch: "BharatStock disagreed with the NSE filing; NSE figures used", period_differs: "BharatStock is behind NSE; growth and margin from the NSE filing", nse_only: "No BharatStock results; figures from the company's NSE filing", unavailable: "Could not be checked against NSE" }[chk.status] || "Not checked against NSE yet";
+      const st = { ok: "Results match the company's NSE filing", mismatch: "BharatStock disagreed with the NSE filing; NSE figures used", period_differs: "BharatStock is behind NSE; growth and margin from the NSE filing", nse_only: "No BharatStock results; figures from the company's NSE filing", bse_only: "No BharatStock results; figures from the company's BSE results", unavailable: "Could not be checked against NSE" }[chk.status] || "Not checked against NSE yet";
       html += sect("data", "Data checks", esc(st),
         `<div class="mrow"><div class="ml"><div>NSE cross-check</div><div>${esc(chk.why || (chk.diffs || []).join("; ") || "")}</div></div><div class="mv">${esc(chk.status || "–")}</div></div>` +
         (P.flags || []).map(fl => `<div class="mrow"><div class="ml"><div>${esc(fl.text)}</div></div><div class="mv ${fl.level === "severe" ? "dn" : "amb"}">${esc(fl.level)}</div></div>`).join("") +

@@ -1183,7 +1183,7 @@ def company_values(sym: str, c: dict, ctx: dict, prior_entry: dict | None) -> tu
             values["net_margin"] = n["profit"] / n["rev"] * 100
     if chk.get("status") == "mismatch" and chk.get("method") == "margin" and chk.get("nse_margin") is not None:
         values["net_margin"] = chk["nse_margin"]
-    if chk.get("status") == "nse_only":
+    if chk.get("status") in ("nse_only", "bse_only"):
         # no BharatStock results: the company's own NSE filing supplies growth and margin
         for k, nk in (("rev_yoy", "nse_rev_yoy"), ("profit_yoy", "nse_profit_yoy"), ("eps_yoy", "nse_eps_yoy"), ("net_margin", "nse_margin")):
             if chk.get(nk) is not None:
@@ -1406,7 +1406,7 @@ def main() -> dict:
         entry["fresh"] = {k: (c.get("src") or {}).get(k, {}).get("on") for k in ("fin", "ann", "shp", "fund", "docs", "verify")}
         chk = c.get("check")
         if chk:
-            entry["check"] = {k: chk.get(k) for k in ("status", "period", "basis", "diffs", "why", "method") if chk.get(k)}
+            entry["check"] = {k: chk.get(k) for k in ("status", "period", "basis", "diffs", "why", "method", "source") if chk.get(k)}
         fl = data_health.flags(values, chk, (c.get("basis") or {}).get("val"), fin.get("_latest_period"), today)
         if fl:
             entry["flags"] = fl

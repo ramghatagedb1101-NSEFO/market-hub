@@ -34,7 +34,7 @@ EPS = ("BasicEarningsLossPerShareFromContinuingAndDiscontinuedOperations", "Basi
 # How far apart the two sources may be before it counts as a disagreement (percentage points of growth).
 TOL_REV, TOL_PROFIT = 5.0, 10.0
 TOL_MARGIN = 2.0         # net-margin points, for the level check
-VERIFY_VERSION = 2       # 12 Oct 2026: level check, NSE-only figures; earlier non-matches are re-checked once
+VERIFY_VERSION = 3       # 12 Oct 2026: level check, NSE-only figures, BSE fallback; earlier non-matches are re-checked once
 
 
 def _day(s):
@@ -101,7 +101,7 @@ def verify(s, sym: str, bs: dict) -> dict:
     company's figures ("nse_only")."""
     rows = filings(s, sym)
     if not rows:
-        return {"status": "unavailable", "why": "the company files no machine-readable results at NSE (it may report only to BSE)"}
+        return verify_bse(sym, bs)
     latest = max(r["quarter"] for r in rows)
     nature = "consolidated" if any(r["quarter"] == latest and r["nature"] == "consolidated" for r in rows) else "standalone"
     cur = _pick(rows, latest, nature)
@@ -147,4 +147,38 @@ def verify(s, sym: str, bs: dict) -> dict:
     if out["nse_profit_yoy"] is not None and out["bs_profit_yoy"] is not None and abs(out["nse_profit_yoy"] - out["bs_profit_yoy"]) > TOL_PROFIT:
         diffs.append(f"profit growth {out['bs_profit_yoy']:+.1f}% (BharatStock) vs {out['nse_profit_yoy']:+.1f}% (NSE filing)")
     out.update(status="mismatch" if diffs else "ok", diffs=diffs)
+    return out
+
+
+def verify_bse(sym: str, bs: dict) -> dict:
+    """Companies with no results XBRL at NSE (12 Oct 2026): the latest quarter from BSE's results snapshot
+    (hub/bse.py). BSE gives no year-ago quarter, so this is the level check -- net margin -- or, without
+    BharatStock results, the company's figures ("bse_only"). Fields named nse_* hold the exchange's figures
+    whichever exchange supplied them; "source" says which."""
+    from . import bse
+    try:
+        b = bse.results(sym)
+    except Exception as exc:
+        return {"status": "unavailable", "why": f"no results XBRL at NSE, and BSE could not be read ({str(exc)[:80]})"}
+    if not b:
+        return {"status": "unavailable", "why": "no results at NSE or BSE"}
+    rev, profit = b.get("revenue_cr"), b.get("profit_cr")
+    margin = b.get("npm") if b.get("npm") is not None else (profit / rev * 100 if rev and rev > 0 and profit is not None else None)
+    out = {"source": "bse", "period": b["period"], "basis": "as reported to BSE",
+           "nse": {"rev": rev * 1e7 if rev is not None else None, "profit": profit * 1e7 if profit is not None else None, "eps": b.get("eps")},
+           "nse_margin": margin, "bs_margin": bs.get("net_margin"), "bs_period": str(bs.get("_latest_period") or "")[:10],
+           "nse_rev_yoy": None, "nse_profit_yoy": None, "nse_eps_yoy": None}
+    if not out["bs_period"]:
+        out.update(status="bse_only", method="bse", why="BharatStock has no results for this company; figures from its BSE results")
+        return out
+    if out["bs_period"] != out["period"]:
+        out.update(status="period_differs", why=f"BharatStock's latest quarter is {out['bs_period']}, BSE's is {out['period']}")
+        return out
+    if margin is None or out["bs_margin"] is None:
+        out.update(status="unavailable", why="the company had no revenue this quarter" if not rev else "no margin to compare")
+        return out
+    gap = margin - out["bs_margin"]
+    out.update(method="margin", diffs=[] if abs(gap) <= TOL_MARGIN else
+               [f"net margin {out['bs_margin']:.1f}% (BharatStock) vs {margin:.1f}% (BSE results)"])
+    out["status"] = "mismatch" if out["diffs"] else "ok"
     return out

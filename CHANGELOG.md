@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-12
 
+### BSE as a third results source
+Owner approved covering the ~280 companies that file no results data at NSE.
+- **Access**: BSE's firewall answers only connections that look like a browser -- plain requests and curl get "Access Denied" from GitHub's servers and from home alike. `curl_cffi` (Chrome impersonation, added to requirements) gets through from both.
+- **`hub/bse.py`**: `codes()` matches NSE symbols to BSE scrip codes through ISINs (NSE's equity list against BSE's `ListofScripData`; 2,492 matched); `results()` reads a company's results snapshot (`TabResults_PAR`): latest quarter, previous quarter and last full year -- revenue, net profit, EPS, operating and net margin. Checked: Titan's June 2026 quarter reads Rs 18,101 cr revenue / Rs 1,699 cr profit at BSE, the same as its NSE filing; Abbott India (nothing at NSE) reads Rs 1,813.68 cr / Rs 428.52 cr.
+- **Check** (`verify_bse`, `hub/nse_results.py`): with no NSE results XBRL, BSE's latest quarter is used -- margin against BharatStock's when both have that quarter (within 2 points = match), "Figures from BSE results" when BharatStock has none, "BharatStock behind" when it lags. BSE's snapshot has no year-ago quarter, so it cannot rebuild growth.
+- Labels on the phone, the dashboard (data freshness, badges), the Shortlist note and the weekly health email.
+
 ### Results check: margin check without a year-ago filing; NSE figures where BharatStock has none
 Owner: finish the 227 "not checked yet" and find an alternative for the 342 "couldn't be checked".
 - **Findings** (three diagnostics run on GitHub, `diag.yml`, since NSE refuses this machine): the 228 "not checked yet" had no BharatStock results at all, so there was nothing to compare and they had no growth figures either (e.g. AASTHA, ADVAIT, AARNAV -- all of which do file at NSE). Of the 342: 88 lacked a year-ago filing in NSE's integrated format, and a quarter's XBRL holds only that quarter and the year to date (no comparison column); the 32 "bank or insurer format" were not banks but loss-making or small companies (growth from a loss is undefined; some file total "Income" instead of revenue); 222 file no results XBRL at NSE at all (e.g. Abbott India, ADDIND -- likely BSE only). NSE's older results APIs (results comparison, financial-results list) stopped at the December 2024 quarter, so they cannot fill the gap.
