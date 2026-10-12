@@ -1,0 +1,26 @@
+name: diagnostics
+
+# Manual one-off checks that need NSE, which blocks requests from outside data centres' usual ranges.
+# Runs a hub.diag_* module and prints its output; writes nothing.
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "hub module to run (e.g. diag_nse_alt)"
+        required: true
+        default: "diag_nse_alt"
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m "hub.${{ inputs.module }}"
