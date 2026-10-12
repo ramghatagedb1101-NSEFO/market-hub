@@ -1104,29 +1104,35 @@
     const rq = [pv("rev_yoy") != null ? "Revenue " + pct(pv("rev_yoy"), 1) : "", pv("profit_yoy") != null ? "profit " + pct(pv("profit_yoy"), 1) : ""].filter(Boolean).join(", ");
     html += sect("results", "Results", (P.latest_period ? "Quarter to " + esc(monYr(P.latest_period)) + (rq ? ": " + esc(rq) + " on a year ago" : "") : "") + " · tap for 40 quarters and 10 years", `<div class="mut">Loading…</div>`);
 
-    // 6 AI summary and documents
+    // 6 AI summaries: the latest call and the latest annual report, each its own section (owner, 12 Oct:
+    // the annual report's summary was never shown when a call summary existed).
     const docs = (d.docs && d.docs.docs) || {}, sm = (d.docs && d.docs.summaries) || {};
-    const s = sm.tr || sm.ar, z = s && s.summary;
     const sumSt = d.docs ? summaryState(d.docs) : null;
-    html += sect("ai", "AI summary", esc(z ? (z.doc_type && z.doc_type !== "quarterly earnings call" && sm.tr ? "[" + z.doc_type + "] " : "") + (z.headline || "") : sumSt && sumSt.running ? "Summary being written…" : d.docs ? "No AI summary yet" : "loading…"),
-      (z ? `${z.doc_type ? `<div class="mut" style="margin-bottom:6px">${esc(z.doc_type.charAt(0).toUpperCase() + z.doc_type.slice(1))}${z.period ? " · " + esc(z.period) : ""}</div>` : ""}
+    const notEarnings = z => z && z.doc_type && z.doc_type !== "quarterly earnings call";
+    const aiBody = (s, kind) => { const z = s.summary || {};
+      return `${z.doc_type ? `<div class="mut" style="margin-bottom:6px">${esc(z.doc_type.charAt(0).toUpperCase() + z.doc_type.slice(1))}${z.period ? " · " + esc(z.period) : ""}</div>` : ""}
           <div style="font-size:13px;line-height:1.55">${esc(z.summary || "")}</div>
           ${(z.results || []).length ? `<div class="mut" style="margin-top:8px">What was reported</div><ul class="st-list">${z.results.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
           ${(z.changed || []).length ? `<div class="mut" style="margin-top:6px">What changed</div><ul class="st-list">${z.changed.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
-          ${(z.qa || []).length ? sect("qa", "What analysts asked", z.qa.length + " questions and management's answers",
+          ${(z.qa || []).length ? sect("qa-" + kind, "What analysts asked", z.qa.length + " questions and management's answers",
               z.qa.map(q => `<div class="mrow" style="display:block"><div style="font-weight:600">${esc(q.question)}</div><div class="mut" style="margin-top:2px">${esc(q.answer)}</div></div>`).join("")) : ""}
           <div class="mut" style="margin-top:6px">Key points</div>
           <ul class="st-list">${(z.key_points || []).map(k => `<li>${esc(k)}</li>`).join("")}</ul>
           ${(z.guidance || []).length ? `<div class="mut" style="margin-top:6px">Guidance</div><ul class="st-list">${z.guidance.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
           ${(z.risks || []).length ? `<div class="mut" style="margin-top:6px">Risks</div><ul class="st-list">${z.risks.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
           ${(z.numbers || []).length ? `<div class="mut" style="margin-top:6px">Numbers</div>${z.numbers.map(n => `<div class="mrow"><div class="ml"><div>${esc(n.metric)}</div><div>${esc(n.context || "")}</div></div><div class="mv">${esc(n.value)}</div></div>`).join("")}` : ""}
-          ${(z.watch_next || []).length ? `<div class="mut" style="margin-top:6px">Watch next quarter</div><ul class="st-list">${z.watch_next.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
-          <div class="note">From the ${sm.tr ? (z.doc_type && z.doc_type !== "quarterly earnings call" ? esc(z.doc_type) : "call transcript") + " filed " + esc(dayTxt(parseDay(sm.tr.date))) : "annual report"}. AI-written; check figures against the source.${z.doc_type && z.doc_type !== "quarterly earnings call" && sm.tr ? " This was not the quarterly earnings call; the latest transcript filed is summarised." : ""}</div>`
-        : `<div class="mut">No AI summary yet.</div>`) +
-      (() => { const S2 = d.docs ? summaryState(d.docs) : null;
-        return (S2 ? `<div class="note" style="margin-top:8px">${S2.html}</div>` : "") +
-          (S2 && S2.running ? `<button class="btn" style="margin-top:8px" onclick="refreshSummary()">Check again</button>`
-            : (docs.tr || docs.ar) ? `<button class="btn" style="margin-top:8px" onclick="summariseStock()">${z ? "Refresh with the latest documents" : S2 ? "Try again" : "Summarise latest with AI"}</button>` : ""); })());
+          ${(z.watch_next || []).length ? `<div class="mut" style="margin-top:6px">Watch next</div><ul class="st-list">${z.watch_next.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
+          <div class="note">From the ${kind === "tr" ? (notEarnings(z) ? esc(z.doc_type) : "call transcript") + " filed " + esc(dayTxt(parseDay(s.date))) : "annual report" + (s.fy ? " FY" + esc(s.fy) : "") + (s.date ? ", filed " + esc(dayTxt(parseDay(s.date))) : "")}. AI-written; check figures against the source.${kind === "tr" && notEarnings(z) ? " This was not the quarterly earnings call: it is the latest call transcript the company filed." : ""}</div>`; };
+    const zt = sm.tr && sm.tr.summary, za = sm.ar && sm.ar.summary;
+    if (zt || !za) html += sect("ai", "AI summary · latest call", esc(zt ? (notEarnings(zt) ? "[" + zt.doc_type + "] " : "") + (zt.headline || "")
+        : sumSt && sumSt.running ? "Summary being written…" : d.docs ? "No AI summary yet" : "loading…"),
+      (zt ? aiBody(sm.tr, "tr") : `<div class="mut">No AI summary yet.</div>`));
+    if (za) html += sect("ai-ar", "AI summary · annual report", esc((za.period ? za.period + ": " : "") + (za.headline || "")), aiBody(sm.ar, "ar"));
+    // run state and the button, once, after the summaries
+    html += (() => { const S2 = d.docs ? summaryState(d.docs) : null;
+      const btn = S2 && S2.running ? `<button class="btn" onclick="refreshSummary()">Check again</button>`
+        : (docs.tr || docs.ar) ? `<button class="btn" onclick="summariseStock()">${zt || za ? "Refresh AI summaries with the latest documents" : S2 ? "Try again" : "Summarise latest with AI"}</button>` : "";
+      return S2 || btn ? `<div style="margin:-2px 2px 10px">${S2 ? `<div class="note" style="margin:0 0 6px">${S2.html}</div>` : ""}${btn}</div>` : ""; })();
     const docLink = (it, label) => `<a href="${esc(it.url)}" target="_blank" rel="noopener"><span>${esc(dayTxt(parseDay(it.date)))}</span><span>${esc(label)}</span></a>`;
     const docItems = [...(docs.tr || []).map(i => docLink(i, "Earnings-call transcript")), ...(docs.pr || []).map(i => docLink(i, "Investor presentation")),
       ...(docs.ar || []).map(i => docLink(i, "Annual report " + (i.fy ? "FY" + i.fy : ""))), ...(docs.rec || []).map(i => docLink(i, "Call recording"))];
