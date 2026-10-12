@@ -2,7 +2,13 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
-## 2026-10-11
+## 2026-10-12
+
+### AI summaries say what the call was and what happened in it; every phone date shows its year
+Owner: IOLCP's summary "doesn't talk about what actually happened in the earnings call"; dates showed day and month only.
+- **Finding:** the document summarised was IOLCP's business-update call of 17 Sep 2026 (capex plan), not its quarterly earnings call -- the latest transcript filed -- and nothing said so. The summary also had no place for the quarter's numbers or the Q&A.
+- **New summary parts** (`SCHEMA`, `hub/summaries.py`): what the document is and the period it covers; the period's reported results with their changes; what changed from before; the analysts' main questions with management's answers ("No direct answer" where avoided); plus the existing summary, key points, guidance, risks, numbers and what to watch next quarter. The phone shows them in that order, the Q&A as its own tap-to-open part, and flags a call that was not the quarterly earnings call. Asking for a summary again redoes one written in the old format.
+- **Dates with the year** everywhere on the phone (documents, corporate actions, news, fund portfolios, closes, digest), e.g. "Thu 17 Sep 2026"; the digest's move and ex-date lines too.
 
 ### AI summaries: retry when Gemini is busy; the phone shows a run's progress and failures
 Owner: IOLCP's "Summarise latest with AI" said 1-3 minutes, but reopening kept showing "No AI summary yet".

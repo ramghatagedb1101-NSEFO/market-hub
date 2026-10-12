@@ -288,7 +288,8 @@
     if (m) { const i = MON.findIndex(x => x.toLowerCase() === m[2].toLowerCase()); if (i >= 0) return new Date(Date.UTC(+m[3], i, +m[1])); }
     return null;
   }
-  const dayTxt = d => d ? DOW[d.getUTCDay()] + " " + d.getUTCDate() + " " + MON[d.getUTCMonth()] : "";
+  // Always with the year (owner, 12 Oct 2026: "9 Oct" alone does not say which year).
+  const dayTxt = d => d ? DOW[d.getUTCDay()] + " " + d.getUTCDate() + " " + MON[d.getUTCMonth()] + " " + d.getUTCFullYear() : "";
   const timeTxt = d => d ? pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + " IST" : "";
   const asClose = day => day ? "Close · " + dayTxt(parseDay(day)) : "Close";
   const asSnap = ts => { const d = toIst(ts); return d ? "As of " + timeTxt(d) + " · " + dayTxt(d) : ""; };
@@ -1107,13 +1108,20 @@
     const docs = (d.docs && d.docs.docs) || {}, sm = (d.docs && d.docs.summaries) || {};
     const s = sm.tr || sm.ar, z = s && s.summary;
     const sumSt = d.docs ? summaryState(d.docs) : null;
-    html += sect("ai", "AI summary", esc(z ? z.headline || "" : sumSt && sumSt.running ? "Summary being written…" : d.docs ? "No AI summary yet" : "loading…"),
-      (z ? `<div style="font-size:13px;line-height:1.55">${esc(z.summary || "")}</div>
+    html += sect("ai", "AI summary", esc(z ? (z.doc_type && z.doc_type !== "quarterly earnings call" && sm.tr ? "[" + z.doc_type + "] " : "") + (z.headline || "") : sumSt && sumSt.running ? "Summary being written…" : d.docs ? "No AI summary yet" : "loading…"),
+      (z ? `${z.doc_type ? `<div class="mut" style="margin-bottom:6px">${esc(z.doc_type.charAt(0).toUpperCase() + z.doc_type.slice(1))}${z.period ? " · " + esc(z.period) : ""}</div>` : ""}
+          <div style="font-size:13px;line-height:1.55">${esc(z.summary || "")}</div>
+          ${(z.results || []).length ? `<div class="mut" style="margin-top:8px">What was reported</div><ul class="st-list">${z.results.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
+          ${(z.changed || []).length ? `<div class="mut" style="margin-top:6px">What changed</div><ul class="st-list">${z.changed.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
+          ${(z.qa || []).length ? sect("qa", "What analysts asked", z.qa.length + " questions and management's answers",
+              z.qa.map(q => `<div class="mrow" style="display:block"><div style="font-weight:600">${esc(q.question)}</div><div class="mut" style="margin-top:2px">${esc(q.answer)}</div></div>`).join("")) : ""}
+          <div class="mut" style="margin-top:6px">Key points</div>
           <ul class="st-list">${(z.key_points || []).map(k => `<li>${esc(k)}</li>`).join("")}</ul>
           ${(z.guidance || []).length ? `<div class="mut" style="margin-top:6px">Guidance</div><ul class="st-list">${z.guidance.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
           ${(z.risks || []).length ? `<div class="mut" style="margin-top:6px">Risks</div><ul class="st-list">${z.risks.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
           ${(z.numbers || []).length ? `<div class="mut" style="margin-top:6px">Numbers</div>${z.numbers.map(n => `<div class="mrow"><div class="ml"><div>${esc(n.metric)}</div><div>${esc(n.context || "")}</div></div><div class="mv">${esc(n.value)}</div></div>`).join("")}` : ""}
-          <div class="note">From the ${sm.tr ? "earnings-call transcript of " + esc(dayTxt(parseDay(sm.tr.date))) : "annual report"}. AI-written; check figures against the source.</div>`
+          ${(z.watch_next || []).length ? `<div class="mut" style="margin-top:6px">Watch next quarter</div><ul class="st-list">${z.watch_next.map(k => `<li>${esc(k)}</li>`).join("")}</ul>` : ""}
+          <div class="note">From the ${sm.tr ? (z.doc_type && z.doc_type !== "quarterly earnings call" ? esc(z.doc_type) : "call transcript") + " filed " + esc(dayTxt(parseDay(sm.tr.date))) : "annual report"}. AI-written; check figures against the source.${z.doc_type && z.doc_type !== "quarterly earnings call" && sm.tr ? " This was not the quarterly earnings call; the latest transcript filed is summarised." : ""}</div>`
         : `<div class="mut">No AI summary yet.</div>`) +
       (() => { const S2 = d.docs ? summaryState(d.docs) : null;
         return (S2 ? `<div class="note" style="margin-top:8px">${S2.html}</div>` : "") +

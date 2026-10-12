@@ -225,12 +225,12 @@ def build(shortlist: dict, companies: dict, stocks: list[dict], prices: dict, re
                     why = move_reason(sym, prices, industries, announcements, nifty)
                 except Exception:
                     why = ""
-                add("move", sym, f"{'Up' if chg > 0 else 'Down'} {abs(chg):.1f}% on {d1.strftime('%a %d %b')}", f"Close Rs {c1:,.2f}",
+                add("move", sym, f"{'Up' if chg > 0 else 'Down'} {abs(chg):.1f}% on {d1.strftime('%a %d %b %Y')}", f"Close Rs {c1:,.2f}",
                     d1.isoformat(), change=round(chg, 2), why=why)
         for a in (by_sym.get(sym) or {}).get("actions") or []:
             ex = a.get("ex_date") or ""
             if a.get("upcoming") and ex <= (today + timedelta(days=UPCOMING_DAYS)).isoformat():
-                exd = date.fromisoformat(ex).strftime("%a %d %b")
+                exd = date.fromisoformat(ex).strftime("%a %d %b %Y")
                 add("upcoming", sym, a.get("subject", "Corporate action"), f"Ex-date {exd}", ex,
                     why=f"Ex-date {exd}: shares bought on or after that day don't qualify")
     order = {"shortlist": 0, "filing": 1, "move": 2, "upcoming": 3}

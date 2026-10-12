@@ -50,8 +50,26 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.3
 SCHEMA = {
     "type": "object",
     "properties": {
+        "doc_type": {"type": "string", "enum": ["quarterly earnings call", "business update call", "investor or analyst meet",
+                                                 "annual general meeting", "annual report", "other"],
+                     "description": "What this document actually is (read it; do not assume from the file name)."},
+        "period": {"type": "string", "description": "The quarter or year discussed, e.g. 'Q1 FY27 (quarter to 30 Jun 2026)'. Empty if none."},
         "headline": {"type": "string", "description": "One line: the single most important takeaway."},
         "summary": {"type": "string", "description": "Three to five plain sentences."},
+        "results": {"type": "array", "items": {"type": "string"},
+                    "description": "The period's reported performance as stated: revenue, EBITDA and margin, profit, segment "
+                                   "figures, each with the change on a year ago (and the previous quarter where given). Empty if "
+                                   "the document does not discuss results."},
+        "qa": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"question": {"type": "string", "description": "What the analyst asked, in one line."},
+                           "answer": {"type": "string", "description": "Management's answer in one or two lines, with any figure; "
+                                                                          "'No direct answer' if they avoided it."}},
+            "required": ["question", "answer"], "additionalProperties": False},
+            "description": "The main analyst questions and management's answers, in order (up to 10). Empty if there was no Q&A."},
+        "changed": {"type": "array", "items": {"type": "string"},
+                    "description": "What is new or different from before: new guidance, revised targets, new projects, "
+                                   "changes in tone. Empty if nothing changed."},
         "key_points": {"type": "array", "items": {"type": "string"}, "description": "Five to eight points."},
         "guidance": {"type": "array", "items": {"type": "string"},
                      "description": "Forward-looking statements by management, as stated. Empty if none."},
@@ -64,21 +82,24 @@ SCHEMA = {
         "watch_next": {"type": "array", "items": {"type": "string"},
                        "description": "What an investor should check in the next quarter's results."},
     },
-    "required": ["headline", "summary", "key_points", "guidance", "risks", "numbers", "management_tone", "watch_next"],
+    "required": ["doc_type", "period", "headline", "summary", "results", "qa", "changed", "key_points", "guidance", "risks",
+                 "numbers", "management_tone", "watch_next"],
     "additionalProperties": False,
 }
 
 INSTRUCTIONS = {
-    "tr": ("This is an Indian listed company's earnings-call transcript, filed with NSE. Summarise it for a "
-           "long-term equity investor: what changed in the business this quarter, what management said about "
-           "demand, margins, capacity and capital allocation, any guidance, and what analysts pressed on. "
-           "Use only figures stated in the transcript, with their units (Rs crore, %, bps). Where management "
+    "tr": ("This is a call transcript an Indian listed company filed with NSE. First say what kind of call it is "
+           "(quarterly earnings call, business update, analyst meet, AGM) and which period it covers. Then summarise "
+           "it for a long-term equity investor, in this order of importance: the period's reported results with their "
+           "changes (results), what is new compared with before (changed), the analysts' main questions and "
+           "management's answers (qa), management's comments on demand, margins, capacity and capital allocation, and "
+           "guidance. Use only figures stated in the transcript, with their units (Rs crore, %, bps). Where management "
            "avoided a question or gave no number, say so rather than inferring one."),
     "ar": ("This is an Indian listed company's annual report, filed with NSE. Summarise it for a long-term "
            "equity investor: the year's performance and its drivers, strategy and capital allocation, segment "
            "or product trends, risks management itself flags, and anything unusual in governance, related-party "
-           "dealings or auditor remarks that appears in the text provided. Use only figures stated in the text, "
-           "with their units."),
+           "dealings or auditor remarks that appears in the text provided. Put the year's reported figures with "
+           "their changes in results; qa stays empty. Use only figures stated in the text, with their units."),
 }
 
 
@@ -210,7 +231,11 @@ def plan(docs: dict, done: dict, symbol: str | None) -> list[tuple[str, str, dic
     """[(symbol, kind, doc)] still to summarise."""
     def pending(sym, kind):
         latest = (docs.get(sym, {}).get(kind) or [None])[0]
-        if latest and (done.get(sym, {}).get(kind) or {}).get("url") != latest["url"]:
+        have = done.get(sym, {}).get(kind) or {}
+        if latest and have.get("url") != latest["url"]:
+            return latest
+        # 12 Oct 2026: summaries written before doc_type / results / Q&A existed are redone when asked for
+        if latest and symbol and "doc_type" not in (have.get("summary") or {}):
             return latest
         return None
 
