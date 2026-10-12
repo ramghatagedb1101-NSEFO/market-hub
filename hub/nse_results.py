@@ -34,7 +34,7 @@ EPS = ("BasicEarningsLossPerShareFromContinuingAndDiscontinuedOperations", "Basi
 # How far apart the two sources may be before it counts as a disagreement (percentage points of growth).
 TOL_REV, TOL_PROFIT = 5.0, 10.0
 TOL_MARGIN = 2.0         # net-margin points, for the level check
-VERIFY_VERSION = 3       # 12 Oct 2026: level check, NSE-only figures, BSE fallback; earlier non-matches are re-checked once
+VERIFY_VERSION = 4       # 12 Oct 2026: level check, NSE-only figures, BSE fallback (standalone basis); non-matches re-checked once
 
 
 def _day(s):
@@ -178,7 +178,18 @@ def verify_bse(sym: str, bs: dict) -> dict:
         out.update(status="unavailable", why="the company had no revenue this quarter" if not rev else "no margin to compare")
         return out
     gap = margin - out["bs_margin"]
-    out.update(method="margin", diffs=[] if abs(gap) <= TOL_MARGIN else
-               [f"net margin {out['bs_margin']:.1f}% (BharatStock) vs {margin:.1f}% (BSE results)"])
-    out["status"] = "mismatch" if out["diffs"] else "ok"
+    out["method"] = "margin"
+    if abs(gap) <= TOL_MARGIN:
+        out.update(status="ok", diffs=[])
+        return out
+    # BSE's snapshot is standalone; BharatStock uses consolidated results whenever a company files them
+    # (Titan: Rs 18,101 cr standalone at BSE vs Rs 21,356 cr consolidated). A gap is a disagreement only
+    # when both are standalone; otherwise the two figures measure different things (12 Oct 2026: 88
+    # "disagreements" on the first BSE run, median gap 11 points, in both directions).
+    if bs.get("_basis") == "standalone":
+        out.update(status="mismatch", diffs=[f"net margin {out['bs_margin']:.1f}% (BharatStock) vs {margin:.1f}% (BSE results)"])
+    else:
+        out.update(status="basis_differs", diffs=[],
+                   why=f"BSE shows standalone results (net margin {margin:.1f}%); BharatStock's {out['bs_margin']:.1f}% "
+                       f"is {'consolidated' if bs.get('_basis') else 'probably consolidated'}, so they are not comparable")
     return out

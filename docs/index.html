@@ -1149,7 +1149,7 @@
 
     // 9 data checks
     if (P.values || P.check) {
-      const st = { ok: "Results match the company's NSE filing", mismatch: "BharatStock disagreed with the NSE filing; NSE figures used", period_differs: "BharatStock is behind NSE; growth and margin from the NSE filing", nse_only: "No BharatStock results; figures from the company's NSE filing", bse_only: "No BharatStock results; figures from the company's BSE results", unavailable: "Could not be checked against NSE" }[chk.status] || "Not checked against NSE yet";
+      const st = { ok: "Results match the company's NSE filing", mismatch: "BharatStock disagreed with the NSE filing; NSE figures used", period_differs: "BharatStock is behind NSE; growth and margin from the NSE filing", nse_only: "No BharatStock results; figures from the company's NSE filing", bse_only: "No BharatStock results; figures from the company's BSE results", basis_differs: "BSE shows standalone results, BharatStock consolidated: not comparable", unavailable: "Could not be checked against NSE" }[chk.status] || "Not checked against NSE yet";
       html += sect("data", "Data checks", esc(st),
         `<div class="mrow"><div class="ml"><div>NSE cross-check</div><div>${esc(chk.why || (chk.diffs || []).join("; ") || "")}</div></div><div class="mv">${esc(chk.status || "–")}</div></div>` +
         (P.flags || []).map(fl => `<div class="mrow"><div class="ml"><div>${esc(fl.text)}</div></div><div class="mv ${fl.level === "severe" ? "dn" : "amb"}">${esc(fl.level)}</div></div>`).join("") +

@@ -671,7 +671,7 @@ function freshnessPanel(trk){
     row('Results filings list', '', feed(fd.results)) +
     row('Shareholding filings list', '', feed(fd.shareholding)) +
     row('Corporate actions list', '', feed(fd.corporate_actions)) +
-    row('Checked against NSE filings', '', trk.checks ? ['ok', 'mismatch', 'period_differs', 'nse_only', 'bse_only', 'unavailable', 'not checked yet'].filter(k => trk.checks[k]).map(k => ({ ok: 'match', mismatch: 'disagree (NSE used)', period_differs: 'BharatStock behind', nse_only: 'from NSE only (no BharatStock results)', bse_only: 'from BSE only', unavailable: 'not checkable', 'not checked yet': 'not checked yet' })[k] + ' ' + num(trk.checks[k], 0)).join(' · ') : '–') +
+    row('Checked against NSE filings', '', trk.checks ? ['ok', 'mismatch', 'period_differs', 'nse_only', 'bse_only', 'basis_differs', 'unavailable', 'not checked yet'].filter(k => trk.checks[k]).map(k => ({ ok: 'match', mismatch: 'disagree (NSE used)', period_differs: 'BharatStock behind', nse_only: 'from NSE only (no BharatStock results)', bse_only: 'from BSE only', basis_differs: 'BSE standalone vs consolidated', unavailable: 'not checkable', 'not checked yet': 'not checked yet' })[k] + ' ' + num(trk.checks[k], 0)).join(' · ') : '–') +
     row('Figures that cannot be right', num((trk.flagged || {}).severe || 0, 0), 'kept out of the Shortlist ranking; shown on each report') +
     '</table></div></div>';
 }

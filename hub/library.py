@@ -245,6 +245,8 @@ def financial_values(rows: list[dict]) -> dict:
         out["working_capital_change"] = wc_latest - wc_ya
     out["_latest_period"] = latest.get("period_end_date")
     out["_quarters"] = len(q)
+    # consolidated or standalone: BSE's results snapshot is standalone only, so the BSE check needs to know
+    out["_basis"] = str(latest.get("consolidation_type") or "consolidated").lower()
     return out
 
 
