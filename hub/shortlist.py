@@ -307,7 +307,8 @@ def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, n
         figs = {k: v(k) for k in FIGURES if v(k) is not None and (k != "fii_holding" or fii_ok(s))}
         check_note = ("Results match the company's NSE filing." if chk.get("status") == "ok" else
                       "BharatStock disagreed with the NSE filing; NSE figures used." if chk.get("status") == "mismatch" else
-                      "BharatStock is behind; growth and margin from the latest NSE filing." if chk.get("status") == "period_differs" else "")
+                      "BharatStock is behind; growth and margin from the latest NSE filing." if chk.get("status") == "period_differs" else
+                      "No BharatStock results; figures from the company's NSE filing." if chk.get("status") == "nse_only" else "")
         pools[style].append({"symbol": sym, "name": (names or {}).get(sym, ""), "figures": figs, "check_note": check_note,
                              "industry": ind, "score": _rnd(score), "factors": f, "why": why,
                              "watch": watch, "ret_1m": m.get("ret_1m"), "last": m.get("last"),

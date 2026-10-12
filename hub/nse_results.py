@@ -24,7 +24,8 @@ from . import shareholding as shp
 LIST = ("https://www.nseindia.com/api/integrated-filing-results?index=equities&symbol={sym}"
         "&period_ended=all&type=Integrated%20Filing-%20Financials&page=1&size=30")
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
-REVENUE = ("RevenueFromOperations", "TotalRevenueFromOperations")
+# Small companies often file total "Income" only; it is read when revenue from operations is not filed.
+REVENUE = ("RevenueFromOperations", "TotalRevenueFromOperations", "Income")
 # Companies, then banks (Schedule III for banks), then insurers -- each files profit under its own name.
 PROFIT = ("ProfitLossForPeriod", "ProfitOrLossAttributableToOwnersOfParent", "ProfitLossForThePeriod",
           "ProfitLossAfterTaxesMinorityInterestAndShareOfProfitLossOfAssociates",
@@ -32,6 +33,8 @@ PROFIT = ("ProfitLossForPeriod", "ProfitOrLossAttributableToOwnersOfParent", "Pr
 EPS = ("BasicEarningsLossPerShareFromContinuingAndDiscontinuedOperations", "BasicEarningsLossPerShareFromContinuingOperations")
 # How far apart the two sources may be before it counts as a disagreement (percentage points of growth).
 TOL_REV, TOL_PROFIT = 5.0, 10.0
+TOL_MARGIN = 2.0         # net-margin points, for the level check
+VERIFY_VERSION = 2       # 12 Oct 2026: level check, NSE-only figures; earlier non-matches are re-checked once
 
 
 def _day(s):
@@ -88,31 +91,56 @@ def _pick(rows, quarter: date, nature: str):
 
 
 def verify(s, sym: str, bs: dict) -> dict:
-    """bs: the library's figures from BharatStock (rev_yoy, profit_yoy, eps_yoy, _latest_period).
-    Returns {"status": ok | mismatch | period_differs | unavailable, ...}."""
+    """bs: the library's figures from BharatStock (rev_yoy, profit_yoy, eps_yoy, net_margin, _latest_period).
+    Returns {"status": ok | mismatch | period_differs | nse_only | unavailable, "method": growth | margin, ...}.
+
+    12 Oct 2026: a quarter's XBRL carries only that quarter and the year to date, so growth needs the
+    year-ago filing, which many companies do not have in the integrated format. Without it -- or when
+    growth means nothing (a loss or zero a year ago) -- the quarter itself is checked: net margin from the
+    filing against BharatStock's. With no BharatStock results at all, the filing's figures are the
+    company's figures ("nse_only")."""
     rows = filings(s, sym)
     if not rows:
-        return {"status": "unavailable", "why": "no machine-readable results filing at NSE"}
+        return {"status": "unavailable", "why": "the company files no machine-readable results at NSE (it may report only to BSE)"}
     latest = max(r["quarter"] for r in rows)
     nature = "consolidated" if any(r["quarter"] == latest and r["nature"] == "consolidated" for r in rows) else "standalone"
     cur = _pick(rows, latest, nature)
     ago_q = min((r["quarter"] for r in rows if r["nature"] == nature and abs((latest - r["quarter"]).days - 365) <= 20), default=None,
                 key=lambda q: abs((latest - q).days - 365))
-    if not ago_q:
-        return {"status": "unavailable", "why": "no filing for the same quarter a year earlier", "period": latest.isoformat()}
-    f1, f0 = facts(cur["xbrl"]), facts(_pick(rows, ago_q, nature)["xbrl"])
+    f1 = facts(cur["xbrl"])
+    f0 = facts(_pick(rows, ago_q, nature)["xbrl"]) if ago_q else {}
     out = {"period": latest.isoformat(), "basis": nature, "nse": {"rev": f1.get("revenue"), "profit": f1.get("profit"), "eps": f1.get("eps"),
            "rev_year_ago": f0.get("revenue"), "profit_year_ago": f0.get("profit"), "eps_year_ago": f0.get("eps"),
            "shares": (f1["paid_up"] / f1["face"]) if f1.get("paid_up") and f1.get("face") else None},
            "nse_rev_yoy": _growth(f1.get("revenue"), f0.get("revenue")), "nse_profit_yoy": _growth(f1.get("profit"), f0.get("profit")),
            "nse_eps_yoy": _growth(f1.get("eps"), f0.get("eps")),
            "bs_rev_yoy": bs.get("rev_yoy"), "bs_profit_yoy": bs.get("profit_yoy"), "bs_period": str(bs.get("_latest_period") or "")[:10]}
-    if out["nse_rev_yoy"] is None and out["nse_profit_yoy"] is None:
-        out.update(status="unavailable", why="the filing's revenue and profit facts could not be read (bank or insurer format?)")
+    rev, profit = f1.get("revenue"), f1.get("profit")
+    out["nse_margin"] = profit / rev * 100 if rev and rev > 0 and profit is not None else None
+    out["bs_margin"] = bs.get("net_margin")
+    if rev is None and profit is None:
+        out.update(status="unavailable", why="the filing's revenue and profit could not be read")
         return out
-    if out["bs_period"] and out["bs_period"] != out["period"]:
+    if not out["bs_period"]:
+        out.update(status="nse_only", method="nse", why="BharatStock has no results for this company; figures from its NSE filing")
+        return out
+    if out["bs_period"] != out["period"]:
         out.update(status="period_differs", why=f"BharatStock's latest quarter is {out['bs_period']}, NSE's is {out['period']}")
         return out
+    growth_ok = (out["nse_rev_yoy"] is not None and out["bs_rev_yoy"] is not None) or \
+                (out["nse_profit_yoy"] is not None and out["bs_profit_yoy"] is not None)
+    if not growth_ok:
+        # the level check: this quarter's net margin from both sources
+        if out["nse_margin"] is None or out["bs_margin"] is None:
+            out.update(status="unavailable", why=("the company had no revenue this quarter" if not rev else
+                                                  "no year-ago filing at NSE and no margin to compare"))
+            return out
+        gap = out["nse_margin"] - out["bs_margin"]
+        out.update(method="margin", diffs=[] if abs(gap) <= TOL_MARGIN else
+                   [f"net margin {out['bs_margin']:.1f}% (BharatStock) vs {out['nse_margin']:.1f}% (NSE filing)"])
+        out["status"] = "mismatch" if out["diffs"] else "ok"
+        return out
+    out["method"] = "growth"
     diffs = []
     if out["nse_rev_yoy"] is not None and out["bs_rev_yoy"] is not None and abs(out["nse_rev_yoy"] - out["bs_rev_yoy"]) > TOL_REV:
         diffs.append(f"revenue growth {out['bs_rev_yoy']:+.1f}% (BharatStock) vs {out['nse_rev_yoy']:+.1f}% (NSE filing)")

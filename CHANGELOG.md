@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-12
 
+### Results check: margin check without a year-ago filing; NSE figures where BharatStock has none
+Owner: finish the 227 "not checked yet" and find an alternative for the 342 "couldn't be checked".
+- **Findings** (three diagnostics run on GitHub, `diag.yml`, since NSE refuses this machine): the 228 "not checked yet" had no BharatStock results at all, so there was nothing to compare and they had no growth figures either (e.g. AASTHA, ADVAIT, AARNAV -- all of which do file at NSE). Of the 342: 88 lacked a year-ago filing in NSE's integrated format, and a quarter's XBRL holds only that quarter and the year to date (no comparison column); the 32 "bank or insurer format" were not banks but loss-making or small companies (growth from a loss is undefined; some file total "Income" instead of revenue); 222 file no results XBRL at NSE at all (e.g. Abbott India, ADDIND -- likely BSE only). NSE's older results APIs (results comparison, financial-results list) stopped at the December 2024 quarter, so they cannot fill the gap.
+- **Level check** (`verify`, `hub/nse_results.py`): when growth cannot be compared, this quarter's net margin from the filing is checked against BharatStock's (within 2 points = match; a disagreement uses the NSE margin).
+- **NSE-only figures**: when BharatStock has no results, revenue / profit growth (when a year-ago filing exists) and net margin come from the company's own filing ("Figures from NSE filing" on the phone and dashboard).
+- **"Income"** is read as revenue when a company files no revenue-from-operations figure.
+- Clearer reasons for what still cannot be checked: no results XBRL at NSE (may report only to BSE), or no revenue in the quarter.
+- Every company that was not a match is re-checked once (`VERIFY_VERSION`); NSE only, no BharatStock requests.
+
 ### AI summaries say what the call was and what happened in it; every phone date shows its year
 Owner: IOLCP's summary "doesn't talk about what actually happened in the earnings call"; dates showed day and month only.
 - **Finding:** the document summarised was IOLCP's business-update call of 17 Sep 2026 (capex plan), not its quarterly earnings call -- the latest transcript filed -- and nothing said so. The summary also had no place for the quarter's numbers or the Q&A.

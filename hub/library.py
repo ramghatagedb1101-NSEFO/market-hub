@@ -894,9 +894,13 @@ def needs(c: dict, mb_row: dict | None, today: date) -> list[str]:
     v = src.get("verify")
     fin_period = str((src.get("fin") or {}).get("period") or "")[:10]
     vretry = _date((v or {}).get("retry"))
-    if (c.get("basis") or {}).get("fin") and fin_period and not (vretry and vretry > today) and (
-            not v or v.get("period") != fin_period or due("verify")):
-        out.append("verify")
+    if not (vretry and vretry > today):
+        if (c.get("basis") or {}).get("fin") and fin_period and (
+                not v or v.get("period") != fin_period or due("verify")
+                or (v.get("ver") != nse_results.VERIFY_VERSION and (c.get("check") or {}).get("status") != "ok")):
+            out.append("verify")
+        elif src.get("fin") and not fin_period and (not v or due("verify") or v.get("ver") != nse_results.VERIFY_VERSION):
+            out.append("verify")       # BharatStock has no results: the NSE filing supplies them (12 Oct 2026)
     # Fund data is wanted only for companies with profit growth or a multi-bagger score of 2+. Fresh
     # results can change that, so after a results refresh refresh_company() checks again itself.
     s = src.get("fund")
@@ -1041,6 +1045,7 @@ def refresh_company(sym: str, c: dict, stages: list[str], ctx: dict) -> list[str
                 vs = src.setdefault("verify", {})
                 vs["on"] = today.isoformat()
                 vs["period"] = str((src.get("fin") or {}).get("period") or "")[:10]
+                vs["ver"] = nse_results.VERIFY_VERSION
                 vs.pop("error", None)
                 vs.pop("retry", None)
             elif stage == "docs":
@@ -1176,6 +1181,13 @@ def company_values(sym: str, c: dict, ctx: dict, prior_entry: dict | None) -> tu
         n = chk.get("nse") or {}
         if nse_newer and n.get("rev") and n.get("profit") is not None:
             values["net_margin"] = n["profit"] / n["rev"] * 100
+    if chk.get("status") == "mismatch" and chk.get("method") == "margin" and chk.get("nse_margin") is not None:
+        values["net_margin"] = chk["nse_margin"]
+    if chk.get("status") == "nse_only":
+        # no BharatStock results: the company's own NSE filing supplies growth and margin
+        for k, nk in (("rev_yoy", "nse_rev_yoy"), ("profit_yoy", "nse_profit_yoy"), ("eps_yoy", "nse_eps_yoy"), ("net_margin", "nse_margin")):
+            if chk.get(nk) is not None:
+                values[k] = chk[nk]
     px = ctx["prices"].get(sym)
     last = None
     if px and px[0]:
@@ -1394,7 +1406,7 @@ def main() -> dict:
         entry["fresh"] = {k: (c.get("src") or {}).get(k, {}).get("on") for k in ("fin", "ann", "shp", "fund", "docs", "verify")}
         chk = c.get("check")
         if chk:
-            entry["check"] = {k: chk.get(k) for k in ("status", "period", "basis", "diffs", "why") if chk.get(k)}
+            entry["check"] = {k: chk.get(k) for k in ("status", "period", "basis", "diffs", "why", "method") if chk.get(k)}
         fl = data_health.flags(values, chk, (c.get("basis") or {}).get("val"), fin.get("_latest_period"), today)
         if fl:
             entry["flags"] = fl
