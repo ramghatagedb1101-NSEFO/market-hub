@@ -51,8 +51,12 @@ ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
   `relay-live` is a clasp folder: `.clasp.json` = `{"scriptId":"13rGqOxSSC3aQzZGYjpDWT4NnNXUO_kjCQKeA4oo2pZ8MD22KEilKWR7s","rootDir":"."}`
   plus `clasp pull`. Both deployments are updated in place (`clasp deploy -i <id>`, never a new deployment):
   `AKfycbwQZxgg…` (admin bookmark) and `AKfycbye12r6…` (live relay, phone, Kite redirect); full IDs in the
-  script. Deploys need `clasp` signed in as ramghatagedb1101@gmail.com, which only the owner's laptop has.
-  The last deployed commit is in the newest relay entry of `CHANGELOG.md` and in `git log -- relay/`.
+  script. Deploys need `clasp` signed in as ramghatagedb1101@gmail.com.
+- Relay deploys from GitHub (since 13 Oct 2026): pushing a change to `relay/*.gs` or `relay/AdminPage.html`
+  starts `relay-deploy.yml`, which waits for the owner's approval (environment `relay`), then runs the strict
+  script above, checks the live relay and writes the deployed commit to `.github/relay-deployed`. A cloud
+  session can therefore change, push and (after approval) deploy the relay. The laptop route still works;
+  after a laptop deploy, put its commit in `.github/relay-deployed` or the next GitHub deploy stops at step 1.
 - Phone app (`docs/index.html`): bump the cache name in `docs/sw.js` on every change, or phones keep the
   old page. Test at phone width (375 px) before publishing.
 - Verify on real data where possible (private repo files via `gh api`), not only on samples.

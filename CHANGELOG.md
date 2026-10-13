@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Relay deploys from GitHub, with the owner's approval
+Owner: wants Claude to do most of the work, including relay deploys, which until now needed `clasp` on the laptop.
+- **`relay-deploy.yml`**: on a push that changes `relay/*.gs` or `relay/AdminPage.html` (or by hand), waits for the owner's approval (environment `relay`), signs `clasp` 3.4.1 in from the environment secret `CLASPRC_JSON`, refuses any Google account but ramghatagedb1101@gmail.com, runs the unchanged strict script `relay/tools/deploy_relay.sh`, checks the live relay (`mode=check`), and records the deployed commit in `.github/relay-deployed` (starts at 244af4a, Version 47).
+- **Why this way**: Google's Apps Script API does not accept service accounts, and a narrow-scope OAuth client of our own would need signing in again every 7 days while in Google's testing mode. The trade-off: the secret can change any Apps Script project of that account; it lives only in the approval-gated environment.
+- **Not run yet**: needs the owner's one-time setup (`relay/README.md`, "Deploying from GitHub"). Its first run deploys the 06:00 fix below.
+
 ### Kite login: dated by Kite's 06:00 IST cut-off, not midnight (relay; written, not yet deployed)
 Owner: live quotes failed with "Incorrect `api_key` or `access_token`" although the token had been renewed earlier today.
 - **Finding:** every relay check treated a token as valid if `KITE_TOKEN_DATE` equalled today's IST calendar date. Kite ends every access token at about 06:00 IST, not at midnight. A login between 00:00 and 06:00 was dated "today" and looked valid all day while Kite refused it. A daytime login was treated as gone at midnight although Kite honours it until 06:00. The deployment's "Execute as" setting was ruled out: every Kite value is a script property, shared by all users. Not proven to be today's cause: if no login happened before 06:00, the other cause is a second login with the same Kite app (see the `KiteWatch.gs` email).

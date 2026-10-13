@@ -1,0 +1,105 @@
+name: relay-deploy
+
+# Deploys relay/ to the Apps Script project with the strict script (relay/tools/deploy_relay.sh): checks the live
+# project still matches the last deployed commit, runs relay/check.js, pushes, checks content, makes a version and
+# moves BOTH deployments to it in place. Waits for the owner's approval (GitHub environment "relay", required
+# reviewer) before anything runs. The clasp sign-in (ramghatagedb1101@gmail.com) is the environment secret
+# CLASPRC_JSON, added by the owner; it exists only inside that environment.
+on:
+  push:
+    branches: [main]
+    paths: ["relay/*.gs", "relay/AdminPage.html"]
+  workflow_dispatch:
+    inputs:
+      label:
+        description: "What changed (goes into the Apps Script version name)"
+        required: false
+        default: ""
+
+concurrency:
+  group: relay-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: relay
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install -g @google/clasp@3.4.1
+
+      - name: clasp sign-in
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then echo "CLASPRC_JSON is not set in the 'relay' environment"; exit 1; fi
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          chmod 600 ~/.clasprc.json
+
+      - name: Project folder (relay-live)
+        run: |
+          mkdir -p "$RUNNER_TEMP/sp/relay-live"
+          cd "$RUNNER_TEMP/sp/relay-live"
+          echo '{"scriptId":"13rGqOxSSC3aQzZGYjpDWT4NnNXUO_kjCQKeA4oo2pZ8MD22KEilKWR7s","rootDir":"."}' > .clasp.json
+          clasp deployments > /dev/null
+          clasp pull > /dev/null
+
+      # appsscript.json has executeAs USER_DEPLOYING: the relay runs as whoever deploys. Refuse any other account.
+      - name: Account check (ramghatagedb1101@gmail.com only)
+        run: |
+          node -e '
+            const rc = JSON.parse(require("fs").readFileSync(require("os").homedir() + "/.clasprc.json", "utf8"));
+            const t = (rc.tokens && rc.tokens.default) || rc.token || {};
+            fetch("https://oauth2.googleapis.com/tokeninfo?access_token=" + t.access_token).then(r => r.json()).then(j => {
+              if (j.email !== "ramghatagedb1101@gmail.com") { console.log("Refusing: clasp is signed in as " + (j.email || "an unknown account")); process.exit(1); }
+              console.log("clasp account OK: " + j.email);
+            });'
+
+      - name: Deploy (strict script)
+        env:
+          LABEL_IN: ${{ inputs.label }}
+        run: |
+          PREV=$(cat .github/relay-deployed)
+          LABEL="${LABEL_IN:-$(git log -1 --format=%s -- relay/)}"
+          LABEL="${LABEL:0:80}"
+          echo "Last deployed commit: $PREV"
+          bash relay/tools/deploy_relay.sh "$GITHUB_WORKSPACE" "$RUNNER_TEMP/sp" "$PREV" "$LABEL" > "$RUNNER_TEMP/deploy.log" 2>&1 || { cat "$RUNNER_TEMP/deploy.log"; exit 1; }
+          cat "$RUNNER_TEMP/deploy.log"
+          grep -q '^6\. deployed version ' "$RUNNER_TEMP/deploy.log"
+
+      - name: Live check (mode=check on the live relay)
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          curl -sSL -G "$RELAY_URL" --data-urlencode "mode=check" --data-urlencode "key=$RELAY_KEY" -o "$RUNNER_TEMP/check.json"
+          node -e '
+            const j = JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/check.json", "utf8"));
+            if (j.error || j.key_matches !== true) { console.log("Live relay check failed:", j.error || "key did not match"); process.exit(1); }
+            console.log("Live relay answers. today:", j.today, "kite_day:", j.kite_day, "token_ok_for_today:", j.token_ok_for_today);'
+
+      - name: Record the deployed commit
+        run: |
+          LINE=$(grep '^6\. deployed version ' "$RUNNER_TEMP/deploy.log")
+          V=$(echo "$LINE" | awk '{print $4}'); NEW=$(echo "$LINE" | awk '{print $6}')
+          echo "$NEW" > .github/relay-deployed
+          echo "Relay deployed: Version $V from commit $NEW, both deployments." >> "$GITHUB_STEP_SUMMARY"
+          git config user.name "relay-deploy"
+          git config user.email "actions@github.com"
+          git add .github/relay-deployed
+          git commit -m "Relay deployed: Version $V (commit $NEW)"
+          for i in 1 2 3; do git pull --rebase -q origin main && git push -q origin main && exit 0; sleep 5; done
+          exit 1
+
+      - name: Remove sign-in file
+        if: always()
+        run: rm -f ~/.clasprc.json
