@@ -26,6 +26,7 @@ function doGet(e) {
   if (p.mode === 'watchlist') return json_(watchlistForBatch_(p.key || ''));
   if (p.mode === 'watch_check') return json_(watchCheck_(p.key || ''));
   if (p.mode === 'expiry_close') return json_(expiryCloseHook_(p.key || ''));
+  if (p.mode === 'expiry_tape') return json_(expiryTapeHook_(p.key || ''));
   if (p.request_token) return handleLogin_(p.request_token);
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
 }

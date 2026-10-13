@@ -1,0 +1,42 @@
+name: expiry-tape
+
+# Expiry-day recorder (14 Oct 2026): on a day NIFTY, SENSEX or BANK NIFTY expires, calls the relay once a minute from
+# 09:05 to 15:46 IST so its minute record of the option sellers' walls, max pain and the next expiry's walls has no
+# gaps when nobody has the dashboard open; after the close saves the day to the private repository (state/expiry/).
+# No Kite call of its own (the relay answers from its shared snapshot). Exits in a minute on other days.
+#
+# A job may run 6 hours at most, and the market day is 6 h 41 min: the 09:08 run records until the 12:33 run starts and
+# replaces it (cancel-in-progress), and the 12:33 run finishes the day. Odd minutes: GitHub delays runs on the hour.
+on:
+  schedule:
+    - cron: "38 3 * * 1-5"    # 09:08 IST
+    - cron: "3 7 * * 1-5"     # 12:33 IST
+  workflow_dispatch:          # by hand after 15:46 IST: saves the day again (the relay keeps it until about 21:30)
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expiry-tape
+  cancel-in-progress: true
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Record the expiry day
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.expiry_tape

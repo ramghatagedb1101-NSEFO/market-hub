@@ -157,6 +157,9 @@ details.all summary{cursor:pointer;font-weight:600;padding:4px 0;color:var(--tex
 .rules{display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 14px}
 pre.raw{white-space:pre-wrap;font-size:12px;background:var(--panel2);border-radius:8px;padding:10px;margin:0;font-family:var(--mono)}
 
+.ws{display:grid;grid-template-columns:150px 1fr 1fr;column-gap:12px;font-size:12.5px}
+.ws>div{padding:7px 0;border-bottom:1px solid var(--line2)} .ws .wh{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+@media (max-width:600px){ .ws{grid-template-columns:1fr 1fr} .ws .wl{grid-column:1/-1;border-bottom:0;padding-bottom:0;font-weight:600;color:var(--text2)} .ws .wl:empty{display:none} }
 @media (max-width:1100px){ .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .stats{grid-template-columns:repeat(3,minmax(0,1fr))} }
 @media (max-width:860px){
   .shell{grid-template-columns:1fr}
@@ -1740,19 +1743,39 @@ function tapeTick(){
 // its own meter, stacked (e.g. NIFTY + BANK NIFTY on the month's last Tuesday); other days show the next expiry per
 // index and each index's track record. Every 10 s in market hours (relay Expiry.gs; one shared Kite request).
 // ======================================================================================
-let EXP = { timer: null, charts: {}, data: null, okAt: 0, err: null };
+let EXP = { timer: null, charts: {}, data: null, okAt: 0, err: null, tapes: {}, open: {}, full: false };
 function stopExpiry(){ if (EXP.timer) clearInterval(EXP.timer); EXP.timer = null; Object.values(EXP.charts).forEach(c => { try { c.destroy(); } catch (e) {} }); EXP.charts = {}; }
 function pageExpiry(){
   // Background data loads call rerender(); keep a running meter instead of restarting it (review, 13 Oct 2026).
   if (EXP.timer && EXP.data) { drawExpiry(); return; }
-  stopExpiry(); EXP.data = null; EXP.okAt = 0; EXP.err = null;
+  stopExpiry(); EXP.data = null; EXP.okAt = 0; EXP.err = null; EXP.tapes = {}; EXP.full = false;
   $('view').innerHTML = loadingBlock('Reading today\'s expiring option chains…');
-  const tick = () => call('adminExpiry', token).then(d => { if (current.page !== 'expiry') return; EXP.data = d; EXP.err = null; if (!d.error) EXP.okAt = Date.now(); drawExpiry(); })
+  const tick = () => call('adminExpiry', token, expSince()).then(d => { if (current.page !== 'expiry') return; expMerge(d); EXP.data = d; EXP.err = null; if (!d.error) EXP.okAt = Date.now(); drawExpiry(); })
     .catch(e => { if (current.page !== 'expiry') return; EXP.err = 'Could not reach the relay: ' + e.message;
       if (!EXP.data) $('view').innerHTML = errBlock(EXP.err); else drawExpiry(); });
   // Every 10 s in market hours, every minute after (closes are recorded after 15:45); paused while the tab is hidden.
   let last = 0;
   tick(); EXP.timer = setInterval(() => { if (document.hidden) return; if (!marketHoursIst() && Date.now() - last < 60000) return; last = Date.now(); tick(); }, 10000);
+}
+// The day's minute rows are kept here and only newer ones are asked for (a full day is ~70 KB per index).
+function expSince(){
+  const T = Object.values(EXP.tapes); if (EXP.full || !T.length) return '';
+  const date = T[0].date; if (T.some(t => t.date !== date)) return '';
+  let last = null; T.forEach(t => [t.hist, t.tape].forEach(a => { const h = a.length ? a[a.length - 1][0] : ''; if (last === null || h < last) last = h; }));
+  return last ? date + ' ' + last : '';
+}
+function expMerge(d){
+  if (!d || d.error) return;
+  if (!d.sliced) EXP.full = false;
+  (d.indices || []).forEach(x => {
+    if (x.error || !x.history) return;
+    const cur = EXP.tapes[x.id];
+    if (!d.sliced || !cur || cur.date !== d.date) {
+      if (d.sliced) EXP.full = true;          // an index this page had no rows for: ask for the whole day next time
+      EXP.tapes[x.id] = { date: d.date, hist: x.history.slice(), tape: (x.tape || []).slice() }; return; }
+    const add = (arr, rows) => rows.forEach(r => { if (!arr.length || r[0] > arr[arr.length - 1][0]) arr.push(r); });
+    add(cur.hist, x.history); add(cur.tape, x.tape || []);
+  });
 }
 function expGauge(d){
   // Semicircle: left end = range low, right end = range high (the market's one-standard-deviation move).
@@ -1798,7 +1821,7 @@ function expTrack(label, t){
       '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th>Expiry</th><th>Close</th><th>10:00</th><th>12:00</th><th>14:00</th><th>15:00</th></tr>' +
       acc.map(a => '<tr><td>' + esc(expDay(a.date)) + '</td><td><b>' + fmt(a.close) + '</b></td><td>' + c(a, a.at10) + '</td><td>' + c(a, a.at12) + '</td><td>' + c(a, a.at14) + '</td><td>' + c(a, a.at15) + '</td></tr>').join('') + '</table></div>'
       : '<div class="muted">No finished expiries recorded yet. Each close is recorded after 15:45 IST and the weights are re-fitted from it.</div>') +
-    '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + M.k + ' × (max pain − forward) + ' + M.m + ' × (wall midpoint − forward) + ' + (M.e || 0) + ' × Europe move + ' + (M.u || 0) + ' × US futures move. ' +
+    '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + M.k + ' × (max pain − forward) + ' + M.m + ' × (wall midpoint − forward) + ' + (M.e || 0) + ' × Europe move + ' + (M.u || 0) + ' × US futures move + ' + (M.v || 0) + ' × (next expiry\'s wall midpoint − forward). ' +
     (M.expiries ? 'Fitted on ' + M.expiries + ' expir' + (M.expiries > 1 ? 'ies' : 'y') + ' (' + M.samples + ' readings).' : 'Starting values; re-fitted after each expiry.') + '</div></div></div>';
 }
 function expBlock(x, t, stale){
@@ -1812,9 +1835,59 @@ function expBlock(x, t, stale){
     '<div class="grid g4" style="margin-top:14px">' +
       kpi('Spot', fmt(x.spot, 2), esc(x.label)) + kpi('Forward (market)', fmt(x.forward, 0), 'ATM ' + fmt(x.atm) + ': strike + call − put') +
       kpi('Max pain', fmt(x.max_pain), 'buyers collect least here') + kpi('PCR', x.pcr == null ? '–' : x.pcr, 'put OI ÷ call OI, ±3%') + '</div>' +
+    expSellers(x);
+}
+// Option sellers' positions (13 Oct 2026, owner): the walls with their size and change since the day's first reading,
+// today's expiry beside the next one (sellers roll into it on expiry day), what sellers pay at settlement, and how
+// all of it has moved through the day. OI is in units (Kite), so OI × points = rupees.
+function expSellers(x){
+  const N = x.next && !x.next.error ? x.next : null, o = x.oi || {}, S = x.sellers || {}, step = x.step || 50;
+  const L = v => v == null ? '–' : fmt(v / 1e5, 1) + ' L';
+  const d = v => v == null ? '' : ' <span class="muted">(' + (v >= 0 ? '+' : '−') + fmt(Math.abs(v) / 1e5, 1) + ' L)</span>';
+  const wall = w => w ? '<b>' + fmt(w[0]) + '</b> · ' + L(w[1]) + d(w[2]) : '–';
+  const more = ws => (ws || []).slice(1).map(w => fmt(w[0]) + ' · ' + L(w[1]) + d(w[2])).join('<br>') || '–';
+  const adds = a => (a || []).length ? a.map(w => fmt(w[0]) + ' ' + (w[1] >= 0 ? '+' : '−') + fmt(Math.abs(w[1]) / 1e5, 1) + ' L').join(' · ') : '–';
+  const cr = v => v == null ? '–' : '₹' + fmt(Math.abs(v), v != null && Math.abs(v) < 100 ? 1 : 0) + ' cr';
+  const nxHead = x.next ? 'Next expiry · ' + esc(expDay(x.next.expiry)) : 'Next expiry';
+  const row = (k, a, b) => '<div class="wl">' + k + '</div><div>' + a + '</div><div>' + b + '</div>';
+  const since = o.since ? 'since ' + o.since + ' IST' + (o.since < '09:15' ? ' (previous close)' : '') : 'no baseline yet';
+  const No = N ? N.oi || {} : {};
+  const table = '<div class="panel"><div class="panel-h"><h3>Option sellers\' walls</h3><span class="muted" style="font-size:12px">open interest (lakh units) and change ' + esc(since) + '</span></div><div class="panel-b">' +
+    '<div class="ws"><div class="wl wh"></div><div class="wh">Today\'s expiry</div><div class="wh">' + nxHead + '</div>' +
+    row('Call wall (resistance)', wall(x.call_walls[0]), N ? wall(N.call_walls[0]) : '–') +
+    row('Other call walls', more(x.call_walls), N ? more(N.call_walls) : '–') +
+    row('Put wall (support)', wall(x.put_walls[0]), N ? wall(N.put_walls[0]) : '–') +
+    row('Other put walls', more(x.put_walls), N ? more(N.put_walls) : '–') +
+    row('Max pain', '<b>' + fmt(x.max_pain) + '</b>', N ? '<b>' + fmt(N.max_pain) + '</b>' : '–') +
+    row('PCR (±3%)', x.pcr == null ? '–' : x.pcr, N && N.pcr != null ? N.pcr : '–') +
+    row('Calls OI', L(o.calls) + d(o.calls_chg), N ? L(No.calls) + d(No.calls_chg) : '–') +
+    row('Puts OI', L(o.puts) + d(o.puts_chg), N ? L(No.puts) + d(No.puts_chg) : '–') +
+    row('Most call writing', adds(o.writing && o.writing.calls), N ? adds(No.writing && No.writing.calls) : '–') +
+    row('Most put writing', adds(o.writing && o.writing.puts), N ? adds(No.writing && No.writing.puts) : '–') +
+    row('Most calls closed', adds(o.covering && o.covering.calls), '') +
+    row('Most puts closed', adds(o.covering && o.covering.puts), '') + '</div>' +
+    (x.next && x.next.error ? '<div class="muted" style="margin-top:6px;font-size:12px">' + esc(x.next.error) + '</div>' : '') +
+    (N ? '<div class="muted" style="margin-top:6px;font-size:12px">Next expiry read every minute (as of ' + esc(N.as_of || '') + ' IST). Its ATM ' + fmt(N.atm) + ' straddle ±' + fmt(N.straddle, 1) + '. Wall midpoint ' + fmt(N.wall_mid) + '.</div>' : '') +
+    '</div></div>';
+  const cw = x.call_walls[0], pw = x.put_walls[0];
+  const bar = (label, v, col, max) => '<div style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="width:118px;font-size:12px">' + label + '</span><span style="flex:1;background:var(--line2);border-radius:3px;height:10px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:' + Math.min(100, Math.abs(v || 0) / (max || 1) * 100).toFixed(1) + '%;background:' + col + ';border-radius:3px"></span></span><b style="width:84px;text-align:right;font-size:12px">' + (v != null && v < 0 ? '−' : '') + cr(v) + '</b></div>';
+  const mx = Math.max(Math.abs(S.step_up || 0), Math.abs(S.step_down || 0), 1);
+  const money = '<div class="panel"><div class="panel-h"><h3>What sellers pay at settlement</h3><span class="muted" style="font-size:12px">OI × points in the money, strikes within ±3%</span></div><div class="panel-b">' +
+    '<div>If it settles <b>here (' + fmt(x.spot) + ')</b>: sellers pay <b>' + cr(S.here) + '</b>. At <b>max pain (' + fmt(x.max_pain) + ')</b>: <b>' + cr(S.at_max_pain) + '</b>' +
+      (S.here != null && S.at_max_pain != null ? ', ' + cr(S.here - S.at_max_pain) + ' less.' : '.') + '</div>' +
+    '<div style="margin-top:10px;font-size:12px" class="muted">Change in what they pay for one step (' + step + ' points):</div>' +
+    bar(step + ' up', S.step_up, S.step_up > 0 ? 'var(--down)' : 'var(--up)', mx) + bar(step + ' down', S.step_down, S.step_down > 0 ? 'var(--down)' : 'var(--up)', mx) +
+    '<div style="margin-top:10px">Each ' + step + ' points past the call wall costs its sellers <b>' + cr(cw ? cw[1] * step / 1e7 : null) + '</b>; past the put wall, <b>' + cr(pw ? pw[1] * step / 1e7 : null) + '</b>.</div>' +
+    '<div style="height:150px;margin-top:10px"><canvas id="expCost_' + esc(x.id) + '"></canvas></div>' +
+    '<div class="muted" style="margin-top:6px;font-size:12px">Bars: red = sellers would pay more, green = less; the chart shows the same two figures through the day. Sellers as a group gain most at max pain; the side where a step costs them more is where their losses grow faster. Many sellers are hedged, so this is pressure, not a rule.</div></div></div>';
+  const key = 'oi_' + x.id;
+  return '<div class="grid g2" style="margin-top:14px">' + table + money + '</div>' +
     '<div class="grid g2" style="margin-top:14px">' +
-      kpi('Call walls (resistance)', fmt(x.call_wall), x.call_walls.map(w => fmt(w[0]) + ' · ' + fmt(w[1] / 1e5) + ' L').join(' | ')) +
-      kpi('Put walls (support)', fmt(x.put_wall), x.put_walls.map(w => fmt(w[0]) + ' · ' + fmt(w[1] / 1e5) + ' L').join(' | ')) + '</div>';
+      '<div class="panel"><div class="panel-h"><h3>Walls and max pain through the day</h3><span class="muted" style="font-size:12px">dashed = next expiry</span></div><div class="panel-b"><div style="height:260px"><canvas id="expWalls_' + esc(x.id) + '"></canvas></div></div></div>' +
+      '<div class="panel"><div class="panel-h"><h3>Wall size through the day</h3><span class="muted" style="font-size:12px">open interest at the wall, lakh units · dashed = next expiry</span></div><div class="panel-b"><div style="height:260px"><canvas id="expSize_' + esc(x.id) + '"></canvas></div></div></div></div>' +
+    '<details data-k="' + key + '"' + (EXP.open[key] ? ' open' : '') + ' ontoggle="EXP.open[this.dataset.k]=this.open" style="margin-top:14px"><summary class="muted">Open interest by strike: today\'s expiry and the next (±1.5% of spot)</summary>' +
+      '<div class="grid g2" style="margin-top:10px"><div class="panel"><div class="panel-h"><h3>Today\'s expiry</h3></div><div class="panel-b"><div style="height:260px"><canvas id="expOi_' + esc(x.id) + '"></canvas></div></div></div>' +
+      '<div class="panel"><div class="panel-h"><h3>' + nxHead + '</h3></div><div class="panel-b"><div style="height:260px"><canvas id="expOiN_' + esc(x.id) + '"></canvas></div></div></div></div></details>';
 }
 function drawExpiry(){
   const d = EXP.data, v = $('view'), tracks = d.tracks || {};
@@ -1841,9 +1914,35 @@ function drawExpiry(){
     '<div class="muted" style="margin-top:10px;font-size:12px">Not a guarantee. The range is the market\'s own estimate (ATM straddle). Walls and max pain are where price often settles on expiry, not where it must.</div>';
   Object.values(EXP.charts).forEach(c => { try { c.destroy(); } catch (e) {} }); EXP.charts = {};
   if (typeof Chart === 'undefined') return;   // chart library did not load: the figures above still stand
+  const ax = () => ({ x: { ticks: { maxTicksLimit: 8, color: cssVar('--muted') } }, y: { ticks: { color: cssVar('--muted') } } });
+  const opt = () => ({ animation: false, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { boxWidth: 12, color: cssVar('--text2') } } }, scales: ax() });
+  const ln = (label, data, col, extra) => Object.assign({ label: label, data: data, borderColor: col, backgroundColor: col, borderWidth: 1.5, pointRadius: 0, spanGaps: false }, extra || {});
+  const mk = (id, cfg) => { const el = $(id); if (el) EXP.charts[id] = new Chart(el, cfg); };
+  d.indices.forEach(x => {
+    if (x.error) return;
+    const T = (EXP.tapes[x.id] || {}).tape || [], c = i => T.map(r => r[i]), lab = T.map(r => r[0]);
+    const red = cssVar('--down'), green = cssVar('--up'), amber = cssVar('--warn'), grey = cssVar('--muted');
+    mk('expWalls_' + x.id, { type: 'line', data: { labels: lab, datasets: [
+      ln('Call wall', c(5), red, { stepped: true, borderWidth: 2 }), ln('Put wall', c(7), green, { stepped: true, borderWidth: 2 }),
+      ln('Max pain', c(4), amber, { stepped: true, borderWidth: 2 }), ln('Spot', c(1), grey, { borderDash: [2, 2] }),
+      ln('Next call wall', c(14), red, { stepped: true, borderDash: [6, 4] }), ln('Next put wall', c(16), green, { stepped: true, borderDash: [6, 4] }),
+      ln('Next max pain', c(18), amber, { stepped: true, borderDash: [6, 4] })] }, options: opt() });
+    mk('expSize_' + x.id, { type: 'line', data: { labels: lab, datasets: [
+      ln('Call wall OI', c(6), red, { borderWidth: 2 }), ln('Put wall OI', c(8), green, { borderWidth: 2 }),
+      ln('Next call wall OI', c(15), red, { borderDash: [6, 4] }), ln('Next put wall OI', c(17), green, { borderDash: [6, 4] })] }, options: opt() });
+    mk('expCost_' + x.id, { type: 'line', data: { labels: lab, datasets: [
+      ln('One step up (₹ cr)', c(12), cssVar('--accent') || '#2563eb', { borderWidth: 2 }), ln('One step down (₹ cr)', c(13), amber, { borderWidth: 2 })] }, options: opt() });
+    const bars = (rows, id) => mk(id, { type: 'bar', data: { labels: rows.map(r => fmt(r[0])), datasets: [
+      { label: 'Calls OI (L)', data: rows.map(r => r[1] / 1e5), backgroundColor: red }, { label: 'Puts OI (L)', data: rows.map(r => r[2] / 1e5), backgroundColor: green },
+      { label: 'Calls change (L)', data: rows.map(r => r[3] == null ? null : r[3] / 1e5), backgroundColor: red + '66' }, { label: 'Puts change (L)', data: rows.map(r => r[4] == null ? null : r[4] / 1e5), backgroundColor: green + '66' }] },
+      options: Object.assign(opt(), { interaction: { mode: 'index', intersect: false } }) });
+    bars(x.rows || [], 'expOi_' + x.id);
+    if (x.next && x.next.rows) bars(x.next.rows, 'expOiN_' + x.id);
+  });
   d.indices.forEach(x => {
     const el = $('expChart_' + x.id); if (!el || x.error) return;
-    const H = x.history || [];
+    const H = (EXP.tapes[x.id] || {}).hist || [];
     EXP.charts[x.id] = new Chart(el, { type: 'line', data: { labels: H.map(h => h[0]), datasets: [
         { label: 'Expected close', data: H.map(h => h[1]), borderColor: cssVar('--accent') || '#2563eb', borderWidth: 2, pointRadius: 0, tension: .2 },
         { label: 'Spot', data: H.map(h => h[2]), borderColor: cssVar('--muted'), borderWidth: 1, pointRadius: 0, borderDash: [4, 3] },

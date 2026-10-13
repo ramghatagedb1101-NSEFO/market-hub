@@ -708,7 +708,10 @@
       const d = toIst(E.ts), now = toIst(new Date().toISOString());
       if (!d || dayTxt(d) !== dayTxt(now)) return "";
       const items = E.items || [Object.assign({ label: "NIFTY 50" }, E)];   // older single-index file
-      const walls = (w) => w.map(x => `${f(x.strike)} <span class="mut">(${f(x.oi / 1e5, 0)} L)</span>`).join(" · ");
+      // Wall OI in lakh units, with the change since the day's first reading when the relay sends it (14 Oct 2026).
+      const chg = x => x.change == null ? "" : `, ${x.change >= 0 ? "+" : "−"}${f(Math.abs(x.change) / 1e5, 0)}`;
+      const walls = (w) => (w || []).map(x => `${f(x.strike)} <span class="mut">(${f(x.oi / 1e5, 0)} L${chg(x)})</span>`).join(" · ");
+      const cr = v => v == null ? "–" : "₹" + f(v, v < 100 ? 1 : 0) + " cr";
       return items.map(X => {
         const maxOi = Math.max(...X.rows.map(r => Math.max(r.ce_oi, r.pe_oi)), 1);
         const bar = (v, c) => `<span style="display:inline-block;height:8px;width:${(v / maxOi * 100).toFixed(1)}%;background:${c};border-radius:2px"></span>`;
@@ -723,6 +726,10 @@
           <div class="row"><span class="l">Call walls (resistance)</span><span class="r">${walls(X.call_walls)}</span></div>
           <div class="row"><span class="l">Put walls (support)</span><span class="r">${walls(X.put_walls)}</span></div>
           <div class="row"><span class="l">PCR near spot · all</span><span class="r">${X.pcr_near ?? "–"} · ${X.pcr_all ?? "–"}</span></div>
+          ${X.sellers ? `<div class="row"><span class="l">Sellers pay if it settles here · at max pain</span><span class="r">${cr(X.sellers.here)} · ${cr(X.sellers.at_max_pain)}</span></div>
+          <div class="row"><span class="l">Extra they pay for ${X.step || 50} points up · down</span><span class="r">${cr(X.sellers.step_up)} · ${cr(X.sellers.step_down)}</span></div>` : ""}
+          ${X.next ? `<div class="row"><span class="l">Next expiry (${dayTxt(parseDay(X.next.expiry))}): call wall · put wall · max pain</span><span class="r">${walls(X.next.call_walls.slice(0, 1))} · ${walls(X.next.put_walls.slice(0, 1))} · ${f(X.next.max_pain)}</span></div>` : ""}
+          ${X.oi_since ? `<div class="mut" style="margin-top:4px">OI changes since ${esc(X.oi_since)} IST${X.oi_since < "09:15" ? " (previous close)" : ""}. Full record through the day: dashboard, Expiry meter.</div>` : ""}
           <details><summary>Open interest by strike</summary>
             <table class="t"><tr><th>Strike</th><th>Calls OI</th><th>Puts OI</th></tr>${X.rows.map(r =>
               `<tr${r.strike === X.atm ? ' style="font-weight:600"' : ""}><td>${f(r.strike)}</td><td>${bar(r.ce_oi, "var(--neg, #d9534f)")}</td><td>${bar(r.pe_oi, "var(--pos, #2e9d5b)")}</td></tr>`).join("")}</table></details>

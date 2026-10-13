@@ -12,6 +12,10 @@
  * A script lock makes simultaneous callers wait for the one fetch instead of each calling Kite.
  * Request count: 1 per 10 s while anyone is looking (2 on the first call of an expiry day, to learn the spots);
  * the options are trimmed to fit, so a second request happens only if indices plus watchlist alone pass the URL limit.
+ * On an expiry day, once a minute, one more request reads the NEXT expiry's chain of each expiring index (13 Oct 2026,
+ * owner: sellers roll into next week on expiry day; its walls are tracked with today's). It is made inside the same
+ * lock, a second after the main one, so the platform never sends two quote requests within a second. Expiry days
+ * therefore cost about 7 requests a minute while someone watches (expiry-tape.yml keeps 2 a minute when nobody does).
  */
 const SNAP_BASE = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX'];
 const SNAP_TTL = 10;
@@ -53,27 +57,9 @@ function marketSnapshot_() {
     // first, taken in turn per index, until the URL budget is used -- so even a double or triple expiry day is one
     // Kite request (13 Oct 2026, multi-index meter).
     const ask = base.map(n => [n, n]).concat(watch.map(w => [wtok[w] || 'NSE:' + w, 'NSE:' + w]));
-    const len = a => ('i=' + encodeURIComponent(a)).length + 1;
-    let used = 'https://api.kite.trade/quote?'.length + ask.reduce((t, a) => t + len(a[0]), 0);
-    const queues = expiring.filter(ix => spots[ix.id]).map(ix => {
-      const sp = spots[ix.id], byStrike = {};
-      (lists[ix.id].today || expiryGuessSyms_(ix, now.date, sp))
-        .filter(o => Math.abs(o[1] / sp - 1) * 100 <= EXP_RANGE_PCT + 0.2)
-        .forEach(o => (byStrike[o[1]] = byStrike[o[1]] || []).push(o));
-      const pairs = Object.keys(byStrike).map(Number).sort((a, b) => Math.abs(a - sp) - Math.abs(b - sp)).map(k => byStrike[k]);
-      return { ix: ix, pairs: pairs };
-    });
-    const opts = []; let trimmed = false, more = true;
-    while (more) {
-      more = false;
-      queues.forEach(qd => {
-        const p = qd.pairs.shift(); if (!p) return;
-        const cost = p.reduce((t, o) => t + len(o[3] || qd.ix.exch + ':' + o[0]), 0);
-        if (used + cost > 1900) { trimmed = true; qd.pairs = []; return; }
-        used += cost; more = true;
-        p.forEach(o => { opts.push([o[0], o[1], o[2], o[3], qd.ix.id]); ask.push([o[3] || qd.ix.exch + ':' + o[0], qd.ix.exch + ':' + o[0]]); });
-      });
-    }
+    const used = 'https://api.kite.trade/quote?'.length + ask.reduce((t, a) => t + snapLen_(a[0]), 0);
+    const pk = snapOptions_(expiring, ix => lists[ix.id].today || expiryGuessSyms_(ix, now.date, spots[ix.id]), spots, used, ask);
+    const opts = pk.opts, trimmed = pk.trimmed;
     const r = snapFetch_(ask.map(a => a[0]), headers);
     if (r.error) return fail(r);
     q = r.data;
@@ -82,12 +68,59 @@ function marketSnapshot_() {
     const nameOf = {}; ask.forEach(a => nameOf[a[0]] = a[1]);
     const slim = {};
     Object.keys(q).forEach(k => { const x = q[k]; slim[nameOf[k] || k] = [x.last_price, x.ohlc ? x.ohlc.close : null, x.oi || 0]; });
-    EXP_IDX.forEach(ix => { if (slim[ix.spot]) cache.put('exp_spot_' + ix.id, String(slim[ix.spot][0]), 21600); });
+    EXP_IDX.forEach(ix => { if (slim[ix.spot]) { spots[ix.id] = slim[ix.spot][0]; cache.put('exp_spot_' + ix.id, String(slim[ix.spot][0]), 21600); } });
     const snap = { ts: now.ts, hm: now.hm, date: now.date, q: slim, front: front, opts: opts, opts_trimmed: trimmed,
                    expiring: expiring.map(ix => ix.id), requests: r.requests };
+    // The next expiry's chain, once a minute (kept 55 s, so it rides on every sixth 10-second build).
+    let nx = JSON.parse(cache.get('snapnx') || 'null');
+    if (!nx && expiring.some(ix => (lists[ix.id].nextList || []).length)) {
+      Utilities.sleep(1100);                    // Kite: 1 quote request a second
+      nx = snapNext_(expiring, lists, spots, headers, now);
+      try { cache.put('snapnx', JSON.stringify(nx), nx.error ? 120 : 55); } catch (e) { /* too big: next build retries */ }
+    }
+    snap.nx = nx;
     try { const j = JSON.stringify(snap); cache.put('snap', j, SNAP_TTL); cache.put('snap_prev', j, 120); } catch (e) { /* over 100 KB: serve uncached */ }
     return snap;
   } finally { if (got) lock.releaseLock(); }
+}
+
+function snapLen_(a) { return ('i=' + encodeURIComponent(a)).length + 1; }
+
+// Options for every expiring index into one request: nearest strike first (call and put together), one strike per index
+// in turn, until the URL budget (1,900 characters) is used. Adds to ask; returns the options taken.
+function snapOptions_(expiring, listOf, spots, used, ask) {
+  const queues = expiring.filter(ix => spots[ix.id]).map(ix => {
+    const sp = spots[ix.id], byStrike = {};
+    (listOf(ix) || []).filter(o => Math.abs(o[1] / sp - 1) * 100 <= EXP_RANGE_PCT + 0.2)
+      .forEach(o => (byStrike[o[1]] = byStrike[o[1]] || []).push(o));
+    return { ix: ix, pairs: Object.keys(byStrike).map(Number).sort((a, b) => Math.abs(a - sp) - Math.abs(b - sp)).map(k => byStrike[k]) };
+  });
+  const opts = []; let trimmed = false, more = true;
+  while (more) {
+    more = false;
+    queues.forEach(qd => {
+      const p = qd.pairs.shift(); if (!p) return;
+      const cost = p.reduce((t, o) => t + snapLen_(o[3] || qd.ix.exch + ':' + o[0]), 0);
+      if (used + cost > 1900) { trimmed = true; qd.pairs = []; return; }
+      used += cost; more = true;
+      p.forEach(o => { opts.push([o[0], o[1], o[2], o[3], qd.ix.id]); ask.push([o[3] || qd.ix.exch + ':' + o[0], qd.ix.exch + ':' + o[0]]); });
+    });
+  }
+  return { opts: opts, trimmed: trimmed };
+}
+
+// The next expiry's options of every index expiring today: one request (same packing), slimmed like the snapshot.
+function snapNext_(expiring, lists, spots, headers, now) {
+  const ask = [];
+  const pk = snapOptions_(expiring, ix => lists[ix.id].nextList, spots, 'https://api.kite.trade/quote?'.length, ask);
+  const expiry = {}; expiring.forEach(ix => { if (lists[ix.id].next) expiry[ix.id] = lists[ix.id].next; });
+  if (!ask.length) return { ts: now.ts, hm: now.hm, expiry: expiry, error: 'no next-expiry contracts near spot' };
+  const r = snapFetch_(ask.map(a => a[0]), headers);
+  if (r.error) return { ts: now.ts, hm: now.hm, expiry: expiry, error: r.error };
+  const nameOf = {}; ask.forEach(a => nameOf[a[0]] = a[1]);
+  const slim = {};
+  Object.keys(r.data).forEach(k => { const x = r.data[k]; slim[nameOf[k] || k] = [x.last_price, x.ohlc ? x.ohlc.close : null, x.oi || 0]; });
+  return { ts: now.ts, hm: now.hm, expiry: expiry, q: slim, opts: pk.opts, trimmed: pk.trimmed, requests: r.requests };
 }
 
 // One logical quote request; split only if the URL would be too long, then sent one a second.

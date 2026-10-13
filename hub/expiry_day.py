@@ -7,6 +7,10 @@ from the platform's one shared Kite snapshot (relay/Market.gs, Expiry.gs) and re
 Also prints each index's track record (expected close at 10:00/12:00/14:00/15:00 vs the close, in bp) as run notices.
 Not a prediction of the exact close: walls and max pain are where price often sticks on expiry, the range is the
 market's own estimate (ATM straddle).
+
+14 Oct 2026: each item also carries the change in wall OI since the day's first reading, what option sellers would pay
+at settlement here and at max pain, and the next expiry's walls (relay reads that chain once a minute on expiry days).
+Rows and walls accept both the old relay answer ([strike, oi]) and the new one ([strike, oi, change]).
 """
 import json
 import os
@@ -18,18 +22,26 @@ from . import config
 EXPIRY_FILE = config.SITE_DIR / "data" / "expiry.json"
 
 
+def _walls(ws: list) -> list:
+    return [{"strike": w[0], "oi": w[1], "change": w[2] if len(w) > 2 else None} for w in ws or []]
+
+
 def _item(x: dict, ts: str, date: str) -> dict:
-    rows = [{"strike": s, "ce_oi": c, "pe_oi": p} for s, c, p in x["rows"]]
+    rows = [{"strike": r[0], "ce_oi": r[1], "pe_oi": r[2]} for r in x["rows"]]
     ce, pe = sum(r["ce_oi"] for r in rows), sum(r["pe_oi"] for r in rows)
     lo, hi = x["range"]
+    n = x.get("next") or {}
     return {
         "id": x["id"], "label": x["label"], "ts": ts, "expiry": date, "spot": x["spot"], "atm": x["atm"],
         "straddle": x["straddle"], "prediction": x["prediction"], "implied_range": [lo, hi],
-        "call_walls": [{"strike": s, "oi": o} for s, o in x["call_walls"]],
-        "put_walls": [{"strike": s, "oi": o} for s, o in x["put_walls"]],
+        "call_walls": _walls(x["call_walls"]), "put_walls": _walls(x["put_walls"]),
         "max_pain": x["max_pain"], "pin": max(rows, key=lambda r: r["ce_oi"] + r["pe_oi"])["strike"] if rows else x["atm"],
         "pcr_near": round(pe / ce, 2) if ce else None, "pcr_all": x.get("pcr"),
         "likely_range": [max(lo, x["put_wall"]), min(hi, x["call_wall"])], "rows": rows,
+        "oi_since": (x.get("oi") or {}).get("since"), "sellers": x.get("sellers"), "step": x.get("step"),
+        "next": None if not n or n.get("error") else {
+            "expiry": n["expiry"], "call_walls": _walls(n.get("call_walls")), "put_walls": _walls(n.get("put_walls")),
+            "max_pain": n.get("max_pain"), "pcr": n.get("pcr")},
     }
 
 

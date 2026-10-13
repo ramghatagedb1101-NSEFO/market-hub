@@ -8,17 +8,28 @@
  * and monthly (last Tue); SENSEX weekly (Thu) and monthly (last Thu); BANK NIFTY monthly only (last Tue) -- the 2024
  * exchange rule allows one weekly index per exchange.
  *
- * Expected close = F + k*(MP - F) + m*(W - F) + e*F*EU% + u*F*US%, per index, where
+ * Expected close = F + k*(MP - F) + m*(W - F) + e*F*EU% + u*F*US% + v*(NW - F), per index, where
  *   F  = forward from put-call parity at the ATM strike (strike + call - put): the market's own expected settlement;
  *   MP = max pain (settlement where option buyers collect least);
  *   W  = midpoint of the call wall and the put wall (top OI strikes at/above and at/below the ATM strike);
- *   EU% / US% = average move today of the European indices / US index futures (Market.gs), only once they trade today.
- * Each index has its own k, m, e, u: starting at 0.30 / 0.20 / 0 / 0 and re-fitted after every expiry from what the
- * meter said during the day against the actual close (Bayesian ridge, see expiryModel_: one expiry only nudges them).
+ *   EU% / US% = average move today of the European indices / US index futures (Market.gs), only once they trade today;
+ *   NW = midpoint of the NEXT expiry's call and put walls (13 Oct 2026, owner: on expiry day sellers roll into next week,
+ *        and where they write it shows the range they plan to defend).
+ * Each index has its own k, m, e, u, v: starting at 0.30 / 0.20 / 0 / 0 / 0 and re-fitted after every expiry from what
+ * the meter said during the day against the actual close (Bayesian ridge, see expiryModel_: one expiry only nudges them).
+ * A signal with no track record (overseas, next week's walls) starts at 0 and earns weight only if past expiries show it helps.
  *
- * Storage per index: per-minute points in the script cache (chart, exph_<IDX>_<date>); a reading at least 5 minutes
- * apart in script property EXPD_<IDX>_<date> and closes in EXP_CLOSES_<IDX> (learning, track record); last 30 expiries.
- * The close is recorded after 15:45 IST by the first call (live.yml calls mode=expiry_close every run).
+ * Sellers' positions, tracked through the day (13 Oct 2026, owner: "we update every 10 seconds but do not track these
+ * values"): every minute from 09:15 to 15:30, per index, the walls (strike and open interest), max pain, total OI, what
+ * sellers would pay at settlement here and per step up or down, and the same walls for the next expiry. The OI at the
+ * day's first reading (before 09:15 that is the previous close's) is the baseline for every "change since" shown.
+ * Kite's OI is in units (shares), so OI x points = rupees.
+ *
+ * Storage per index: per-minute points in the script cache (prediction chart exph_<IDX>_<date>, sellers' record
+ * expw_<IDX>_<date>, 6 hours); the baseline in script property EXPB_<IDX>_<date> (today's only); a reading at least
+ * 5 minutes apart in EXPD_<IDX>_<date> and closes in EXP_CLOSES_<IDX> (learning, track record; last 30 expiries). After
+ * the close the GitHub job expiry-tape.yml copies the whole day (?mode=expiry_tape) to the private repository
+ * (state/expiry/), where it is kept for good. The close is recorded after 15:45 IST by the first call.
  */
 const EXP_K0 = 0.30, EXP_M0 = 0.20, EXP_RANGE_PCT = 3, EXP_KEEP = 30;
 const EXP_IDX = [
@@ -27,9 +38,20 @@ const EXP_IDX = [
   { id: 'BANKNIFTY', label: 'BANK NIFTY', exch: 'NFO', spot: 'NSE:NIFTY BANK', step: 100, wd: 2, weekly: false },
 ];
 
-function adminExpiry(token) {
+// since = "yyyy-MM-dd HH:mm" of the last minute the page already has: only newer chart rows are sent (a full day of
+// rows is about 70 KB per index; every 10 seconds that would be resent for nothing).
+function adminExpiry(token, since) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
-  return expiryNow_();
+  const out = expiryNow_(), cache = CacheService.getScriptCache(), s = String(since || '');
+  out.sliced = !!s && s.slice(0, 10) === out.date;
+  const cut = rows => out.sliced ? rows.filter(r => r[0] > s.slice(11)) : rows;
+  (out.indices || []).forEach(x => {
+    if (x.error) return;
+    x.history = cut(JSON.parse(cache.get('exph_' + x.id + '_' + out.date) || '[]'));
+    x.tape = cut(JSON.parse(cache.get('expw_' + x.id + '_' + out.date) || '[]'));
+  });
+  out.tape_fields = EXP_TAPE_FIELDS;
+  return out;
 }
 
 function istNow_() {
@@ -38,9 +60,9 @@ function istNow_() {
            ts: Utilities.formatDate(d, 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ssXXX") };
 }
 
-// Today's contracts and the next expiry for every index, from Kite's NFO and BFO lists (one download per exchange a day).
-// Never cache an empty list (13 Oct 2026: the first version did, and said "no expiry" on an expiry day); a failed
-// download is remembered 10 minutes so it is not repeated on every 10-second build.
+// Today's contracts, the next expiry and its contracts for every index, from Kite's NFO and BFO lists (one download
+// per exchange a day). Never cache an empty list (13 Oct 2026: the first version did, and said "no expiry" on an expiry
+// day); a failed download is remembered 10 minutes so it is not repeated on every 10-second build.
 function expiryLists_(date) {
   const out = {};
   ['NFO', 'BFO'].forEach(ex => {
@@ -52,9 +74,9 @@ function expiryLists_(date) {
 }
 
 function expiryExchList_(ex, date, ids) {
-  const cache = CacheService.getScriptCache(), key = 'expl_' + ex + '_' + date;
+  const cache = CacheService.getScriptCache(), key = 'expl2_' + ex + '_' + date;
   const hit = cache.get(key) || cache.get(key + '_fail');
-  if (hit) return JSON.parse(hit);
+  if (hit) { const r = JSON.parse(hit); ids.forEach(id => { if (r[id]) { r[id].today = expiryUnpack_(r[id].today); r[id].nextList = expiryUnpack_(r[id].nextList); } }); return r; }
   let text = '', diag = '';
   try {
     const res = UrlFetchApp.fetch('https://api.kite.trade/instruments/' + ex, { muteHttpExceptions: true, headers: kiteHeaders_() || {} });
@@ -67,24 +89,51 @@ function expiryExchList_(ex, date, ids) {
   const head = (lines[0] || '').split(','), iTok = head.indexOf('instrument_token'), iSym = head.indexOf('tradingsymbol'), iName = head.indexOf('name'),
         iExp = head.indexOf('expiry'), iStrike = head.indexOf('strike'), iType = head.indexOf('instrument_type');
   const res = {}; let seen = 0;
-  ids.forEach(id => res[id] = { today: [], next: null, source: 'list' });
+  ids.forEach(id => res[id] = { today: [], next: null, nextList: [], source: 'list' });
   if (iSym >= 0 && iExp >= 0) for (let n = 1; n < lines.length; n++) {
     const L = lines[n];
     if (!ids.some(id => L.indexOf('"' + id + '"') >= 0 || L.indexOf(',' + id + ',') >= 0)) continue;
     const c = L.split(','), id = (c[iName] || '').replace(/"/g, '');
     if (!res[id] || (c[iType] !== 'CE' && c[iType] !== 'PE')) continue;
     seen++;
-    const e = c[iExp];
-    if (e === date) res[id].today.push([c[iSym], Number(c[iStrike]), c[iType], c[iTok]]);
-    else if (e > date && (!res[id].next || e < res[id].next)) res[id].next = e;
+    const e = c[iExp], R = res[id], o = [c[iSym], Number(c[iStrike]), c[iType], c[iTok]];
+    if (e === date) R.today.push(o);
+    else if (e > date) {                                // the next expiry's contracts: restart the list on a nearer date
+      if (!R.next || e < R.next) { R.next = e; R.nextList = [o]; }
+      else if (e === R.next) R.nextList.push(o);
+    }
   }
   if (!seen) {
-    const fail = {}; ids.forEach(id => fail[id] = { today: null, next: null, source: 'unavailable', diag: diag });
+    const fail = {}; ids.forEach(id => fail[id] = { today: null, next: null, nextList: null, source: 'unavailable', diag: diag });
     try { cache.put(key + '_fail', JSON.stringify(fail), 600); } catch (e) {}
     return fail;
   }
-  try { cache.put(key, JSON.stringify(res), 21600); } catch (e) { /* too big: refetch next time */ }
+  // Packed (strike, call token, put token; names rebuilt from the common prefix): four lists of 300+ strikes would pass
+  // the cache's 100 KB limit unpacked, and an uncached list would be downloaded again on every build.
+  const packed = {};
+  ids.forEach(id => packed[id] = Object.assign({}, res[id], { today: expiryPack_(res[id].today), nextList: expiryPack_(res[id].nextList) }));
+  try { cache.put(key, JSON.stringify(packed), 21600); }
+  catch (e) { ids.forEach(id => packed[id].nextList = []); try { cache.put(key, JSON.stringify(packed), 21600); } catch (x) {} }   // today's matter most
   return res;
+}
+
+function expiryPack_(rows) {
+  if (!rows || !rows.length) return rows;
+  const f = rows[0], suf = String(f[1]) + f[2], root = f[0].slice(-suf.length) === suf ? f[0].slice(0, -suf.length) : '';
+  const by = {}, x = [];
+  rows.forEach(o => {
+    if (!root || !o[3] || o[0] !== root + String(o[1]) + o[2]) { x.push(o); return; }
+    const b = by[o[1]] || (by[o[1]] = [o[1], 0, 0]);
+    b[o[2] === 'CE' ? 1 : 2] = Number(o[3]);
+  });
+  return { r: root, s: Object.keys(by).map(k => by[k]), x: x };
+}
+
+function expiryUnpack_(p) {
+  if (!p || Array.isArray(p)) return p;
+  const out = p.x.slice();
+  p.s.forEach(b => { if (b[1]) out.push([p.r + b[0] + 'CE', b[0], 'CE', String(b[1])]); if (b[2]) out.push([p.r + b[0] + 'PE', b[0], 'PE', String(b[2])]); });
+  return out;
 }
 
 // Fallback when an exchange's list fails: today's contract names from Kite's naming -- weekly <ID><yy><m><dd>
@@ -134,8 +183,8 @@ function expiryMigrate_() {
 // spread): one expiry can only nudge the weights; about a dozen consistent expiries are needed to move them
 // substantially. Weights are also kept within sane bounds.
 const EXP_NOISE_PCT = 0.4;
-const EXP_PRIOR = [[EXP_K0, 0.5], [EXP_M0, 0.5], [0, 0.3], [0, 0.3]];       // [start, spread] for k, m, e, u
-const EXP_BOUNDS = [[-0.5, 1.5], [-0.5, 1.5], [-1, 1], [-1, 1]];
+const EXP_PRIOR = [[EXP_K0, 0.5], [EXP_M0, 0.5], [0, 0.3], [0, 0.3], [0, 0.3]];   // [start, spread] for k, m, e, u, v
+const EXP_BOUNDS = [[-0.5, 1.5], [-0.5, 1.5], [-1, 1], [-1, 1], [-0.5, 1]];
 function expiryModel_(id) {
   const props = PropertiesService.getScriptProperties();
   const closes = JSON.parse(props.getProperty('EXP_CLOSES_' + id) || '{}');
@@ -144,12 +193,13 @@ function expiryModel_(id) {
     const pts = JSON.parse(props.getProperty('EXPD_' + id + '_' + d) || '[]');
     pts.forEach(p => {
       const F = p[1], sd = F * EXP_NOISE_PCT / 100;
-      X.push([p[2] - F, p[3] - F, F * (p[5] || 0) / 100, F * (p[6] || 0) / 100]); Y.push(closes[d] - F);
+      // p[7] (next expiry's wall midpoint) exists from 14 Oct 2026; older readings carry no information on v.
+      X.push([p[2] - F, p[3] - F, F * (p[5] || 0) / 100, F * (p[6] || 0) / 100, p[7] != null ? p[7] - F : 0]); Y.push(closes[d] - F);
       Wt.push(1 / (pts.length * sd * sd));           // each expiry once; each reading weighted by its noise
     });
   });
-  const P = 4, n = X.length;
-  const out = { k: EXP_K0, m: EXP_M0, e: 0, u: 0, expiries: Object.keys(closes).length, samples: n };
+  const P = 5, n = X.length;
+  const out = { k: EXP_K0, m: EXP_M0, e: 0, u: 0, v: 0, expiries: Object.keys(closes).length, samples: n };
   if (!n) return out;
   const A = [], r = [];
   for (let a = 0; a < P; a++) {
@@ -164,10 +214,10 @@ function expiryModel_(id) {
     if (!A[c][c]) return out;
     for (let i = c + 1; i < P; i++) { const f = A[i][c] / A[c][c]; for (let k = c; k < P; k++) A[i][k] -= f * A[c][k]; r[i] -= f * r[c]; }
   }
-  const w = [0, 0, 0, 0];
+  const w = [0, 0, 0, 0, 0];
   for (let c = P - 1; c >= 0; c--) { let t = r[c]; for (let k = c + 1; k < P; k++) t -= A[c][k] * w[k]; w[c] = t / A[c][c]; }
   const r3 = (x, a) => Math.round(Math.max(EXP_BOUNDS[a][0], Math.min(EXP_BOUNDS[a][1], x)) * 1000) / 1000;
-  return Object.assign(out, { k: r3(w[0], 0), m: r3(w[1], 1), e: r3(w[2], 2), u: r3(w[3], 3) });
+  return Object.assign(out, { k: r3(w[0], 0), m: r3(w[1], 1), e: r3(w[2], 2), u: r3(w[3], 3), v: r3(w[4], 4) });
 }
 
 function expiryAccuracy_(id) {
@@ -223,61 +273,138 @@ function expiryNow_() {
   return base;
 }
 
-// One index's reading from the shared snapshot; also its chart point, its learning sample and, after 15:45, its close.
+// One expiry's chain from a snapshot's option list: strikes within pct% of spot, call and put price and open interest.
+function expiryChain_(opts, q, ix, spot, pct) {
+  const ch = {};
+  (opts || []).forEach(s => { if (s[4] !== ix.id) return;
+    const x = q[ix.exch + ':' + s[0]]; if (!x || Math.abs(s[1] / spot - 1) * 100 > pct) return;
+    const r = ch[s[1]] || (ch[s[1]] = { strike: s[1], ce: null, pe: null, ce_oi: 0, pe_oi: 0 });
+    if (s[2] === 'CE') { r.ce = x[0]; r.ce_oi = x[2] || 0; } else { r.pe = x[0]; r.pe_oi = x[2] || 0; } });
+  return Object.keys(ch).map(Number).sort((a, b) => a - b).map(s => ch[s]);
+}
+
+// Walls, max pain and sellers' settlement payout for one chain. payout(x) = what option sellers pay buyers if the index
+// settles at x (OI in units x points in the money = rupees), within the chain's strikes.
+function expiryWalls_(rows, spot) {
+  const atm = rows.reduce((b, r) => Math.abs(r.strike - spot) < Math.abs(b.strike - spot) ? r : b);
+  // The ATM strike counts on both sides (review, 13 Oct 2026): with strict above/below, a pinned strike flipped from
+  // call wall to put wall as spot crossed it and the expected close jumped up to ~100 points on a 3-point move.
+  const above = rows.filter(r => r.strike >= atm.strike), below = rows.filter(r => r.strike <= atm.strike);
+  const cw = above.slice().sort((a, b) => b.ce_oi - a.ce_oi), pw = below.slice().sort((a, b) => b.pe_oi - a.pe_oi);
+  const payout = x => rows.reduce((t, r) => t + r.ce_oi * Math.max(0, x - r.strike) + r.pe_oi * Math.max(0, r.strike - x), 0);
+  return { atm: atm, cw: cw, pw: pw, callWall: cw.length ? cw[0].strike : atm.strike, putWall: pw.length ? pw[0].strike : atm.strike,
+           MP: rows.reduce((b, r) => payout(r.strike) < payout(b.strike) ? r : b).strike, payout: payout,
+           F: atm.strike + (atm.ce || 0) - (atm.pe || 0), straddle: (atm.ce || 0) + (atm.pe || 0),
+           ceAll: rows.reduce((t, r) => t + r.ce_oi, 0), peAll: rows.reduce((t, r) => t + r.pe_oi, 0) };
+}
+
+// Open interest per strike at the day's first reading, for today's chain (c) and the next expiry's (n): the baseline of
+// every "change since" (before 09:15 it is the previous close's OI). Written once per chain; old days are removed.
+function expiryBaseline_(id, date, hm, rows, nrows, nexp) {
+  const cache = CacheService.getScriptCache(), props = PropertiesService.getScriptProperties(), key = 'EXPB_' + id + '_' + date;
+  let b = JSON.parse(cache.get(key) || 'null');
+  if (!b) { b = JSON.parse(props.getProperty(key) || 'null'); if (b) cache.put(key, JSON.stringify(b), 21600); }
+  const pack = rs => { const o = {}; rs.forEach(r => o[r.strike] = [r.ce_oi, r.pe_oi]); return o; };
+  const live = rs => rs.length >= 5 && rs.some(r => r.ce_oi || r.pe_oi);     // never a baseline of zeros
+  const want = (!b && live(rows)) || (b && !b.n && live(nrows));
+  if (!want) return b;
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(2000)) return b;
+  try {
+    b = JSON.parse(props.getProperty(key) || 'null');                       // another call may have just written it
+    if (!b && live(rows)) {
+      b = { hm: hm, c: pack(rows) };
+      props.getKeys().forEach(k => { if (/^EXPB_/.test(k) && k.slice(-10) < date) props.deleteProperty(k); });
+    }
+    if (b && !b.n && live(nrows)) { b.n = pack(nrows); b.nhm = hm; b.nexp = nexp; }
+    if (b) { props.setProperty(key, JSON.stringify(b)); cache.put(key, JSON.stringify(b), 21600); }
+  } finally { lock.releaseLock(); }
+  return b;
+}
+
+// Columns of the sellers' record (one row a minute). OI in lakh units; money in rupees crore.
+const EXP_TAPE_FIELDS = ['time', 'spot', 'forward', 'straddle', 'max_pain', 'call_wall', 'call_wall_oi_lakh', 'put_wall', 'put_wall_oi_lakh',
+  'calls_oi_lakh', 'puts_oi_lakh', 'sellers_pay_here_cr', 'cost_step_up_cr', 'cost_step_down_cr',
+  'next_call_wall', 'next_call_wall_oi_lakh', 'next_put_wall', 'next_put_wall_oi_lakh', 'next_max_pain', 'next_calls_oi_lakh', 'next_puts_oi_lakh'];
+
+// One index's reading from the shared snapshot; also its chart point, its sellers' record row, its learning sample and,
+// after 15:45, its close.
 function expiryIndex_(ix, snap, now, M, ov) {
   const q = snap.q, sx = q[ix.spot];
   if (!sx) return { id: ix.id, label: ix.label, error: 'Kite did not return the ' + ix.label + ' level.' };
   const spot = sx[0];
   if (now.hm >= '15:45') expiryRecordClose_(ix.id, now.date, spot);   // needs only the index level, not the chain
-  const ch = {};
-  (snap.opts || []).forEach(s => { if (s[4] !== ix.id) return;
-    const x = q[ix.exch + ':' + s[0]]; if (!x || Math.abs(s[1] / spot - 1) * 100 > EXP_RANGE_PCT) return;
-    const r = ch[s[1]] || (ch[s[1]] = { strike: s[1], ce: null, pe: null, ce_oi: 0, pe_oi: 0 });
-    if (s[2] === 'CE') { r.ce = x[0]; r.ce_oi = x[2] || 0; } else { r.pe = x[0]; r.pe_oi = x[2] || 0; } });
-  const rows = Object.keys(ch).map(Number).sort((a, b) => a - b).map(s => ch[s]);
+  const rows = expiryChain_(snap.opts, q, ix, spot, EXP_RANGE_PCT);
   if (!rows.length) return null;                       // name guess found nothing: not expiring today
   if (rows.length < 5) return { id: ix.id, label: ix.label, error: 'Too few ' + ix.label + ' strikes quoted.' };
-  const atm = rows.reduce((b, r) => Math.abs(r.strike - spot) < Math.abs(b.strike - spot) ? r : b);
-  const F = atm.strike + (atm.ce || 0) - (atm.pe || 0);
-  const straddle = (atm.ce || 0) + (atm.pe || 0);
-  // The ATM strike counts on both sides (review, 13 Oct 2026): with strict above/below, a pinned strike flipped from
-  // call wall to put wall as spot crossed it and the expected close jumped up to ~100 points on a 3-point move.
-  const above = rows.filter(r => r.strike >= atm.strike), below = rows.filter(r => r.strike <= atm.strike);
-  const cw = above.slice().sort((a, b) => b.ce_oi - a.ce_oi), pw = below.slice().sort((a, b) => b.pe_oi - a.pe_oi);
-  const callWall = cw.length ? cw[0].strike : atm.strike, putWall = pw.length ? pw[0].strike : atm.strike;
-  const payout = x => rows.reduce((t, r) => t + r.ce_oi * Math.max(0, x - r.strike) + r.pe_oi * Math.max(0, r.strike - x), 0);
-  const MP = rows.reduce((b, r) => payout(r.strike) < payout(b.strike) ? r : b).strike;
-  const W = (callWall + putWall) / 2;
+  const C = expiryWalls_(rows, spot), F = C.F, MP = C.MP, W = (C.callWall + C.putWall) / 2;
+
+  // The next expiry's chain (Market.gs reads it once a minute on expiry days, in its own request).
+  const nx = snap.nx || null, nexp = nx && nx.expiry ? nx.expiry[ix.id] : null;
+  const nrows = nx && !nx.error ? expiryChain_(nx.opts, nx.q, ix, spot, EXP_RANGE_PCT) : [];
+  const N = nrows.length >= 5 ? expiryWalls_(nrows, spot) : null;
+  const NW = N ? (N.callWall + N.putWall) / 2 : null;
+
   const eu = ov.eu, us = ov.us;   // null when not trading today or unavailable
-  const pred = F + M.k * (MP - F) + M.m * (W - F) + (M.e || 0) * F * (eu || 0) / 100 + (M.u || 0) * F * (us || 0) / 100;
-  const ceAll = rows.reduce((t, r) => t + r.ce_oi, 0), peAll = rows.reduce((t, r) => t + r.pe_oi, 0);
-  const r2 = x => Math.round(x * 100) / 100;
+  const pred = F + M.k * (MP - F) + M.m * (W - F) + (M.e || 0) * F * (eu || 0) / 100 + (M.u || 0) * F * (us || 0) / 100 + (NW != null ? (M.v || 0) * (NW - F) : 0);
+  const r2 = x => Math.round(x * 100) / 100, L = x => x == null ? null : Math.round(x / 1e3) / 100, cr = x => Math.round(x / 1e5) / 100;
+
+  // Changes since the day's first reading.
+  const B = expiryBaseline_(ix.id, now.date, now.hm, rows, nrows, nexp);
+  const chg = (b, r, i) => b && b[r.strike] ? (i ? r.pe_oi : r.ce_oi) - b[r.strike][i] : null;
+  const walls = (list, b, i) => list.slice(0, 3).map(r => [r.strike, i ? r.pe_oi : r.ce_oi, chg(b, r, i)]);
+  const sumChg = (rs, b, i) => { if (!b) return null; let t = 0, n = 0; rs.forEach(r => { const c = chg(b, r, i); if (c != null) { t += c; n++; } }); return n ? t : null; };
+  const top = (rs, b, i, sign) => rs.map(r => [r.strike, chg(b, r, i)]).filter(x => x[1] != null && x[1] * sign > 0)
+    .sort((a, c) => (c[1] - a[1]) * sign).slice(0, 3);
+  const Bc = B ? B.c : null, Bn = B && B.n && B.nexp === nexp ? B.n : null;
+  const pay = C.payout;
+  const near = rs => rs.filter(r => Math.abs(r.strike / spot - 1) * 100 <= 1.5);
+
   const out = {
-    id: ix.id, label: ix.label, spot: r2(spot), forward: r2(F), max_pain: MP, wall_mid: W, call_wall: callWall, put_wall: putWall,
-    call_walls: cw.slice(0, 3).map(r => [r.strike, r.ce_oi]), put_walls: pw.slice(0, 3).map(r => [r.strike, r.pe_oi]),
-    atm: atm.strike, straddle: r2(straddle), range: [r2(pred - straddle), r2(pred + straddle)], prediction: r2(pred),
-    pcr: ceAll ? Math.round(peAll / ceAll * 100) / 100 : null, model: M, strikes: rows.length,
-    rows: rows.filter(r => Math.abs(r.strike / spot - 1) * 100 <= 1.5).map(r => [r.strike, r.ce_oi, r.pe_oi])
+    id: ix.id, label: ix.label, spot: r2(spot), forward: r2(F), max_pain: MP, wall_mid: W, call_wall: C.callWall, put_wall: C.putWall,
+    call_walls: walls(C.cw, Bc, 0), put_walls: walls(C.pw, Bc, 1), step: ix.step,
+    atm: C.atm.strike, straddle: r2(C.straddle), range: [r2(pred - C.straddle), r2(pred + C.straddle)], prediction: r2(pred),
+    pcr: C.ceAll ? Math.round(C.peAll / C.ceAll * 100) / 100 : null, model: M, strikes: rows.length,
+    rows: near(rows).map(r => [r.strike, r.ce_oi, r.pe_oi, chg(Bc, r, 0), chg(Bc, r, 1)]),
+    oi: { calls: C.ceAll, puts: C.peAll, calls_chg: sumChg(rows, Bc, 0), puts_chg: sumChg(rows, Bc, 1), since: B ? B.hm : null,
+          writing: { calls: top(rows, Bc, 0, 1), puts: top(rows, Bc, 1, 1) }, covering: { calls: top(rows, Bc, 0, -1), puts: top(rows, Bc, 1, -1) } },
+    // What option sellers pay at settlement (within +-3% of spot): here, at max pain, and the extra for one step up or down.
+    sellers: { here: cr(pay(spot)), at_max_pain: cr(pay(MP)), step_up: cr(pay(spot + ix.step) - pay(spot)), step_down: cr(pay(spot - ix.step) - pay(spot)) },
+    next: !nexp ? null : !N ? { expiry: nexp, error: nx && nx.error ? 'Next expiry\'s chain not read: ' + String(nx.error).slice(0, 80) : 'Next expiry\'s chain not read yet.' } : {
+      expiry: nexp, as_of: nx.hm, call_wall: N.callWall, put_wall: N.putWall, wall_mid: NW, max_pain: N.MP, atm: N.atm.strike, straddle: r2(N.straddle),
+      call_walls: walls(N.cw, Bn, 0), put_walls: walls(N.pw, Bn, 1), pcr: N.ceAll ? Math.round(N.peAll / N.ceAll * 100) / 100 : null,
+      oi: { calls: N.ceAll, puts: N.peAll, calls_chg: sumChg(nrows, Bn, 0), puts_chg: sumChg(nrows, Bn, 1), since: Bn ? B.nhm : null,
+            writing: { calls: top(nrows, Bn, 0, 1), puts: top(nrows, Bn, 1, 1) } },
+      rows: near(nrows).map(r => [r.strike, r.ce_oi, r.pe_oi, chg(Bn, r, 0), chg(Bn, r, 1)]) }
   };
 
-  // Per-minute chart point (cache) and a reading at least 5 minutes apart (property, for learning).
+  // Per-minute chart point and sellers' record row (cache), and a reading at least 5 minutes apart (property, for
+  // learning); market hours only.
+  if (now.hm < '09:15' || now.hm > '15:30') return out;
   const cache = CacheService.getScriptCache(), lock = LockService.getScriptLock();
-  const hk = 'exph_' + ix.id + '_' + now.date;
+  const hk = 'exph_' + ix.id + '_' + now.date, wk = 'expw_' + ix.id + '_' + now.date;
   if (lock.tryLock(2000)) {
     try {
       const hist = JSON.parse(cache.get(hk) || '[]');
       if (!hist.length || hist[hist.length - 1][0] !== now.hm) { hist.push([now.hm, r2(pred), r2(spot), r2(F), MP, W]); cache.put(hk, JSON.stringify(hist), 21600); }
+      const tape = JSON.parse(cache.get(wk) || '[]');
+      if (!tape.length || tape[tape.length - 1][0] !== now.hm) {
+        tape.push([now.hm, r2(spot), r2(F), r2(C.straddle), MP, C.callWall, L(C.cw.length ? C.cw[0].ce_oi : null), C.putWall, L(C.pw.length ? C.pw[0].pe_oi : null),
+                   L(C.ceAll), L(C.peAll), out.sellers.here, out.sellers.step_up, out.sellers.step_down,
+                   N ? N.callWall : null, N && N.cw.length ? L(N.cw[0].ce_oi) : null, N ? N.putWall : null, N && N.pw.length ? L(N.pw[0].pe_oi) : null,
+                   N ? N.MP : null, N ? L(N.ceAll) : null, N ? L(N.peAll) : null]);
+        cache.put(wk, JSON.stringify(tape), 21600);
+      }
       const mins = hm => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
       const lk = 'exp_last_' + ix.id + '_' + now.date, lastSample = cache.get(lk);
-      if (now.hm >= '09:15' && now.hm <= '15:30' && (!lastSample || mins(now.hm) - mins(lastSample) >= 5)) {
+      if (!lastSample || mins(now.hm) - mins(lastSample) >= 5) {
         const props = PropertiesService.getScriptProperties(), pk = 'EXPD_' + ix.id + '_' + now.date;
         const pts = JSON.parse(props.getProperty(pk) || '[]');
         cache.put(lk, now.hm, 21600);
-        if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred), eu, us]); props.setProperty(pk, JSON.stringify(pts)); }
+        if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred), eu, us, NW]); props.setProperty(pk, JSON.stringify(pts)); }
       }
     } finally { lock.releaseLock(); }
   }
-  out.history = JSON.parse(cache.get(hk) || '[]');
   return out;
 }
 
@@ -295,17 +422,46 @@ function expiryRecordClose_(id, date, close) {
   CacheService.getScriptCache().remove('exp_ma_' + id);   // re-fit with the new close on the next call
 }
 
-/** live.yml calls ?mode=expiry_close&key=RELAY_KEY every run: readings (09:15-15:30) and closes (after 15:45) are
- *  recorded even if nobody opens the meter, and the answer (no chart history) is what the job writes to
- *  docs/data/expiry.json for the phone -- so the job makes no Kite call of its own. */
+/** live.yml (every 5 minutes) and expiry-tape.yml (every minute on expiry days) call ?mode=expiry_close&key=RELAY_KEY:
+ *  readings (from 09:05: the first one sets the OI baseline; recorded 09:15-15:30) and closes (after 15:45) are kept
+ *  even if nobody opens the meter, and the answer (no chart rows) is what live.yml writes to docs/data/expiry.json for
+ *  the phone -- so neither job makes a Kite call of its own. Outside reading times it says which indices expire today. */
 function expiryCloseHook_(key) {
   const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
   if (!relayKey || key !== relayKey) return { error: 'forbidden' };
   const now = istNow_();
-  if (now.hm < '09:15' || (now.hm > '15:30' && now.hm < '15:45')) return { ok: true, note: 'outside reading times' };
+  if (now.hm < '09:05' || (now.hm > '15:30' && now.hm < '15:45')) {
+    const lists = expiryLists_(now.date);
+    return { ok: true, note: 'outside reading times', date: now.date,
+             listed: EXP_IDX.filter(ix => lists[ix.id].today && lists[ix.id].today.length).map(ix => ix.id),
+             lists_ok: EXP_IDX.every(ix => lists[ix.id].today !== null) };
+  }
   if (now.hm >= '15:45') CacheService.getScriptCache().remove('exp_now2');
   const out = JSON.parse(JSON.stringify(expiryNow_()));
   (out.indices || []).forEach(x => delete x.history);
   out.ok = true;
+  return out;
+}
+
+/** expiry-tape.yml, after 15:45 IST (?mode=expiry_tape&key=RELAY_KEY): the whole day of every index that expired today
+ *  -- sellers' record, prediction chart, OI baseline, learning readings, close -- for the private repository, where it
+ *  is kept for good (the cache keeps it 6 hours, the script properties only the 5-minute readings). */
+function expiryTapeHook_(key) {
+  const props = PropertiesService.getScriptProperties();
+  const relayKey = props.getProperty('RELAY_KEY') || '';
+  if (!relayKey || key !== relayKey) return { error: 'forbidden' };
+  const now = istNow_(), cache = CacheService.getScriptCache(), out = { ok: true, date: now.date, ts: now.ts, indices: [] };
+  EXP_IDX.forEach(ix => {
+    const g = k => JSON.parse(cache.get(k + '_' + ix.id + '_' + now.date) || 'null');
+    const tape = g('expw'), hist = g('exph'), samples = JSON.parse(props.getProperty('EXPD_' + ix.id + '_' + now.date) || 'null');
+    if (!tape && !hist && !samples) return;
+    const base = JSON.parse(props.getProperty('EXPB_' + ix.id + '_' + now.date) || 'null');
+    const closes = JSON.parse(props.getProperty('EXP_CLOSES_' + ix.id) || '{}');
+    out.indices.push({ id: ix.id, label: ix.label, expiry: now.date, next_expiry: base ? base.nexp || null : null, close: closes[now.date] || null,
+      model_after_close: expiryTrack_(ix.id).model, tape_fields: EXP_TAPE_FIELDS, tape: tape || [],
+      history_fields: ['time', 'expected_close', 'spot', 'forward', 'max_pain', 'wall_mid'], history: hist || [],
+      sample_fields: ['time', 'forward', 'max_pain', 'wall_mid', 'expected_close', 'europe_pct', 'us_pct', 'next_wall_mid'], samples: samples || [],
+      baseline: base });
+  });
   return out;
 }

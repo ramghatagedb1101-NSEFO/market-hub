@@ -20,7 +20,8 @@ top of `CHANGELOG.md` (what changed recently and why) before changing anything.
 | Daily batch | GitHub Actions (`.github/workflows/`) |
 
 Key workflows: `library.yml` (stock library, daily 06:15 IST, chains itself), `daily.yml` (forecasts),
-`live.yml` (live quotes every 5 min in market hours), `summaries.yml` (AI summaries), `diag.yml`
+`live.yml` (live quotes every 5 min in market hours), `expiry-tape.yml` (expiry days: relay called every minute,
+the day's option-sellers record saved to the private repo's `state/expiry/`), `summaries.yml` (AI summaries), `diag.yml`
 (run a `hub/diag_*` module on GitHub's servers).
 
 Secret names (values are the owner's): BHARATSTOCK_API_KEY, KITE_API_KEY, GEMINI_API_KEY,
