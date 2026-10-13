@@ -1882,7 +1882,7 @@ function expSellers(x){
   const cr = v => v == null ? '–' : '₹' + fmt(Math.abs(v), v != null && Math.abs(v) < 100 ? 1 : 0) + ' cr';
   const nxHead = x.next ? 'Next expiry · ' + esc(expDay(x.next.expiry)) : 'Next expiry';
   const row = (k, a, b) => '<div class="wl">' + k + '</div><div>' + a + '</div><div>' + b + '</div>';
-  const since = o.since ? 'since ' + o.since + ' IST' + (o.since < '09:15' ? ' (previous close)' : '') : 'no baseline yet';
+  const since = o.since ? 'since ' + o.since + ' IST' + (o.since < '09:15' ? ' (previous close)' : o.since > '15:30' ? ' (taken after the close: no changes to show)' : '') : 'no baseline yet';
   const No = N ? N.oi || {} : {};
   const table = '<div class="panel"><div class="panel-h"><h3>Option sellers\' walls</h3><span class="muted" style="font-size:12px">open interest (lakh units) and change ' + esc(since) + '</span></div><div class="panel-b">' +
     '<div class="ws"><div class="wl wh"></div><div class="wh">Today\'s expiry</div><div class="wh">' + nxHead + '</div>' +
@@ -1979,6 +1979,15 @@ function drawExpiry(){
       options: Object.assign(opt(), { interaction: { mode: 'index', intersect: false } }) });
     bars(x.rows || [], 'expOi_' + x.id);
     if (x.next && x.next.rows) bars(x.next.rows, 'expOiN_' + x.id);
+  });
+  // A day with no market-hours rows (13 Oct 2026: the walls record went live at 17:15 IST, after the close) shows why
+  // instead of empty axes.
+  const empty = (id, what) => { const el = $(id); if (el) el.parentNode.innerHTML = '<div class="muted" style="padding:24px 8px;font-size:13px">No ' + what +
+    ' recorded during market hours today. The record runs every minute from 09:15 to 15:30 IST on expiry days, kept when nobody watches; it began on Tue 13 Oct 2026 after the close, so the first full day is Thu 15 Oct 2026.</div>'; };
+  d.indices.forEach(x => {
+    if (x.error) return;
+    if (!((EXP.tapes[x.id] || {}).tape || []).length) ['expWalls_', 'expSize_', 'expCost_'].forEach(k => { const c = EXP.charts[k + x.id]; if (c) { c.destroy(); delete EXP.charts[k + x.id]; } empty(k + x.id, 'minute rows'); });
+    if (!((EXP.tapes[x.id] || {}).hist || []).length) empty('expChart_' + x.id, 'expected-close readings');
   });
   d.indices.forEach(x => {
     const el = $('expChart_' + x.id); if (!el || x.error) return;
