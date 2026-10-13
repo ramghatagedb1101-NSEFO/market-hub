@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Expiry meter: fixes from an independent review (12 reviewers, each finding checked by a sceptic)
+6 findings confirmed against the live code (others were rejected, mostly as already fixed):
+- **Walls**: the ATM strike now counts on both sides. With strict above/below spot, a pinned strike flipped from call wall to put wall as spot crossed it, and the expected close could jump up to ~100 points on a 3-point move.
+- **Close recording**: done as soon as the NIFTY level is known after 15:45, no longer only when the whole option chain also arrived.
+- **Name fallback**: monthly contract names only on the month's last Tuesday (they made the Monday before look like an expiry day, with fake readings and a fake close).
+- **Page**: errors are checked before "no expiry" (a missing Kite login no longer reads as "no expiry today" and stops the polling); a reading older than 30 s, or a failed call, shows "Stale · last good reading HH:MM IST" instead of "Live"; after 15:45 it says "After the close"; background data loads no longer restart the meter; the track record scrolls inside its panel on a phone.
+- **Learning** (unverified finding, accepted on inspection): each expiry counts once whatever its number of readings, and the prior is worth 5 expiries (before: 20 readings, so one fully watched day outweighed it).
+
 ### Overseas markets in the expiry meter and the strip
 Owner: does the meter consider overseas markets? Europe is open during Indian hours and moves India; so does the US.
 - **Before**: no -- the meter used only NIFTY's option chain (which already prices overseas moves made so far, but nothing explicit).

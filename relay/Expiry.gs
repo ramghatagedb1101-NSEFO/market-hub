@@ -9,14 +9,14 @@
  *   MP = max pain (settlement where option buyers collect least);
  *   W  = midpoint of the call wall and the put wall (top OI strikes above / below spot).
  * k and m start at 0.30 / 0.20 and are re-fitted after every expiry from what the meter said during the day
- * against the actual close (least squares, pulled towards the starting values while there are few expiries).
+ * against the actual close (least squares, each expiry counted once, pulled towards the starting values while there are few expiries).
  *
  * Storage: today's per-minute points in the script cache (chart); a sample at least 5 minutes apart per expiry in script
  * property EXPD_<date> and closes in EXP_CLOSES (learning and the accuracy table); last 30 expiries kept.
  * The close is recorded after 15:45 IST by the first call (live.yml calls mode=expiry_close every run).
  */
 // Range 3% of spot: today's contracts fit one Kite quote request (Kite allows 1 quote request a second).
-const EXP_K0 = 0.30, EXP_M0 = 0.20, EXP_PRIOR_SAMPLES = 20, EXP_RANGE_PCT = 3, EXP_KEEP = 30;
+const EXP_K0 = 0.30, EXP_M0 = 0.20, EXP_PRIOR_EXPIRIES = 5, EXP_RANGE_PCT = 3, EXP_KEEP = 30;
 
 function adminExpiry(token) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
@@ -72,25 +72,30 @@ function expiryGuessSyms_(date, spot) {
   const mon = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][mo - 1];
   const out = [], lo = Math.ceil(spot * (1 - EXP_RANGE_PCT / 100) / 50) * 50, hi = Math.floor(spot * (1 + EXP_RANGE_PCT / 100) / 50) * 50;
   // Monthly names exist all month (they expire on the month's last expiry), so use them only in the month's last week.
-  const lastWeek = new Date(Date.UTC(Number(date.slice(0, 4)), mo - 1, Number(dd) + 7)).getUTCMonth() !== mo - 1;
-  ['NIFTY' + y + mc + dd].concat(lastWeek ? ['NIFTY' + y + mon] : []).forEach(root => {
+  // Only on the month's last Tuesday (review: the whole last week made the Monday before look like an expiry day).
+  const Y = Number(date.slice(0, 4)), D = Number(dd), wd = new Date(Date.UTC(Y, mo - 1, D)).getUTCDay();
+  const lastTue = wd === 2 && new Date(Date.UTC(Y, mo - 1, D + 7)).getUTCMonth() !== mo - 1;
+  ['NIFTY' + y + mc + dd].concat(lastTue ? ['NIFTY' + y + mon] : []).forEach(root => {
     for (let k = lo; k <= hi; k += 50) ['CE', 'PE'].forEach(t => out.push([root + k + t, k, t]));
   });
   return out;
 }
 
 // Fit of the four weights from every stored reading against its expiry's close: ridge least squares pulled towards
-// (k0, m0, 0, 0) with a prior worth EXP_PRIOR_SAMPLES readings, so a few expiries move the weights only a little and
+// (k0, m0, 0, 0) with a prior worth EXP_PRIOR_EXPIRIES expiries, so a few expiries move the weights only a little and
 // the overseas terms count only once the record shows they help. Readings stored before 13 Oct 2026 14:00 have no
 // overseas values (taken as 0).
 function expiryModel_() {
   const props = PropertiesService.getScriptProperties();
   const closes = JSON.parse(props.getProperty('EXP_CLOSES') || '{}');
-  const X = [], Y = [];
+  // Each expiry counts once, however many readings it has (review: counting readings let one fully watched day
+  // outweigh the prior); the prior is worth EXP_PRIOR_EXPIRIES expiries.
+  const X = [], Y = [], Wt = [];
   Object.keys(closes).forEach(d => {
-    JSON.parse(props.getProperty('EXPD_' + d) || '[]').forEach(p => {
+    const pts = JSON.parse(props.getProperty('EXPD_' + d) || '[]');
+    pts.forEach(p => {
       const F = p[1];
-      X.push([p[2] - F, p[3] - F, F * (p[5] || 0) / 100, F * (p[6] || 0) / 100]); Y.push(closes[d] - F);
+      X.push([p[2] - F, p[3] - F, F * (p[5] || 0) / 100, F * (p[6] || 0) / 100]); Y.push(closes[d] - F); Wt.push(1 / pts.length);
     });
   });
   const b0 = [EXP_K0, EXP_M0, 0, 0], P = 4, n = X.length;
@@ -99,9 +104,9 @@ function expiryModel_() {
   const A = [], r = [];
   for (let a = 0; a < P; a++) {
     A.push([]); r.push(0);
-    const ms = X.reduce((t, x) => t + x[a] * x[a], 0) / n || 1, lam = EXP_PRIOR_SAMPLES * ms;
-    for (let b = 0; b < P; b++) A[a].push(X.reduce((t, x) => t + x[a] * x[b], 0) + (a === b ? lam : 0));
-    r[a] = X.reduce((t, x, i) => t + x[a] * Y[i], 0) + lam * b0[a];
+    const sw = Wt.reduce((t, w) => t + w, 0), ms = X.reduce((t, x, i) => t + Wt[i] * x[a] * x[a], 0) / sw || 1, lam = EXP_PRIOR_EXPIRIES * ms;
+    for (let b = 0; b < P; b++) A[a].push(X.reduce((t, x, i) => t + Wt[i] * x[a] * x[b], 0) + (a === b ? lam : 0));
+    r[a] = X.reduce((t, x, i) => t + Wt[i] * x[a] * Y[i], 0) + lam * b0[a];
   }
   for (let c = 0; c < P; c++) {                      // Gaussian elimination with partial pivoting
     let piv = c; for (let i = c + 1; i < P; i++) if (Math.abs(A[i][c]) > Math.abs(A[piv][c])) piv = i;
@@ -144,6 +149,7 @@ function expiryNow_() {
   const q = snap.q, pick = snap.opts || [];
   if (!q['NSE:NIFTY 50']) return Object.assign(base, { expiry_today: true, error: 'Kite did not return the NIFTY 50 level.' });
   const spot = q['NSE:NIFTY 50'][0];
+  if (now.hm >= '15:45') expiryRecordClose_(now.date, spot);   // needs only the NIFTY level, not the option chain
   base.ts = snap.ts;
 
   const ch = {};
@@ -156,7 +162,9 @@ function expiryNow_() {
   const atm = rows.reduce((b, r) => Math.abs(r.strike - spot) < Math.abs(b.strike - spot) ? r : b);
   const F = atm.strike + (atm.ce || 0) - (atm.pe || 0);
   const straddle = (atm.ce || 0) + (atm.pe || 0);
-  const above = rows.filter(r => r.strike > spot), below = rows.filter(r => r.strike < spot);
+  // The ATM strike counts on both sides (review, 13 Oct 2026): with strict above/below, a pinned strike flipped from
+  // call wall to put wall as spot crossed it and the expected close jumped up to ~100 points on a 3-point move.
+  const above = rows.filter(r => r.strike >= atm.strike), below = rows.filter(r => r.strike <= atm.strike);
   const cw = above.slice().sort((a, b) => b.ce_oi - a.ce_oi), pw = below.slice().sort((a, b) => b.pe_oi - a.pe_oi);
   const callWall = cw.length ? cw[0].strike : atm.strike, putWall = pw.length ? pw[0].strike : atm.strike;
   const payout = x => rows.reduce((t, r) => t + r.ce_oi * Math.max(0, x - r.strike) + r.pe_oi * Math.max(0, r.strike - x), 0);
@@ -194,7 +202,6 @@ function expiryNow_() {
     } finally { lock.releaseLock(); }
   }
   out.history = JSON.parse(cache.get('exph_' + now.date) || '[]');
-  if (now.hm >= '15:45') expiryRecordClose_(now.date, spot);
   cache.put('exp_now', JSON.stringify(out), 10);
   return out;
 }
