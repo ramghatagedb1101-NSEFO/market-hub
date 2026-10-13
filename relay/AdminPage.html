@@ -1742,7 +1742,8 @@ function drawExpiry(){
     '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + d.model.k + ' × (max pain − forward) + ' + d.model.m + ' × (wall midpoint − forward). ' +
     (d.model.expiries ? 'Fitted on ' + d.model.expiries + ' expiries (' + d.model.samples + ' readings).' : 'Starting values; re-fitted after each expiry.') + '</div></div></div>';
   if (!d.expiry_today) {
-    v.innerHTML = '<div class="panel"><div class="panel-b">No NIFTY expiry today. Next expiry: <b>' + esc(d.next_expiry || '–') + '</b>. The meter runs on expiry days.</div></div>' + accTable;
+    v.innerHTML = '<div class="panel"><div class="panel-b">No NIFTY expiry today. Next expiry: <b>' + esc(d.next_expiry || '–') + '</b>. The meter runs on expiry days.' +
+      (d.note ? '<div class="muted" style="margin-top:6px;font-size:12px">' + esc(d.note) + '</div>' : '') + '</div></div>' + accTable;
     stopExpiry(); return;
   }
   if (d.error) { v.innerHTML = errBlock(d.error) + accTable; return; }
