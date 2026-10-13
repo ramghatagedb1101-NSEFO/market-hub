@@ -43,8 +43,24 @@ jobs:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
           if [ -z "$CLASPRC_JSON" ]; then echo "CLASPRC_JSON is not set in the 'relay' environment"; exit 1; fi
-          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
-          chmod 600 ~/.clasprc.json
+          # Write the sign-in file in the format clasp 2.4.2 reads. Accepts the laptop's file as saved by clasp 2.x
+          # ({token, oauth2ClientSettings}) or 3.x ({tokens: {default: ...}}), with or without a BOM or stray
+          # whitespace from the clipboard. Prints only the shape found, never a value.
+          node -e '
+            let raw = process.env.CLASPRC_JSON.replace(/^﻿/, "").trim(), rc;
+            try { rc = JSON.parse(raw); } catch (e) { console.log("CLASPRC_JSON is not valid JSON (" + raw.length + " characters). Copy the whole file again."); process.exit(1); }
+            console.log("CLASPRC_JSON keys:", Object.keys(rc).join(", "));
+            let out = rc;
+            if (rc.tokens && rc.tokens.default) {
+              const t = rc.tokens.default;
+              out = { token: { access_token: t.access_token, refresh_token: t.refresh_token, scope: t.scope,
+                               token_type: t.token_type || "Bearer", expiry_date: t.expiry_date || 0 },
+                      oauth2ClientSettings: { clientId: t.client_id, clientSecret: t.client_secret, redirectUri: "http://localhost" },
+                      isLocalCreds: false };
+              console.log("Converted the clasp 3 sign-in to the clasp 2 format.");
+            }
+            if (!out.token || !out.token.refresh_token) { console.log("No refresh token in the sign-in file: run clasp login on the laptop again."); process.exit(1); }
+            require("fs").writeFileSync(require("os").homedir() + "/.clasprc.json", JSON.stringify(out), { mode: 0o600 });'
 
       - name: Project folder (relay-live)
         run: |
