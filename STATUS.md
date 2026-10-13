@@ -6,7 +6,7 @@ As of 13 Oct 2026. Earlier handover notes below are dated. Read this together wi
 
 **Kite 06:00 fix: LIVE (Tue 13 Oct 2026, relay Version 48, commit 166cd18), deployed by the new GitHub
 relay deploy (`relay-deploy.yml`, run 38353884709), on both deployments.** A Kite login is now dated by
-Kite's 06:00 IST cut-off. Relay changes now deploy by themselves on push to `main` (no approval step, owner's
+Kite's morning clear-out: the Kite day starts at 07:35 IST (corrected from 06:00 the same day; log in after 07:35). Relay changes now deploy by themselves on push to `main` (no approval step, owner's
 choice); the laptop route still works. See CHANGELOG 13 Oct.
 
 **Accounts:** act only as Google `ramghatagedb1101@gmail.com` and GitHub `ramghatagedb1101-NSEFO`. Never

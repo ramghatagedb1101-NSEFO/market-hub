@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Kite login day starts at 07:35 IST, not 06:00 (corrects this morning's fix)
+Owner: why does the Kite login keep needing to be redone?
+- **Evidence** (relay-started daily runs give the login time; live-quote runs show when Kite refused it): logins at 06:03 IST on Sat 10 Oct and Tue 13 Oct 2026 worked at first (the 06:03 daily run succeeded), then every live-quote run from 08:34 failed with Kite refusing the token, until a new login at 11:38. The login at 09:21 on Mon 12 Oct worked all day.
+- **Cause**: Kite clears all access tokens each morning some time up to about 07:30 IST; Zerodha's staff advise logging in after 07:35. A 06:03 login is inside that window, so it dies within hours while the relay still dates it "today". The 06:00 cut-off written earlier today was too early; it would not have caught the 06:03 logins.
+- **Fix** (`kiteDayIst_`, `relay/Code.gs`): the Kite day now starts at 07:35 IST. A login before 07:35 counts for the day before, so from 07:35 the phone and dashboard show "No Kite login yet today · tap to log in" instead of a dead login looking fine; the relay's login page says so at the time. Boundaries tested: 06:03 and 07:34 give 2026-10-12; 07:35, 09:21 and 23:59 give 2026-10-13. `node relay/check.js` exit 0.
+- **Still needed every day**: one login after 07:35 IST. That is Kite's rule (the exchange requires a manual login daily); it cannot be automated away.
+
 ### Phone: the Kite login warning stays on screen
 Owner: an amber warning flashed on opening the app and vanished too fast to read.
 - **Cause** (`liveTick`, `docs/index.html`): when the relay said the Kite login was replaced or missing, the app showed the amber "tap to log in" line, then fell back to the last saved quotes and overwrote the line with their time in the same call. The forecast label could overwrite it too.

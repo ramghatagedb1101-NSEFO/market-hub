@@ -64,9 +64,9 @@ function handleLogin_(requestToken) {
   props.setProperties({ KITE_ACCESS_TOKEN: body.data.access_token, KITE_TOKEN_DATE: kiteDayIst_() });
   kiteLoginOk_();   // clears a 'login replaced' alarm (KiteWatch.gs)
   const started = startDailyRun_();
-  const early = kiteDayIst_() !== todayIst_();   // before 06:00 IST: Kite ends this login at 06:00
+  const early = kiteDayIst_() !== todayIst_();   // before 07:35 IST: Kite's morning clear-out can still end this login
   return html_('Logged in for ' + todayIst_() + '. ' +
-               (early ? 'Kite ends every login at about 06:00 IST, so this one stops working then; log in again after 06:00 for today\'s market. ' : '') +
+               (early ? 'Kite clears logins each morning until about 07:30 IST, so this one will stop working; log in again after 07:35 for today\'s market. ' : '') +
                (started ? 'Today\'s daily run has started.' : 'Token saved, but the daily run did not start. Check GH_PAT has Actions: Read and write.'));
 }
 
@@ -228,13 +228,15 @@ function todayIst_() {
 }
 
 /**
- * The Kite login day (13 Oct 2026). Kite ends every access token at about 06:00 IST, not at midnight,
- * so a token is dated by the IST day it is valid for: the calendar day shifted back 6 hours. A login at
- * 01:00 on 13 Oct is dated 12 Oct and counts as gone from 06:00 (before this fix it was dated 13 Oct and
- * looked valid all day while Kite refused it). A login at 10:00 on 12 Oct stays usable until 06:00 on 13 Oct.
+ * The Kite login day (13 Oct 2026). Kite clears access tokens each morning some time between about 05:00 and
+ * 07:30 IST (Zerodha's forum: "flushed at 07:30 AM ... try post 07.35"), not at midnight. So a token is dated by
+ * the IST day it is valid for: the calendar day shifted back 7 h 35 min. A login before 07:35 is dated the day
+ * before, so from 07:35 the app asks for a new login instead of showing a dead one as fine.
+ * Evidence: logins at 06:03 on Sat 10 Oct and Tue 13 Oct 2026 worked at first, then Kite refused them by
+ * 08:34; a login at 09:21 on Mon 12 Oct worked all day. (First version of this fix used 06:00: too early.)
  */
 function kiteDayIst_() {
-  return Utilities.formatDate(new Date(Date.now() - 6 * 3600 * 1000), 'Asia/Kolkata', 'yyyy-MM-dd');
+  return Utilities.formatDate(new Date(Date.now() - (7 * 60 + 35) * 60 * 1000), 'Asia/Kolkata', 'yyyy-MM-dd');
 }
 
 function html_(message) {
