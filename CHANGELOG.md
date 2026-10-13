@@ -4,6 +4,9 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Expiry meter: empty walls charts explained (night; relay commit c6001aa)
+Owner, with a screenshot: "why these graphs are not showing any data even after market close". Cause: the minute record of the walls (relay Version 61) went live at ~17:15 IST, after today's close, and the relay records only 09:15-15:30, so today has no rows (the saved day file `state/expiry/2026-10-13_NIFTY.json` has 0). The "+0.0 L" changes come from the baseline being taken at 17:18, after the close. Not a drawing bug; Thursday 15 Oct 2026 (SENSEX) will be the first full day (the recorder starts 09:05). Now the empty charts say so instead of showing blank axes, and the baseline line reads "taken after the close: no changes to show". Checked in the preview: empty day (messages, no blank charts) and a normal day (all 12 charts drawn); `node relay/check.js` exit 0.
+
 ### Expiry history test (item 4): walls and max pain from the evening before do not beat the open (night)
 New `hub/expiry_history.py` + `expiry-history.yml` (manual; NSE blocks the laptop). From NSE's free end-of-day files (old F&O bhavcopy to Jul 2024, UDiFF after, daily index file; formats checked from GitHub with a one-off diag, now removed): for every NIFTY and BANK NIFTY expiry since Oct 2023, the day-before chain within +-3% of the close (forward, ATM straddle, max pain, walls, next expiry's walls) against the expiry day's open and close. First run (run 38398089119): 240 expiries (NIFTY 158, BANK NIFTY 82), 617 NSE requests, saved to the private repo `state/expiry_history/` (records.json, summary.json); later runs fetch only new expiries.
 Results (mean absolute error vs the close, bp):
