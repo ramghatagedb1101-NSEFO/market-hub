@@ -124,10 +124,21 @@ function expiryNow_() {
   }
   const list = syms.today || expiryGuessSyms_(now.date, lastSpot);
   const pick = list.filter(s => Math.abs(s[1] / lastSpot - 1) * 100 <= EXP_RANGE_PCT + 0.5).slice(0, 480);
-  const url = 'https://api.kite.trade/quote?' + ['NSE:NIFTY 50'].concat(pick.map(s => 'NFO:' + s[0])).map(s => 'i=' + encodeURIComponent(s)).join('&');
-  const body = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: headers }).getContentText());
-  if (body.status !== 'success') { kiteFailed_(body.message); return Object.assign(base, { expiry_today: true, error: kiteReason_(body.message) }); }
-  const q = body.data, spot = q['NSE:NIFTY 50'].last_price;
+  // Apps Script caps a fetched URL at about 2,000 characters (13 Oct 2026: "Limit Exceeded: URLFetch URL length"),
+  // so the quote request is split into short URLs and sent together.
+  const params = ['NSE:NIFTY 50'].concat(pick.map(s => 'NFO:' + s[0])).map(s => 'i=' + encodeURIComponent(s));
+  const reqs = []; let cur = [];
+  params.forEach(p => { if (cur.length && ('https://api.kite.trade/quote?' + cur.concat(p).join('&')).length > 1900) { reqs.push(cur); cur = []; } cur.push(p); });
+  if (cur.length) reqs.push(cur);
+  const resps = UrlFetchApp.fetchAll(reqs.map(c => ({ url: 'https://api.kite.trade/quote?' + c.join('&'), muteHttpExceptions: true, headers: headers })));
+  const q = {};
+  for (let n = 0; n < resps.length; n++) {
+    const body = JSON.parse(resps[n].getContentText());
+    if (body.status !== 'success') { kiteFailed_(body.message); return Object.assign(base, { expiry_today: true, error: kiteReason_(body.message) }); }
+    Object.assign(q, body.data);
+  }
+  if (!q['NSE:NIFTY 50']) return Object.assign(base, { expiry_today: true, error: 'Kite did not return the NIFTY 50 level.' });
+  const spot = q['NSE:NIFTY 50'].last_price;
   cache.put('exp_spot', String(spot), 21600);
 
   const ch = {};
