@@ -29,11 +29,13 @@ def _walls(ws: list) -> list:
 def _item(x: dict, ts: str, date: str) -> dict:
     rows = [{"strike": r[0], "ce_oi": r[1], "pe_oi": r[2]} for r in x["rows"]]
     ce, pe = sum(r["ce_oi"] for r in rows), sum(r["pe_oi"] for r in rows)
-    lo, hi = x["range"]
+    # The relay's "likely" range is one standard deviation of the move left (ATM straddle / 0.8, about 2 in 3; relay
+    # Version 62, 13 Oct 2026); "range" (+-straddle, about 3 in 5) is the fallback for an older relay.
+    lo, hi = x.get("likely") or x["range"]
     n = x.get("next") or {}
     return {
         "id": x["id"], "label": x["label"], "ts": ts, "expiry": date, "spot": x["spot"], "atm": x["atm"],
-        "straddle": x["straddle"], "prediction": x["prediction"], "implied_range": [lo, hi],
+        "straddle": x["straddle"], "sd": x.get("sd"), "prediction": x["prediction"], "implied_range": [lo, hi],
         "call_walls": _walls(x["call_walls"]), "put_walls": _walls(x["put_walls"]),
         "max_pain": x["max_pain"], "pin": max(rows, key=lambda r: r["ce_oi"] + r["pe_oi"])["strike"] if rows else x["atm"],
         "pcr_near": round(pe / ce, 2) if ce else None, "pcr_all": x.get("pcr"),

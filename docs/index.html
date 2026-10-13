@@ -720,7 +720,7 @@
           <div class="row"><span class="l">Spot</span><span class="r">${f(X.spot, 2)}</span></div>
           ${X.prediction != null ? `<div class="row"><span class="l"><b>Expected close (meter)</b></span><span class="r"><b>${f(X.prediction)}</b></span></div>` : ""}
           <div class="row"><span class="l"><b>Likely close range</b></span><span class="r"><b>${f(X.likely_range[0])} – ${f(X.likely_range[1])}</b></span></div>
-          <div class="row"><span class="l">Market's expected range (ATM ${f(X.atm)} straddle ±${f(X.straddle, 1)})</span><span class="r">${f(X.implied_range[0])} – ${f(X.implied_range[1])}</span></div>
+          <div class="row"><span class="l">${X.sd != null ? `Market's expected range (±${f(X.sd)}, about 2 in 3; ATM ${f(X.atm)} straddle ${f(X.straddle, 1)} ÷ 0.8)` : `Market's range (ATM ${f(X.atm)} straddle ±${f(X.straddle, 1)}, about 3 in 5)`}</span><span class="r">${f(X.implied_range[0])} – ${f(X.implied_range[1])}</span></div>
           <div class="row"><span class="l">Max pain</span><span class="r">${f(X.max_pain)}</span></div>
           <div class="row"><span class="l">Heaviest strike near spot</span><span class="r">${f(X.pin)}</span></div>
           <div class="row"><span class="l">Call walls (resistance)</span><span class="r">${walls(X.call_walls)}</span></div>
@@ -733,7 +733,7 @@
           <details><summary>Open interest by strike</summary>
             <table class="t"><tr><th>Strike</th><th>Calls OI</th><th>Puts OI</th></tr>${X.rows.map(r =>
               `<tr${r.strike === X.atm ? ' style="font-weight:600"' : ""}><td>${f(r.strike)}</td><td>${bar(r.ce_oi, "var(--neg, #d9534f)")}</td><td>${bar(r.pe_oi, "var(--pos, #2e9d5b)")}</td></tr>`).join("")}</table></details>
-          <div class="mut" style="margin-top:6px">Not a prediction. The straddle is the market's own estimate of the move left (about 2 in 3 chance the close is inside it). Walls and max pain are where price often sticks on expiry, not where it must end. Updates every few minutes.</div>
+          <div class="mut" style="margin-top:6px">Not a prediction. The range comes from the market's own estimate of the move left (the ATM straddle): one standard deviation is the straddle ÷ 0.8, and the close lands inside ±1 standard deviation about 2 times in 3. Walls and max pain are where price often sticks on expiry, not where it must end. Updates every few minutes.</div>
         </div></div>`;
       }).join("");
     }catch(e){ return ""; }

@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Phone: expiry range labelled correctly (evening)
+Owner: "fix the phone range label too".
+- **Before**: the phone's F&O tab showed the ATM straddle range (±straddle) and called it "about 2 in 3". A straddle is about 0.8 standard deviations of the move left, so ±straddle catches the close only about 3 times in 5.
+- **Now**: `hub/expiry_day.py` writes the relay's one-standard-deviation range (`likely`, straddle ÷ 0.8, relay Version 62) and its size (`sd`) to `expiry.json`. The phone row reads "Market's expected range (±115, about 2 in 3; ATM 25,300 straddle 91.8 ÷ 0.8)". If the file comes from an older relay answer without `sd`, the row falls back to the straddle range and says "about 3 in 5". The note under the panel says the same. "Likely close range" (that range clipped to the walls) now uses the one-standard-deviation range too, so it is a little wider than before. Phone cache v30.
+- **Checked**: the file builder run on a simulated relay answer (NIFTY sd 114.75 from straddle 91.8; older answer falls back to ±straddle); phone rendered at 375 px (no sideways scroll).
+
 ### Expiry meter: judged against the forward, uncertainty from the straddle, settlement rule checked; whole-day chart (evening, laptop session; relay Version 62, commit b13c14e)
 Items 1-3 of the agreed next steps, plus the owner's chart complaint.
 - **Track record against the market** (`expiryAccuracy_`, page `expTrack`): at 10:00 / 12:00 / 14:00 / 15:00 each expiry shows the meter's error and, under it, the forward's error at the same moment (forward = strike + call - put at the ATM strike, already in every reading), with "meter closer to the close than the forward: X of Y" as the headline and "within 25 bp" demoted to a second line. On the one real expiry (NIFTY, Tue 13 Oct 2026, close 22,721.95): 14:00 meter -73 bp vs forward -70 bp; 15:00 meter -16 bp (inside the old 25 bp "hit") vs forward 0 bp. The forward was closer both times: so far the meter has not beaten the market's own estimate.
