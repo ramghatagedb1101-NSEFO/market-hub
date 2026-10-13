@@ -2,6 +2,10 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-13
+
+- **`CLAUDE.md`**: a project guide any Claude session (local or cloud) loads automatically -- accounts, where code and data live, data sources and budgets, how to push and deploy, and the owner's preferences. Relay last deployed at Version 47 (commit 244af4a).
+
 ## 2026-10-12
 
 ### BSE as a third results source
