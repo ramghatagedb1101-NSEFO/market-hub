@@ -14,9 +14,10 @@ rg/reports/
 
 # Private data lives in the private repo market-hub-private: the phone app's files in site/ (read
 # through the relay after sign-in) and the daily job's state in state/. Jobs still read and write these
-# locally; hub/site_data.py moves them. live.json (public quotes) stays here.
+# locally; hub/site_data.py moves them. live.json (public quotes) and expiry.json (expiry-day option read) stay here.
 docs/data/*.json
 !docs/data/live.json
+!docs/data/expiry.json
 state/
 .private_pulled.json
 
