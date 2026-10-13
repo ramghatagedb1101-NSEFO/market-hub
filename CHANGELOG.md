@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Phone: the Kite login warning stays on screen
+Owner: an amber warning flashed on opening the app and vanished too fast to read.
+- **Cause** (`liveTick`, `docs/index.html`): when the relay said the Kite login was replaced or missing, the app showed the amber "tap to log in" line, then fell back to the last saved quotes and overwrote the line with their time in the same call. The forecast label could overwrite it too.
+- **Fix**: the warning (amber text and amber dot, tap opens the Kite login) stays until a good quote arrives; the fallback quotes still fill the screen. Cache `market-hub-v24`.
+- **Checked** at 375 px with a faked relay answer: "Kite login was replaced · tap to log in again" still showing after 4 s; with no warning the line reads "Last quote · 17:33 IST · Mon 12 Oct 2026" as before.
+
 ### Relay deploys from GitHub (live: Version 48)
 Owner: wants Claude to do most of the work, including relay deploys, which until now needed `clasp` on the laptop.
 - **`relay-deploy.yml`**: on a push that changes `relay/*.gs` or `relay/AdminPage.html` (or by hand), waits for the owner's approval (environment `relay`), signs `clasp` 2.4.2 (the laptop's version) in from the environment secret `CLASPRC_JSON`, refuses any Google account but ramghatagedb1101@gmail.com, runs the unchanged strict script `relay/tools/deploy_relay.sh`, checks the live relay (`mode=check`), and records the deployed commit in `.github/relay-deployed` (starts at 244af4a, Version 47).

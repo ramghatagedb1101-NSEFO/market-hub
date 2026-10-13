@@ -472,7 +472,7 @@
   }
 
   function renderStatus(){
-    if (!FEED) return;
+    if (!FEED || KITE_ALARM) return;   // a Kite login alarm stays on screen until a good quote clears it
     $("#status").textContent = "Forecast · " + asSnap(FEED.generated_at).replace(/^As of /, "");
   }
 
@@ -1258,18 +1258,20 @@
   async function liveTick(){
     fetchBitcoin();
     try{
-      let L;
+      let L, alarm = null;
       try{
         L = await (await fetch(RELAY_URL + "?mode=quote&t=" + Date.now(), {cache:"no-store"})).json();
-        if (L.kite_login === "rejected" || L.kite_login === "no_login") { kiteAlarm(L); }
+        if (L.kite_login === "rejected" || L.kite_login === "no_login") alarm = L;
         if (L.error || !L.indices) throw new Error(L.error || "no quotes");
       }catch(e){
         L = await (await fetch("data/live.json", {cache:"no-store"})).json();
       }
-      LIVE = L; KITE_ALARM = null; $("#status").style.color = ""; $("#status").onclick = null; $("#status").style.cursor = "";
+      LIVE = L;
       const open = marketOpenIst();
-      $("#dot").classList.toggle("stale", ageMin(L.ts) > 15 && open);
-      $("#status").textContent = asQuote(L.ts);
+      $("#dot").classList.toggle("stale", (ageMin(L.ts) > 15 && open) || !!alarm);
+      // 13 Oct 2026: the alarm used to be overwritten here by the fallback quote's time, so it flashed and vanished.
+      if (alarm) kiteAlarm(alarm);
+      else { KITE_ALARM = null; $("#status").style.color = ""; $("#status").onclick = null; $("#status").style.cursor = ""; $("#status").textContent = asQuote(L.ts); }
       renderTape(); renderHome(); drawBrief();
     }catch(e){
       $("#dot").classList.add("stale");
