@@ -2,6 +2,16 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-15
+
+### SENSEX in the expiry history test (BSE data); SENSEX starts from its own fit (01:00 IST; relay Version 65, commit 4e6614e)
+Owner: "add SENSEX to the history test using BSE data".
+- **Data** (checked from GitHub with a one-off diag, now removed; curl_cffi, as BSE refuses plain requests): BSE's derivatives bhavcopy in UDiFF layout (`download/BhavCopy/Derivative/BhavCopy_BSE_FO_0_0_0_YYYYMMDD_F_0000.CSV`, present from at least 2 Jan 2024), before that BSE's own zip (`download/Bhavcopy/Derivative/bhavcopyDD-MM-YY.zip`: Contract Type IO, Option Type CALL/PUT, Open Interest); SENSEX daily OHLC from BSE's `ProduceCSVForDate` (753 days in one request). BSE answers a missing day with its home page, not a 404: treated as a holiday. SENSEX50 excluded. No participant signals (NSE's file covers NSE only).
+- **Run 38456243321**: 158 SENSEX expiries (6 Oct 2023 - 8 Oct 2026), 377 BSE requests; NSE needed 4 (all recorded).
+- **SENSEX results** (mean absolute error vs the close, bp): open 53.0; max pain 60.9; wall midpoint 71.4; meter formula fitted walk-forward 53.5, old starting weights 53.8. Close between the walls 91.8% (wide walls); toward max pain 57.3% of 124 days (71 of 124; not significant, z ~1.6). Fit k 0.18, m 0.10, v -0.13. No direction signal with |t| >= 2. Move size: net gamma + 0.64 sd vs - 0.66; event days 0.73 sd (n 6, 33% outside 1 sd vs 23%), too few. Pin within half a step: max-gamma strike 9.5%, max pain 8.2%, strike nearest the open 9.5%.
+- **Same answer as NIFTY and BANK NIFTY**: walls and max pain from the evening before do not beat the open.
+- **Starting weights**: SENSEX had borrowed NIFTY's (no history); now its own fit, k 0.18, m 0.10, v -0.13 (`EXP_START`), following the owner's "set the weights to the history fit". Checked: `node relay/check.js` exit 0; simulated SENSEX day (Kite >= 1.1 s apart, cache max 52 KB, property max 4.7 KB, close recorded); deployed by relay-deploy (Version 65, content matched), before the first live SENSEX expiry.
+
 ## 2026-10-13
 
 ### Expiry meter: starting weights from the history fit (night; relay Version 64, commit d1938dc)
