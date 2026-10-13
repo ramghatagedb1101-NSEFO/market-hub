@@ -4,6 +4,8 @@ As of 13 Oct 2026. Earlier handover notes below are dated. Read this together wi
 
 ## HANDOVER -- read this first if you are a new Claude session
 
+**NIFTY expiry-day read: live (Tue 13 Oct 2026).** `hub/expiry_day.py` runs in `live.yml` on expiry days; phone F&O tab shows walls, max pain, straddle range and a likely close range. No track record yet: next step is to log each expiry's read against the actual close.
+
 **Kite 06:00 fix: LIVE (Tue 13 Oct 2026, relay Version 48, commit 166cd18), deployed by the new GitHub
 relay deploy (`relay-deploy.yml`, run 38353884709), on both deployments.** A Kite login is now dated by
 Kite's morning clear-out: the Kite day starts at 07:35 IST (corrected from 06:00 the same day; log in after 07:35). Relay changes now deploy by themselves on push to `main` (no approval step, owner's
