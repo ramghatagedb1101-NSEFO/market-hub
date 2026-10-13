@@ -61,10 +61,12 @@ function handleLogin_(requestToken) {
                  '. Check that the Zerodha Client ID on the app matches the account you logged in with.');
   }
 
-  props.setProperties({ KITE_ACCESS_TOKEN: body.data.access_token, KITE_TOKEN_DATE: todayIst_() });
+  props.setProperties({ KITE_ACCESS_TOKEN: body.data.access_token, KITE_TOKEN_DATE: kiteDayIst_() });
   kiteLoginOk_();   // clears a 'login replaced' alarm (KiteWatch.gs)
   const started = startDailyRun_();
+  const early = kiteDayIst_() !== todayIst_();   // before 06:00 IST: Kite ends this login at 06:00
   return html_('Logged in for ' + todayIst_() + '. ' +
+               (early ? 'Kite ends every login at about 06:00 IST, so this one stops working then; log in again after 06:00 for today\'s market. ' : '') +
                (started ? 'Today\'s daily run has started.' : 'Token saved, but the daily run did not start. Check GH_PAT has Actions: Read and write.'));
 }
 
@@ -78,8 +80,8 @@ function handleToken_(p) {
   }
   const token = props.getProperty('KITE_ACCESS_TOKEN');
   const date = props.getProperty('KITE_TOKEN_DATE');
-  if (!token || date !== todayIst_()) {
-    return json_({ error: 'no Kite token for today; log in with Kite first', token_date: date || null, today: todayIst_() });
+  if (!token || date !== kiteDayIst_()) {
+    return json_({ error: 'no Kite token for today; log in with Kite first', token_date: date || null, today: kiteDayIst_() });
   }
   return json_({ access_token: token, date: date });
 }
@@ -105,7 +107,8 @@ function handleCheck_(p) {
     key_matches: p.key === undefined ? null : (relayKey.length > 0 && p.key === relayKey),
     key_length_sent: (p.key || '').length,
     token_date: props.getProperty('KITE_TOKEN_DATE') || null,
-    token_ok_for_today: props.getProperty('KITE_TOKEN_DATE') === todayIst_() && !!props.getProperty('KITE_ACCESS_TOKEN'),
+    kite_day: kiteDayIst_(),
+    token_ok_for_today: props.getProperty('KITE_TOKEN_DATE') === kiteDayIst_() && !!props.getProperty('KITE_ACCESS_TOKEN'),
   });
 }
 
@@ -122,7 +125,7 @@ function handleQuote_() {
   const token = props.getProperty('KITE_ACCESS_TOKEN');
   const date = props.getProperty('KITE_TOKEN_DATE');
   const apiKey = props.getProperty('KITE_API_KEY');
-  if (!token || date !== todayIst_() || !apiKey) return json_({ error: 'no token for today; log in with Kite first', kite_login: 'no_login', login_link: kiteLoginLink_() });
+  if (!token || date !== kiteDayIst_() || !apiKey) return json_({ error: 'no token for today; log in with Kite first', kite_login: 'no_login', login_link: kiteLoginLink_() });
 
   const front = frontMonths_();   // nearest-expiry MCX gold and crude, and USD/INR (CDS)
   const symbols = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX'];
@@ -222,6 +225,16 @@ function sha256Hex_(text) {
 
 function todayIst_() {
   return Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
+}
+
+/**
+ * The Kite login day (13 Oct 2026). Kite ends every access token at about 06:00 IST, not at midnight,
+ * so a token is dated by the IST day it is valid for: the calendar day shifted back 6 hours. A login at
+ * 01:00 on 13 Oct is dated 12 Oct and counts as gone from 06:00 (before this fix it was dated 13 Oct and
+ * looked valid all day while Kite refused it). A login at 10:00 on 12 Oct stays usable until 06:00 on 13 Oct.
+ */
+function kiteDayIst_() {
+  return Utilities.formatDate(new Date(Date.now() - 6 * 3600 * 1000), 'Asia/Kolkata', 'yyyy-MM-dd');
 }
 
 function html_(message) {

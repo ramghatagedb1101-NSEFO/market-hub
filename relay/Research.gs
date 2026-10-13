@@ -62,7 +62,7 @@ function chartData_(symbol, range) {
 function kiteHeaders_() {
   const props = PropertiesService.getScriptProperties();
   const tok = props.getProperty('KITE_ACCESS_TOKEN'), apiKey = props.getProperty('KITE_API_KEY');
-  if (!tok || !apiKey || props.getProperty('KITE_TOKEN_DATE') !== todayIst_()) return null;
+  if (!tok || !apiKey || props.getProperty('KITE_TOKEN_DATE') !== kiteDayIst_()) return null;
   return { 'X-Kite-Version': '3', 'Authorization': 'token ' + apiKey + ':' + tok };
 }
 

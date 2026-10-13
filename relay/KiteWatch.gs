@@ -18,7 +18,7 @@ function kiteStatus_() {
   const props = PropertiesService.getScriptProperties();
   let st = {};
   try { st = JSON.parse(props.getProperty('KITE_STATUS') || '{}'); } catch (e) { st = {}; }
-  const today = todayIst_();
+  const today = kiteDayIst_();
   const loggedToday = props.getProperty('KITE_TOKEN_DATE') === today && !!props.getProperty('KITE_ACCESS_TOKEN');
   if (!loggedToday) return { state: 'no_login', login_link: kiteLoginLink_() };
   if (st.state === 'rejected' && st.token_date === today) return { state: 'rejected', at: st.at, login_link: kiteLoginLink_() };
@@ -31,7 +31,7 @@ function kiteFailed_(msg) {
   const props = PropertiesService.getScriptProperties();
   let st = {};
   try { st = JSON.parse(props.getProperty('KITE_STATUS') || '{}'); } catch (e) { st = {}; }
-  const today = todayIst_();
+  const today = kiteDayIst_();
   if (st.state === 'rejected' && st.token_date === today) return;      // already recorded and emailed
   const at = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'HH:mm');
   props.setProperty('KITE_STATUS', JSON.stringify({ state: 'rejected', at: at, token_date: today, login_at: st.login_at || null }));
@@ -47,7 +47,7 @@ function kiteFailed_(msg) {
 
 function kiteLoginOk_() {
   PropertiesService.getScriptProperties().setProperty('KITE_STATUS', JSON.stringify({
-    state: 'ok', token_date: todayIst_(), login_at: Utilities.formatDate(new Date(), 'Asia/Kolkata', 'HH:mm') }));
+    state: 'ok', token_date: kiteDayIst_(), login_at: Utilities.formatDate(new Date(), 'Asia/Kolkata', 'HH:mm') }));
 }
 
 /** Dashboard banner. */

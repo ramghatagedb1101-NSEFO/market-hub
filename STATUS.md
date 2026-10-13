@@ -1,8 +1,13 @@
 # Build status and to-do
 
-As of 10 Oct 2026, 11:00 IST. Read this together with `CHANGELOG.md`.
+As of 13 Oct 2026. Earlier handover notes below are dated. Read this together with `CHANGELOG.md`.
 
 ## HANDOVER -- read this first if you are a new Claude session
+
+**Kite 06:00 fix: committed, NOT yet deployed (13 Oct 2026).** The relay now dates a Kite token by Kite's
+06:00 IST cut-off (`kiteDayIst_()`, `relay/Code.gs`), so a login made before 06:00 no longer looks valid all
+day. It needs a relay deploy from the owner's laptop (`clasp`); until then the old midnight rule is live.
+See CHANGELOG 13 Oct.
 
 **Accounts:** act only as Google `ramghatagedb1101@gmail.com` and GitHub `ramghatagedb1101-NSEFO`. Never
 `ramghatage@gmail.com` / `ramghatage-ux`. Claude in Chrome only reaches profiles signed in to this session's

@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Kite login: dated by Kite's 06:00 IST cut-off, not midnight (relay; written, not yet deployed)
+Owner: live quotes failed with "Incorrect `api_key` or `access_token`" although the token had been renewed earlier today.
+- **Finding:** every relay check treated a token as valid if `KITE_TOKEN_DATE` equalled today's IST calendar date. Kite ends every access token at about 06:00 IST, not at midnight. A login between 00:00 and 06:00 was dated "today" and looked valid all day while Kite refused it. A daytime login was treated as gone at midnight although Kite honours it until 06:00. The deployment's "Execute as" setting was ruled out: every Kite value is a script property, shared by all users. Not proven to be today's cause: if no login happened before 06:00, the other cause is a second login with the same Kite app (see the `KiteWatch.gs` email).
+- **Fix:** `kiteDayIst_()` (`relay/Code.gs`) gives the IST date 6 hours earlier, so 00:00-05:59 counts as the previous Kite day. It is used for saving the token, the token hand-out to the GitHub jobs (`mode=token`), the setup check (`mode=check`, which now also shows `kite_day`), live quotes, the research charts (`Research.gs`) and the login alarm (`KiteWatch.gs`). A login before 06:00 now says on the relay page that it stops working at about 06:00.
+- **Check:** `node relay/check.js` exit 0. Boundaries tested: 00:30 and 05:59 on 13 Oct give 2026-10-12; 06:00, 09:15 and 23:59 give 2026-10-13. Tokens already saved after 06:00 today keep working (same date).
+- **Deploy:** pending on the owner's laptop (`clasp`). Relay last deployed at Version 47 (commit 244af4a).
+
+### Project guide
 - **`CLAUDE.md`**: a project guide any Claude session (local or cloud) loads automatically -- accounts, where code and data live, data sources and budgets, how to push and deploy, and the owner's preferences. Relay last deployed at Version 47 (commit 244af4a).
 
 ## 2026-10-12
