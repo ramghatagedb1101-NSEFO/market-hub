@@ -46,10 +46,13 @@ function sessionCreate_() {
 
 function sessionValid_(token) {
   if (!token) return false;
+  // 13 Oct 2026: the dashboard now calls every 10 s; a valid session is remembered for 60 s to spare property reads.
+  const cache = CacheService.getScriptCache(), ck = 'sv_' + sessionKey_(token);
+  if (cache.get(ck)) return true;
   const props = PropertiesService.getScriptProperties();
   const key = sessionKey_(token);
   const exp = Number(props.getProperty(key) || 0);
-  if (exp > Date.now()) return true;
+  if (exp > Date.now()) { cache.put(ck, '1', 60); return true; }
   if (exp) props.deleteProperty(key);
   return false;
 }

@@ -62,6 +62,14 @@ button,input,select{font:inherit;color:inherit}
 .top{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:12px 28px;display:flex;align-items:center;gap:14px}
 .top .crumb{font-weight:700;font-size:15px;white-space:nowrap}
 .search{position:relative;margin-left:auto;width:min(420px,100%)}
+.top{flex-wrap:wrap;row-gap:8px}
+.tape{order:3;flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;font-size:12.5px}
+.tape:empty{display:none}
+.tape > span{white-space:nowrap}
+.tape .q{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.tape .n{color:var(--muted);font-weight:600;margin-right:5px}
+.tape .t{color:var(--muted);font-size:11.5px}
+.search{flex:none}
 .search input{padding-left:34px}
 .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2}
 .suggest{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.12);overflow:hidden;display:none;z-index:20}
@@ -199,6 +207,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--panel2);border-radi
       <header class="top">
         <button class="btn ghost menu-btn" onclick="document.getElementById('side').classList.toggle('open')" aria-label="Menu">☰</button>
         <div class="crumb" id="crumb">Overview</div>
+        <div class="tape" id="tape"></div>
         <div class="search">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="q" class="field" placeholder="Search a company or symbol…" autocomplete="off"
@@ -273,6 +282,7 @@ function start(){
     renderNav(); rerender();
   }).catch(e => { S.libErr = e.message; rerender(); });
   loadWatch();
+  tapeTick(); setInterval(() => { if (!document.hidden && (marketHoursIst() || Date.now() - TAPE_LAST > 300000)) tapeTick(); }, 10000);
   call('adminKiteStatus', token).then(d => { S.kite = d; rerender(); }).catch(() => {});
   call('adminAlertSettings', token).then(d => { S.alerts = d; if (current.page === 'overview') rerender(); }).catch(() => {});
   call('adminShortlist', token).then(d => { S.sl = d; if (current.page === 'shortlist' || current.page === 'overview') rerender(); })
@@ -1696,6 +1706,34 @@ function drawScatter(){
 function dirOf(k){ if (k === 'composite' || FACTORS.some(f => f[0] === k) || k === 'mb_score') return 1; return (M[k] || [])[3] || 1; }
 
 // ---------------- What changed ----------------
+// Market strip (13 Oct 2026): live index levels on every page, every 10 s (relay adminQuotes = the phone's quotes).
+const TAPE_NAMES = [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY'], ['SENSEX', 'SENSEX']];
+// Every 10 s only in market hours (Mon-Fri 09:00-15:45 IST); otherwise every 5 minutes, and never while the tab is hidden.
+let TAPE_LAST = 0;
+function marketHoursIst(){ const d = new Date(Date.now() + 5.5 * 3600e3), m = d.getUTCHours() * 60 + d.getUTCMinutes(); return d.getUTCDay() >= 1 && d.getUTCDay() <= 5 && m >= 540 && m <= 945; }
+function tapeTick(){
+  TAPE_LAST = Date.now();
+  call('adminQuotes', token).then(d => {
+    const el = $('tape'); if (!el) return;
+    if (!d || d.error) {
+      el.innerHTML = '<span style="color:var(--warn)">Quotes unavailable: ' + esc(d && d.error || 'no answer') + '</span>' +
+        (d && d.login_link ? ' <a href="' + esc(d.login_link) + '" target="_blank" rel="noopener">Log in to Kite</a>' : '');
+      return;
+    }
+    const item = (name, q) => q ? '<span><span class="n">' + name + '</span><span class="q">' + fmt(q.last, 2) + '</span> <span class="q" style="color:' +
+      (q.change_pct >= 0 ? 'var(--up)' : 'var(--down)') + '">' + (q.change_pct >= 0 ? '+' : '') + fmt(q.change_pct, 2) + '%</span></span>' : '';
+    const x = d.extra || {};
+    const ts = String(d.ts || ''), hm = ts.slice(11, 16), day = ts.slice(0, 10);
+    const ist = new Date(Date.now() + 5.5 * 3600e3), today = ist.toISOString().slice(0, 10), mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+    const open = ist.getUTCDay() >= 1 && ist.getUTCDay() <= 5 && mins >= 555 && mins <= 930 && day === today;
+    const dd = day ? new Date(day + 'T00:00:00Z') : null;
+    const dayTxt = dd ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dd.getUTCDay()] + ' ' + dd.getUTCDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dd.getUTCMonth()] + ' ' + dd.getUTCFullYear() : '';
+    el.innerHTML = TAPE_NAMES.map(([k, n]) => item(n, (d.indices || {})[k])).join('') + item('VIX', d.india_vix) +
+      item('GOLD', x.gold) + item('CRUDE', x.crude) + item('USD/INR', x.usd_inr) +
+      '<span class="t">' + (open ? 'Live · ' + hm + ' IST' : 'Last quote · ' + hm + ' IST · ' + dayTxt) + '</span>';
+  }).catch(() => {});
+}
+
 // ======================================================================================
 // NIFTY expiry meter (13 Oct 2026): expected close from today's option chain, every 10 s (relay Expiry.gs)
 // ======================================================================================
@@ -1706,7 +1744,9 @@ function pageExpiry(){
   $('view').innerHTML = loadingBlock('Reading today\'s NIFTY option chain…');
   const tick = () => call('adminExpiry', token).then(d => { if (current.page !== 'expiry') return; EXP.data = d; drawExpiry(); })
     .catch(e => { if (current.page === 'expiry' && !EXP.data) $('view').innerHTML = errBlock('Could not reach the relay: ' + e.message); });
-  tick(); EXP.timer = setInterval(tick, 10000);
+  // Every 10 s in market hours, every minute after (the close is recorded after 15:45); paused while the tab is hidden.
+  let last = 0;
+  tick(); EXP.timer = setInterval(() => { if (document.hidden) return; if (!marketHoursIst() && Date.now() - last < 60000) return; last = Date.now(); tick(); }, 10000);
 }
 function expGauge(d){
   // Semicircle: left end = range low, right end = range high (the market's one-standard-deviation move).

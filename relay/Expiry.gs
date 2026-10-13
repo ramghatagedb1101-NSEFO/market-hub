@@ -14,7 +14,8 @@
  * property EXPD_<date> and closes in EXP_CLOSES (learning and the accuracy table); last 30 expiries kept.
  * The close is recorded after 15:45 IST by the first call (live.yml calls mode=expiry_close every run).
  */
-const EXP_K0 = 0.30, EXP_M0 = 0.20, EXP_PRIOR_SAMPLES = 20, EXP_RANGE_PCT = 4, EXP_KEEP = 30;
+// Range 3% of spot: today's contracts fit one Kite quote request (Kite allows 1 quote request a second).
+const EXP_K0 = 0.30, EXP_M0 = 0.20, EXP_PRIOR_SAMPLES = 20, EXP_RANGE_PCT = 3, EXP_KEEP = 30;
 
 function adminExpiry(token) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
@@ -111,29 +112,37 @@ function expiryNow_() {
   const now = istNow_();
   const headers = kiteHeaders_();
   const syms = expirySyms_(now.date);
-  const base = { ts: now.ts, date: now.date, next_expiry: syms.next, model: expiryModel_(), accuracy: expiryAccuracy_(), source: syms.source };
+  // Model and track record read every stored expiry from script properties (quota 50,000 reads a day): cached an hour.
+  let ma = JSON.parse(cache.get('exp_ma') || 'null');
+  if (!ma) { ma = { model: expiryModel_(), accuracy: expiryAccuracy_() }; cache.put('exp_ma', JSON.stringify(ma), 3600); }
+  const base = { ts: now.ts, date: now.date, next_expiry: syms.next, model: ma.model, accuracy: ma.accuracy, source: syms.source };
   if (syms.today && !syms.today.length) return Object.assign(base, { expiry_today: false });
   if (!headers) return Object.assign(base, { expiry_today: !!syms.today, error: 'No Kite login for today: log in with the Kite link.' });
 
   // One quote call: spot + options within the range (range from the last cached spot; first call: spot first).
   let lastSpot = Number(cache.get('exp_spot') || 0);
-  if (!lastSpot || !syms.today) {
+  if (!lastSpot) {   // first call of the day only; then the spot from the previous reading picks the strikes
     const sq = JSON.parse(UrlFetchApp.fetch('https://api.kite.trade/quote/ltp?i=' + encodeURIComponent('NSE:NIFTY 50'), { muteHttpExceptions: true, headers: headers }).getContentText());
     if (sq.status !== 'success') { kiteFailed_(sq.message); return Object.assign(base, { expiry_today: true, error: kiteReason_(sq.message) }); }
     lastSpot = sq.data['NSE:NIFTY 50'].last_price;
+    Utilities.sleep(1100);   // Kite: 1 quote request a second
   }
   const list = syms.today || expiryGuessSyms_(now.date, lastSpot);
-  const pick = list.filter(s => Math.abs(s[1] / lastSpot - 1) * 100 <= EXP_RANGE_PCT + 0.5).slice(0, 480);
+  const pick = list.filter(s => Math.abs(s[1] / lastSpot - 1) * 100 <= EXP_RANGE_PCT + 0.2).slice(0, 480);
   // Apps Script caps a fetched URL at about 2,000 characters (13 Oct 2026: "Limit Exceeded: URLFetch URL length"),
   // so the quote request is split into short URLs and sent together.
   const params = ['NSE:NIFTY 50'].concat(pick.map(s => 'NFO:' + s[0])).map(s => 'i=' + encodeURIComponent(s));
   const reqs = []; let cur = [];
   params.forEach(p => { if (cur.length && ('https://api.kite.trade/quote?' + cur.concat(p).join('&')).length > 1900) { reqs.push(cur); cur = []; } cur.push(p); });
   if (cur.length) reqs.push(cur);
-  const resps = UrlFetchApp.fetchAll(reqs.map(c => ({ url: 'https://api.kite.trade/quote?' + c.join('&'), muteHttpExceptions: true, headers: headers })));
+  // One at a time, a second apart, and one retry on Kite's "too many requests" (its limit: 1 quote request a second).
   const q = {};
-  for (let n = 0; n < resps.length; n++) {
-    const body = JSON.parse(resps[n].getContentText());
+  for (let n = 0; n < reqs.length; n++) {
+    if (n) Utilities.sleep(1100);
+    const get = () => UrlFetchApp.fetch('https://api.kite.trade/quote?' + reqs[n].join('&'), { muteHttpExceptions: true, headers: headers });
+    let res = get();
+    if (res.getResponseCode() === 429) { Utilities.sleep(1100); res = get(); }
+    const body = JSON.parse(res.getContentText());
     if (body.status !== 'success') { kiteFailed_(body.message); return Object.assign(base, { expiry_today: true, error: kiteReason_(body.message) }); }
     Object.assign(q, body.data);
   }
@@ -177,10 +186,12 @@ function expiryNow_() {
       const hk = 'exph_' + now.date;
       const hist = JSON.parse(cache.get(hk) || '[]');
       if (!hist.length || hist[hist.length - 1][0] !== now.hm) { hist.push([now.hm, r2(pred), r2(spot), r2(F), MP, W]); cache.put(hk, JSON.stringify(hist), 21600); }
-      if (now.hm >= '09:15' && now.hm <= '15:30') {
+      const mins = hm => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
+      const lastSample = cache.get('exp_last_' + now.date);
+      if (now.hm >= '09:15' && now.hm <= '15:30' && (!lastSample || mins(now.hm) - mins(lastSample) >= 5)) {
         const props = PropertiesService.getScriptProperties(), pk = 'EXPD_' + now.date;
         const pts = JSON.parse(props.getProperty(pk) || '[]');
-        const mins = hm => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3));
+        cache.put('exp_last_' + now.date, now.hm, 21600);
         if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred)]); props.setProperty(pk, JSON.stringify(pts)); }
       }
     } finally { lock.releaseLock(); }
@@ -202,6 +213,7 @@ function expiryRecordClose_(date, close) {
   keep.forEach(d => kept[d] = closes[d]);
   Object.keys(closes).forEach(d => { if (!kept[d]) props.deleteProperty('EXPD_' + d); });
   props.setProperty('EXP_CLOSES', JSON.stringify(kept));
+  CacheService.getScriptCache().remove('exp_ma');   // re-fit with the new close on the next call
 }
 
 /** live.yml calls ?mode=expiry_close&key=RELAY_KEY every run, so readings (09:15-15:30) and the close (after 15:45)

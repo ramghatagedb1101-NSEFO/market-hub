@@ -118,15 +118,25 @@ function handleCheck_(p) {
  * never the token. Cached for 10 seconds so many visitors cost one Kite call.
  */
 function handleQuote_() {
+  return json_(quoteData_());
+}
+
+/** Dashboard market strip (13 Oct 2026): the same quotes as the phone, behind the dashboard sign-in. */
+function adminQuotes(token) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  return quoteData_();
+}
+
+function quoteData_() {
   const cache = CacheService.getScriptCache();
   const hit = cache.get('quotes');
-  if (hit) return json_(JSON.parse(hit));
+  if (hit) return JSON.parse(hit);
 
   const props = PropertiesService.getScriptProperties();
   const token = props.getProperty('KITE_ACCESS_TOKEN');
   const date = props.getProperty('KITE_TOKEN_DATE');
   const apiKey = props.getProperty('KITE_API_KEY');
-  if (!token || date !== kiteDayIst_() || !apiKey) return json_({ error: 'no token for today; log in with Kite first', kite_login: 'no_login', login_link: kiteLoginLink_() });
+  if (!token || date !== kiteDayIst_() || !apiKey) return { error: 'no token for today; log in with Kite first', kite_login: 'no_login', login_link: kiteLoginLink_() };
 
   const front = frontMonths_();   // nearest-expiry MCX gold and crude, and USD/INR (CDS)
   const symbols = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX'];
@@ -143,7 +153,7 @@ function handleQuote_() {
   if (body.status !== 'success') {
     kiteFailed_(body.message);
     const st = kiteStatus_();
-    return json_({ error: 'Kite: ' + (body.message || 'quote failed'), kite_login: st.state, login_link: st.login_link || null });
+    return { error: 'Kite: ' + (body.message || 'quote failed'), kite_login: st.state, login_link: st.login_link || null };
   }
 
   const d = body.data;
@@ -165,7 +175,7 @@ function handleQuote_() {
   if (front.crude && d['MCX:' + front.crude]) out.extra.crude = Object.assign(pick('MCX:' + front.crude, 'CRUDE'), { contract: front.crude });
   if (front.usd && d['CDS:' + front.usd]) out.extra.usd_inr = Object.assign(pick('CDS:' + front.usd, 'USDINR'), { contract: front.usd });
   cache.put('quotes', JSON.stringify(out), 10);
-  return json_(out);
+  return out;
 }
 
 

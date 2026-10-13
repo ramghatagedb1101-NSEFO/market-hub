@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Dashboard market strip; call budget for the 10-second pages
+Owner: current market levels were not visible on the dashboard; and none of this may exhaust the Kite, BharatStock or other limits.
+- **Market strip** (every dashboard page, under the header): NIFTY, BANK NIFTY, SENSEX, VIX, and gold, crude, USD/INR when Kite has them, with change %, and "Live · HH:MM IST" or "Last quote · HH:MM IST · Day d Mon yyyy". Relay `adminQuotes` = the phone's quote call (`quoteData_`, `Code.gs`; the phone's `mode=quote` answer is unchanged). Wraps onto extra lines on a phone (checked at 1366 px and 375 px).
+- **Budget** (worst case: one or more dashboards open on the expiry meter all session, 09:00-15:45 IST):
+  - Kite: at most 1 quote request per 10 s for the strip (shared 10-second cache with the phone) and 1 per 10 s for the meter (its contracts now fit one request: range 3% of spot; a split request would go one per second with one retry on "too many requests"). About 0.2 requests a second against Kite's 1 a second; Kite has no daily cap on quotes.
+  - Google Apps Script (consumer quotas): about 4,900 fetches against 20,000 a day; property reads cut by caching the session check (60 s), the model and track record (1 h, cleared when a close is recorded) and the sampling clock (cache, not a property).
+  - Outside market hours the strip refreshes every 5 minutes and the meter every minute; hidden tabs make no calls.
+  - BharatStock: none of today's features call it (the 9,000-a-day budget is untouched). GitHub Actions: public repo, no minute charge.
+
 ### Dashboard: NIFTY expiry meter that learns from each close
 Owner: a meter on the dashboard's Analysis section showing the current expected close, refreshing every 10 seconds, with a graph of how it moves through the day; it should correct itself from how each expiry actually closed.
 - **Relay `Expiry.gs`** (`adminExpiry`, cached 10 s): one Kite quote call for spot and today's NIFTY options within 4% (contract list from Kite's public instrument file, cached for the day). Expected close = forward + k × (max pain − forward) + m × (wall midpoint − forward); forward = ATM strike + call − put (put-call parity: the market's own expected settlement). Range = expected close ± ATM straddle (about 2 in 3).
