@@ -6,7 +6,8 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ### NIFTY expiry-day read (first version)
 Owner, on expiry day: what will today's close be? Nothing on the dashboard read today's expiring chain live.
-- **`hub/expiry_day.py`**, run by `live.yml` on NIFTY expiry days (no-op otherwise): from Kite quotes of today's options within 4% of spot: call wall and put wall (top 3 OI strikes above / below spot), max pain, ATM straddle and the range it implies to the close, PCR near spot and overall, the highest-OI strike near spot, and a likely range (straddle range cut by the walls). Writes `docs/data/expiry.json`; prints a one-line summary as a run notice.
+- **`hub/expiry_day.py`**, run by `live.yml` on NIFTY expiry days (no-op otherwise): from Kite quotes of today's options within 4% of spot: call wall and put wall (top 3 OI strikes above / below spot), max pain, ATM straddle and the range it implies to the close, PCR near spot and overall, the highest-OI strike near spot, and a likely range (straddle range cut by the walls). Writes `docs/data/expiry.json`; prints a one-line summary as a run notice. `docs/data/expiry.json` is public like `live.json` (exchange OI data, nothing personal).
+- **Phone** (F&O tab, top, only on expiry day): "NIFTY expiry today · As of HH:MM IST" with likely close range, the market's expected range, max pain, heaviest strike, call and put walls with OI in lakh, PCR, and OI bars by strike behind a tap; refreshes with the live quotes. Checked at 375 px with the 13:19 IST numbers. Cache `market-hub-v25`.
 - **What it is not**: a prediction of the close. The straddle is the market's own one-standard-deviation estimate; walls and max pain are where price often sticks on expiry, not where it must end. No track record yet: start recording it against actual closes.
 
 ### Kite login day starts at 07:35 IST, not 06:00 (corrects this morning's fix)

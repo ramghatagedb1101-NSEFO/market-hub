@@ -699,8 +699,37 @@
         <div class="pb">${rej || '<div class="mut">None.</div>'}</div></div>`;
   }
 
+  // Expiry-day read (13 Oct 2026): today's NIFTY expiry from the live option chain (hub/expiry_day.py via live.yml).
+  async function expiryPanel(){
+    try{
+      const E = await (await fetch("data/expiry.json?t=" + Date.now(), {cache:"no-store"})).json();
+      const d = toIst(E.ts), now = toIst(new Date().toISOString());
+      if (!d || dayTxt(d) !== dayTxt(now)) return "";
+      const maxOi = Math.max(...E.rows.map(r => Math.max(r.ce_oi, r.pe_oi)), 1);
+      const bar = (v, c) => `<span style="display:inline-block;height:8px;width:${(v / maxOi * 100).toFixed(1)}%;background:${c};border-radius:2px"></span>`;
+      const walls = (w) => w.map(x => `${f(x.strike)} <span class="mut">(${f(x.oi / 1e5, 0)} L)</span>`).join(" · ");
+      return `<div class="sec">NIFTY expiry today · As of ${timeTxt(d)}</div>
+        <div class="panel"><div class="pb">
+          <div class="row"><span class="l">Spot</span><span class="r">${f(E.spot, 2)}</span></div>
+          <div class="row"><span class="l"><b>Likely close range</b></span><span class="r"><b>${f(E.likely_range[0])} – ${f(E.likely_range[1])}</b></span></div>
+          <div class="row"><span class="l">Market's expected range (ATM ${f(E.atm)} straddle ±${f(E.straddle, 1)})</span><span class="r">${f(E.implied_range[0])} – ${f(E.implied_range[1])}</span></div>
+          <div class="row"><span class="l">Max pain</span><span class="r">${f(E.max_pain)}</span></div>
+          <div class="row"><span class="l">Heaviest strike near spot</span><span class="r">${f(E.pin)}</span></div>
+          <div class="row"><span class="l">Call walls (resistance)</span><span class="r">${walls(E.call_walls)}</span></div>
+          <div class="row"><span class="l">Put walls (support)</span><span class="r">${walls(E.put_walls)}</span></div>
+          <div class="row"><span class="l">PCR near spot · all</span><span class="r">${E.pcr_near ?? "–"} · ${E.pcr_all ?? "–"}</span></div>
+          <details><summary>Open interest by strike</summary>
+            <table class="t"><tr><th>Strike</th><th>Calls OI</th><th>Puts OI</th></tr>${E.rows.map(r =>
+              `<tr${r.strike === E.atm ? ' style="font-weight:600"' : ""}><td>${f(r.strike)}</td><td>${bar(r.ce_oi, "var(--neg, #d9534f)")}</td><td>${bar(r.pe_oi, "var(--pos, #2e9d5b)")}</td></tr>`).join("")}</table></details>
+          <div class="mut" style="margin-top:6px">Not a prediction. The straddle is the market's own estimate of the move left (about 2 in 3 chance the close is inside it). Walls and max pain are where price often sticks on expiry, not where it must end. Updates every few minutes.</div>
+        </div></div>`;
+    }catch(e){ return ""; }
+  }
+
   async function renderFno(){
     const el = $("#fno-body");
+    const exp0 = await expiryPanel(), exp = exp0 ? `<div id="exp-box">${exp0}</div>` : "";
+    if (exp) el.innerHTML = exp;
     try{
       const D = await getFile("fno");
       const idx = Object.keys(D.underlyings).map(u => {
@@ -713,10 +742,10 @@
       }).join("");
       let S = null;
       try { S = await getFile("stocks"); } catch(e) { S = null; }
-      el.innerHTML = idx + stockScreen(S) +
+      el.innerHTML = exp + idx + stockScreen(S) +
         `<div class="foot">${esc(D.disclaimer)} Model suggestions with no track record yet. Check margin and your own risk limits before placing anything.</div>`;
     }catch(e){
-      el.innerHTML = `<div class="panel"><div class="pb mut">F&amp;O suggestions appear after the daily job runs.</div></div>`;
+      el.innerHTML = exp + `<div class="panel"><div class="pb mut">F&amp;O suggestions appear after the daily job runs.</div></div>`;
     }
   }
 
@@ -1273,6 +1302,7 @@
       if (alarm) kiteAlarm(alarm);
       else { KITE_ALARM = null; $("#status").style.color = ""; $("#status").onclick = null; $("#status").style.cursor = ""; $("#status").textContent = asQuote(L.ts); }
       renderTape(); renderHome(); drawBrief();
+      const xb = $("#exp-box"); if (xb && xb.offsetParent) expiryPanel().then(h => { if (h) xb.innerHTML = h; });
     }catch(e){
       $("#dot").classList.add("stale");
       $("#status").textContent = "quotes unavailable · estimates still update daily";
