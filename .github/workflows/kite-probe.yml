@@ -1,0 +1,33 @@
+name: kite-probe
+# One-off check (13 Oct 2026): does Kite's quote accept numeric instrument tokens (shorter URLs for the relay)?
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        run: |
+          TOKEN=$(curl -sSL -G "$RELAY_URL" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))')
+          echo "::add-mask::$TOKEN"; export TOKEN
+          python - <<'PY'
+          import os, json, urllib.request
+          h = {"X-Kite-Version": "3", "Authorization": f"token {os.environ['KITE_API_KEY']}:{os.environ['TOKEN']}"}
+          def q(qs):
+              try:
+                  r = urllib.request.urlopen(urllib.request.Request("https://api.kite.trade/quote?" + qs, headers=h), timeout=20)
+                  j = json.loads(r.read()); d = j.get("data") or {}
+                  return f"{j.get('status')} keys {list(d)[:4]} last {[v.get('last_price') for v in list(d.values())[:4]]} tokens {[v.get('instrument_token') for v in list(d.values())[:4]]}"
+              except Exception as e:
+                  return f"ERR {e}"
+          print("::notice::by token: " + q("i=256265&i=260105&i=264969"))
+          print("::notice::by name: " + q("i=NSE%3ANIFTY%2050&i=NSE%3ANIFTY%20BANK"))
+          print("::notice::mixed: " + q("i=256265&i=NSE%3AINFY"))
+          PY
+        shell: bash
