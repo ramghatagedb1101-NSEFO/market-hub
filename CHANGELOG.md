@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Kite login reminder, and the next steps for the expiry meter (evening)
+- **Kite login reminder** (owner's request): a phone notification every weekday at 07:36 IST (claude.ai Routine "Kite login reminder", a fresh cloud session each morning; first Wed 14 Oct 2026). It checks NSE's holiday list and says "no login needed" on a holiday; if NSE's list cannot be read it reminds anyway. 07:36 rather than the 07:30 asked for, agreed by the owner: Kite clears logins each morning until about 07:30 (the relay's Kite day starts 07:35), so a login made on a 07:30 ping could be wiped minutes later. No connectors, no repository access.
+- **Expiry meter, agreed but not built yet** (owner: "what else can make the prediction better?"). Honest starting point: one expiry recorded, and no comparison with the market's own forecast, so today nobody can say whether the meter adds anything. Agreed order:
+  1. Track record shows the meter's error beside the forward's (the market's own estimate) at each time, and "beat the forward in X of Y". At 15:00 the expected remaining move is only ~20-30 NIFTY points, so "within 25 bp" alone proves little.
+  2. Each reading's uncertainty from its ATM straddle instead of a fixed 0.4% of the level (a 10:00 reading faces roughly four times the move left of a 15:00 one).
+  3. From 15:00, use how the close is made: NSE's index close comes from each stock's volume-weighted price over 15:00-15:30, and expiry settles on it; by 15:20 two-thirds of it is fixed.
+  4. Next: test max pain and walls on ~3 years of past expiries from NSE's free F&O end-of-day files (Kite has no data for expired options), and fit the starting weights from that instead of guesses.
+  5. After ~10 recorded expiry days: wall movement, gamma exposure, NSE participant-wise OI, event days.
+  Not planned: more indicators on one expiry of data; GIFT Nifty in market hours (it moves with NIFTY futures). A realistic target is beating the forward at 12:00 and 14:00 and being tight from 15:15; a steady 25 bp at 10:00 would mean out-forecasting the options market with public data.
+
 ### Option sellers' walls tracked through the day, with next week's walls beside them (evening)
 Owner: sellers decide the expiry close; quantify the walls and max pain, track them (the meter refreshed every 10 s but kept none of it), and watch how next week's walls build, since sellers roll into it on expiry day.
 - **Recorded every minute, 09:15-15:30, per expiring index** (`relay/Expiry.gs`, `expw_<IDX>_<date>`): spot, forward, straddle, max pain, call wall and put wall (strike and open interest), total call and put OI, what sellers would pay at settlement here, the extra for one step up and one step down, and the next expiry's walls, max pain and OI. Kite's OI is in units (checked: every NIFTY figure in today's file is a multiple of the 65 lot), so OI x points = rupees.

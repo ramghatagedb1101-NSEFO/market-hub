@@ -1,8 +1,22 @@
 # Build status and to-do
 
-As of 13 Oct 2026. Earlier handover notes below are dated. Read this together with `CHANGELOG.md`.
+As of Tue 13 Oct 2026, ~17:45 IST. Earlier handover notes below are dated. Read this together with `CHANGELOG.md`.
 
 ## HANDOVER -- read this first if you are a new Claude session
+
+**Next up (written Tue 13 Oct 2026, ~17:45 IST). Approved by the owner, NOT built yet -- build in this order:**
+1. **Track record against the market, not only against 25 bp** (`relay/Expiry.gs` `expiryAccuracy_`, page `expTrack`): at 10:00/12:00/14:00/15:00 show the meter's error beside the forward's error (forward = put-call parity, already stored as `p[1]` in every `EXPD_<IDX>_<date>` reading) and "beat the forward in X of Y". Reason: at 15:00 the market's expected remaining move is only ~20-30 NIFTY points, so "within 25 bp" proves nothing unless the meter beats the forward. Works on the readings already stored (13 Oct NIFTY included).
+2. **Uncertainty per reading from the straddle** (`expiryModel_`): store the ATM straddle in each reading (`p[8]`); the learning's noise for a reading = straddle / 0.8 (about one standard deviation of the move left) instead of the fixed 0.4% of the level (fallback for old readings). Late readings then count more than 10:00 ones; the shown range follows the same scale.
+3. **Settlement averaging from 15:00**: NSE's index close is built from each stock's volume-weighted price over 15:00-15:30, and expiry settles on it. From 15:00 keep a running average of the index level per index (cache, every reading) and blend: expected close = (minutes elapsed / 30) x average so far + (minutes left / 30) x model. Check BSE's closing-price method before applying it to SENSEX. Test on the archived minute records (`state/expiry/`).
+No extra Kite calls for any of these. Then run `node relay/check.js`, the simulated-day test (see CHANGELOG 13 Oct, "Option sellers' walls"), 375 px check, push (relay deploys itself), CHANGELOG + this note.
+
+**After that:** (4) history test on NSE's free F&O end-of-day files (about 3 years of weekly expiries; morning walls and max pain from the previous day's OI against the open and the close; next week's chain from the day-before file), run on GitHub (NSE blocks the laptop); fit the starting weights from it. (5) Only after ~10 recorded expiry days: wall movement (rolls, reinforcement or abandonment), gamma exposure from the chain, NSE's participant-wise OI (client / FII / pro / DII), event days (wider range only).
+
+**Scheduled (claude.ai Routines):** tonight 19:30 IST "Batch daily jobs' Kite and BharatStock calls" (`trig_01XasAeQgzBU9dsq3cQ3oY2A`, fires into the 13 Oct cloud session: `hub/config.py` expiry calendar from Kite's contract lists, batching `rg/market_data.py` / `hub/stocks.py` / `fno.py` / `expiry_theta.py` quotes, BharatStock budget for manual runs). Every weekday 07:36 IST "Kite login reminder" (`trig_011gp21txucmWGZPKqpR2FEu`, a fresh cloud session that sends a phone notification; skips NSE holidays when NSE's list can be read).
+
+**Owner, Thu 15 Oct 2026 (first live SENSEX expiry with the walls record):** log in to Kite after 07:35 and before 09:05. Then check: `expiry-tape.yml` ran (09:08 and 12:33 runs), the meter shows both expiries' walls, and `state/expiry/2026-10-15_SENSEX.json` exists in the private repo after 15:46.
+
+**Still unverified:** rotation of the credentials exposed on 6 Oct; phone sign-in tested on the phone itself; position tracker full live run. In the 13 Oct cloud session the `gh` CLI token was invalid: pushes went through the session's git connection, and workflow results were read from GitHub's public API.
 
 **Dashboard market strip (all pages, every 10 s in market hours): live 13 Oct 2026.** **Expiry meter for NIFTY, SENSEX and BANK NIFTY (dashboard, Analysis → Expiry meter; phone F&O tab): live 13 Oct 2026 evening.** Adapts by itself to whatever expires that day (stacked on double days); one Kite request; learns per index (Bayesian ridge, one expiry only nudges the weights). First NIFTY close recorded 13 Oct (22,721.95); first SENSEX run Thu 15 Oct 2026. **Option sellers' walls tracked through the day (13 Oct 2026 evening):** walls, max pain, sellers' settlement payout and the next expiry's walls recorded every minute (`expiry-tape.yml` keeps it going when nobody watches; each day saved to `state/expiry/` in the private repo). Next expiry's walls feed the learning with weight 0 until expiries show they help. First live run: SENSEX, Thu 15 Oct 2026; log in to Kite before 09:05 that day so OI changes are measured from the previous close.
 
