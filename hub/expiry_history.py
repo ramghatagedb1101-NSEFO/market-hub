@@ -9,7 +9,14 @@ Data: NSE's free end-of-day files only (Kite has no data for expired options):
     (content/fo/BhavCopy_NSE_FO_0_0_0_YYYYMMDD_F_0000.csv.zip);
   - the daily index file (content/indices/ind_close_all_DDMMYYYY.csv): each index's open, high, low, close.
 Both checked from GitHub on 13 Oct 2026 (hub/diag_fo_hist.py). NSE blocks the owner's laptop: run this on GitHub
-(expiry-history.yml). SENSEX (BSE) is not covered yet.
+(expiry-history.yml).
+SENSEX (14 Oct 2026, owner: "add SENSEX to the history test using BSE data"), from BSE's free files, read with curl_cffi
+(Chrome impersonation; plain requests get "Access Denied"), checked from GitHub (hub/diag_bse_fo.py):
+  - derivatives bhavcopy: download/BhavCopy/Derivative/BhavCopy_BSE_FO_0_0_0_YYYYMMDD_F_0000.CSV (same UDiFF layout as
+    NSE's; present from at least 2 Jan 2024), before that download/Bhavcopy/Derivative/bhavcopyDD-MM-YY.zip (own layout);
+    BSE answers a missing day with its home page, not a 404;
+  - SENSEX daily open/high/low/close: api.bseindia.com ProduceCSVForDate, three years in one request.
+NSE's participant-wise OI covers NSE only, so SENSEX has no participant signals.
 
 For every expiry E of an index, from the PREVIOUS trading day's file (what is known the evening before):
   the expiring chain within +-3% of that day's close (as the live meter reads it), the forward from put-call parity at
@@ -56,7 +63,9 @@ PRIVATE_REPO = "ramghatagedb1101-NSEFO/market-hub-private"
 H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
      "Accept": "*/*"}
 UDIFF_FROM = date(2024, 7, 8)              # first UDiFF F&O file; the old format ends the trading day before
-IDX = {"NIFTY": {"name": "Nifty 50", "step": 50}, "BANKNIFTY": {"name": "Nifty Bank", "step": 100}}
+IDX = {"NIFTY": {"name": "Nifty 50", "step": 50, "exch": "NSE"}, "BANKNIFTY": {"name": "Nifty Bank", "step": 100, "exch": "NSE"},
+       "SENSEX": {"name": None, "step": 100, "exch": "BSE"}}
+NSE_SYMS = [s for s in IDX if IDX[s]["exch"] == "NSE"]
 RANGE_PCT = 3.0                            # strikes read around spot, as the live meter (relay/Expiry.gs EXP_RANGE_PCT)
 PRIOR = [(0.30, 0.5), (0.20, 0.5), (0.0, 0.3)]          # k, m, v: the relay's starting values and spreads
 BOUNDS = [(-0.5, 1.5), (-0.5, 1.5), (-0.5, 1.0)]
@@ -76,6 +85,8 @@ MON = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NO
 
 # ------------------------------------------------------------------ fetching (polite: >= 1.1 s between requests)
 class Nse:
+    syms = NSE_SYMS
+
     def __init__(self):
         self.s = requests.Session()
         self.s.headers.update(H)
@@ -132,6 +143,89 @@ class Nse:
         out = parse_index(raw.decode("utf-8", "replace")) if raw else None
         self.ix[d] = out
         return out
+
+
+class Bse:
+    """SENSEX from BSE: the same interface as Nse (fo_day, index_day, participant), about one request a second."""
+    syms = ["SENSEX"]
+
+    def __init__(self, start: date, end: date):
+        from curl_cffi import requests as cr
+        self.s = cr.Session(impersonate="chrome")
+        self.s.headers.update({"Referer": "https://www.bseindia.com/", "Origin": "https://www.bseindia.com"})
+        self.last = 0.0
+        self.requests = 0
+        self.fo = {}
+        self.start, self.end = start, end
+        self._ix = None
+
+    def get(self, url: str) -> bytes | None:
+        for attempt in range(4):
+            wait = 1.2 - (time.time() - self.last)
+            if wait > 0:
+                time.sleep(wait)
+            self.last = time.time()
+            self.requests += 1
+            try:
+                r = self.s.get(url, timeout=60)
+            except Exception:
+                time.sleep(5 * (attempt + 1))
+                continue
+            body = r.content.lstrip()[:20].lower()
+            if r.status_code == 404 or (r.status_code == 200 and body.startswith((b"<!doctype", b"<html"))):
+                return None                               # BSE answers a missing file with its home page
+            if r.status_code == 200:
+                return r.content
+            time.sleep(10 * (attempt + 1))
+        raise RuntimeError(f"BSE kept refusing {url}")
+
+    def fo_day(self, d: date) -> dict | None:
+        if d in self.fo:
+            return self.fo[d]
+        raw = self.get(f"https://www.bseindia.com/download/BhavCopy/Derivative/BhavCopy_BSE_FO_0_0_0_{d:%Y%m%d}_F_0000.CSV")
+        out = {"SENSEX": parse_fo(unzip(raw)).get("SENSEX", {})} if raw else None
+        if out is None and d < date(2024, 7, 1):         # older days: BSE's own zip layout
+            raw = self.get(f"https://www.bseindia.com/download/Bhavcopy/Derivative/bhavcopy{d:%d-%m-%y}.zip")
+            out = parse_bse_old(unzip(raw)) if raw else None
+        self.fo[d] = out
+        return out
+
+    def index_day(self, d: date) -> dict | None:
+        if self._ix is None:                              # three years of SENSEX in one request
+            raw = self.get("https://api.bseindia.com/BseIndiaAPI/api/ProduceCSVForDate/w?strIndex=SENSEX"
+                           f"&dtFromDate={self.start - timedelta(days=15):%d/%m/%Y}&dtToDate={self.end:%d/%m/%Y}")
+            self._ix = {}
+            for r in csv.reader(io.StringIO(raw.decode("utf-8", "replace") if raw else "")):
+                try:
+                    self._ix[datetime.strptime(r[0].strip(), "%d-%B-%Y").date()] = {"SENSEX": tuple(_f(x) for x in r[1:5])}
+                except (ValueError, IndexError):
+                    continue
+        return self._ix.get(d)
+
+    def participant(self, d: date) -> None:
+        return None                                       # NSE's participant file covers NSE only
+
+
+def parse_bse_old(text: str) -> dict:
+    """BSE's derivatives bhavcopy before UDiFF: Contract Type IO, Symbol like SENSEX23O1367000CE, Expiry '13 Oct 2023',
+    Strike, Option Type CALL/PUT, Close, Open Interest. SENSEX50 is excluded by the symbol's year prefix."""
+    rows = csv.reader(io.StringIO(text))
+    head = [h.strip() for h in next(rows)]
+    i = {k: head.index(k) for k in ("Contract Type", "Symbol", "Expiry", "Strike", "Option Type", "Close", "Open Interest")}
+    out = {"SENSEX": {}}
+    for r in rows:
+        if len(r) <= max(i.values()) or r[i["Contract Type"]].strip() != "IO":
+            continue
+        try:
+            e = datetime.strptime(r[i["Expiry"]].strip(), "%d %b %Y").date()
+        except ValueError:
+            continue
+        if not r[i["Symbol"]].strip().startswith("SENSEX" + e.strftime("%y")):
+            continue
+        typ = {"CALL": "CE", "PUT": "PE"}.get(r[i["Option Type"]].strip().upper())
+        if typ:
+            _put(out["SENSEX"], e.isoformat(), _f(r[i["Strike"]]), typ, _f(r[i["Close"]]), _f(r[i["Open Interest"]]))
+    return out
 
 
 def unzip(raw: bytes) -> str:
@@ -313,7 +407,7 @@ def collect(nse: Nse, start: date, end: date, have: dict, budget: int) -> dict:
     queue = {}                                        # expiry date -> indices that list it
 
     def add(f):
-        for s in IDX:
+        for s in nse.syms:
             for e in f.get(s, {}):
                 e_d = date.fromisoformat(e)
                 if start < e_d <= end:
@@ -326,7 +420,7 @@ def collect(nse: Nse, start: date, end: date, have: dict, budget: int) -> dict:
         if e_d in done:
             continue
         done.add(e_d)
-        syms = [s for s in IDX if s in listed and f"{s}_{e_d}" not in have]
+        syms = [s for s in nse.syms if s in listed and f"{s}_{e_d}" not in have]
         if not syms and max(queue, default=e_d) > e_d:
             continue                                  # already recorded; later expiries are still in the queue
         if nse.requests >= budget:
@@ -615,14 +709,17 @@ def main() -> None:
     budget = int(os.getenv("BUDGET") or 1500)
     have = {k: v for k, v in (load("state/expiry_history/records.json") or {}).items() if v.get("v") == VERSION}
     print(f"{len(have)} expiries already recorded; collecting {start} to {end} (budget {budget} requests)")
-    nse = Nse()
-    try:
-        new = collect(nse, start, end, have, budget)
-    except Exception as e:                            # keep what was collected
-        print(f"::warning::stopped early: {str(e)[:200]}")
-        new = {}
+    new = {}
+    for name, src in (("NSE", Nse()), ("BSE", Bse(start, end))):
+        try:
+            got = collect(src, start, end, have, budget)
+        except Exception as e:                        # keep what the other exchange collected
+            print(f"::warning::{name} stopped early: {str(e)[:200]}")
+            got = {}
+        new.update(got)
+        print(f"{name}: {len(got)} new expiries, {src.requests} requests")
     have.update(new)
-    print(f"{len(new)} new expiries, {len(have)} in all, {nse.requests} NSE requests")
+    print(f"{len(new)} new expiries, {len(have)} in all")
     if new:
         save("state/expiry_history/records.json", have, f"expiry history: {len(have)} expiries")
     rep = report(have)

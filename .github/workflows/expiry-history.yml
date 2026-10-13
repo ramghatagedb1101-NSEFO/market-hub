@@ -1,7 +1,7 @@
 name: expiry-history
 
 # Expiry history test (13 Oct 2026; hub/expiry_history.py): do option sellers' walls and max pain, read the evening
-# before, predict where NIFTY and BANK NIFTY settle on expiry day, beyond the open? Fits the expiry meter's starting
+# before, predict where NIFTY, BANK NIFTY and SENSEX settle on expiry day, beyond the open? Fits the expiry meter's starting
 # weights from ~3 years of NSE's free end-of-day F&O files. NSE blocks the owner's laptop, so it runs here.
 # Run by hand. Results: private repository state/expiry_history/ (records.json, summary.json) and this run's summary.
 # Later runs fetch only expiries not yet recorded (about one NSE request a second; a first 3-year run ~500 requests).
@@ -36,7 +36,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install requests "curl_cffi>=0.7"
 
       - name: Expiry history test
         env:
