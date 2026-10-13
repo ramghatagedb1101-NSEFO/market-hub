@@ -4,13 +4,14 @@
  *
  * marketSnapshot_() asks Kite once per 10 seconds (script cache, shared by every caller) for everything the live
  * pages show: NIFTY 50, NIFTY BANK, SENSEX, INDIA VIX, front-month MCX gold and crude, CDS USD/INR, and on a NIFTY
- * expiry day today's NIFTY options within 3% of spot, and every watchlist company. Everything else reads this snapshot:
+ * expiry day the options of every index expiring today (NIFTY, SENSEX, BANK NIFTY; nearest strikes first within 3% of
+ * spot, as many as fit one request), and every watchlist company. Everything else reads this snapshot:
  *   quoteData_  (Code.gs)   -> dashboard market strip, phone (?mode=quote), GitHub live job (live.json)
  *   expiryNow_  (Expiry.gs) -> dashboard expiry meter, phone expiry panel, its learning store
  *   watchCheck_ (Alerts.gs), kiteLtp_ (Phone.gs) -> watchlist move emails, watchlist returns, price when starring
  * A script lock makes simultaneous callers wait for the one fetch instead of each calling Kite.
- * Request count: 1 per 10 s while anyone is looking (2 on the first call of an expiry day, to learn the spot);
- * split into several only if the URL would pass Apps Script's ~2,000-character limit, then one a second.
+ * Request count: 1 per 10 s while anyone is looking (2 on the first call of an expiry day, to learn the spots);
+ * the options are trimmed to fit, so a second request happens only if indices plus watchlist alone pass the URL limit.
  */
 const SNAP_BASE = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX'];
 const SNAP_TTL = 10;
@@ -32,27 +33,47 @@ function marketSnapshot_() {
     if (!headers) return fail({ error: 'no_login' });
     const now = istNow_();
     const front = frontMonths_();               // contract names only; cached 6 h, no Kite login used
-    const syms = expirySyms_(now.date);         // today's NIFTY contracts; cached for the day
-    const maybeExpiry = syms.today === null || syms.today.length > 0;
+    const lists = expiryLists_(now.date);       // today's contracts per index (Expiry.gs); cached for the day
+    const expiring = EXP_IDX.filter(ix => lists[ix.id].today === null || lists[ix.id].today.length > 0);
     const base = SNAP_BASE.concat(['MCX:' + front.gold, 'MCX:' + front.crude, 'CDS:' + front.usd].filter(s => !/:(undefined|null)$/.test(s)));
 
-    let lastSpot = Number(cache.get('exp_spot') || 0), q = {};
-    if (maybeExpiry && !lastSpot) {             // first call of an expiry day: learn the spot to pick strikes
+    const spots = {}; EXP_IDX.forEach(ix => spots[ix.id] = Number(cache.get('exp_spot_' + ix.id) || 0));
+    let q = {};
+    if (expiring.some(ix => !spots[ix.id])) {   // first call of an expiry day: learn the spots to pick strikes
       const r = snapFetch_(base, headers);
       if (r.error) return fail(r);
-      q = r.data; lastSpot = q['NSE:NIFTY 50'] ? q['NSE:NIFTY 50'].last_price : 0;
+      q = r.data;
+      EXP_IDX.forEach(ix => { if (q[ix.spot]) spots[ix.id] = q[ix.spot].last_price; });
       Utilities.sleep(1100);                    // Kite: 1 quote request a second
     }
-    const opts = maybeExpiry && lastSpot
-      ? (syms.today || expiryGuessSyms_(now.date, lastSpot)).filter(s => Math.abs(s[1] / lastSpot - 1) * 100 <= EXP_RANGE_PCT + 0.2).slice(0, 400)
-      : [];
     // The watchlist rides along (move alerts, star-time prices, phone watchlist): no separate Kite calls for it.
     const watch = watchList_().map(w => w.s), wtok = watchTokens_(watch, now.date);
     // Kite accepts its numeric instrument token in place of EXCHANGE:SYMBOL (probe, 13 Oct 2026); tokens are about a
-    // third as long, so indices, today's options and the whole watchlist fit one request under the URL limit.
-    const ask = base.map(n => [n, n])
-      .concat(opts.map(s => [s[3] || 'NFO:' + s[0], 'NFO:' + s[0]]))
-      .concat(watch.map(w => [wtok[w] || 'NSE:' + w, 'NSE:' + w]));
+    // third as long. Indices and the watchlist go first; then today's options for every expiring index, nearest strike
+    // first, taken in turn per index, until the URL budget is used -- so even a double or triple expiry day is one
+    // Kite request (13 Oct 2026, multi-index meter).
+    const ask = base.map(n => [n, n]).concat(watch.map(w => [wtok[w] || 'NSE:' + w, 'NSE:' + w]));
+    const len = a => ('i=' + encodeURIComponent(a)).length + 1;
+    let used = 'https://api.kite.trade/quote?'.length + ask.reduce((t, a) => t + len(a[0]), 0);
+    const queues = expiring.filter(ix => spots[ix.id]).map(ix => {
+      const sp = spots[ix.id], byStrike = {};
+      (lists[ix.id].today || expiryGuessSyms_(ix, now.date, sp))
+        .filter(o => Math.abs(o[1] / sp - 1) * 100 <= EXP_RANGE_PCT + 0.2)
+        .forEach(o => (byStrike[o[1]] = byStrike[o[1]] || []).push(o));
+      const pairs = Object.keys(byStrike).map(Number).sort((a, b) => Math.abs(a - sp) - Math.abs(b - sp)).map(k => byStrike[k]);
+      return { ix: ix, pairs: pairs };
+    });
+    const opts = []; let trimmed = false, more = true;
+    while (more) {
+      more = false;
+      queues.forEach(qd => {
+        const p = qd.pairs.shift(); if (!p) return;
+        const cost = p.reduce((t, o) => t + len(o[3] || qd.ix.exch + ':' + o[0]), 0);
+        if (used + cost > 1900) { trimmed = true; qd.pairs = []; return; }
+        used += cost; more = true;
+        p.forEach(o => { opts.push([o[0], o[1], o[2], o[3], qd.ix.id]); ask.push([o[3] || qd.ix.exch + ':' + o[0], qd.ix.exch + ':' + o[0]]); });
+      });
+    }
     const r = snapFetch_(ask.map(a => a[0]), headers);
     if (r.error) return fail(r);
     q = r.data;
@@ -61,11 +82,9 @@ function marketSnapshot_() {
     const nameOf = {}; ask.forEach(a => nameOf[a[0]] = a[1]);
     const slim = {};
     Object.keys(q).forEach(k => { const x = q[k]; slim[nameOf[k] || k] = [x.last_price, x.ohlc ? x.ohlc.close : null, x.oi || 0]; });
-    const spot = slim['NSE:NIFTY 50'] ? slim['NSE:NIFTY 50'][0] : null;
-    if (spot) cache.put('exp_spot', String(spot), 21600);
-    const snap = { ts: now.ts, hm: now.hm, date: now.date, q: slim, front: front, opts: opts,
-                   expiry: { listed: syms.today ? syms.today.length > 0 : null, next: syms.next, source: syms.source, diag: syms.diag || null },
-                   requests: r.requests };
+    EXP_IDX.forEach(ix => { if (slim[ix.spot]) cache.put('exp_spot_' + ix.id, String(slim[ix.spot][0]), 21600); });
+    const snap = { ts: now.ts, hm: now.hm, date: now.date, q: slim, front: front, opts: opts, opts_trimmed: trimmed,
+                   expiring: expiring.map(ix => ix.id), requests: r.requests };
     try { const j = JSON.stringify(snap); cache.put('snap', j, SNAP_TTL); cache.put('snap_prev', j, 120); } catch (e) { /* over 100 KB: serve uncached */ }
     return snap;
   } finally { if (got) lock.releaseLock(); }

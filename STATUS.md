@@ -4,7 +4,7 @@ As of 13 Oct 2026. Earlier handover notes below are dated. Read this together wi
 
 ## HANDOVER -- read this first if you are a new Claude session
 
-**Dashboard market strip (all pages, every 10 s in market hours): live 13 Oct 2026.** **NIFTY expiry meter (dashboard, Analysis → Expiry meter): live from Tue 13 Oct 2026**, 10-second refresh, learns k/m from each expiry's close (relay `Expiry.gs`; first close recorded 13 Oct after 15:45). **NIFTY expiry-day read: live (Tue 13 Oct 2026).** `hub/expiry_day.py` runs in `live.yml` on expiry days; phone F&O tab shows walls, max pain, straddle range and a likely close range. No track record yet: next step is to log each expiry's read against the actual close.
+**Dashboard market strip (all pages, every 10 s in market hours): live 13 Oct 2026.** **Expiry meter for NIFTY, SENSEX and BANK NIFTY (dashboard, Analysis → Expiry meter; phone F&O tab): live 13 Oct 2026 evening.** Adapts by itself to whatever expires that day (stacked on double days); one Kite request; learns per index (Bayesian ridge, one expiry only nudges the weights). First NIFTY close recorded 13 Oct (22,721.95); first SENSEX run Thu 15 Oct 2026.
 
 **Kite 06:00 fix: LIVE (Tue 13 Oct 2026, relay Version 48, commit 166cd18), deployed by the new GitHub
 relay deploy (`relay-deploy.yml`, run 38353884709), on both deployments.** A Kite login is now dated by
