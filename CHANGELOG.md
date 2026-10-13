@@ -4,6 +4,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### NIFTY expiry-day read (first version)
+Owner, on expiry day: what will today's close be? Nothing on the dashboard read today's expiring chain live.
+- **`hub/expiry_day.py`**, run by `live.yml` on NIFTY expiry days (no-op otherwise): from Kite quotes of today's options within 4% of spot: call wall and put wall (top 3 OI strikes above / below spot), max pain, ATM straddle and the range it implies to the close, PCR near spot and overall, the highest-OI strike near spot, and a likely range (straddle range cut by the walls). Writes `docs/data/expiry.json`; prints a one-line summary as a run notice.
+- **What it is not**: a prediction of the close. The straddle is the market's own one-standard-deviation estimate; walls and max pain are where price often sticks on expiry, not where it must end. No track record yet: start recording it against actual closes.
+
 ### Kite login day starts at 07:35 IST, not 06:00 (corrects this morning's fix)
 Owner: why does the Kite login keep needing to be redone?
 - **Evidence** (relay-started daily runs give the login time; live-quote runs show when Kite refused it): logins at 06:03 IST on Sat 10 Oct and Tue 13 Oct 2026 worked at first (the 06:03 daily run succeeded), then every live-quote run from 08:34 failed with Kite refusing the token, until a new login at 11:38. The login at 09:21 on Mon 12 Oct worked all day.

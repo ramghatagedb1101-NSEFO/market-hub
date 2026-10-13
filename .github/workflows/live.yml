@@ -68,11 +68,17 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.live
 
+      # Expiry-day read (13 Oct 2026): walls, max pain, straddle range from today's NIFTY options. No-op on other days.
+      - name: Expiry-day read
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+        run: python -m hub.expiry_day || echo "::warning::expiry-day read failed"
+
       - name: Commit live quotes
         run: |
           git config user.name "forecast-bot"
           git config user.email "forecast-bot@users.noreply.github.com"
-          git add docs/data/live.json
+          git add docs/data/live.json; [ -f docs/data/expiry.json ] && git add docs/data/expiry.json
           if git diff --cached --quiet; then
             echo "No change"
           else
