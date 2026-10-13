@@ -112,6 +112,7 @@ ramghatagedb1101@gmail.com. Never `clasp deploy` without `-i` (that creates a ne
 - `Report.gs` -- `adminStock`: live parts of the stock report (BharatStock quarterly and annual results, up to 10 years; Google News).
 - `Research.gs` -- `adminChart` (Kite historical candles, BharatStock daily prices as fallback), `adminDocs` (NSE document links and AI summaries from the private repo), `adminSummarise` (starts the ai-summaries workflow through `GH_PAT`).
 - `Phone.gs` -- phone app additions: the stock sheet (`app_stock`), the watchlist shared with the dashboard (`app_watch`, `app_watch_toggle`, `adminWatch`, `adminWatchToggle`; script property `WATCHLIST`), and `?mode=watchlist&key=RELAY_KEY` for the daily digest.
+- `Expiry.gs` -- NIFTY expiry meter (`adminExpiry`, 10 s cache) and its learning store (`EXPD_<date>`, `EXP_CLOSES`); `?mode=expiry_close&key=RELAY_KEY` for `live.yml`.
 - `Company.gs` -- phone search and company page: `app_names` (company list + measure catalogue), `app_profile` (one company's library entry); results and funds reuse `adminStock` / `adminFunds`.
 - `Funds.gs` -- the stock report's "Mutual funds holding it" panel, live from BharatStock (`adminFunds`), never stored.
 - `Alerts.gs` -- daily digest email (`mode=digest`, from the library run) and watchlist-move emails (`mode=watch_check`, from the live-quotes job); switches `ALERT_DIGEST` / `ALERT_MOVES`.

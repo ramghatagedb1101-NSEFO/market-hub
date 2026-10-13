@@ -485,12 +485,13 @@ const ICON = {
   factors:'<svg viewBox="0 0 24 24"><path d="M12 3 21 9.5 17.5 20h-11L3 9.5 12 3Z"/><path d="M12 8l4 3-1.5 5h-5L8 11l4-3Z"/></svg>',
   explore:'<svg viewBox="0 0 24 24"><path d="M4 4v16h16"/><circle cx="9" cy="14" r="1.6"/><circle cx="13" cy="9" r="1.6"/><circle cx="17" cy="12" r="1.6"/><circle cx="16" cy="6" r="1.6"/></svg>',
   sectors:'<svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="5" rx="1"/><rect x="13" y="10" width="8" height="11" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/></svg>',
+  expiry:'<svg viewBox="0 0 24 24"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/></svg>',
   signals:'<svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>'
 };
 const NAV = [
   ['', [['overview','Overview']]],
   ['Screens', [['shortlist','Shortlist'], ['multibagger','Early multibaggers'], ['compounders','Proven compounders'], ['screener','Screener']]],
-  ['Analysis', [['factors','Factor rankings'], ['explore','Scatter explorer'], ['sectors','Sectors'], ['signals','What changed']]],
+  ['Analysis', [['factors','Factor rankings'], ['explore','Scatter explorer'], ['sectors','Sectors'], ['signals','What changed'], ['expiry','Expiry meter']]],
   ['Data', [['library','Stock library'], ['registry','Investor registry'], ['bulk','Bulk deals'], ['params','Parameters'], ['tests','Back-tests']]]
 ];
 let current = { page: 'overview', arg: null };
@@ -517,13 +518,14 @@ function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 
 const TITLES = { overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
                  registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report',
-                 screener:'Screener', factors:'Factor rankings', explore:'Scatter explorer', sectors:'Sectors', signals:'What changed' };
+                 screener:'Screener', factors:'Factor rankings', explore:'Scatter explorer', sectors:'Sectors', signals:'What changed', expiry:'NIFTY expiry meter' };
 function rerender(){
   $('crumb').textContent = TITLES[current.page] || '';
   const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
-              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals }[current.page] || pageOverview;
+              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry }[current.page] || pageOverview;
   if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
+  if (current.page !== 'expiry') stopExpiry();
   f(current.arg);
 }
 function loadingBlock(t){ return '<div class="panel"><div class="panel-b"><div class="muted" style="margin-bottom:10px">' + esc(t) + '</div><div class="skel" style="width:60%"></div><div class="skel" style="width:85%;margin-top:8px"></div><div class="skel" style="width:40%;margin-top:8px"></div></div></div>'; }
@@ -1694,6 +1696,80 @@ function drawScatter(){
 function dirOf(k){ if (k === 'composite' || FACTORS.some(f => f[0] === k) || k === 'mb_score') return 1; return (M[k] || [])[3] || 1; }
 
 // ---------------- What changed ----------------
+// ======================================================================================
+// NIFTY expiry meter (13 Oct 2026): expected close from today's option chain, every 10 s (relay Expiry.gs)
+// ======================================================================================
+let EXP = { timer: null, chart: null, data: null };
+function stopExpiry(){ if (EXP.timer) clearInterval(EXP.timer); EXP.timer = null; if (EXP.chart) { try { EXP.chart.destroy(); } catch (e) {} } EXP.chart = null; }
+function pageExpiry(){
+  stopExpiry();
+  $('view').innerHTML = loadingBlock('Reading today\'s NIFTY option chain…');
+  const tick = () => call('adminExpiry', token).then(d => { if (current.page !== 'expiry') return; EXP.data = d; drawExpiry(); })
+    .catch(e => { if (current.page === 'expiry' && !EXP.data) $('view').innerHTML = errBlock('Could not reach the relay: ' + e.message); });
+  tick(); EXP.timer = setInterval(tick, 10000);
+}
+function expGauge(d){
+  // Semicircle: left end = range low, right end = range high (the market's one-standard-deviation move).
+  const lo = Math.min(d.range[0], d.put_wall), hi = Math.max(d.range[1], d.call_wall), span = (hi - lo) || 1;
+  const ang = v => Math.PI * (1 - Math.max(0, Math.min(1, (v - lo) / span)));
+  const pt = (v, r) => [150 + r * Math.cos(ang(v)), 150 - r * Math.sin(ang(v))];
+  const arc = (a, b, col, w) => { const p1 = pt(a, 110), p2 = pt(b, 110);
+    return '<path d="M' + p1[0].toFixed(1) + ' ' + p1[1].toFixed(1) + ' A110 110 0 0 1 ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1) + '" stroke="' + col + '" stroke-width="' + w + '" fill="none" stroke-linecap="round"/>'; };
+  const tickAt = (v, col, label, up) => { const a = pt(v, 96), b = pt(v, 126), t = pt(v, up ? 140 : 82);
+    return '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="' + col + '" stroke-width="2"/>' +
+      '<text x="' + t[0].toFixed(1) + '" y="' + t[1].toFixed(1) + '" font-size="10" fill="' + col + '" text-anchor="middle">' + label + '</text>'; };
+  const n = pt(d.prediction, 100);
+  return '<svg viewBox="0 0 300 175" style="width:100%;max-width:420px;display:block;margin:0 auto">' +
+    arc(lo, hi, cssVar('--line2') || '#e2e8f0', 16) + arc(d.range[0], d.range[1], cssVar('--up-soft') || '#e7f7f0', 16) +
+    tickAt(d.put_wall, cssVar('--up'), 'Put wall ' + fmt(d.put_wall), true) + tickAt(d.call_wall, cssVar('--down'), 'Call wall ' + fmt(d.call_wall), true) +
+    tickAt(d.max_pain, cssVar('--warn'), 'Max pain', false) + tickAt(d.spot, cssVar('--muted'), 'Spot', false) +
+    '<line x1="150" y1="150" x2="' + n[0].toFixed(1) + '" y2="' + n[1].toFixed(1) + '" stroke="' + cssVar('--text') + '" stroke-width="3" stroke-linecap="round"/>' +
+    '<circle cx="150" cy="150" r="6" fill="' + cssVar('--text') + '"/>' +
+    '<text x="150" y="172" font-size="11" fill="' + cssVar('--muted') + '" text-anchor="middle">' + fmt(lo) + ' ← range → ' + fmt(hi) + '</text></svg>';
+}
+function fmt(v, dp){ return v == null ? '–' : Number(v).toLocaleString('en-IN', { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 0 }); }
+function drawExpiry(){
+  const d = EXP.data, v = $('view');
+  const acc = (d.accuracy || []);
+  const accTable = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Track record</h3><span class="muted" style="font-size:12px">expected close at each time vs the actual close · learns after every expiry</span></div><div class="panel-b">' +
+    (acc.length ? '<table class="t" style="width:100%"><tr><th>Expiry</th><th>Close</th><th>10:00</th><th>12:00</th><th>14:00</th><th>15:00</th></tr>' + acc.map(a => {
+      const c = x => x == null ? '–' : fmt(x) + ' <span class="muted">(' + (x - a.close >= 0 ? '+' : '') + fmt(x - a.close) + ')</span>';
+      return '<tr><td>' + esc(a.date) + '</td><td><b>' + fmt(a.close) + '</b></td><td>' + c(a.at10) + '</td><td>' + c(a.at12) + '</td><td>' + c(a.at14) + '</td><td>' + c(a.at15) + '</td></tr>'; }).join('') + '</table>'
+      : '<div class="muted">No finished expiries recorded yet. Today\'s close is recorded after 15:45 IST and the weights are re-fitted from it.</div>') +
+    '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + d.model.k + ' × (max pain − forward) + ' + d.model.m + ' × (wall midpoint − forward). ' +
+    (d.model.expiries ? 'Fitted on ' + d.model.expiries + ' expiries (' + d.model.samples + ' readings).' : 'Starting values; re-fitted after each expiry.') + '</div></div></div>';
+  if (!d.expiry_today) {
+    v.innerHTML = '<div class="panel"><div class="panel-b">No NIFTY expiry today. Next expiry: <b>' + esc(d.next_expiry || '–') + '</b>. The meter runs on expiry days.</div></div>' + accTable;
+    stopExpiry(); return;
+  }
+  if (d.error) { v.innerHTML = errBlock(d.error) + accTable; return; }
+  const t = String(d.ts).slice(11, 16);
+  const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
+  v.innerHTML =
+    '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>Expected close</h3><span class="muted" style="font-size:12px">Live · ' + t + ' IST · refreshes every 10 s</span></div><div class="panel-b" style="text-align:center">' +
+      '<div style="font-size:40px;font-weight:700;font-family:var(--mono)">' + fmt(d.prediction, 0) + '</div>' +
+      '<div class="muted">likely ' + fmt(d.range[0]) + ' – ' + fmt(d.range[1]) + ' (±' + fmt(d.straddle, 1) + ', about 2 in 3)</div>' + expGauge(d) + '</div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>How the expected close has moved today</h3></div><div class="panel-b"><div style="height:300px"><canvas id="expChart"></canvas></div></div></div></div>' +
+    '<div class="grid g4" style="margin-top:14px">' +
+      kpi('Spot', fmt(d.spot, 2), 'NIFTY 50') + kpi('Forward (market)', fmt(d.forward, 0), 'ATM ' + fmt(d.atm) + ': strike + call − put') +
+      kpi('Max pain', fmt(d.max_pain), 'buyers collect least here') + kpi('PCR', d.pcr == null ? '–' : d.pcr, 'put OI ÷ call OI, ±4%') + '</div>' +
+    '<div class="grid g2" style="margin-top:14px">' +
+      kpi('Call walls (resistance)', fmt(d.call_wall), d.call_walls.map(w => fmt(w[0]) + ' · ' + fmt(w[1] / 1e5) + ' L').join(' | ')) +
+      kpi('Put walls (support)', fmt(d.put_wall), d.put_walls.map(w => fmt(w[0]) + ' · ' + fmt(w[1] / 1e5) + ' L').join(' | ')) + '</div>' +
+    accTable +
+    '<div class="muted" style="margin-top:10px;font-size:12px">Not a guarantee. The range is the market\'s own estimate (ATM straddle). Walls and max pain are where price often settles on expiry, not where it must.</div>';
+  const H = d.history || [];
+  const el = $('expChart'); if (!el) return;
+  if (EXP.chart) { try { EXP.chart.destroy(); } catch (e) {} }
+  EXP.chart = new Chart(el, { type: 'line', data: { labels: H.map(h => h[0]), datasets: [
+      { label: 'Expected close', data: H.map(h => h[1]), borderColor: cssVar('--accent') || '#2563eb', borderWidth: 2, pointRadius: 0, tension: .2 },
+      { label: 'Spot', data: H.map(h => h[2]), borderColor: cssVar('--muted'), borderWidth: 1, pointRadius: 0, borderDash: [4, 3] },
+      { label: 'Max pain', data: H.map(h => h[4]), borderColor: cssVar('--warn'), borderWidth: 1, pointRadius: 0, stepped: true }] },
+    options: { animation: false, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { boxWidth: 12, color: cssVar('--text2') } } },
+      scales: { x: { ticks: { maxTicksLimit: 8, color: cssVar('--muted') } }, y: { ticks: { color: cssVar('--muted') } } } } });
+}
+
 function pageSignals(){
   const v = $('view');
   if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }

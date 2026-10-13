@@ -69,6 +69,13 @@ jobs:
         run: python -m hub.live
 
       # Expiry-day read (13 Oct 2026): walls, max pain, straddle range from today's NIFTY options. No-op on other days.
+      # Expiry meter (13 Oct 2026): records the meter's readings and, after 15:45 IST, the close it learns from (relay Expiry.gs).
+      - name: Expiry meter reading
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=expiry_close" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
+
       - name: Expiry-day read
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}

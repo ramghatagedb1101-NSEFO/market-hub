@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Dashboard: NIFTY expiry meter that learns from each close
+Owner: a meter on the dashboard's Analysis section showing the current expected close, refreshing every 10 seconds, with a graph of how it moves through the day; it should correct itself from how each expiry actually closed.
+- **Relay `Expiry.gs`** (`adminExpiry`, cached 10 s): one Kite quote call for spot and today's NIFTY options within 4% (contract list from Kite's public instrument file, cached for the day). Expected close = forward + k × (max pain − forward) + m × (wall midpoint − forward); forward = ATM strike + call − put (put-call parity: the market's own expected settlement). Range = expected close ± ATM straddle (about 2 in 3).
+- **Learning**: a reading at least every 5 minutes (09:15-15:30) is kept per expiry (script property `EXPD_<date>`); after 15:45 IST the close is recorded (`EXP_CLOSES`, last 30 expiries). k and m (start 0.30 / 0.20) are re-fitted from all readings against the closes by least squares, held towards the starting values while there are few expiries (prior worth 20 readings). `live.yml` calls `mode=expiry_close` every run, so readings and the close are recorded even when nobody has the meter open.
+- **Dashboard** (Analysis → Expiry meter): big expected-close figure, a semicircle gauge (range, put wall, call wall, max pain, spot, needle at the expected close), a line chart of expected close vs spot vs max pain through the day, forward / max pain / PCR / walls, and a track record table (expected close at 10:00, 12:00, 14:00, 15:00 vs the close, with the error). On other days it shows the next expiry and the track record.
+- **Checked**: `node relay/check.js` exit 0; a dry run with a simulated chain (walls at 22,500 / 22,600) gave expected close 22,528, range 22,440-22,616; after one simulated expiry closing at max pain, k and m moved from 0.30 / 0.20 to 0.36 / 0.26 as intended; the close was recorded after 15:45 and the accuracy table filled.
+- **Limits**: it cannot be accurate to the point; with few expiries the weights barely move by design. Readings before today's deploy (about 14:00 IST) are not in today's history.
+
 ### NIFTY expiry-day read (first version)
 Owner, on expiry day: what will today's close be? Nothing on the dashboard read today's expiring chain live.
 - **`hub/expiry_day.py`**, run by `live.yml` on NIFTY expiry days (no-op otherwise): from Kite quotes of today's options within 4% of spot: call wall and put wall (top 3 OI strikes above / below spot), max pain, ATM straddle and the range it implies to the close, PCR near spot and overall, the highest-OI strike near spot, and a likely range (straddle range cut by the walls). Writes `docs/data/expiry.json`; prints a one-line summary as a run notice. `docs/data/expiry.json` is public like `live.json` (exchange OI data, nothing personal).
