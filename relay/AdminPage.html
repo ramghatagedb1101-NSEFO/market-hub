@@ -1832,7 +1832,8 @@ function expTrack(label, t){
       '<div class="muted" style="margin-top:6px;font-size:12px">Forward = strike + call − put at the ATM strike: the option market\'s own expected settlement. The meter earns its keep only where it is closer than that.</div>'
       : '<div class="muted">No finished expiries recorded yet. Each close is recorded after 15:45 IST and the weights are re-fitted from it.</div>') +
     '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + M.k + ' × (max pain − forward) + ' + M.m + ' × (wall midpoint − forward) + ' + (M.e || 0) + ' × Europe move + ' + (M.u || 0) + ' × US futures move + ' + (M.v || 0) + ' × (next expiry\'s wall midpoint − forward). ' +
-    (M.expiries ? 'Fitted on ' + M.expiries + ' expir' + (M.expiries > 1 ? 'ies' : 'y') + ' (' + M.samples + ' readings; late readings count more, by their straddle).' : 'Starting values; re-fitted after each expiry.') + '</div></div></div>';
+    (M.expiries ? 'Fitted on ' + M.expiries + ' expir' + (M.expiries > 1 ? 'ies' : 'y') + ' (' + M.samples + ' readings; late readings count more, by their straddle).' : 'Starting values from 3 years of expiries (NSE end-of-day files); re-fitted after each expiry.') +
+    (M.start ? ' Start: k ' + M.start[0] + ', m ' + M.start[1] + ', v ' + M.start[4] + ' (history fit, 13 Oct 2026).' : '') + '</div></div></div>';
 }
 // How today's expiry settles, from the relay's EXP_SETTLE (13 Oct 2026): the closing auction since 3 Aug 2026, or the
 // settlement average with its share of the expected close once SEBI's change is applied.

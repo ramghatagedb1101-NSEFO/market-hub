@@ -15,7 +15,7 @@
  *   EU% / US% = average move today of the European indices / US index futures (Market.gs), only once they trade today;
  *   NW = midpoint of the NEXT expiry's call and put walls (13 Oct 2026, owner: on expiry day sellers roll into next week,
  *        and where they write it shows the range they plan to defend).
- * Each index has its own k, m, e, u, v: starting at 0.30 / 0.20 / 0 / 0 / 0 and re-fitted after every expiry from what
+ * Each index has its own k, m, e, u, v: starting values from 3 years of expiries (EXP_START) and re-fitted after every expiry from what
  * the meter said during the day against the actual close (Bayesian ridge, see expiryModel_: one expiry only nudges them).
  * A signal with no track record (overseas, next week's walls) starts at 0 and earns weight only if past expiries show it helps.
  *
@@ -31,7 +31,18 @@
  * the close the GitHub job expiry-tape.yml copies the whole day (?mode=expiry_tape) to the private repository
  * (state/expiry/), where it is kept for good. The close is recorded after 15:45 IST by the first call.
  */
-const EXP_K0 = 0.30, EXP_M0 = 0.20, EXP_RANGE_PCT = 3, EXP_KEEP = 30;
+const EXP_RANGE_PCT = 3, EXP_KEEP = 30;
+// Starting weights per index [k, m, e, u, v] (13 Oct 2026, owner: "set the weights to the history fit"): the fit of
+// hub/expiry_history.py on 158 NIFTY and 82 BANK NIFTY expiries, Oct 2023 - Oct 2026, NSE end-of-day files (walls and max
+// pain from the evening before, the open as the 09:15 forward; state/expiry_history/summary.json in the private repo).
+// Before: 0.30 / 0.20 for every index, guesses. Caveats: fitted at the open, not on readings through the day, and even
+// fitted the formula did not beat the open on history (NIFTY 50.2 bp vs 49.9 walk-forward); live expiries re-fit them.
+// SENSEX (BSE) has no history test yet: it starts from NIFTY's. Europe and US (e, u) were not in the history: 0.
+const EXP_START = {
+  NIFTY: [0.18, -0.13, 0, 0, 0.17],
+  BANKNIFTY: [-0.23, 0.19, 0, 0, 0.04],
+  SENSEX: [0.18, -0.13, 0, 0, 0.17],
+};
 const EXP_IDX = [
   { id: 'NIFTY', label: 'NIFTY 50', exch: 'NFO', spot: 'NSE:NIFTY 50', step: 50, wd: 2, weekly: true },
   { id: 'SENSEX', label: 'SENSEX', exch: 'BFO', spot: 'BSE:SENSEX', step: 100, wd: 4, weekly: true },
@@ -190,7 +201,7 @@ const EXP_NOISE_PCT = 0.4;
 // certainty. Readings stored before 15 Oct 2026 have no straddle and keep EXP_NOISE_PCT of the level.
 const EXP_SD_PER_STRADDLE = 1 / 0.8, EXP_SD_FLOOR_PCT = 0.05;
 function expirySd_(F, straddle) { return straddle ? Math.max(straddle * EXP_SD_PER_STRADDLE, F * EXP_SD_FLOOR_PCT / 100) : F * EXP_NOISE_PCT / 100; }
-const EXP_PRIOR = [[EXP_K0, 0.5], [EXP_M0, 0.5], [0, 0.3], [0, 0.3], [0, 0.3]];   // [start, spread] for k, m, e, u, v
+const EXP_SPREAD = [0.5, 0.5, 0.3, 0.3, 0.3];   // prior spread for k, m, e, u, v; starts in EXP_START
 const EXP_BOUNDS = [[-0.5, 1.5], [-0.5, 1.5], [-1, 1], [-1, 1], [-0.5, 1]];
 function expiryModel_(id) {
   const props = PropertiesService.getScriptProperties();
@@ -214,14 +225,15 @@ function expiryModel_(id) {
     });
   });
   const P = 5, n = X.length;
-  const out = { k: EXP_K0, m: EXP_M0, e: 0, u: 0, v: 0, expiries: Object.keys(closes).length, samples: n };
+  const S0 = EXP_START[id] || EXP_START.NIFTY;
+  const out = { k: S0[0], m: S0[1], e: S0[2], u: S0[3], v: S0[4], start: S0, expiries: Object.keys(closes).length, samples: n };
   if (!n) return out;
   const A = [], r = [];
   for (let a = 0; a < P; a++) {
     A.push([]);
-    const prec = 1 / (EXP_PRIOR[a][1] * EXP_PRIOR[a][1]);
+    const prec = 1 / (EXP_SPREAD[a] * EXP_SPREAD[a]);
     for (let b = 0; b < P; b++) A[a].push(X.reduce((t, x, i) => t + Wt[i] * x[a] * x[b], 0) + (a === b ? prec : 0));
-    r.push(X.reduce((t, x, i) => t + Wt[i] * x[a] * Y[i], 0) + prec * EXP_PRIOR[a][0]);
+    r.push(X.reduce((t, x, i) => t + Wt[i] * x[a] * Y[i], 0) + prec * S0[a]);
   }
   for (let c = 0; c < P; c++) {                      // Gaussian elimination with partial pivoting
     let piv = c; for (let i = c + 1; i < P; i++) if (Math.abs(A[i][c]) > Math.abs(A[piv][c])) piv = i;
@@ -253,7 +265,7 @@ function expiryAccuracy_(id) {
 // Model and track record read every stored expiry from script properties (quota 50,000 reads a day): cached an hour,
 // cleared when a close is recorded.
 function expiryTrack_(id) {
-  const cache = CacheService.getScriptCache(), key = 'exp_ma_' + id;
+  const cache = CacheService.getScriptCache(), key = 'exp_ma2_' + id;
   const hit = cache.get(key);
   if (hit) return JSON.parse(hit);
   const t = { model: expiryModel_(id), accuracy: expiryAccuracy_(id) };
@@ -495,7 +507,7 @@ function expiryRecordClose_(id, date, close) {
   keep.forEach(d => kept[d] = closes[d]);
   Object.keys(closes).forEach(d => { if (!kept[d]) props.deleteProperty('EXPD_' + id + '_' + d); });
   props.setProperty('EXP_CLOSES_' + id, JSON.stringify(kept));
-  CacheService.getScriptCache().remove('exp_ma_' + id);   // re-fit with the new close on the next call
+  CacheService.getScriptCache().remove('exp_ma2_' + id);   // re-fit with the new close on the next call
 }
 
 /** live.yml (every 5 minutes) and expiry-tape.yml (every minute on expiry days) call ?mode=expiry_close&key=RELAY_KEY:
