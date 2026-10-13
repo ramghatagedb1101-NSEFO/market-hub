@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Expiry history test (item 4): walls and max pain from the evening before do not beat the open (night)
+New `hub/expiry_history.py` + `expiry-history.yml` (manual; NSE blocks the laptop). From NSE's free end-of-day files (old F&O bhavcopy to Jul 2024, UDiFF after, daily index file; formats checked from GitHub with a one-off diag, now removed): for every NIFTY and BANK NIFTY expiry since Oct 2023, the day-before chain within +-3% of the close (forward, ATM straddle, max pain, walls, next expiry's walls) against the expiry day's open and close. First run (run 38398089119): 240 expiries (NIFTY 158, BANK NIFTY 82), 617 NSE requests, saved to the private repo `state/expiry_history/` (records.json, summary.json); later runs fetch only new expiries.
+Results (mean absolute error vs the close, bp):
+- **NIFTY**: open 49.9; max pain 66.1; wall midpoint 75.2. Meter formula fitted walk-forward 50.2, with today's starting weights (k 0.30, m 0.20) 52.3: worse than the open. Close moved toward max pain on 47.7% of 109 days the open was a step or more away (a coin flip). Close between the walls 69.6%; within half a step of max pain 10.8%. Fit on all 158: k 0.18, m -0.13, v 0.17. Weekly k 0.33, monthly k -0.12; since Sep 2025 (Tuesday expiries, 58) k 0.33, beat the open 23 of 58.
+- **BANK NIFTY**: open 55.3; max pain 74.2; wall midpoint 80.4; walk-forward fitted 56.4, starting weights 59.8. Toward max pain 57.1% of 63 days. Fit k -0.23, m 0.19.
+- **Reading**: read the evening before, max pain and walls add nothing over the open; the starting weights make the 09:15 forecast slightly worse. Not tested (end-of-day data cannot): how the morning's own OI and the intraday readings do; that is what the live record (`state/expiry/`) is for. The weights were NOT changed: owner's decision (see STATUS).
+- **Limits**: open used as the 09:15 forward; OI from the evening before, not the morning; within-1-sd 80% is measured from the open with the day-before straddle (which also covers the overnight move), so it overstates the range's coverage.
+
 ### Phone: expiry range labelled correctly (evening)
 Owner: "fix the phone range label too".
 - **Before**: the phone's F&O tab showed the ATM straddle range (±straddle) and called it "about 2 in 3". A straddle is about 0.8 standard deviations of the move left, so ±straddle catches the close only about 3 times in 5.
