@@ -127,45 +127,22 @@ function adminQuotes(token) {
   return quoteData_();
 }
 
+// Index, VIX, gold, crude and rupee levels for the strip, the phone and live.json: read from the platform's one
+// 10-second Kite snapshot (Market.gs) instead of a Kite call of its own.
 function quoteData_() {
-  const cache = CacheService.getScriptCache();
-  const hit = cache.get('quotes');
-  if (hit) return JSON.parse(hit);
-
-  const props = PropertiesService.getScriptProperties();
-  const token = props.getProperty('KITE_ACCESS_TOKEN');
-  const date = props.getProperty('KITE_TOKEN_DATE');
-  const apiKey = props.getProperty('KITE_API_KEY');
-  if (!token || date !== kiteDayIst_() || !apiKey) return { error: 'no token for today; log in with Kite first', kite_login: 'no_login', login_link: kiteLoginLink_() };
-
-  const front = frontMonths_();   // nearest-expiry MCX gold and crude, and USD/INR (CDS)
-  const symbols = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX'];
-  if (front.gold) symbols.push('MCX:' + front.gold);
-  if (front.crude) symbols.push('MCX:' + front.crude);
-  if (front.usd) symbols.push('CDS:' + front.usd);
-  const qs = symbols.map(s => 'i=' + encodeURIComponent(s)).join('&');
-  const res = UrlFetchApp.fetch('https://api.kite.trade/quote/ohlc?' + qs, {
-    method: 'get',
-    muteHttpExceptions: true,
-    headers: { 'X-Kite-Version': '3', 'Authorization': 'token ' + apiKey + ':' + token },
-  });
-  const body = JSON.parse(res.getContentText());
-  if (body.status !== 'success') {
-    kiteFailed_(body.message);
-    const st = kiteStatus_();
-    return { error: 'Kite: ' + (body.message || 'quote failed'), kite_login: st.state, login_link: st.login_link || null };
-  }
-
-  const d = body.data;
+  const snap = marketSnapshot_();
+  if (snap.error === 'no_login') return { error: 'no token for today; log in with Kite first', kite_login: 'no_login', login_link: kiteLoginLink_() };
+  if (snap.error) { const st = kiteStatus_(); return { error: 'Kite: ' + snap.error, kite_login: st.state, login_link: st.login_link || null }; }
+  const d = snap.q, front = snap.front || {};
   const pick = (sym, name) => {
-    const q = d[sym];
-    const last = q.last_price, prev = q.ohlc.close;
+    const x = d[sym]; if (!x || x[1] == null) return null;
+    const last = x[0], prev = x[1];
     return { name: name, last: Math.round(last * 100) / 100, prev_close: Math.round(prev * 100) / 100,
              change: Math.round((last - prev) * 100) / 100,
-             change_pct: Math.round((last / prev - 1) * 10000) / 100 };
+             change_pct: prev ? Math.round((last / prev - 1) * 10000) / 100 : null };
   };
   const out = {
-    ts: Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ssXXX"),
+    ts: snap.ts,
     indices: { NIFTY: pick('NSE:NIFTY 50', 'NIFTY 50'), BANKNIFTY: pick('NSE:NIFTY BANK', 'BANK NIFTY'),
                SENSEX: pick('BSE:SENSEX', 'SENSEX') },
     india_vix: pick('NSE:INDIA VIX', 'INDIA VIX'),
@@ -174,7 +151,6 @@ function quoteData_() {
   if (front.gold && d['MCX:' + front.gold]) out.extra.gold = Object.assign(pick('MCX:' + front.gold, 'GOLD'), { contract: front.gold });
   if (front.crude && d['MCX:' + front.crude]) out.extra.crude = Object.assign(pick('MCX:' + front.crude, 'CRUDE'), { contract: front.crude });
   if (front.usd && d['CDS:' + front.usd]) out.extra.usd_inr = Object.assign(pick('CDS:' + front.usd, 'USDINR'), { contract: front.usd });
-  cache.put('quotes', JSON.stringify(out), 10);
   return out;
 }
 

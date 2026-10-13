@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### One Kite request for the live platform (`relay/Market.gs`)
+Owner: "one Kite request should be used for multiple data points; never multiple calls for multiple data points" -- across the whole platform.
+- **`marketSnapshot_()`**: one Kite quote request per 10 seconds, shared by every caller through the script cache, with a script lock so simultaneous callers wait for it instead of each calling Kite. It carries NIFTY 50, NIFTY BANK, SENSEX, INDIA VIX, front-month gold and crude, USD/INR and, on a NIFTY expiry day, today's NIFTY options within 3% of spot. Only last price, previous close and open interest are kept.
+- **Readers**: `quoteData_` (dashboard strip, phone `mode=quote`, the live job's relay check) and `expiryNow_` (expiry meter) no longer call Kite themselves. Dry run: meter, quotes, meter, quotes in a row = 1 Kite request, same timestamp on both.
+- **Not yet folded in** (next): the watchlist move check and star-time prices (`Alerts.gs`, `Phone.gs`), and the GitHub live job's own Kite calls (`hub/live.py`, `hub/expiry_day.py`).
+
 ### Dashboard market strip; call budget for the 10-second pages
 Owner: current market levels were not visible on the dashboard; and none of this may exhaust the Kite, BharatStock or other limits.
 - **Market strip** (every dashboard page, under the header): NIFTY, BANK NIFTY, SENSEX, VIX, and gold, crude, USD/INR when Kite has them, with change %, and "Live · HH:MM IST" or "Last quote · HH:MM IST · Day d Mon yyyy". Relay `adminQuotes` = the phone's quote call (`quoteData_`, `Code.gs`; the phone's `mode=quote` answer is unchanged). Wraps onto extra lines on a phone (checked at 1366 px and 375 px).

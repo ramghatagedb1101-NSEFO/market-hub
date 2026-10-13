@@ -110,50 +110,26 @@ function expiryNow_() {
   const hit = cache.get('exp_now');
   if (hit) return JSON.parse(hit);
   const now = istNow_();
-  const headers = kiteHeaders_();
-  const syms = expirySyms_(now.date);
   // Model and track record read every stored expiry from script properties (quota 50,000 reads a day): cached an hour.
   let ma = JSON.parse(cache.get('exp_ma') || 'null');
   if (!ma) { ma = { model: expiryModel_(), accuracy: expiryAccuracy_() }; cache.put('exp_ma', JSON.stringify(ma), 3600); }
+  const syms = expirySyms_(now.date);
   const base = { ts: now.ts, date: now.date, next_expiry: syms.next, model: ma.model, accuracy: ma.accuracy, source: syms.source };
   if (syms.today && !syms.today.length) return Object.assign(base, { expiry_today: false });
-  if (!headers) return Object.assign(base, { expiry_today: !!syms.today, error: 'No Kite login for today: log in with the Kite link.' });
 
-  // One quote call: spot + options within the range (range from the last cached spot; first call: spot first).
-  let lastSpot = Number(cache.get('exp_spot') || 0);
-  if (!lastSpot) {   // first call of the day only; then the spot from the previous reading picks the strikes
-    const sq = JSON.parse(UrlFetchApp.fetch('https://api.kite.trade/quote/ltp?i=' + encodeURIComponent('NSE:NIFTY 50'), { muteHttpExceptions: true, headers: headers }).getContentText());
-    if (sq.status !== 'success') { kiteFailed_(sq.message); return Object.assign(base, { expiry_today: true, error: kiteReason_(sq.message) }); }
-    lastSpot = sq.data['NSE:NIFTY 50'].last_price;
-    Utilities.sleep(1100);   // Kite: 1 quote request a second
-  }
-  const list = syms.today || expiryGuessSyms_(now.date, lastSpot);
-  const pick = list.filter(s => Math.abs(s[1] / lastSpot - 1) * 100 <= EXP_RANGE_PCT + 0.2).slice(0, 480);
-  // Apps Script caps a fetched URL at about 2,000 characters (13 Oct 2026: "Limit Exceeded: URLFetch URL length"),
-  // so the quote request is split into short URLs and sent together.
-  const params = ['NSE:NIFTY 50'].concat(pick.map(s => 'NFO:' + s[0])).map(s => 'i=' + encodeURIComponent(s));
-  const reqs = []; let cur = [];
-  params.forEach(p => { if (cur.length && ('https://api.kite.trade/quote?' + cur.concat(p).join('&')).length > 1900) { reqs.push(cur); cur = []; } cur.push(p); });
-  if (cur.length) reqs.push(cur);
-  // One at a time, a second apart, and one retry on Kite's "too many requests" (its limit: 1 quote request a second).
-  const q = {};
-  for (let n = 0; n < reqs.length; n++) {
-    if (n) Utilities.sleep(1100);
-    const get = () => UrlFetchApp.fetch('https://api.kite.trade/quote?' + reqs[n].join('&'), { muteHttpExceptions: true, headers: headers });
-    let res = get();
-    if (res.getResponseCode() === 429) { Utilities.sleep(1100); res = get(); }
-    const body = JSON.parse(res.getContentText());
-    if (body.status !== 'success') { kiteFailed_(body.message); return Object.assign(base, { expiry_today: true, error: kiteReason_(body.message) }); }
-    Object.assign(q, body.data);
-  }
+  // The platform's one Kite request (Market.gs): spot and today's options come from the shared 10-second snapshot.
+  const snap = marketSnapshot_();
+  if (snap.error === 'no_login') return Object.assign(base, { expiry_today: !!syms.today, error: 'No Kite login for today: log in with the Kite link.' });
+  if (snap.error) return Object.assign(base, { expiry_today: true, error: kiteReason_(snap.error) });
+  const q = snap.q, pick = snap.opts || [];
   if (!q['NSE:NIFTY 50']) return Object.assign(base, { expiry_today: true, error: 'Kite did not return the NIFTY 50 level.' });
-  const spot = q['NSE:NIFTY 50'].last_price;
-  cache.put('exp_spot', String(spot), 21600);
+  const spot = q['NSE:NIFTY 50'][0];
+  base.ts = snap.ts;
 
   const ch = {};
   pick.forEach(s => { const x = q['NFO:' + s[0]]; if (!x || Math.abs(s[1] / spot - 1) * 100 > EXP_RANGE_PCT) return;
     const r = ch[s[1]] || (ch[s[1]] = { strike: s[1], ce: null, pe: null, ce_oi: 0, pe_oi: 0 });
-    if (s[2] === 'CE') { r.ce = x.last_price; r.ce_oi = x.oi || 0; } else { r.pe = x.last_price; r.pe_oi = x.oi || 0; } });
+    if (s[2] === 'CE') { r.ce = x[0]; r.ce_oi = x[2] || 0; } else { r.pe = x[0]; r.pe_oi = x[2] || 0; } });
   const rows = Object.keys(ch).map(Number).sort((a, b) => a - b).map(s => ch[s]);
   if (!syms.today && !rows.length) return Object.assign(base, { expiry_today: false, note: 'Contract list unavailable (' + syms.diag + '); no contracts expiring today found by name.' });
   if (rows.length < 5) return Object.assign(base, { expiry_today: true, error: 'Too few NIFTY strikes quoted.' });
