@@ -6,9 +6,10 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ### Relay deploys from GitHub, with the owner's approval
 Owner: wants Claude to do most of the work, including relay deploys, which until now needed `clasp` on the laptop.
-- **`relay-deploy.yml`**: on a push that changes `relay/*.gs` or `relay/AdminPage.html` (or by hand), waits for the owner's approval (environment `relay`), signs `clasp` 3.4.1 in from the environment secret `CLASPRC_JSON`, refuses any Google account but ramghatagedb1101@gmail.com, runs the unchanged strict script `relay/tools/deploy_relay.sh`, checks the live relay (`mode=check`), and records the deployed commit in `.github/relay-deployed` (starts at 244af4a, Version 47).
+- **`relay-deploy.yml`**: on a push that changes `relay/*.gs` or `relay/AdminPage.html` (or by hand), waits for the owner's approval (environment `relay`), signs `clasp` 2.4.2 (the laptop's version) in from the environment secret `CLASPRC_JSON`, refuses any Google account but ramghatagedb1101@gmail.com, runs the unchanged strict script `relay/tools/deploy_relay.sh`, checks the live relay (`mode=check`), and records the deployed commit in `.github/relay-deployed` (starts at 244af4a, Version 47).
 - **Why this way**: Google's Apps Script API does not accept service accounts, and a narrow-scope OAuth client of our own would need signing in again every 7 days while in Google's testing mode. The trade-off: the secret can change any Apps Script project of that account; it lives only in the approval-gated environment.
-- **Not run yet**: needs the owner's one-time setup (`relay/README.md`, "Deploying from GitHub"). Its first run deploys the 06:00 fix below.
+- **First run (Tue 13 Oct 2026) failed** at the project-folder step, before any change to the relay: the job used clasp 3.4.1 while the sign-in file comes from the laptop's clasp 2.4.x, and the step hid clasp's output. Now pinned to 2.4.2, and clasp's output is shown.
+- **Setup**: the owner's one-time setup (`relay/README.md`, "Deploying from GitHub"). Its first run deploys the 06:00 fix below.
 
 ### Kite login: dated by Kite's 06:00 IST cut-off, not midnight (relay; written, not yet deployed)
 Owner: live quotes failed with "Incorrect `api_key` or `access_token`" although the token had been renewed earlier today.

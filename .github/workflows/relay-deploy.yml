@@ -34,8 +34,9 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-      - run: npm install -g @google/clasp@3.4.1
+          node-version: "22"
+      # Same clasp as the owner's laptop (2.4.x): the secret is its sign-in file, and deploy_relay.sh was proven with it.
+      - run: npm install -g @google/clasp@2.4.2
 
       - name: clasp sign-in
         env:
@@ -50,8 +51,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/sp/relay-live"
           cd "$RUNNER_TEMP/sp/relay-live"
           echo '{"scriptId":"13rGqOxSSC3aQzZGYjpDWT4NnNXUO_kjCQKeA4oo2pZ8MD22KEilKWR7s","rootDir":"."}' > .clasp.json
-          clasp deployments > /dev/null
-          clasp pull > /dev/null
+          clasp deployments
+          clasp pull
 
       # appsscript.json has executeAs USER_DEPLOYING: the relay runs as whoever deploys. Refuse any other account.
       - name: Account check (ramghatagedb1101@gmail.com only)
