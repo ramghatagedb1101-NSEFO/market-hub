@@ -1285,7 +1285,15 @@
       BTC = { usd: j.bitcoin.usd, chg: j.bitcoin.usd_24h_change, ts: new Date().toISOString() };
     }catch(e){ /* keep the last value */ }
   }
+  // Audit (13 Oct 2026): no quote calls while the app is hidden; every 5 minutes outside market hours.
+  let LAST_TICK = 0;
+  function politeTick(){
+    if (document.hidden) return;
+    if (!marketOpenIst() && Date.now() - LAST_TICK < 300000) return;
+    liveTick();
+  }
   async function liveTick(){
+    LAST_TICK = Date.now();
     fetchBitcoin();
     try{
       let L, alarm = null;
@@ -1343,10 +1351,10 @@
   let ticking = false;
   function start(){
     init().then(renderBrief); renderFno(); renderToday();
-    if (!ticking) { ticking = true; liveTick(); setInterval(liveTick, 60000); }
+    if (!ticking) { ticking = true; liveTick(); setInterval(politeTick, 60000); }
     else liveTick();
   }
-  if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(liveTick, 60000); }
+  if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(politeTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
   Object.assign(window, { openStock, closeStock, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,

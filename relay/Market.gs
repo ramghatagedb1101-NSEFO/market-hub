@@ -24,8 +24,12 @@ function marketSnapshot_() {
   try {
     hit = cache.get('snap');
     if (hit) return JSON.parse(hit);           // another caller fetched it while this one waited
+    if (!got) { const prev = cache.get('snap_prev'); if (prev) return JSON.parse(prev); }   // a slow build is running: no second fetch
+    const err = cache.get('snap_err');
+    if (err) return JSON.parse(err);           // a failure is remembered 30 s (the public quote URL must not retry Kite per call)
     const headers = kiteHeaders_();
-    if (!headers) return { error: 'no_login' };
+    const fail = e => { try { cache.put('snap_err', JSON.stringify(e), 30); } catch (x) {} return e; };
+    if (!headers) return fail({ error: 'no_login' });
     const now = istNow_();
     const front = frontMonths_();               // contract names only; cached 6 h, no Kite login used
     const syms = expirySyms_(now.date);         // today's NIFTY contracts; cached for the day
@@ -35,7 +39,7 @@ function marketSnapshot_() {
     let lastSpot = Number(cache.get('exp_spot') || 0), q = {};
     if (maybeExpiry && !lastSpot) {             // first call of an expiry day: learn the spot to pick strikes
       const r = snapFetch_(base, headers);
-      if (r.error) return r;
+      if (r.error) return fail(r);
       q = r.data; lastSpot = q['NSE:NIFTY 50'] ? q['NSE:NIFTY 50'].last_price : 0;
       Utilities.sleep(1100);                    // Kite: 1 quote request a second
     }
@@ -50,7 +54,7 @@ function marketSnapshot_() {
       .concat(opts.map(s => [s[3] || 'NFO:' + s[0], 'NFO:' + s[0]]))
       .concat(watch.map(w => [wtok[w] || 'NSE:' + w, 'NSE:' + w]));
     const r = snapFetch_(ask.map(a => a[0]), headers);
-    if (r.error) return r;
+    if (r.error) return fail(r);
     q = r.data;
 
     // Keep only what the pages use, keyed by EXCHANGE:SYMBOL: last price, previous close, open interest.
@@ -62,7 +66,7 @@ function marketSnapshot_() {
     const snap = { ts: now.ts, hm: now.hm, date: now.date, q: slim, front: front, opts: opts,
                    expiry: { listed: syms.today ? syms.today.length > 0 : null, next: syms.next, source: syms.source, diag: syms.diag || null },
                    requests: r.requests };
-    try { cache.put('snap', JSON.stringify(snap), SNAP_TTL); } catch (e) { /* over 100 KB: serve uncached */ }
+    try { const j = JSON.stringify(snap); cache.put('snap', j, SNAP_TTL); cache.put('snap_prev', j, 120); } catch (e) { /* over 100 KB: serve uncached */ }
     return snap;
   } finally { if (got) lock.releaseLock(); }
 }
@@ -109,9 +113,12 @@ function overseasSnapshot_() {
       const c = (v.close || []).filter(x => x != null), prev = v.chartPreviousClose, last = c.length ? c[c.length - 1] : null;
       if (last == null || !prev) return;
       const pct = Math.round((last / prev - 1) * 10000) / 100, t = (v.timestamp || []).slice(-1)[0];
-      out.items.push({ sym: sym, name: name, group: g, last: Math.round(last * 100) / 100, change_pct: pct,
-                       at: t ? Utilities.formatDate(new Date(t * 1000), 'Asia/Kolkata', 'HH:mm') : null });
-      grp[g].push(pct);
+      // Only today's trading counts (audit, 13 Oct 2026): before Europe opens, Yahoo's day is yesterday's session,
+      // whose move is already in NIFTY's open.
+      const today = t && Utilities.formatDate(new Date(t * 1000), 'Asia/Kolkata', 'yyyy-MM-dd') === Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
+      out.items.push({ sym: sym, name: name, group: g, last: Math.round(last * 100) / 100, change_pct: pct, today: !!today,
+                       at: t ? Utilities.formatDate(new Date(t * 1000), 'Asia/Kolkata', today ? 'HH:mm' : 'dd MMM HH:mm') : null });
+      if (today) grp[g].push(pct);
     });
     const avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 100) / 100 : null;
     out.eu = avg(grp.eu); out.us = avg(grp.us);
@@ -139,6 +146,9 @@ function watchTokens_(syms, date) {
     }
     syms.forEach(s => { if (!(s in have)) have[s] = ''; });      // remembered as "go by name"
     cache.put(key, JSON.stringify(have), 21600);
-  } catch (e) { /* by name this time */ }
+  } catch (e) {        // by name, and not retried for 10 minutes (audit)
+    syms.forEach(s => { if (!(s in have)) have[s] = ''; });
+    try { cache.put(key, JSON.stringify(have), 600); } catch (x) {}
+  }
   return have;
 }

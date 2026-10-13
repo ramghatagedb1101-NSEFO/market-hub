@@ -35,7 +35,7 @@ function istNow_() {
 // expiryNow_ falls back to building today's contract names (NIFTY26O13 22500 CE, monthly NIFTY26OCT 22500 CE).
 function expirySyms_(date) {
   const cache = CacheService.getScriptCache(), key = 'exps3_' + date;
-  const hit = cache.get(key);
+  const hit = cache.get(key) || cache.get(key + '_fail');
   if (hit) return JSON.parse(hit);
   let text = '', diag = '';
   try {
@@ -59,7 +59,11 @@ function expirySyms_(date) {
     if (e === date) todays.push([c[iSym], Number(c[iStrike]), c[iType], c[iTok]]);
     else if (e > date && (!next || e < next)) next = e;
   }
-  if (!nifty) return { today: null, next: null, source: 'unavailable', diag: diag };
+  if (!nifty) {   // remembered 10 minutes so a failing download is not repeated on every 10-second build (audit)
+    const fail = { today: null, next: null, source: 'unavailable', diag: diag };
+    try { cache.put(key + '_fail', JSON.stringify(fail), 600); } catch (e) {}
+    return fail;
+  }
   const out = { today: todays, next: next, source: 'list' };
   try { cache.put(key, JSON.stringify(out), 21600); } catch (e) { /* too big: refetch next time */ }
   return out;
@@ -171,8 +175,8 @@ function expiryNow_() {
   const MP = rows.reduce((b, r) => payout(r.strike) < payout(b.strike) ? r : b).strike;
   const W = (callWall + putWall) / 2;
   const M = base.model;
-  const ov = overseasSnapshot_(), eu = ov.eu || 0, us = ov.us || 0;
-  const pred = F + M.k * (MP - F) + M.m * (W - F) + (M.e || 0) * F * eu / 100 + (M.u || 0) * F * us / 100;
+  const ov = overseasSnapshot_(), eu = ov.eu, us = ov.us;   // null when not trading today or unavailable
+  const pred = F + M.k * (MP - F) + M.m * (W - F) + (M.e || 0) * F * (eu || 0) / 100 + (M.u || 0) * F * (us || 0) / 100;
   const ceAll = rows.reduce((t, r) => t + r.ce_oi, 0), peAll = rows.reduce((t, r) => t + r.pe_oi, 0);
   const r2 = x => Math.round(x * 100) / 100;
 

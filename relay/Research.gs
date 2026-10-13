@@ -52,7 +52,8 @@ function chartData_(symbol, range) {
       }
     }
   }
-  if (!out.error) {
+  // BharatStock's raw figures must not be stored (licence): a chart from it is never cached (audit, 13 Oct 2026).
+  if (!out.error && out.source !== 'bharatstock') {
     const ttl = out.source === 'kite' ? (spec.interval === 'day' ? 1800 : 120) : 300;
     try { cache.put(key, JSON.stringify(out), ttl); } catch (e) { /* too large: fine */ }
   }

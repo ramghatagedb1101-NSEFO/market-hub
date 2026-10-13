@@ -1775,7 +1775,7 @@ function fmt(v, dp){ return v == null ? '–' : Number(v).toLocaleString('en-IN'
 function ovPanel(o){
   if (!o || !o.items || !o.items.length) return '';
   const row = x => '<tr><td style="text-align:left">' + esc(x.name) + '</td><td>' + fmt(x.last, 2) + '</td><td style="color:' + (x.change_pct >= 0 ? 'var(--up)' : 'var(--down)') + '">' +
-    (x.change_pct >= 0 ? '+' : '') + fmt(x.change_pct, 2) + '%</td><td class="muted">' + esc(x.at || '') + '</td></tr>';
+    (x.change_pct >= 0 ? '+' : '') + fmt(x.change_pct, 2) + '%</td><td class="muted">' + esc(x.at || '') + (x.today === false ? ' · not open today yet' : '') + '</td></tr>';
   const avg = (n, v) => '<span style="margin-right:18px">' + n + ' <b style="color:' + (v >= 0 ? 'var(--up)' : 'var(--down)') + '">' + (v == null ? '–' : (v >= 0 ? '+' : '') + fmt(v, 2) + '%') + '</b></span>';
   return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Overseas markets</h3><span class="muted" style="font-size:12px">Europe live during Indian afternoon hours; US index futures trade around the clock · Yahoo Finance, refreshed every minute</span></div><div class="panel-b">' +
     '<div style="margin-bottom:8px">' + avg('Europe today', o.eu) + avg('US futures today', o.us) + '</div>' +

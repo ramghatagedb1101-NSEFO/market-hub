@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Kite / BharatStock call audit (7 reviewers incl. a completeness critic) and first fixes
+- **Findings**: the live relay is at its floor (1 Kite request per 10 s). The daily GitHub jobs are the real Kite risk: `rg/market_data.py` sends ~100-150 quote calls back to back per run (2-4 a second against Kite's 1), so refusals quietly drop stocks from screens; `hub/fno.py` and `hub/expiry_theta.py` also send unpaced calls; instrument lists are downloaded more than once per job. BharatStock daily use is fine (relay ~20 of 1,000; the library's `needs()` budget holds); the only way to blow the 9,000 is a manual multibagger or back-test run, which no budget counts.
+- **Fixed now (relay Version 59, phone v27)**:
+  - Licence: a chart built from BharatStock prices was cached for 5 minutes; it is no longer cached at all.
+  - Bad-day thrash: a failed NFO contract list or NSE token list is remembered 10 minutes (it was downloaded again on every 10-second build); a failed Kite snapshot is remembered 30 seconds (the public quote URL could otherwise retry Kite on every call); a snapshot request that waits past the lock serves the last good snapshot instead of fetching again.
+  - Overseas: a market counts only when its last price is from today (before Europe opens, Yahoo's "today" is yesterday's session, already in NIFTY's open); a missing reading is stored as unknown, not as a flat market. The meter marks such markets "not open today yet".
+  - Phone: no quote polling while the app is hidden, and every 5 minutes outside market hours (it polled every 60 s round the clock).
+- **Scheduled for tonight** (with the multi-index meter): batch and pace the daily jobs' Kite calls (one quote for all spots, chains in 500-contract calls a second apart, one download per instrument list per job), one quote for the theta job's spot and legs, de-duplicated `fno.py` chains; budget the manual BharatStock runs against the shared cap and count the relay's own BharatStock calls.
+
 ### Expiry meter: fixes from an independent review (12 reviewers, each finding checked by a sceptic)
 6 findings confirmed against the live code (others were rejected, mostly as already fixed):
 - **Walls**: the ATM strike now counts on both sides. With strict above/below spot, a pinned strike flipped from call wall to put wall as spot crossed it, and the expected close could jump up to ~100 points on a 3-point move.
