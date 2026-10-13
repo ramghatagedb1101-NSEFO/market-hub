@@ -1731,9 +1731,12 @@ function fmt(v, dp){ return v == null ? '–' : Number(v).toLocaleString('en-IN'
 function drawExpiry(){
   const d = EXP.data, v = $('view');
   const acc = (d.accuracy || []);
-  const accTable = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Track record</h3><span class="muted" style="font-size:12px">expected close at each time vs the actual close · learns after every expiry</span></div><div class="panel-b">' +
+  const hit = t => { const r = acc.filter(a => a[t] != null); return r.length ? r.filter(a => Math.abs(a[t] - a.close) / a.close * 1e4 <= 25).length + ' of ' + r.length : '–'; };
+  const accTable = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Track record</h3><span class="muted" style="font-size:12px">expected close vs actual close · green = within 25 bp · learns after every expiry</span></div><div class="panel-b">' +
+    (acc.length ? '<div style="margin-bottom:8px">Within 25 bp of the close: 10:00 <b>' + hit('at10') + '</b> · 12:00 <b>' + hit('at12') + '</b> · 14:00 <b>' + hit('at14') + '</b> · 15:00 <b>' + hit('at15') + '</b></div>' : '') +
     (acc.length ? '<table class="t" style="width:100%"><tr><th>Expiry</th><th>Close</th><th>10:00</th><th>12:00</th><th>14:00</th><th>15:00</th></tr>' + acc.map(a => {
-      const c = x => x == null ? '–' : fmt(x) + ' <span class="muted">(' + (x - a.close >= 0 ? '+' : '') + fmt(x - a.close) + ')</span>';
+      const c = x => { if (x == null) return '–'; const bp = (x - a.close) / a.close * 1e4;
+        return fmt(x) + ' <span style="color:' + (Math.abs(bp) <= 25 ? 'var(--up)' : 'var(--down)') + '">(' + (bp >= 0 ? '+' : '') + bp.toFixed(0) + ' bp)</span>'; };
       return '<tr><td>' + esc(a.date) + '</td><td><b>' + fmt(a.close) + '</b></td><td>' + c(a.at10) + '</td><td>' + c(a.at12) + '</td><td>' + c(a.at14) + '</td><td>' + c(a.at15) + '</td></tr>'; }).join('') + '</table>'
       : '<div class="muted">No finished expiries recorded yet. Today\'s close is recorded after 15:45 IST and the weights are re-fitted from it.</div>') +
     '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + d.model.k + ' × (max pain − forward) + ' + d.model.m + ' × (wall midpoint − forward). ' +
