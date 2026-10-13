@@ -27,7 +27,7 @@
  *
  * Storage per index: per-minute points in the script cache (prediction chart exph_<IDX>_<date>, sellers' record
  * expw_<IDX>_<date>, 6 hours); the baseline in script property EXPB_<IDX>_<date> (today's only); a reading at least
- * 5 minutes apart in EXPD_<IDX>_<date> and closes in EXP_CLOSES_<IDX> (learning, track record; last 30 expiries). After
+ * 5 minutes apart in EXPD_<IDX>_<date> (with its ATM straddle, the reading's uncertainty, from 15 Oct 2026) and closes in EXP_CLOSES_<IDX> (learning, track record; last 30 expiries). After
  * the close the GitHub job expiry-tape.yml copies the whole day (?mode=expiry_tape) to the private repository
  * (state/expiry/), where it is kept for good. The close is recorded after 15:45 IST by the first call.
  */
@@ -44,7 +44,9 @@ function adminExpiry(token, since) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
   const out = expiryNow_(), cache = CacheService.getScriptCache(), s = String(since || '');
   out.sliced = !!s && s.slice(0, 10) === out.date;
-  const cut = rows => out.sliced ? rows.filter(r => r[0] > s.slice(11)) : rows;
+  // Market hours only (13 Oct 2026, owner: after the close there is nothing to track): Version 60 wrote chart rows at
+  // any hour, and those after-close minutes were all the chart showed that evening.
+  const cut = rows => rows.filter(r => r[0] >= '09:15' && r[0] <= '15:30' && (!out.sliced || r[0] > s.slice(11)));
   (out.indices || []).forEach(x => {
     if (x.error) return;
     x.history = cut(JSON.parse(cache.get('exph_' + x.id + '_' + out.date) || '[]'));
@@ -175,7 +177,7 @@ function expiryMigrate_() {
   cache.put('exp_mig', '1', 21600);
 }
 
-// Fit of the four weights for one index from every stored reading against its expiry's close: a Bayesian ridge.
+// Fit of the five weights for one index from every stored reading against its expiry's close: a Bayesian ridge.
 // 13 Oct 2026 (dry run before the first real expiry): an unweighted fit let one expiry with 2 readings swing k from
 // 0.30 to -1.64, because the close differs from any reading mostly by the market's own later move (noise), and a
 // least-squares fit reads that noise as signal. Now each reading carries the noise it really has (EXP_NOISE_PCT of the
@@ -183,6 +185,11 @@ function expiryMigrate_() {
 // spread): one expiry can only nudge the weights; about a dozen consistent expiries are needed to move them
 // substantially. Weights are also kept within sane bounds.
 const EXP_NOISE_PCT = 0.4;
+// Uncertainty of a reading (13 Oct 2026): the ATM straddle is about 0.8 standard deviations of the move left to expiry
+// (E|move| = 0.8 sd), so sd = straddle / 0.8, with a floor so a near-zero straddle in the last minutes is not read as
+// certainty. Readings stored before 15 Oct 2026 have no straddle and keep EXP_NOISE_PCT of the level.
+const EXP_SD_PER_STRADDLE = 1 / 0.8, EXP_SD_FLOOR_PCT = 0.05;
+function expirySd_(F, straddle) { return straddle ? Math.max(straddle * EXP_SD_PER_STRADDLE, F * EXP_SD_FLOOR_PCT / 100) : F * EXP_NOISE_PCT / 100; }
 const EXP_PRIOR = [[EXP_K0, 0.5], [EXP_M0, 0.5], [0, 0.3], [0, 0.3], [0, 0.3]];   // [start, spread] for k, m, e, u, v
 const EXP_BOUNDS = [[-0.5, 1.5], [-0.5, 1.5], [-1, 1], [-1, 1], [-0.5, 1]];
 function expiryModel_(id) {
@@ -191,11 +198,19 @@ function expiryModel_(id) {
   const X = [], Y = [], Wt = [];
   Object.keys(closes).forEach(d => {
     const pts = JSON.parse(props.getProperty('EXPD_' + id + '_' + d) || '[]');
-    pts.forEach(p => {
-      const F = p[1], sd = F * EXP_NOISE_PCT / 100;
+    if (!pts.length) return;
+    // Within an expiry, each reading counts by its own uncertainty (p[8] = ATM straddle, stored from 15 Oct 2026): a 15:00
+    // reading with ~25 points left to move counts far more than a 10:00 one with ~120. Across expiries each still counts
+    // as much as before (total weight of one expiry = 1 / (0.4% of its level)^2): the day's readings share one close, so
+    // they are not independent, and taking the late readings' small noise at face value would let one expiry outweigh
+    // the prior (see CHANGELOG 13 Oct 2026 for the dry run).
+    const inv = pts.map(p => 1 / Math.pow(expirySd_(p[1], p[8]), 2)), tot = inv.reduce((a, b) => a + b, 0);
+    const Fm = pts.reduce((a, p) => a + p[1], 0) / pts.length, sd0 = Fm * EXP_NOISE_PCT / 100;
+    pts.forEach((p, i) => {
+      const F = p[1];
       // p[7] (next expiry's wall midpoint) exists from 14 Oct 2026; older readings carry no information on v.
       X.push([p[2] - F, p[3] - F, F * (p[5] || 0) / 100, F * (p[6] || 0) / 100, p[7] != null ? p[7] - F : 0]); Y.push(closes[d] - F);
-      Wt.push(1 / (pts.length * sd * sd));           // each expiry once; each reading weighted by its noise
+      Wt.push(inv[i] / tot / (sd0 * sd0));
     });
   });
   const P = 5, n = X.length;
@@ -225,8 +240,13 @@ function expiryAccuracy_(id) {
   const closes = JSON.parse(props.getProperty('EXP_CLOSES_' + id) || '{}');
   return Object.keys(closes).sort().reverse().slice(0, 12).map(d => {
     const pts = JSON.parse(props.getProperty('EXPD_' + id + '_' + d) || '[]');
-    const at = hm => { const p = pts.filter(x => x[0] <= hm).pop(); return p ? p[4] : null; };
-    return { date: d, close: closes[d], at10: at('10:00'), at12: at('12:00'), at14: at('14:00'), at15: at('15:00'), readings: pts.length };
+    // Each time's last reading: the meter's expected close (p[4], at..) and the market's forward at that moment (p[1],
+    // f..). The forward is the bar to beat (13 Oct 2026): at 15:00 the move left is ~20-30 NIFTY points, so being within
+    // 25 bp of the close says little unless the meter is closer than the market's own estimate.
+    const last = hm => pts.filter(x => x[0] <= hm).pop() || null;
+    const o = { date: d, close: closes[d], readings: pts.length };
+    [['10', '10:00'], ['12', '12:00'], ['14', '14:00'], ['15', '15:00']].forEach(([k, hm]) => { const p = last(hm); o['at' + k] = p ? p[4] : null; o['f' + k] = p ? p[1] : null; });
+    return o;
   });
 }
 
@@ -239,6 +259,47 @@ function expiryTrack_(id) {
   const t = { model: expiryModel_(id), accuracy: expiryAccuracy_(id) };
   try { cache.put(key, JSON.stringify(t), 3600); } catch (e) {}
   return t;
+}
+
+// How index options settle (checked 13 Oct 2026). At NSE and at BSE, NIFTY, BANK NIFTY and SENSEX options settle at the
+// index's official close on expiry day, and the index close is built from its stocks' closing prices. Since 3 Aug 2026
+// (SEBI) every stock with F&O contracts -- which includes every NIFTY 50, BANK NIFTY and SENSEX stock -- gets its closing
+// price from a closing auction, 15:15-15:35, at one auction price, at both exchanges; before that both used each stock's
+// volume-weighted price over 15:00-15:30. Averaging the index level through the last half hour therefore does NOT match
+// today's rule for either exchange: under the auction the forward (options trade through it) is the market's estimate,
+// and the meter states the rule instead of blending. SEBI's consultation (Sep 2026, comments closed 3 Oct) proposes
+// settling derivatives on a 30-minute average of continuous trading again; reports expect a circular in Oct 2026. When
+// it lands, set method 'average' and the window it names (e.g. '15:00'-'15:30', or '14:45'-'15:15' if continuous
+// trading still stops at 15:15): the meter then blends expected close = (elapsed / window) x average so far +
+// (left / window) x model, and narrows the range to the part still unknown.
+const EXP_SETTLE = { method: 'auction', from: '15:15', to: '15:35', since: '3 Aug 2026' };
+function expMins_(hm) { return Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5)); }
+
+// Settlement averaging (method 'average' only): the index level once per minute of the window, kept in the cache per
+// index and day (under 1 KB); returns the blend weight, the average so far and the blended expected close.
+function expirySettle_(id, now, spot, model) {
+  const S = EXP_SETTLE, out = { method: S.method, from: S.from, to: S.to, since: S.since || null };
+  if (S.method !== 'average' || now.hm < S.from) return out;
+  const cache = CacheService.getScriptCache(), key = 'exps_' + id + '_' + now.date;
+  const m = JSON.parse(cache.get(key) || '{}');
+  if (now.hm < S.to && m[now.hm] == null) {
+    m[now.hm] = Math.round(spot * 100) / 100;
+    const lock = LockService.getScriptLock();
+    if (lock.tryLock(1000)) {
+      try {
+        const cur = JSON.parse(cache.get(key) || '{}');          // another call may have written this minute already
+        if (cur[now.hm] == null) cur[now.hm] = m[now.hm];
+        Object.assign(m, cur);
+        cache.put(key, JSON.stringify(cur), 21600);
+      } finally { lock.releaseLock(); }
+    }
+  }
+  const v = Object.keys(m).filter(k => k >= S.from && k < S.to).map(k => m[k]);
+  if (!v.length) return out;
+  const span = expMins_(S.to) - expMins_(S.from), w = Math.max(0, Math.min(1, (expMins_(now.hm) - expMins_(S.from)) / span));
+  const avg = v.reduce((a, b) => a + b, 0) / v.length;
+  return Object.assign(out, { avg: Math.round(avg * 100) / 100, minutes: v.length, weight: Math.round(w * 1000) / 1000,
+                              blended: w * avg + (1 - w) * model });
 }
 
 function expiryNow_() {
@@ -346,8 +407,12 @@ function expiryIndex_(ix, snap, now, M, ov) {
   const NW = N ? (N.callWall + N.putWall) / 2 : null;
 
   const eu = ov.eu, us = ov.us;   // null when not trading today or unavailable
-  const pred = F + M.k * (MP - F) + M.m * (W - F) + (M.e || 0) * F * (eu || 0) / 100 + (M.u || 0) * F * (us || 0) / 100 + (NW != null ? (M.v || 0) * (NW - F) : 0);
+  const model = F + M.k * (MP - F) + M.m * (W - F) + (M.e || 0) * F * (eu || 0) / 100 + (M.u || 0) * F * (us || 0) / 100 + (NW != null ? (M.v || 0) * (NW - F) : 0);
   const r2 = x => Math.round(x * 100) / 100, L = x => x == null ? null : Math.round(x / 1e3) / 100, cr = x => Math.round(x / 1e5) / 100;
+  // From the settlement window on (method 'average' only) the average so far carries its share of the expected close;
+  // the likely range is one standard deviation of the move left (straddle / 0.8), narrowed to the part not yet averaged.
+  const ST = expirySettle_(ix.id, now, spot, model), pred = ST.blended != null ? ST.blended : model;
+  const sd = expirySd_(F, C.straddle) * (1 - (ST.weight || 0));
 
   // Changes since the day's first reading.
   const B = expiryBaseline_(ix.id, now.date, now.hm, rows, nrows, nexp);
@@ -364,6 +429,8 @@ function expiryIndex_(ix, snap, now, M, ov) {
     id: ix.id, label: ix.label, spot: r2(spot), forward: r2(F), max_pain: MP, wall_mid: W, call_wall: C.callWall, put_wall: C.putWall,
     call_walls: walls(C.cw, Bc, 0), put_walls: walls(C.pw, Bc, 1), step: ix.step,
     atm: C.atm.strike, straddle: r2(C.straddle), range: [r2(pred - C.straddle), r2(pred + C.straddle)], prediction: r2(pred),
+    // likely = +-1 sd (about 2 in 3); range (+-straddle, about 3 in 5) is kept as it was for the phone's straddle row.
+    sd: r2(sd), likely: [r2(pred - sd), r2(pred + sd)], model_close: r2(model), settle: ST,
     pcr: C.ceAll ? Math.round(C.peAll / C.ceAll * 100) / 100 : null, model: M, strikes: rows.length,
     rows: near(rows).map(r => [r.strike, r.ce_oi, r.pe_oi, chg(Bc, r, 0), chg(Bc, r, 1)]),
     oi: { calls: C.ceAll, puts: C.peAll, calls_chg: sumChg(rows, Bc, 0), puts_chg: sumChg(rows, Bc, 1), since: B ? B.hm : null,
@@ -378,6 +445,15 @@ function expiryIndex_(ix, snap, now, M, ov) {
       rows: near(nrows).map(r => [r.strike, r.ce_oi, r.pe_oi, chg(Bn, r, 0), chg(Bn, r, 1)]) }
   };
 
+  // After 15:30 the meter stops tracking (13 Oct 2026, owner): it shows its last market-hours reading and, once recorded
+  // after 15:45, the actual close.
+  if (now.hm > '15:30') {
+    const H = JSON.parse(CacheService.getScriptCache().get('exph_' + ix.id + '_' + now.date) || '[]').filter(r => r[0] >= '09:15' && r[0] <= '15:30');
+    const P = JSON.parse(PropertiesService.getScriptProperties().getProperty('EXPD_' + ix.id + '_' + now.date) || '[]');
+    const lh = H.length ? H[H.length - 1] : null, lp = P.length ? P[P.length - 1] : null;
+    out.final = lh && (!lp || lh[0] >= lp[0]) ? { hm: lh[0], prediction: lh[1], forward: lh[3] } : lp ? { hm: lp[0], prediction: lp[4], forward: lp[1] } : null;
+    out.closed = JSON.parse(PropertiesService.getScriptProperties().getProperty('EXP_CLOSES_' + ix.id) || '{}')[now.date] || null;
+  }
   // Per-minute chart point and sellers' record row (cache), and a reading at least 5 minutes apart (property, for
   // learning); market hours only.
   if (now.hm < '09:15' || now.hm > '15:30') return out;
@@ -401,7 +477,7 @@ function expiryIndex_(ix, snap, now, M, ov) {
         const props = PropertiesService.getScriptProperties(), pk = 'EXPD_' + ix.id + '_' + now.date;
         const pts = JSON.parse(props.getProperty(pk) || '[]');
         cache.put(lk, now.hm, 21600);
-        if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred), eu, us, NW]); props.setProperty(pk, JSON.stringify(pts)); }
+        if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred), eu, us, NW, r2(C.straddle)]); props.setProperty(pk, JSON.stringify(pts)); }
       }
     } finally { lock.releaseLock(); }
   }
@@ -453,14 +529,16 @@ function expiryTapeHook_(key) {
   const now = istNow_(), cache = CacheService.getScriptCache(), out = { ok: true, date: now.date, ts: now.ts, indices: [] };
   EXP_IDX.forEach(ix => {
     const g = k => JSON.parse(cache.get(k + '_' + ix.id + '_' + now.date) || 'null');
-    const tape = g('expw'), hist = g('exph'), samples = JSON.parse(props.getProperty('EXPD_' + ix.id + '_' + now.date) || 'null');
+    const hours = a => a ? a.filter(r => r[0] >= '09:15' && r[0] <= '15:30') : a;
+    const tape = hours(g('expw')), hist = hours(g('exph')), samples = JSON.parse(props.getProperty('EXPD_' + ix.id + '_' + now.date) || 'null');
     if (!tape && !hist && !samples) return;
     const base = JSON.parse(props.getProperty('EXPB_' + ix.id + '_' + now.date) || 'null');
     const closes = JSON.parse(props.getProperty('EXP_CLOSES_' + ix.id) || '{}');
     out.indices.push({ id: ix.id, label: ix.label, expiry: now.date, next_expiry: base ? base.nexp || null : null, close: closes[now.date] || null,
       model_after_close: expiryTrack_(ix.id).model, tape_fields: EXP_TAPE_FIELDS, tape: tape || [],
       history_fields: ['time', 'expected_close', 'spot', 'forward', 'max_pain', 'wall_mid'], history: hist || [],
-      sample_fields: ['time', 'forward', 'max_pain', 'wall_mid', 'expected_close', 'europe_pct', 'us_pct', 'next_wall_mid'], samples: samples || [],
+      sample_fields: ['time', 'forward', 'max_pain', 'wall_mid', 'expected_close', 'europe_pct', 'us_pct', 'next_wall_mid', 'straddle'], samples: samples || [],
+      settle: EXP_SETTLE, settle_minutes: JSON.parse(cache.get('exps_' + ix.id + '_' + now.date) || 'null'),
       baseline: base });
   });
   return out;
