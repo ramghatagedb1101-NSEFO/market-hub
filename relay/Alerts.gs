@@ -64,14 +64,12 @@ function watchCheck_(key) {
   if (!alertOn_('ALERT_MOVES')) return { ok: true, skipped: 'switched off' };
   const syms = watchList_().map(w => w.s);
   if (!syms.length) return { ok: true, skipped: 'empty watchlist' };
-  const headers = kiteHeaders_();
-  if (!headers) return { ok: true, skipped: 'no Kite login today' };
-  let body;
-  try {
-    const qs = syms.map(s => 'i=' + encodeURIComponent('NSE:' + s)).join('&');
-    body = JSON.parse(UrlFetchApp.fetch('https://api.kite.trade/quote/ohlc?' + qs, { muteHttpExceptions: true, headers: headers }).getContentText());
-  } catch (e) { return { error: String(e).slice(0, 200) }; }
-  if (body.status === 'error') { kiteFailed_(body.message); return { error: body.message }; }
+  // From the platform's one Kite snapshot (Market.gs), which carries the watchlist; no Kite call of its own.
+  const snap = marketSnapshot_();
+  if (snap.error === 'no_login') return { ok: true, skipped: 'no Kite login today' };
+  if (snap.error) return { error: snap.error };
+  const body = { data: {} };
+  syms.forEach(s => { const x = snap.q['NSE:' + s]; if (x) body.data['NSE:' + s] = { last_price: x[0], ohlc: { close: x[1] } }; });
   const today = todayIst_();
   let st = {};
   try { st = JSON.parse(props.getProperty('MOVE_ALERTS') || '{}'); } catch (e) { st = {}; }

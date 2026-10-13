@@ -23,7 +23,13 @@ Owner: does the meter consider overseas markets? Europe is open during Indian ho
 Owner: "one Kite request should be used for multiple data points; never multiple calls for multiple data points" -- across the whole platform.
 - **`marketSnapshot_()`**: one Kite quote request per 10 seconds, shared by every caller through the script cache, with a script lock so simultaneous callers wait for it instead of each calling Kite. It carries NIFTY 50, NIFTY BANK, SENSEX, INDIA VIX, front-month gold and crude, USD/INR and, on a NIFTY expiry day, today's NIFTY options within 3% of spot. Only last price, previous close and open interest are kept.
 - **Readers**: `quoteData_` (dashboard strip, phone `mode=quote`, the live job's relay check) and `expiryNow_` (expiry meter) no longer call Kite themselves. Dry run: meter, quotes, meter, quotes in a row = 1 Kite request, same timestamp on both.
-- **Not yet folded in** (next): the watchlist move check and star-time prices (`Alerts.gs`, `Phone.gs`), and the GitHub live job's own Kite calls (`hub/live.py`, `hub/expiry_day.py`).
+- **Folded in the same day**:
+  - The watchlist rides in the snapshot: move emails (`watchCheck_`), the watchlist's returns and price-at-starring (`kiteLtp_`) read it. Only a company being starred that is not yet in it costs one small call.
+  - The snapshot asks for options and watchlist stocks by Kite's numeric instrument token (accepted alongside names; probed on GitHub 13 Oct 2026). The request URL shrank from about 1,680 to 790 characters, so indices, today's options and a 60-company watchlist still fit one request.
+  - The GitHub live job no longer logs in to Kite: `hub/live.py` writes live.json from the relay's `mode=quote`, and `hub/expiry_day.py` writes the phone's expiry.json from the relay's expiry reading (`mode=expiry_close`, which also records the meter's reading). Its three relay calls run back to back and share one snapshot.
+  - Dry run: meter, quotes, watchlist prices and the move check = 1 Kite request.
+- **Phone**: the expiry panel also shows the meter's expected close. Cache `market-hub-v26`.
+- **Not changed** (separate by nature, all on demand or daily): the login itself, Kite's public contract lists (cached a day), Kite candle history for a chart you open, BharatStock figures for a stock report you open, and the daily batch jobs. A platform-wide inventory of every Kite and BharatStock call is being compiled.
 
 ### Dashboard market strip; call budget for the 10-second pages
 Owner: current market levels were not visible on the dashboard; and none of this may exhaust the Kite, BharatStock or other limits.

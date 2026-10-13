@@ -1,39 +1,35 @@
 """
 Live index quotes for the phone page. Runs every few minutes during market hours (see live.yml).
 
-Writes docs/data/live.json: last traded level, previous close and change for NIFTY and SENSEX.
-Needs KITE_API_KEY and KITE_ACCESS_TOKEN in the environment (the workflow fetches the token).
+Writes docs/data/live.json: last traded level, previous close and change for NIFTY, BANK NIFTY and SENSEX (plus VIX,
+gold, crude and USD/INR when present). Since 13 Oct 2026 it reads the relay's ?mode=quote, which comes from the
+platform's one shared Kite snapshot (relay/Market.gs), instead of calling Kite itself. Needs RELAY_URL.
 """
 import json
-from datetime import datetime
+import os
+import time
+import urllib.request
 
 from . import config
-from .sources import kite
 
 LIVE_FILE = config.SITE_DIR / "data" / "live.json"
-SYMBOLS = {"NIFTY": "NSE:NIFTY 50", "BANKNIFTY": "NSE:NIFTY BANK", "SENSEX": "BSE:SENSEX"}
 
 
 def main() -> dict:
-    k = kite.client()
-    quotes = k.quote(list(SYMBOLS.values()))
-    out = {
-        "ts": datetime.now(config.IST).isoformat(timespec="seconds"),
-        "indices": {},
-    }
-    for name, sym in SYMBOLS.items():
-        q = quotes[sym]
-        last = float(q["last_price"])
-        prev = float(q["ohlc"]["close"])
-        out["indices"][name] = {
-            "last": round(last, 2),
-            "prev_close": round(prev, 2),
-            "change": round(last - prev, 2),
-            "change_pct": round((last / prev - 1) * 100, 2),
-        }
-    LIVE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    LIVE_FILE.write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
-    return out
+    url = os.environ["RELAY_URL"] + "?mode=quote&t=" + str(int(time.time()))
+    last = None
+    for attempt in range(3):                       # Google occasionally answers a web-app call with a transient error
+        try:
+            out = json.loads(urllib.request.urlopen(url, timeout=40).read())
+            if out.get("indices"):
+                LIVE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                LIVE_FILE.write_text(json.dumps(out, separators=(",", ":")), encoding="utf-8")
+                return out
+            last = out.get("error") or "no indices"
+        except Exception as e:                     # noqa: BLE001 -- report and retry
+            last = str(e)
+        time.sleep(2 * (attempt + 1))
+    raise SystemExit(f"Relay quote unavailable: {last}")
 
 
 if __name__ == "__main__":

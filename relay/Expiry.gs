@@ -34,7 +34,7 @@ function istNow_() {
 // "No NIFTY expiry today" on an expiry day. Now: sent with the Kite login, gzip handled, empty never cached, and
 // expiryNow_ falls back to building today's contract names (NIFTY26O13 22500 CE, monthly NIFTY26OCT 22500 CE).
 function expirySyms_(date) {
-  const cache = CacheService.getScriptCache(), key = 'exps2_' + date;
+  const cache = CacheService.getScriptCache(), key = 'exps3_' + date;
   const hit = cache.get(key);
   if (hit) return JSON.parse(hit);
   let text = '', diag = '';
@@ -46,7 +46,7 @@ function expirySyms_(date) {
     diag = 'HTTP ' + res.getResponseCode() + ', ' + text.length + ' chars';
   } catch (e) { diag = String(e); }
   const lines = text.split('\n');
-  const head = (lines[0] || '').split(','), iSym = head.indexOf('tradingsymbol'), iName = head.indexOf('name'),
+  const head = (lines[0] || '').split(','), iTok = head.indexOf('instrument_token'), iSym = head.indexOf('tradingsymbol'), iName = head.indexOf('name'),
         iExp = head.indexOf('expiry'), iStrike = head.indexOf('strike'), iType = head.indexOf('instrument_type');
   let next = null, nifty = 0; const todays = [];
   if (iSym >= 0 && iExp >= 0) for (let n = 1; n < lines.length; n++) {
@@ -56,7 +56,7 @@ function expirySyms_(date) {
     if (c[iName].replace(/"/g, '') !== 'NIFTY' || (c[iType] !== 'CE' && c[iType] !== 'PE')) continue;
     nifty++;
     const e = c[iExp];
-    if (e === date) todays.push([c[iSym], Number(c[iStrike]), c[iType]]);
+    if (e === date) todays.push([c[iSym], Number(c[iStrike]), c[iType], c[iTok]]);
     else if (e > date && (!next || e < next)) next = e;
   }
   if (!nifty) return { today: null, next: null, source: 'unavailable', diag: diag };
@@ -220,14 +220,18 @@ function expiryRecordClose_(date, close) {
   CacheService.getScriptCache().remove('exp_ma');   // re-fit with the new close on the next call
 }
 
-/** live.yml calls ?mode=expiry_close&key=RELAY_KEY every run, so readings (09:15-15:30) and the close (after 15:45)
- *  are recorded even if nobody opens the meter. */
+/** live.yml calls ?mode=expiry_close&key=RELAY_KEY every run: readings (09:15-15:30) and the close (after 15:45) are
+ *  recorded even if nobody opens the meter, and the answer (the meter's reading, no history) is what the job writes to
+ *  docs/data/expiry.json for the phone -- so the job makes no Kite call of its own. */
 function expiryCloseHook_(key) {
   const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
   if (!relayKey || key !== relayKey) return { error: 'forbidden' };
   const now = istNow_();
   if (now.hm < '09:15' || (now.hm > '15:30' && now.hm < '15:45')) return { ok: true, note: 'outside reading times' };
   if (now.hm >= '15:45') CacheService.getScriptCache().remove('exp_now');
-  const r = expiryNow_();
-  return { ok: true, expiry_today: r.expiry_today, recorded: !!JSON.parse(PropertiesService.getScriptProperties().getProperty('EXP_CLOSES') || '{}')[now.date] };
+  const out = JSON.parse(JSON.stringify(expiryNow_()));
+  delete out.history; delete out.accuracy;
+  out.ok = true;
+  out.recorded = !!JSON.parse(PropertiesService.getScriptProperties().getProperty('EXP_CLOSES') || '{}')[now.date];
+  return out;
 }

@@ -31,16 +31,24 @@ function watchSave_(list) {
 
 // Latest prices for NSE symbols and NIFTY from Kite, or {} without today's login.
 function kiteLtp_(syms) {
+  if (!syms.length) return {};
+  // From the platform's one Kite snapshot (Market.gs; it carries the watchlist and NIFTY). Only a company not yet in
+  // it (being starred right now) costs one small Kite call.
+  const snap = marketSnapshot_();
+  if (snap.error) return {};
+  const out = { __NIFTY: snap.q['NSE:NIFTY 50'] ? snap.q['NSE:NIFTY 50'][0] : null };
+  const missing = syms.filter(s => { const x = snap.q['NSE:' + s]; if (x) out[s] = x[0]; return !x; });
+  if (!missing.length) return out;
+  syms = missing;
   const headers = kiteHeaders_();
-  if (!headers || !syms.length) return {};
+  if (!headers) return out;
   const qs = syms.map(s => 'i=' + encodeURIComponent('NSE:' + s)).concat(['i=' + encodeURIComponent('NSE:NIFTY 50')]).join('&');
   try {
     const body = JSON.parse(UrlFetchApp.fetch('https://api.kite.trade/quote/ltp?' + qs, { muteHttpExceptions: true, headers: headers }).getContentText());
     if (body.status === 'error') kiteFailed_(body.message);
-    const out = {};
     Object.keys(body.data || {}).forEach(k => { out[k === 'NSE:NIFTY 50' ? '__NIFTY' : k.replace(/^NSE:/, '')] = body.data[k].last_price; });
     return out;
-  } catch (e) { return {}; }
+  } catch (e) { return out; }
 }
 
 function adminWatchToggle(token, symbol) {

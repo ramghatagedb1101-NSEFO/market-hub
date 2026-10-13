@@ -711,6 +711,7 @@
       return `<div class="sec">NIFTY expiry today · As of ${timeTxt(d)}</div>
         <div class="panel"><div class="pb">
           <div class="row"><span class="l">Spot</span><span class="r">${f(E.spot, 2)}</span></div>
+          ${E.prediction != null ? `<div class="row"><span class="l"><b>Expected close (meter)</b></span><span class="r"><b>${f(E.prediction)}</b></span></div>` : ""}
           <div class="row"><span class="l"><b>Likely close range</b></span><span class="r"><b>${f(E.likely_range[0])} – ${f(E.likely_range[1])}</b></span></div>
           <div class="row"><span class="l">Market's expected range (ATM ${f(E.atm)} straddle ±${f(E.straddle, 1)})</span><span class="r">${f(E.implied_range[0])} – ${f(E.implied_range[1])}</span></div>
           <div class="row"><span class="l">Max pain</span><span class="r">${f(E.max_pain)}</span></div>

@@ -27,12 +27,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # Kite login alarm (11 Oct 2026): one quote call through the relay every run, so a login that
-      # another Kite login replaced is caught within 5 minutes and emailed (relay KiteWatch.gs).
-      - name: Check the relay's Kite login
-        env:
-          RELAY_URL: ${{ secrets.RELAY_URL }}
-        run: curl -s -L --max-time 30 "$RELAY_URL?mode=quote" > /dev/null || true
+      # One Kite request per refresh for the whole platform (13 Oct 2026): every step below reads the relay's shared
+      # 10-second Kite snapshot (relay/Market.gs); this job no longer logs in to Kite itself. Run back to back, the
+      # three steps share one snapshot.
       # Watchlist move emails (11 Oct 2026): 4%+ (and again at 8%) since yesterday's close, once per
       # company per step per day (relay Alerts.gs; switchable on the dashboard).
       - name: Check the watchlist for big moves
@@ -40,46 +37,21 @@ jobs:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
         run: curl -s -L -G --max-time 40 "$RELAY_URL" --data-urlencode "mode=watch_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
-      - name: Fetch today's Kite access token from the relay
-        env:
-          RELAY_URL: ${{ secrets.RELAY_URL }}
-          RELAY_KEY: ${{ secrets.RELAY_KEY }}
-        run: |
-          # Google occasionally serves a transient "Drive: Page Not Found" page for an Apps Script
-          # web app call even when the script and the token are both fine (same retry already in
-          # daily.yml/expiry-theta.yml since 8 Oct) -- this workflow is the one that actually hit it
-          # live (run 37746344330, curl exit 22) because it was still a single unretried shot, running
-          # every 5 minutes during market hours made it just a matter of time. Shorter backoff than
-          # daily.yml's: this job has a 5-minute total budget.
-          TOKEN=""
-          for attempt in 1 2 3; do
-            RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
-            TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
-            if [ -n "$TOKEN" ]; then break; fi
-            echo "Attempt $attempt: no token yet. Relay answered: $RESP"
-            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 2)); fi
-          done
-          if [ -z "$TOKEN" ]; then echo "No Kite token for today after 3 attempts. Last relay answer: $RESP"; exit 1; fi
-          echo "::add-mask::$TOKEN"
-          echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
+      # live.json from the relay's ?mode=quote. Also the Kite login alarm (11 Oct 2026): a login another Kite login
+      # replaced is caught on this call and emailed (relay KiteWatch.gs).
       - name: Write live quotes
         env:
-          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          RELAY_URL: ${{ secrets.RELAY_URL }}
         run: python -m hub.live
 
-      # Expiry-day read (13 Oct 2026): walls, max pain, straddle range from today's NIFTY options. No-op on other days.
-      # Expiry meter (13 Oct 2026): records the meter's readings and, after 15:45 IST, the close it learns from (relay Expiry.gs).
+      # Expiry meter (13 Oct 2026): records the meter's reading and, after 15:45 IST, the close it learns from; writes the
+      # phone's expiry.json from the same answer (relay Expiry.gs). No-op on other days.
       - name: Expiry meter reading
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
-        run: curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=expiry_close" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
-
-      - name: Expiry-day read
-        env:
-          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
-        run: python -m hub.expiry_day || echo "::warning::expiry-day read failed"
+        run: python -m hub.expiry_day || echo "::warning::expiry meter reading failed"
 
       - name: Commit live quotes
         run: |
