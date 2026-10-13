@@ -4,21 +4,22 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
-### Relay deploys from GitHub, with the owner's approval
+### Relay deploys from GitHub (live: Version 48)
 Owner: wants Claude to do most of the work, including relay deploys, which until now needed `clasp` on the laptop.
 - **`relay-deploy.yml`**: on a push that changes `relay/*.gs` or `relay/AdminPage.html` (or by hand), waits for the owner's approval (environment `relay`), signs `clasp` 2.4.2 (the laptop's version) in from the environment secret `CLASPRC_JSON`, refuses any Google account but ramghatagedb1101@gmail.com, runs the unchanged strict script `relay/tools/deploy_relay.sh`, checks the live relay (`mode=check`), and records the deployed commit in `.github/relay-deployed` (starts at 244af4a, Version 47).
 - **Why this way**: Google's Apps Script API does not accept service accounts, and a narrow-scope OAuth client of our own would need signing in again every 7 days while in Google's testing mode. The trade-off: the secret can change any Apps Script project of that account; it lives only in the approval-gated environment.
 - **First run (Tue 13 Oct 2026) failed** at the project-folder step, before any change to the relay: the job used clasp 3.4.1 while the sign-in file comes from the laptop's clasp 2.4.x, and the step hid clasp's output. Now pinned to 2.4.2, and clasp's output is shown. Second run: clasp 2.4.2 said "Could not read API credentials": the secret is not in the shape clasp 2 reads. The sign-in step now accepts either clasp's file format (and a stray BOM or line break from the clipboard), converts it, and prints only which shape it found. Tested with clasp 2.4.2 on dummy files of both shapes: both now reach Google.
 - **No approval step** (owner, Tue 13 Oct 2026: "can't keep approving every time"): deploys run on every relay push to `main`. Safeguards left: only `main`, only ramghatagedb1101@gmail.com, the strict script's checks, and GitHub two-factor sign-in on the owner's account.
 - **Laptop and cloud stay in step**: `deploy_relay.sh` now writes the commit it deployed to `.github/relay-deployed` (the laptop session commits it), so a GitHub deploy after a laptop deploy, or the reverse, starts from the right commit.
+- **First successful deploy** (Tue 13 Oct 2026, run 38353884709): Version 48 from commit 166cd18 on both deployments; account check, every strict-script check and the live `mode=check` passed. Earlier failures, all before any change to the relay: clasp 3 against a clasp 2 sign-in file, then a secret that held 74 characters instead of the file (re-copied from Notepad).
 - **Setup**: the owner's one-time setup (`relay/README.md`, "Deploying from GitHub"). Its first run deploys the 06:00 fix below.
 
-### Kite login: dated by Kite's 06:00 IST cut-off, not midnight (relay; written, not yet deployed)
+### Kite login: dated by Kite's 06:00 IST cut-off, not midnight (relay; live in Version 48)
 Owner: live quotes failed with "Incorrect `api_key` or `access_token`" although the token had been renewed earlier today.
 - **Finding:** every relay check treated a token as valid if `KITE_TOKEN_DATE` equalled today's IST calendar date. Kite ends every access token at about 06:00 IST, not at midnight. A login between 00:00 and 06:00 was dated "today" and looked valid all day while Kite refused it. A daytime login was treated as gone at midnight although Kite honours it until 06:00. The deployment's "Execute as" setting was ruled out: every Kite value is a script property, shared by all users. Not proven to be today's cause: if no login happened before 06:00, the other cause is a second login with the same Kite app (see the `KiteWatch.gs` email).
 - **Fix:** `kiteDayIst_()` (`relay/Code.gs`) gives the IST date 6 hours earlier, so 00:00-05:59 counts as the previous Kite day. It is used for saving the token, the token hand-out to the GitHub jobs (`mode=token`), the setup check (`mode=check`, which now also shows `kite_day`), live quotes, the research charts (`Research.gs`) and the login alarm (`KiteWatch.gs`). A login before 06:00 now says on the relay page that it stops working at about 06:00.
 - **Check:** `node relay/check.js` exit 0. Boundaries tested: 00:30 and 05:59 on Tue 13 Oct 2026 give 2026-10-12; 06:00, 09:15 and 23:59 give 2026-10-13. Tokens already saved after 06:00 today keep working (same date).
-- **Deploy:** pending on the owner's laptop (`clasp`). Relay last deployed at Version 47 (commit 244af4a).
+- **Deploy:** Version 48 (commit 166cd18), by `relay-deploy.yml`. Previous: Version 47 (commit 244af4a).
 
 ### Project guide
 - **`CLAUDE.md`**: a project guide any Claude session (local or cloud) loads automatically -- accounts, where code and data live, data sources and budgets, how to push and deploy, and the owner's preferences. Relay last deployed at Version 47 (commit 244af4a).
