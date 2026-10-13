@@ -13,3 +13,6 @@ print(f"::notice::header {lines[0][:200]!r}")
 print(f"::notice::nifty rows {len(nifty)}; first {nifty[0][:200] if nifty else None!r}")
 exps = sorted({l.split(',')[5] for l in nifty})[:4]
 print(f"::notice::nifty expiries {exps}; today rows {sum(1 for l in nifty if '2026-10-13' in l)}")
+opt = [l.split(",") for l in nifty if l.split(",")[9] in ("CE", "PE")]
+print(f"::notice::today samples {[c[2] for c in opt if c[5] == '2026-10-13'][:3]} strikes step {sorted({float(c[6]) for c in opt if c[5] == '2026-10-13'})[:4]}")
+print(f"::notice::monthly samples {[c[2] for c in opt if c[5] == '2026-10-27'][:2]} weekly-19 {[c[2] for c in opt if c[5] == '2026-10-19'][:2]}")
