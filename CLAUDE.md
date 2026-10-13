@@ -55,8 +55,10 @@ ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
 - Relay deploys from GitHub (since 13 Oct 2026): pushing a change to `relay/*.gs` or `relay/AdminPage.html`
   starts `relay-deploy.yml` (environment `Relay`, `main` only, no approval step: owner's choice), which runs
   the strict script above, checks the live relay and writes the deployed commit to `.github/relay-deployed`. A cloud
-  session can therefore change, push and deploy the relay: run `node relay/check.js` before every relay push. The laptop route still works;
-  after a laptop deploy, put its commit in `.github/relay-deployed` or the next GitHub deploy stops at step 1.
+  session can therefore change, push and deploy the relay: run `node relay/check.js` before every relay push. The laptop route still works:
+  `deploy_relay.sh` writes the deployed commit to `.github/relay-deployed`; commit and push that file with the
+  CHANGELOG entry, or the next GitHub deploy stops (safely) at step 1. Switching between a cloud session and
+  the laptop: everything is in GitHub; `git pull` on the laptop and read STATUS.md / CHANGELOG.md.
 - Phone app (`docs/index.html`): bump the cache name in `docs/sw.js` on every change, or phones keep the
   old page. Test at phone width (375 px) before publishing.
 - Verify on real data where possible (private repo files via `gh api`), not only on samples.

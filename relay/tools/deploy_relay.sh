@@ -18,3 +18,5 @@ cd "$SP/relay-live"
 clasp deploy -i AKfycbwQZxgg5yCekhRX7O88GyLCMt_MHRkTSLyjA1HF7Zk6nNL14wjoDydD73IabaTyOiFV -V "$V" -d "Research dashboard (v$V)" > /dev/null
 clasp deploy -i AKfycbye12r6sWmdKQhSA6cpFnKnSUFjBhKDUm9BF5mGXsFmqeWer8-F0uVOoZ6NVPXF4SZ1ww -V "$V" -d "Live relay + research dashboard (v$V)" > /dev/null
 echo "6. deployed version $V from $NEW"
+# Shared record of the last deployed commit, read by the GitHub deploy (relay-deploy.yml): commit it with the CHANGELOG entry.
+echo "$NEW" > "$REPO/.github/relay-deployed"
