@@ -53,9 +53,9 @@ ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
   `AKfycbwQZxgg…` (admin bookmark) and `AKfycbye12r6…` (live relay, phone, Kite redirect); full IDs in the
   script. Deploys need `clasp` signed in as ramghatagedb1101@gmail.com.
 - Relay deploys from GitHub (since 13 Oct 2026): pushing a change to `relay/*.gs` or `relay/AdminPage.html`
-  starts `relay-deploy.yml`, which waits for the owner's approval (environment `relay`), then runs the strict
-  script above, checks the live relay and writes the deployed commit to `.github/relay-deployed`. A cloud
-  session can therefore change, push and (after approval) deploy the relay. The laptop route still works;
+  starts `relay-deploy.yml` (environment `Relay`, `main` only, no approval step: owner's choice), which runs
+  the strict script above, checks the live relay and writes the deployed commit to `.github/relay-deployed`. A cloud
+  session can therefore change, push and deploy the relay: run `node relay/check.js` before every relay push. The laptop route still works;
   after a laptop deploy, put its commit in `.github/relay-deployed` or the next GitHub deploy stops at step 1.
 - Phone app (`docs/index.html`): bump the cache name in `docs/sw.js` on every change, or phones keep the
   old page. Test at phone width (375 px) before publishing.

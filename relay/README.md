@@ -67,14 +67,14 @@ Apps Script isn't deployed from GitHub -- a code change here needs re-pasting by
 ## Deploying from GitHub (since 13 Oct 2026)
 `.github/workflows/relay-deploy.yml` runs on every push to `main` that changes `relay/*.gs` or
 `relay/AdminPage.html`, and by hand (Actions -> relay-deploy -> Run workflow). It:
-1. waits for the owner's approval (environment `relay`, required reviewer; GitHub emails and shows it in its app);
+1. runs in environment `Relay` (deployment branch `main` only; no approval step since 13 Oct 2026, owner's choice);
 2. signs `clasp` in from the environment secret `CLASPRC_JSON` and refuses any account but ramghatagedb1101@gmail.com
    (the relay runs as whoever deploys: `executeAs: USER_DEPLOYING`);
 3. runs `relay/tools/deploy_relay.sh` with the last deployed commit from `.github/relay-deployed`;
 4. calls the live relay's `mode=check`, then commits the new deployed commit to `.github/relay-deployed`.
 
 One-time setup (owner only, never by Claude): `clasp login` on the laptop as ramghatagedb1101@gmail.com; create
-environment `relay` (Settings -> Environments) with yourself as required reviewer and deployment branch `main`;
+environment `Relay` (Settings -> Environments) with deployment branch `main`;
 add the whole of `~/.clasprc.json` as the environment secret `CLASPRC_JSON`. A changed Google password or a
 revoked clasp access ends the sign-in: the job then fails at "Project folder" and the secret needs replacing.
 The secret can change every Apps Script project of that Google account, so keep GitHub two-factor sign-in on.
