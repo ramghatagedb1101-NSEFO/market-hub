@@ -48,8 +48,8 @@ jobs:
           # whitespace from the clipboard. Prints only the shape found, never a value.
           node -e '
             let raw = process.env.CLASPRC_JSON.replace(/^﻿/, "").trim(), rc;
-            try { rc = JSON.parse(raw); } catch (e) { console.log("CLASPRC_JSON is not valid JSON (" + raw.length + " characters). Copy the whole file again."); process.exit(1); }
-            console.log("CLASPRC_JSON keys:", Object.keys(rc).join(", "));
+            try { rc = JSON.parse(raw); } catch (e) { console.log("::error::CLASPRC_JSON is not valid JSON (" + raw.length + " characters). Copy the whole file again."); process.exit(1); }
+            console.log("::notice::CLASPRC_JSON keys: " + Object.keys(rc).join(", ") + (rc.tokens ? " / tokens: " + Object.keys(rc.tokens).join(", ") : "") + (rc.token ? " / token: " + Object.keys(rc.token).join(", ") : ""));
             let out = rc;
             if (rc.tokens && rc.tokens.default) {
               const t = rc.tokens.default;
@@ -59,7 +59,7 @@ jobs:
                       isLocalCreds: false };
               console.log("Converted the clasp 3 sign-in to the clasp 2 format.");
             }
-            if (!out.token || !out.token.refresh_token) { console.log("No refresh token in the sign-in file: run clasp login on the laptop again."); process.exit(1); }
+            if (!out.token || !out.token.refresh_token) { console.log("::error::No refresh token in the sign-in file: run clasp login on the laptop again."); process.exit(1); }
             require("fs").writeFileSync(require("os").homedir() + "/.clasprc.json", JSON.stringify(out), { mode: 0o600 });'
 
       - name: Project folder (relay-live)
@@ -77,7 +77,7 @@ jobs:
             const rc = JSON.parse(require("fs").readFileSync(require("os").homedir() + "/.clasprc.json", "utf8"));
             const t = (rc.tokens && rc.tokens.default) || rc.token || {};
             fetch("https://oauth2.googleapis.com/tokeninfo?access_token=" + t.access_token).then(r => r.json()).then(j => {
-              if (j.email !== "ramghatagedb1101@gmail.com") { console.log("Refusing: clasp is signed in as " + (j.email || "an unknown account")); process.exit(1); }
+              if (j.email !== "ramghatagedb1101@gmail.com") { console.log("::error::Refusing: clasp is signed in as " + (j.email || "an unknown account")); process.exit(1); }
               console.log("clasp account OK: " + j.email);
             });'
 
@@ -101,7 +101,7 @@ jobs:
           curl -sSL -G "$RELAY_URL" --data-urlencode "mode=check" --data-urlencode "key=$RELAY_KEY" -o "$RUNNER_TEMP/check.json"
           node -e '
             const j = JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/check.json", "utf8"));
-            if (j.error || j.key_matches !== true) { console.log("Live relay check failed:", j.error || "key did not match"); process.exit(1); }
+            if (j.error || j.key_matches !== true) { console.log("::error::Live relay check failed: " + (j.error || "key did not match")); process.exit(1); }
             console.log("Live relay answers. today:", j.today, "kite_day:", j.kite_day, "token_ok_for_today:", j.token_ok_for_today);'
 
       - name: Record the deployed commit
