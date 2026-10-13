@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-13
 
+### Overseas markets in the expiry meter and the strip
+Owner: does the meter consider overseas markets? Europe is open during Indian hours and moves India; so does the US.
+- **Before**: no -- the meter used only NIFTY's option chain (which already prices overseas moves made so far, but nothing explicit).
+- **Source**: one free Yahoo Finance request (`v8/finance/spark`) for DAX, FTSE 100, Euro Stoxx 50, CAC 40 and S&P 500, Nasdaq 100 and Dow futures, cached 60 s (`overseasSnapshot_`, `Market.gs`). Checked from GitHub: all seven answered in one call (13:58 IST: DAX +0.52%, FTSE +0.73%, S&P fut -0.03%, Nasdaq fut -0.56%). No Kite or BharatStock use.
+- **Model**: expected close gains + e × F × Europe move % + u × F × US futures move %; e and u start at 0 and are learned with k and m (4-weight ridge fit; each reading now stores the Europe and US averages). They count only once past expiries show they help, so today's expected close is unchanged by them.
+- **Shown**: an Overseas markets panel on the meter (each market, the Europe and US averages); DAX, FTSE 100, S&P 500 and Nasdaq futures on the dashboard strip.
+
 ### One Kite request for the live platform (`relay/Market.gs`)
 Owner: "one Kite request should be used for multiple data points; never multiple calls for multiple data points" -- across the whole platform.
 - **`marketSnapshot_()`**: one Kite quote request per 10 seconds, shared by every caller through the script cache, with a script lock so simultaneous callers wait for it instead of each calling Kite. It carries NIFTY 50, NIFTY BANK, SENSEX, INDIA VIX, front-month gold and crude, USD/INR and, on a NIFTY expiry day, today's NIFTY options within 3% of spot. Only last price, previous close and open interest are kept.

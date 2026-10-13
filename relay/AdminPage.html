@@ -1730,6 +1730,7 @@ function tapeTick(){
     const dayTxt = dd ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dd.getUTCDay()] + ' ' + dd.getUTCDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dd.getUTCMonth()] + ' ' + dd.getUTCFullYear() : '';
     el.innerHTML = TAPE_NAMES.map(([k, n]) => item(n, (d.indices || {})[k])).join('') + item('VIX', d.india_vix) +
       item('GOLD', x.gold) + item('CRUDE', x.crude) + item('USD/INR', x.usd_inr) +
+      ((d.overseas && d.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym)).map(o => item(esc(o.name).toUpperCase(), o)).join('') +
       '<span class="t">' + (open ? 'Live · ' + hm + ' IST' : 'Last quote · ' + hm + ' IST · ' + dayTxt) + '</span>';
   }).catch(() => {});
 }
@@ -1768,6 +1769,16 @@ function expGauge(d){
     '<text x="150" y="172" font-size="11" fill="' + cssVar('--muted') + '" text-anchor="middle">' + fmt(lo) + ' ← range → ' + fmt(hi) + '</text></svg>';
 }
 function fmt(v, dp){ return v == null ? '–' : Number(v).toLocaleString('en-IN', { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 0 }); }
+function ovPanel(o){
+  if (!o || !o.items || !o.items.length) return '';
+  const row = x => '<tr><td style="text-align:left">' + esc(x.name) + '</td><td>' + fmt(x.last, 2) + '</td><td style="color:' + (x.change_pct >= 0 ? 'var(--up)' : 'var(--down)') + '">' +
+    (x.change_pct >= 0 ? '+' : '') + fmt(x.change_pct, 2) + '%</td><td class="muted">' + esc(x.at || '') + '</td></tr>';
+  const avg = (n, v) => '<span style="margin-right:18px">' + n + ' <b style="color:' + (v >= 0 ? 'var(--up)' : 'var(--down)') + '">' + (v == null ? '–' : (v >= 0 ? '+' : '') + fmt(v, 2) + '%') + '</b></span>';
+  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Overseas markets</h3><span class="muted" style="font-size:12px">Europe live during Indian afternoon hours; US index futures trade around the clock · Yahoo Finance, refreshed every minute</span></div><div class="panel-b">' +
+    '<div style="margin-bottom:8px">' + avg('Europe today', o.eu) + avg('US futures today', o.us) + '</div>' +
+    '<table class="t"><tr><th style="text-align:left">Market</th><th>Level</th><th>Today</th><th>As of (IST)</th></tr>' + o.items.map(row).join('') + '</table>' +
+    '<div class="muted" style="margin-top:6px;font-size:12px">The option chain already prices what overseas markets have done so far; what moves the close is what they do next. The meter records these with every reading and gives them weight only if past expiries show it helps.</div></div></div>';
+}
 function drawExpiry(){
   const d = EXP.data, v = $('view');
   const acc = (d.accuracy || []);
@@ -1779,7 +1790,7 @@ function drawExpiry(){
         return fmt(x) + ' <span style="color:' + (Math.abs(bp) <= 25 ? 'var(--up)' : 'var(--down)') + '">(' + (bp >= 0 ? '+' : '') + bp.toFixed(0) + ' bp)</span>'; };
       return '<tr><td>' + esc(a.date) + '</td><td><b>' + fmt(a.close) + '</b></td><td>' + c(a.at10) + '</td><td>' + c(a.at12) + '</td><td>' + c(a.at14) + '</td><td>' + c(a.at15) + '</td></tr>'; }).join('') + '</table>'
       : '<div class="muted">No finished expiries recorded yet. Today\'s close is recorded after 15:45 IST and the weights are re-fitted from it.</div>') +
-    '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + d.model.k + ' × (max pain − forward) + ' + d.model.m + ' × (wall midpoint − forward). ' +
+    '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + d.model.k + ' × (max pain − forward) + ' + d.model.m + ' × (wall midpoint − forward) + ' + (d.model.e || 0) + ' × Europe move + ' + (d.model.u || 0) + ' × US futures move (overseas weights start at 0 and are learned). ' +
     (d.model.expiries ? 'Fitted on ' + d.model.expiries + ' expiries (' + d.model.samples + ' readings).' : 'Starting values; re-fitted after each expiry.') + '</div></div></div>';
   if (!d.expiry_today) {
     v.innerHTML = '<div class="panel"><div class="panel-b">No NIFTY expiry today. Next expiry: <b>' + esc(d.next_expiry || '–') + '</b>. The meter runs on expiry days.' +
@@ -1800,7 +1811,7 @@ function drawExpiry(){
     '<div class="grid g2" style="margin-top:14px">' +
       kpi('Call walls (resistance)', fmt(d.call_wall), d.call_walls.map(w => fmt(w[0]) + ' · ' + fmt(w[1] / 1e5) + ' L').join(' | ')) +
       kpi('Put walls (support)', fmt(d.put_wall), d.put_walls.map(w => fmt(w[0]) + ' · ' + fmt(w[1] / 1e5) + ' L').join(' | ')) + '</div>' +
-    accTable +
+    ovPanel(d.overseas) + accTable +
     '<div class="muted" style="margin-top:10px;font-size:12px">Not a guarantee. The range is the market\'s own estimate (ATM straddle). Walls and max pain are where price often settles on expiry, not where it must.</div>';
   const H = d.history || [];
   const el = $('expChart'); if (!el) return;

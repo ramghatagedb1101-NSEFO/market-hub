@@ -3,7 +3,8 @@
  * for this every 10 seconds; the answer is computed from a live Kite quote of today's NIFTY options (cached
  * 10 s, so many viewers cost one Kite call).
  *
- * Expected close = F + k*(MP - F) + m*(W - F), where
+ * Expected close = F + k*(MP - F) + m*(W - F) + e*F*EU% + u*F*US%, where (EU% / US%: average move today of the
+ * European indices / US index futures, Market.gs; e and u start at 0 and are learned like k and m)
  *   F  = forward from put-call parity at the ATM strike (strike + call - put): the market's own expected settlement;
  *   MP = max pain (settlement where option buyers collect least);
  *   W  = midpoint of the call wall and the put wall (top OI strikes above / below spot).
@@ -78,21 +79,40 @@ function expiryGuessSyms_(date, spot) {
   return out;
 }
 
+// Fit of the four weights from every stored reading against its expiry's close: ridge least squares pulled towards
+// (k0, m0, 0, 0) with a prior worth EXP_PRIOR_SAMPLES readings, so a few expiries move the weights only a little and
+// the overseas terms count only once the record shows they help. Readings stored before 13 Oct 2026 14:00 have no
+// overseas values (taken as 0).
 function expiryModel_() {
   const props = PropertiesService.getScriptProperties();
   const closes = JSON.parse(props.getProperty('EXP_CLOSES') || '{}');
-  let s11 = 0, s12 = 0, s22 = 0, s1y = 0, s2y = 0, n = 0, scale = 0;
+  const X = [], Y = [];
   Object.keys(closes).forEach(d => {
-    const pts = JSON.parse(props.getProperty('EXPD_' + d) || '[]');
-    pts.forEach(p => { const F = p[1], x1 = p[2] - F, x2 = p[3] - F, y = closes[d] - F;
-      s11 += x1 * x1; s12 += x1 * x2; s22 += x2 * x2; s1y += x1 * y; s2y += x2 * y; scale += (x1 * x1 + x2 * x2) / 2; n++; });
+    JSON.parse(props.getProperty('EXPD_' + d) || '[]').forEach(p => {
+      const F = p[1];
+      X.push([p[2] - F, p[3] - F, F * (p[5] || 0) / 100, F * (p[6] || 0) / 100]); Y.push(closes[d] - F);
+    });
   });
-  if (!n) return { k: EXP_K0, m: EXP_M0, expiries: 0, samples: 0 };
-  const lam = EXP_PRIOR_SAMPLES * scale / n;
-  const a = s11 + lam, b = s12, c = s22 + lam, r1 = s1y + lam * EXP_K0, r2 = s2y + lam * EXP_M0, det = a * c - b * b;
-  if (!det) return { k: EXP_K0, m: EXP_M0, expiries: Object.keys(closes).length, samples: n };
-  const k = (r1 * c - b * r2) / det, m = (a * r2 - b * r1) / det;
-  return { k: Math.round(k * 1000) / 1000, m: Math.round(m * 1000) / 1000, expiries: Object.keys(closes).length, samples: n };
+  const b0 = [EXP_K0, EXP_M0, 0, 0], P = 4, n = X.length;
+  const out = { k: EXP_K0, m: EXP_M0, e: 0, u: 0, expiries: Object.keys(closes).length, samples: n };
+  if (!n) return out;
+  const A = [], r = [];
+  for (let a = 0; a < P; a++) {
+    A.push([]); r.push(0);
+    const ms = X.reduce((t, x) => t + x[a] * x[a], 0) / n || 1, lam = EXP_PRIOR_SAMPLES * ms;
+    for (let b = 0; b < P; b++) A[a].push(X.reduce((t, x) => t + x[a] * x[b], 0) + (a === b ? lam : 0));
+    r[a] = X.reduce((t, x, i) => t + x[a] * Y[i], 0) + lam * b0[a];
+  }
+  for (let c = 0; c < P; c++) {                      // Gaussian elimination with partial pivoting
+    let piv = c; for (let i = c + 1; i < P; i++) if (Math.abs(A[i][c]) > Math.abs(A[piv][c])) piv = i;
+    [A[c], A[piv]] = [A[piv], A[c]]; [r[c], r[piv]] = [r[piv], r[c]];
+    if (!A[c][c]) return out;
+    for (let i = c + 1; i < P; i++) { const f = A[i][c] / A[c][c]; for (let k = c; k < P; k++) A[i][k] -= f * A[c][k]; r[i] -= f * r[c]; }
+  }
+  const w = [0, 0, 0, 0];
+  for (let c = P - 1; c >= 0; c--) { let t = r[c]; for (let k = c + 1; k < P; k++) t -= A[c][k] * w[k]; w[c] = t / A[c][c]; }
+  const r3 = x => Math.round(x * 1000) / 1000;
+  return Object.assign(out, { k: r3(w[0]), m: r3(w[1]), e: r3(w[2]), u: r3(w[3]) });
 }
 
 function expiryAccuracy_() {
@@ -143,7 +163,8 @@ function expiryNow_() {
   const MP = rows.reduce((b, r) => payout(r.strike) < payout(b.strike) ? r : b).strike;
   const W = (callWall + putWall) / 2;
   const M = base.model;
-  const pred = F + M.k * (MP - F) + M.m * (W - F);
+  const ov = overseasSnapshot_(), eu = ov.eu || 0, us = ov.us || 0;
+  const pred = F + M.k * (MP - F) + M.m * (W - F) + (M.e || 0) * F * eu / 100 + (M.u || 0) * F * us / 100;
   const ceAll = rows.reduce((t, r) => t + r.ce_oi, 0), peAll = rows.reduce((t, r) => t + r.pe_oi, 0);
   const r2 = x => Math.round(x * 100) / 100;
 
@@ -151,7 +172,7 @@ function expiryNow_() {
     expiry_today: true, spot: r2(spot), forward: r2(F), max_pain: MP, wall_mid: W, call_wall: callWall, put_wall: putWall,
     call_walls: cw.slice(0, 3).map(r => [r.strike, r.ce_oi]), put_walls: pw.slice(0, 3).map(r => [r.strike, r.pe_oi]),
     atm: atm.strike, straddle: r2(straddle), range: [r2(pred - straddle), r2(pred + straddle)], prediction: r2(pred),
-    pcr: ceAll ? Math.round(peAll / ceAll * 100) / 100 : null,
+    pcr: ceAll ? Math.round(peAll / ceAll * 100) / 100 : null, overseas: ov,
     rows: rows.filter(r => Math.abs(r.strike / spot - 1) * 100 <= 1.5).map(r => [r.strike, r.ce_oi, r.pe_oi])
   });
 
@@ -168,7 +189,7 @@ function expiryNow_() {
         const props = PropertiesService.getScriptProperties(), pk = 'EXPD_' + now.date;
         const pts = JSON.parse(props.getProperty(pk) || '[]');
         cache.put('exp_last_' + now.date, now.hm, 21600);
-        if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred)]); props.setProperty(pk, JSON.stringify(pts)); }
+        if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred), eu, us]); props.setProperty(pk, JSON.stringify(pts)); }
       }
     } finally { lock.releaseLock(); }
   }

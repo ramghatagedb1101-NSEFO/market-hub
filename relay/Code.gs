@@ -124,7 +124,9 @@ function handleQuote_() {
 /** Dashboard market strip (13 Oct 2026): the same quotes as the phone, behind the dashboard sign-in. */
 function adminQuotes(token) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
-  return quoteData_();
+  const q = quoteData_();
+  q.overseas = overseasSnapshot_();   // one Yahoo request a minute, not Kite
+  return q;
 }
 
 // Index, VIX, gold, crude and rupee levels for the strip, the phone and live.json: read from the platform's one

@@ -77,3 +77,36 @@ function snapFetch_(symbols, headers) {
   }
   return { data: data, requests: reqs.length };
 }
+
+/**
+ * Overseas markets (13 Oct 2026). Owner: Europe (open during Indian afternoon hours) and the US move Indian markets.
+ * One free Yahoo Finance request for all of them, cached 60 s: DAX, FTSE 100, Euro Stoxx 50, CAC 40, and S&P 500,
+ * Nasdaq 100 and Dow futures (they trade around the clock). Not Kite, not BharatStock. Shown on the strip and the
+ * expiry meter, and recorded with each meter reading so the learning can test whether they help (weight starts at 0).
+ */
+const OVS = [['^GDAXI', 'DAX', 'eu'], ['^FTSE', 'FTSE 100', 'eu'], ['^STOXX50E', 'Euro Stoxx 50', 'eu'], ['^FCHI', 'CAC 40', 'eu'],
+             ['ES=F', 'S&P 500 fut', 'us'], ['NQ=F', 'Nasdaq fut', 'us'], ['YM=F', 'Dow fut', 'us']];
+function overseasSnapshot_() {
+  const cache = CacheService.getScriptCache();
+  const hit = cache.get('ovs');
+  if (hit) return JSON.parse(hit);
+  let out = { items: [], eu: null, us: null };
+  try {
+    const url = 'https://query1.finance.yahoo.com/v8/finance/spark?symbols=' + encodeURIComponent(OVS.map(o => o[0]).join(',')) + '&range=1d&interval=5m';
+    const j = JSON.parse(UrlFetchApp.fetch(url, { muteHttpExceptions: true, headers: { 'User-Agent': 'Mozilla/5.0' } }).getContentText());
+    const grp = { eu: [], us: [] };
+    OVS.forEach(([sym, name, g]) => {
+      const v = j[sym]; if (!v) return;
+      const c = (v.close || []).filter(x => x != null), prev = v.chartPreviousClose, last = c.length ? c[c.length - 1] : null;
+      if (last == null || !prev) return;
+      const pct = Math.round((last / prev - 1) * 10000) / 100, t = (v.timestamp || []).slice(-1)[0];
+      out.items.push({ sym: sym, name: name, group: g, last: Math.round(last * 100) / 100, change_pct: pct,
+                       at: t ? Utilities.formatDate(new Date(t * 1000), 'Asia/Kolkata', 'HH:mm') : null });
+      grp[g].push(pct);
+    });
+    const avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 100) / 100 : null;
+    out.eu = avg(grp.eu); out.us = avg(grp.us);
+  } catch (e) { out.error = String(e).slice(0, 120); }
+  cache.put('ovs', JSON.stringify(out), out.items.length ? 60 : 20);
+  return out;
+}
