@@ -33,15 +33,16 @@
  */
 const EXP_RANGE_PCT = 3, EXP_KEEP = 30;
 // Starting weights per index [k, m, e, u, v] (13 Oct 2026, owner: "set the weights to the history fit"): the fit of
-// hub/expiry_history.py on 158 NIFTY and 82 BANK NIFTY expiries, Oct 2023 - Oct 2026, NSE end-of-day files (walls and max
+// hub/expiry_history.py on 158 NIFTY, 82 BANK NIFTY (NSE end-of-day files) and 158 SENSEX expiries (BSE's, added 14 Oct
+// 2026), Oct 2023 - Oct 2026 (walls and max
 // pain from the evening before, the open as the 09:15 forward; state/expiry_history/summary.json in the private repo).
 // Before: 0.30 / 0.20 for every index, guesses. Caveats: fitted at the open, not on readings through the day, and even
 // fitted the formula did not beat the open on history (NIFTY 50.2 bp vs 49.9 walk-forward); live expiries re-fit them.
-// SENSEX (BSE) has no history test yet: it starts from NIFTY's. Europe and US (e, u) were not in the history: 0.
+// Europe and US (e, u) were not in the history: 0.
 const EXP_START = {
   NIFTY: [0.18, -0.13, 0, 0, 0.17],
   BANKNIFTY: [-0.23, 0.19, 0, 0, 0.04],
-  SENSEX: [0.18, -0.13, 0, 0, 0.17],
+  SENSEX: [0.18, 0.10, 0, 0, -0.13],
 };
 const EXP_IDX = [
   { id: 'NIFTY', label: 'NIFTY 50', exch: 'NFO', spot: 'NSE:NIFTY 50', step: 50, wd: 2, weekly: true },
