@@ -4,6 +4,30 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Band-learning step comparison run, Group F2 (~19:10 IST): a real but horizon-specific finding
+`hub.band_step_test` (dispatched via `band-step-test.yml`) ran the walk-forward backtest fixed vs.
+adaptive for all three indices and four horizons (`site/band_step_test.json` in the private repo).
+Not a clean "switch everything" result -- the live default (constant `ETA_BAND` step) turns out to be
+fine for `day` and `expiry` (9 of 9 index/horizon pairs: fixed already sits within 1-2 points of the
+80% target, second-half coverage no worse than first-half, i.e. already converged in practice, with
+hundreds of settlements to work from). `month` is mixed (BANKNIFTY benefits from the adaptive step;
+NIFTY and SENSEX don't). `year` is the real finding: **all three indices** show the fixed step
+destabilising badly -- NIFTY and SENSEX's first-half coverage was 47-48% (band far too narrow) before
+the constant step pushed `band_k` up to 2.0-2.02 (from a start of 1.2816) and second-half coverage
+overshot to 100%, i.e. the band ended up far too wide, not actually calibrated; BANKNIFTY swung the
+opposite way (`band_k` to 3.72, second half fell to 56.8%). The adaptive step's decaying nudge tempered
+all three: `band_k` settled much closer to its start (1.44-1.53) and second-half coverage landed in the
+80s-90s rather than at an extreme. This makes sense in hindsight -- `year`-horizon settlements are few
+and highly overlapping (consecutive daily forecasts targeting almost the same date), so a step sized
+for the frequent `day`/`expiry` horizons is far too aggressive there; a per-horizon fixed `n` never
+distinguishes the two.
+
+**Not switched on live yet.** The evidence supports switching the adaptive step on for the `year`
+horizon specifically (unanimous across all three indices, a real instability, not a marginal
+preference) -- not a global change, since `day`/`expiry` already work and `month` is ambiguous. Left
+for the owner to confirm before touching `hub/tracker.py`'s live call to `engine.learn()`, since this
+changes a live forecasting model's actual behaviour, not just adds a capability.
+
 ### ROCE gate added to the multi-bagger screen, Group F1 (~18:30 IST)
 The two recommendations left "not started, by design" since the 8 Oct methodology review needed
 groundwork before either could be built. Started on the owner's explicit go-ahead, 14 Oct evening.

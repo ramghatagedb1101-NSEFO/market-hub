@@ -222,9 +222,17 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
    reproduces the old fixed-step formula exactly -- confirmed by a standalone offline test). New
    `hub/band_step_test.py` (workflow `band-step-test.yml`) runs the walk-forward backtest fixed vs.
    adaptive and compares first-half vs. second-half coverage against the 80% target, so a genuine
-   step-size win (closer to target AND actually converging) is told apart from a lucky sample. First run
-   dispatched 14 Oct ~19:00 IST; see CHANGELOG for its verdict once it lands -- the live default only
-   changes if the comparison actually favours it.
+   step-size win (closer to target AND actually converging) is told apart from a lucky sample.
+   **Run completed 14 Oct ~19:10 IST** (`site/band_step_test.json`, private repo): not a clean global
+   win. `day`/`expiry` (9 of 9 index/horizon pairs): fixed step already near the 80% target and
+   converged -- hold. `month`: mixed (BANKNIFTY favours adaptive, NIFTY/SENSEX don't) -- hold. `year`:
+   **all three indices** show the fixed step unstable (`band_k` drifting 1.6-2.9x its start, first/
+   second-half coverage split 47%/100% for NIFTY and SENSEX, 78.6%/56.8% for BANKNIFTY the other way);
+   the adaptive step tempers all three back toward the target. Full numbers and reasoning: CHANGELOG
+   14 Oct, "Band-learning step comparison run, Group F2". **Owner decision needed before going
+   further**: switch the adaptive step on for the `year` horizon only (the evidence-backed, narrow
+   change), or hold everywhere. Not done without that confirmation -- it changes a live forecasting
+   model's actual behaviour.
 
 **G. Still unverified (check when convenient)**
 1. **Verified live, 14 Oct ~15:20 IST** (desktop browser, not literally a phone -- still a genuine live
