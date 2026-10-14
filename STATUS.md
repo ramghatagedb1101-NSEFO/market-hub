@@ -202,7 +202,9 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 2. After ~10 recorded expiry days: test wall movement within the day (rolls, reinforcement, abandonment) -- only our own
    record has it; check whether BANK NIFTY's near-max-pain pin and SENSEX's wall barriers also show within the day;
    re-fit the meter's weights on live readings.
-3. Monthly (first: mid-Nov 2026): re-run `expiry-history.yml` (fetches only new expiries), then
+3. Monthly (first: mid-Nov 2026): re-run `expiry-history.yml` (fetches only new expiries), then `expiry-intraday.yml`
+   (adds those days' minute paths and re-runs `hub/expiry_intraday_test.py`; results in the private repo's
+   `state/expiry_history/intraday_test.json`; findings so far: CHANGELOG 14 Oct "Expiry days, minute by minute"), then
    `hub/expiry_patterns.py` and `hub/expiry_rules_test.py`; re-test the BANK NIFTY / FII net index puts candidate
    (monthly expiries only, so slow).
 4. Expiry theta: 50-100 settled sessions before any thought of more than 1 lot (`state/expiry_theta_log.json`).
@@ -211,7 +213,16 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 
 **E. Watch (outside events)**
 1. SEBI circular on expiry settlement (expected Oct 2026): if it returns to a 30-minute average, set `EXP_SETTLE` in
-   `relay/Expiry.gs` to `method: 'average'` with the window it names (built and tested, switched off).
+   `relay/Expiry.gs` to `method: 'average'` with the window it names (built and tested, switched off). Now backed by
+   399 expiries of minute data (14 Oct): under the old average, using its known part cut the error at 15:15 by about
+   40% and at 15:25 by about 85% on all three indices.
+
+**Owner decisions offered from the intraday test (14 Oct, none taken without the owner):**
+1. Meter: walls and max pain add nothing beyond the current spot from any checkpoint (10:00-15:15) -- set their
+   weights to zero so the meter reads as the forward plus its range? (the live track record so far agrees: the forward
+   beat the meter at 14:00 and 15:00 on 13 Oct).
+2. Expiry theta: 3x daily sigma never saw a NIFTY close beyond it in 159 expiries; 2.5x would collect more credit with
+   0 closes beyond and 1 touch. Keep 3x until the 50-100 session paper record (D4), or paper-test 2.5x alongside?
 2. Exchange expiry calendar changes and holidays: followed by themselves from Kite's lists now; nothing to do unless a
    check in C fails.
 3. Since the closing auction (Aug 2026) NIFTY's close sat between the walls 4 of 10 expiries vs ~6 expected: keep an

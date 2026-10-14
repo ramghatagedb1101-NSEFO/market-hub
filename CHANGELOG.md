@@ -4,6 +4,34 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Expiry days, minute by minute: 399 intraday paths and what they show (~22:30 IST)
+Owner asked what else the data could do for expiry-day prediction. Every history test so far compared the evening-before
+chain with the expiry day's open and close only, while the meter reads at 10:00-15:00. New `hub/expiry_intraday.py`
+(workflow `expiry-intraday.yml`) fetched Kite minute candles for the index on all 399 recorded expiry days (NIFTY 159,
+SENSEX 158, BANK NIFTY 82; Oct 2023 - Oct 2026): full coverage, no gaps, 59 Kite requests, into the private repo's
+`state/expiry_history/intraday/`. New `hub/expiry_intraday_test.py` tests, walk-forward (each expiry predicted only from
+earlier ones, after 30), per index; a result "holds" only with gains in both halves and t >= 2. 78 cells tested, 12 hold
+(about 2 would by chance) -- all 12 are the late-average mechanism below. Results: `state/expiry_history/intraday_test.json`.
+
+- **Walls, max pain, morning momentum: no help from any checkpoint (10:00 to 15:15), any index.** "Close = spot now"
+  wins or ties everywhere (e.g. NIFTY at 14:00: 20.4 bp error vs 20.7 with max pain). This extends the evening-before
+  finding to the whole day: the meter's wall/max-pain terms add nothing beyond the current spot/forward.
+- **The pre-auction close was the 15:00-15:30 average, and using the known part of it is a large, mechanical gain** (all
+  three indices, t 5-12): NIFTY error at 15:15 3.1 -> 1.9 bp, at 15:25 6.0 -> 0.9 bp. Since 3 Aug 2026 the closing auction
+  sets the close, so this applies only if SEBI returns to an average (STATUS E1) -- then switching on `EXP_SETTLE` in
+  `relay/Expiry.gs` is now backed by the data, not just built.
+- **Auction era (since 3 Aug 2026, only 23 expiries): the close sits further from the 15:00 price** -- NIFTY 24.6 bp vs
+  8.5 bp before (the average used to smooth it). Small sample, but late meter readings should be read as less certain now.
+- **Range**: the remaining move from each checkpoint is about 0.6-0.8x the evening-before straddle scaled by the square
+  root of the time left (68% level, out of sample; coverage 56-69%, slightly under, so the band needs a little margin).
+  Consistent with the earlier "about a quarter narrower" finding; the owner's decision to wait for recorded live
+  expiries before changing the live range stands.
+- **Expiry theta's 3x-daily-sigma strikes, first backtest of the index side** (no option prices exist, so no P&L):
+  from 10:00, the close never ended beyond 3x on NIFTY (0 of 159) or SENSEX (0 of 158), 1 of 82 on BANK NIFTY; touches
+  0-1.2%. At 2.5x: NIFTY 0 closes beyond, 1 touch. Worst 14:45-to-close move, auction era: 0.74 daily sigma (NIFTY).
+  The rule is conservative on index risk; the sample has no election- or budget-type expiry, so tail risk is not
+  measured. Strike distance stays an owner decision (paper record of 50-100 sessions first, STATUS D4).
+
 ### Push notifications live on the owner's iPhone; tapping now opens Market Hub on "Log in to Kite" (~21:40 IST, cache v33)
 First real push confirmed by the owner (test run: `sent: 1, errors: 0`). Tapping it did not open the Kite
 login: `sw.js` asked iOS to open the outside link (kite.zerodha.com) from the notification tap, and a Home

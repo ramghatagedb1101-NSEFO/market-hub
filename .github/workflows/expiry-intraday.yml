@@ -2,7 +2,8 @@ name: expiry-intraday
 
 # Intraday index path for every recorded expiry day (hub/expiry_intraday.py, 14 Oct 2026): Kite minute candles,
 # saved to the private repository's state/expiry_history/intraday/. Fetches only days not stored yet (a first run
-# is ~60 paced Kite requests). Needs today's Kite login. Run by hand; the result is a ::notice annotation on the run.
+# is ~60 paced Kite requests). Then re-runs hub/expiry_intraday_test.py on everything stored. Needs today's Kite
+# login. Run by hand after expiry-history.yml (monthly); results are ::notice annotations on the run.
 on:
   workflow_dispatch:
     inputs:
@@ -52,3 +53,9 @@ jobs:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
           RETRY_MISSING: ${{ inputs.retry_missing }}
         run: python -m hub.expiry_intraday
+      - name: Re-run the intraday expiry test on everything stored
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          python -m hub.expiry_intraday_test > /tmp/intraday_test.json
+          python -c "import json; r=json.load(open('/tmp/intraday_test.json')); print('::notice title=intraday test::' + json.dumps(r['multiple_testing']))"
