@@ -837,10 +837,31 @@
     }catch(e){ return ""; }
   }
 
+  // Replay scoreboard (14 Oct 2026; relay expiryScore_, written by hub/expiry_day.py): every recorded expiry re-scored with
+  // today's model beside what the meter showed live and the forward. Collapsed per index: it changes once per expiry.
+  async function scorePanel(){
+    try{
+      const S = await (await fetch("data/expiry_score.json?t=" + Date.now(), {cache:"no-store"})).json();
+      const ids = Object.keys(S.indices || {}).filter(id => (S.indices[id].score || []).some(s => s.n));
+      if (!ids.length) return "";
+      const v = x => x == null ? "–" : f(x, 0);
+      const body = ids.map(id => {
+        const X = S.indices[id], rows = X.score.filter(s => s.n), n = Math.max(...rows.map(s => s.n));
+        const few = !rows.some(s => s.enough) ? ` <span class="mut">· too few to judge (${n} of ${rows[0].min_n})</span>` : "";
+        return `<details><summary>${esc(X.label)} · ${n} expir${n === 1 ? "y" : "ies"}${few}</summary>
+          <table class="t"><tr><th>Time</th><th>Meter</th><th>Model</th><th>Fwd</th><th>In range</th></tr>${rows.map(s =>
+            `<tr><td>${esc(s.at)}</td><td>${v(s.live_bp)}</td><td>${v(s.model_bp)}</td><td>${v(s.forward_bp)}</td><td>${s.n_band ? s.live_band_hits + "/" + s.n_band : "–"}</td></tr>`).join("")}</table></details>`;
+      }).join("");
+      return `<div class="sec">Expiry meter scoreboard</div><div class="panel"><div class="pb">
+        <div class="mut" style="margin-bottom:4px">Average distance from the close in bp, lower is better: the meter as shown live, today's model replayed, and the market's forward. "In range": close inside the ±1 sd band.</div>${body}</div></div>`;
+    }catch(e){ return ""; }
+  }
+
   async function renderFno(){
     const el = $("#fno-body");
     const exp0 = await expiryPanel(), exp = exp0 ? `<div id="exp-box">${exp0}</div>` : "";
     if (exp) el.innerHTML = exp;
+    const score = await scorePanel();
     try{
       const D = await getFile("fno");
       const idx = Object.keys(D.underlyings).map(u => {
@@ -853,10 +874,10 @@
       }).join("");
       let S = null;
       try { S = await getFile("stocks"); } catch(e) { S = null; }
-      el.innerHTML = exp + idx + stockScreen(S) +
+      el.innerHTML = exp + score + idx + stockScreen(S) +
         `<div class="foot">${esc(D.disclaimer)} Model suggestions with no track record yet. Check margin and your own risk limits before placing anything.</div>`;
     }catch(e){
-      el.innerHTML = exp + `<div class="panel"><div class="pb mut">F&amp;O suggestions appear after the daily job runs.</div></div>`;
+      el.innerHTML = exp + score + `<div class="panel"><div class="pb mut">F&amp;O suggestions appear after the daily job runs.</div></div>`;
     }
   }
 

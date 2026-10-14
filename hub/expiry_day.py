@@ -20,6 +20,29 @@ import urllib.request
 from . import config
 
 EXPIRY_FILE = config.SITE_DIR / "data" / "expiry.json"
+# Replay scoreboard for the phone (relay expiryScore_, 14 Oct 2026): written on any day the relay returns its track
+# record, not only on expiry days. No timestamp inside, so live.yml's every-5-minutes run commits it only when a new
+# close actually changes the numbers.
+SCORE_FILE = config.SITE_DIR / "data" / "expiry_score.json"
+
+
+def write_score(r: dict) -> dict | None:
+    labels = {u["id"]: u.get("label") for u in r.get("upcoming") or [] if u.get("id")}
+    out = {}
+    for idx, t in (r.get("tracks") or {}).items():
+        score = (t or {}).get("score")
+        if not score:
+            continue
+        dates = [a["date"] for a in t.get("accuracy") or [] if a.get("date")]
+        out[idx] = {"label": labels.get(idx) or idx, "last_expiry": max(dates) if dates else None, "score": score}
+    if not out:
+        return None
+    body = {"indices": out}
+    text = json.dumps(body, separators=(",", ":"), sort_keys=True)
+    if not SCORE_FILE.exists() or SCORE_FILE.read_text(encoding="utf-8") != text:
+        SCORE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        SCORE_FILE.write_text(text, encoding="utf-8")
+    return body
 
 
 def _walls(ws: list) -> list:
@@ -54,6 +77,7 @@ def _bp(v, close):
 def main() -> dict:
     url = os.environ["RELAY_URL"] + "?" + urllib.parse.urlencode({"mode": "expiry_close", "key": os.environ["RELAY_KEY"]})
     r = json.loads(urllib.request.urlopen(url, timeout=90).read())
+    write_score(r)
     for idx, t in (r.get("tracks") or {}).items():
         for a in (t.get("accuracy") or [])[:1]:
             c = a["close"]

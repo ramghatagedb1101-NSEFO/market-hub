@@ -193,7 +193,9 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 4. Mon 19 Oct 2026 (NIFTY's holiday-moved expiry): `expiry-theta.yml` runs on Monday and finds the expiry; the meter
    opens on NIFTY; `expiry-tape.yml` saves `state/expiry/2026-10-19_NIFTY.json`.
 5. After every expiry day: the day file exists in `state/expiry/` (if not, re-run `expiry-tape.yml` before ~21:30 IST),
-   and the track record shows the meter against the forward.
+   and the track record shows the meter against the forward. The replay scoreboard (dashboard Expiry meter page, phone
+   F&O tab, `docs/data/expiry_score.json`; 14 Oct) gains that expiry; Thu 15 Oct SENSEX is its first day with spot and
+   range-band data. Range decision (D1): read its "close in +-1 sd band" vs "0.75 sd band" once 10 expiries per index.
 
 **D. Waiting for data (do not build before the data exists)**
 1. After 3-5 recorded expiries per index: decide the range calibration (history: about a quarter narrower at the right

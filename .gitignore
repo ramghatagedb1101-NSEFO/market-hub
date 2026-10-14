@@ -18,6 +18,7 @@ rg/reports/
 docs/data/*.json
 !docs/data/live.json
 !docs/data/expiry.json
+!docs/data/expiry_score.json
 state/
 .private_pulled.json
 
