@@ -25,9 +25,11 @@ INDEX_SOURCES = {
 INDICES = tuple(INDEX_SOURCES)
 HISTORY_DAYS = 5 * 365                            # backfill depth on first run
 
-# Weekly expiry weekday per index (0=Mon .. 4=Fri). Mirrors expiry_config.py.
-# Verify against current NSE / BSE circulars before relying on expiry targets.
-EXPIRY_WEEKDAY = {"NIFTY": 1, "BANKNIFTY": 2, "SENSEX": 0}
+# Expiry dates come from Kite's contract lists (hub/expiries.py: rule changes and holiday moves followed by
+# themselves). This rule is only the fallback when the lists cannot be read: (kind, weekday 0=Mon .. 4=Fri), as of
+# Oct 2026 -- NIFTY weekly Tuesday, SENSEX weekly Thursday, BANK NIFTY monthly only (last Tuesday). Before
+# 14 Oct 2026 this was one weekday each, with BANK NIFTY Wednesday and SENSEX Monday (wrong) and no holiday moves.
+EXPIRY_RULE = {"NIFTY": ("weekly", 1), "BANKNIFTY": ("monthly", 1), "SENSEX": ("weekly", 3)}
 
 HORIZONS = ("day", "expiry", "month", "year")
 

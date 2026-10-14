@@ -139,12 +139,15 @@ def _cost_to_close(k, legs) -> float | None:
     """Current cost to close the same four legs: what it would take to buy back the shorts and sell
     the longs right now, at last traded price. Missing a quote makes the whole read untrustworthy,
     so it returns None rather than a partial number."""
+    if any("tradingsymbol" not in l for l in legs):
+        return None
+    q = k.quote([f"NFO:{l['tradingsymbol']}" for l in legs])     # one call for all four legs (14 Oct 2026)
     total = 0.0
     for l in legs:
-        q = k.quote([f"NFO:{l['tradingsymbol']}"]) if "tradingsymbol" in l else None
-        if not q:
+        x = q.get(f"NFO:{l['tradingsymbol']}")
+        if not x:
             return None
-        price = float(next(iter(q.values()))["last_price"])
+        price = float(x["last_price"])
         total += -price if l["action"] == "SELL" else price
     return total
 

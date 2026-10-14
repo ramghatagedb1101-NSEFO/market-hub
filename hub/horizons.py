@@ -3,7 +3,7 @@ import calendar
 from bisect import bisect_right
 from datetime import date, timedelta
 
-from . import config
+from . import config, expiries
 
 
 def _last_weekday_of_month(year: int, month: int) -> date:
@@ -21,11 +21,7 @@ def target_for(horizon: str, index: str, asof: date) -> date:
             t += timedelta(days=1)
         return t
     if horizon == "expiry":
-        wd = config.EXPIRY_WEEKDAY[index]
-        t = asof + timedelta(days=1)
-        while t.weekday() != wd:
-            t += timedelta(days=1)
-        return t
+        return expiries.next_expiry(index, asof)      # Kite's contract lists; rule fallback (hub/expiries.py)
     if horizon == "month":
         t = _last_weekday_of_month(asof.year, asof.month)
         if t <= asof:

@@ -2,15 +2,15 @@ name: expiry-theta
 
 # Expiry-day theta harvest (hub/expiry_theta.py): EXPERIMENTAL, UNVALIDATED, a different risk
 # profile from everything else in this repo -- see that module's docstring before changing anything
-# here. Runs three times during market hours on NIFTY's weekly expiry day (Tuesday, per
-# hub/config.py's EXPIRY_WEEKDAY -- the script itself re-checks the live option chain for an actual
-# expiry today, so a stale weekday assumption fails safe into a no-op, not a wrong trade). Morning:
+# here. Runs three times during market hours on Mondays and Tuesdays: NIFTY expires on Tuesday, or on
+# Monday when Tuesday is a holiday (Mon 19 Oct and Mon 9 Nov 2026; 14 Oct 2026: Tuesday-only missed those). The
+# script re-checks the live option chain for an actual expiry today and no-ops on other days. Morning:
 # a new suggestion. Midday and afternoon: a hold/exit read on whatever the morning run suggested.
 on:
   schedule:
-    - cron: "30 4 * * 2"    # 04:30 UTC = 10:00 IST: entry decision, after the opening session settles
-    - cron: "0 7 * * 2"     # 07:00 UTC = 12:30 IST: midday hold/exit check
-    - cron: "15 9 * * 2"    # 09:15 UTC = 14:45 IST: final hold/exit check, ~45 min before the close
+    - cron: "30 4 * * 1-2"    # 04:30 UTC = 10:00 IST: entry decision, after the opening session settles
+    - cron: "0 7 * * 1-2"     # 07:00 UTC = 12:30 IST: midday hold/exit check
+    - cron: "15 9 * * 1-2"    # 09:15 UTC = 14:45 IST: final hold/exit check, ~45 min before the close
   workflow_dispatch:        # manual run any day, for testing -- the script no-ops if NIFTY has no expiry today
 
 permissions:

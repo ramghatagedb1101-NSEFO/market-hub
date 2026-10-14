@@ -77,11 +77,14 @@ def get_kite():
             "RG_CHAIN_CACHE=read (replay mode) — Kite is deliberately unreachable. "
             "Unset it for a live run, or use market_data.read_cached_chain().")
     import os
-    from kiteconnect import KiteConnect
+    # Paced client shared with the hub (14 Oct 2026, Kite audit): quote calls >= 1.05 s apart across the job,
+    # "Too many requests" retried, quotes over 500 instruments split, the NFO list downloaded once a day. This
+    # module's ~100-150 quote calls a run used to go out back to back and Kite quietly refused some.
+    from hub.sources.kite import PacedKite
     # Hub: credentials come from the environment only (GitHub secrets / the daily
     # workflow's relay step). The old kite_token.json file fallback is dropped so no
     # token file is ever read from the hub folder.
-    k = KiteConnect(api_key=os.getenv("KITE_API_KEY", ""))
+    k = PacedKite(api_key=os.getenv("KITE_API_KEY", ""))
     token = os.getenv("KITE_ACCESS_TOKEN", "")
     if not token:
         raise RuntimeError("No Kite access token (KITE_ACCESS_TOKEN not set).")

@@ -150,6 +150,13 @@ def main() -> dict:
     out = {"ts": datetime.now(config.IST).isoformat(timespec="seconds"), "underlyings": {},
            "disclaimer": "Model suggestions. No track record yet. Premiums are last traded prices."}
 
+    chains = {}                                   # (root, expiry) -> (chain, lot): each chain read once (14 Oct 2026)
+
+    def chain_once(opts, root, expiry, spot):
+        if (root, expiry) not in chains:          # the nearest expiry is also the monthly in a month's last week
+            chains[(root, expiry)] = _chain(k, opts, expiry, spot)
+        return chains[(root, expiry)]
+
     for name, (spot_sym, root) in UNDERLYINGS.items():
         spot = float(spot_quotes[spot_sym]["last_price"])
         opts = [i for i in instruments if i["name"] == root and i["instrument_type"] in ("CE", "PE")]
@@ -159,7 +166,7 @@ def main() -> dict:
         # Data only: the chain for an expiry that settles today (no trade suggestion).
         todays = next((i["expiry"] for i in opts if i["expiry"] == today), None)
         if todays is not None:
-            chain, _ = _chain(k, opts, todays, spot)
+            chain, _ = chain_once(opts, root, todays, spot)
             rows = [{"strike": s, "ce_ltp": v["CE"], "ce_oi": v["ce_oi"], "pe_ltp": v["PE"], "pe_oi": v["pe_oi"]}
                     for s, v in sorted(chain.items()) if abs(s / spot - 1) * 100 <= 3.0]
             block["expiring_today"] = {"expiry": todays.isoformat(), "pcr": _pcr(chain), "rows": rows}
@@ -167,7 +174,7 @@ def main() -> dict:
             if expiry is None:
                 continue
             band = feed["indices"][name]["horizons"][hz]["forecast"]
-            chain, lot = _chain(k, opts, expiry, spot)
+            chain, lot = chain_once(opts, root, expiry, spot)
             view = {"label": label, "expiry": expiry.isoformat(), "pcr": _pcr(chain),
                     "band": [band["lo"], band["hi"]] if band else None}
             if band:
