@@ -1,7 +1,10 @@
 name: diagnostics
 
 # Manual one-off checks that need NSE, which blocks requests from outside data centres' usual ranges.
-# Runs a hub.diag_* module and prints its output; writes nothing.
+# Runs a hub.diag_* module and prints its output. If the module wrote a derived-only summary to
+# diag_output/, that file is committed -- a cloud Claude session's egress policy can block reading
+# an Actions run's log directly, so a probe that needs its result read back from outside the laptop
+# should land in git instead of only in the ephemeral log.
 on:
   workflow_dispatch:
     inputs:
@@ -11,7 +14,7 @@ on:
         default: "diag_nse_alt"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   diag:
@@ -26,3 +29,11 @@ jobs:
       - run: python -m "hub.${{ inputs.module }}"
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}     # needed by diag_library_sample, diag_shareholding, diag_roce_fields
+      - run: |
+          if [ -n "$(git status --porcelain diag_output/)" ]; then
+            git config user.name "market-hub-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add diag_output/
+            git commit -m "diag_output: ${{ inputs.module }} result"
+            git push
+          fi
