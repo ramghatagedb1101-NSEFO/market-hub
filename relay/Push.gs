@@ -10,8 +10,8 @@
  * key that already guards the Kite access token (mode=token), so the added exposure is small: anyone
  * with RELAY_KEY could at worst send notifications to the owner's own devices.
  * If GitHub secrets VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY are ever added, they take precedence: the sender
- * posts that public key here (push_key), which also drops any relay-held private key so the relay
- * never holds a mismatched pair (devices then need "Turn on notifications" once more).
+ * posts that public key here (push_key); a different key drops the relay-held private key and the
+ * stored subscriptions (pushKeyChanged_), and each device then turns notifications off and on once.
  * The phone only ever gets the PUBLIC key (app_push_key, session-gated like every other app_ call).
  */
 const VAPID_PUB_RE = /^[A-Za-z0-9_-]{87}$/;    // 65-byte uncompressed P-256 point, base64url, no padding
@@ -74,9 +74,17 @@ function pushKey_(key, body) {
   try { p = JSON.parse(body); } catch (e) { return { error: 'bad JSON body' }; }
   if (!p.public_key || !VAPID_PUB_RE.test(p.public_key)) return { error: 'missing or malformed public_key' };
   const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('VAPID_PUBLIC_KEY') !== p.public_key) props.deleteProperty('VAPID_PRIVATE_KEY');
+  if (props.getProperty('VAPID_PUBLIC_KEY') !== p.public_key) pushKeyChanged_(props);
   props.setProperty('VAPID_PUBLIC_KEY', p.public_key);
   return { ok: true };
+}
+
+/** A new public key: the relay-held private key and every stored subscription belong to the old one,
+ * so both go -- the sender then reports "no subscribed devices" instead of failing every morning, and
+ * each device needs "Turn off notifications" then "Turn on notifications" once. */
+function pushKeyChanged_(props) {
+  props.deleteProperty('VAPID_PRIVATE_KEY');
+  props.setProperty('PUSH_SUBS', '[]');
 }
 
 /** Key-protected: the sender's first run stores the pair it generated. Never overwrites an existing
@@ -96,6 +104,7 @@ function pushKeysInit_(key, body) {
   if (!lock.tryLock(10000)) return { error: 'busy, try again' };
   try {
     if (props.getProperty('VAPID_PUBLIC_KEY') && props.getProperty('VAPID_PRIVATE_KEY')) return { ok: true, created: false };
+    if (props.getProperty('VAPID_PUBLIC_KEY')) pushKeyChanged_(props);   // orphaned public-only key
     props.setProperties({ VAPID_PUBLIC_KEY: p.public_key, VAPID_PRIVATE_KEY: p.private_key });
     return { ok: true, created: true };
   } finally {

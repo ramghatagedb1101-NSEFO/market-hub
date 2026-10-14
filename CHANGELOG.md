@@ -31,6 +31,14 @@ record the exception, which covers the VAPID pair only:
   (first run creates, later runs reuse and never re-init, pair never replaced, init failures reported,
   HTTP errors never print RELAY_KEY, GitHub secrets override and drop the mismatched relay key, holiday and
   logged-in skips still apply, the private key appears only on the mask line). All pass. `node relay/check.js` clean.
+- Independent review before deploy (3 reviewers by lens: leakage, relay access control, correctness; each
+  finding then checked by a separate skeptic): 3 low-severity findings confirmed, 2 refuted, no access-control
+  hole. All 3 fixed: (1) `push_state()` never raises now -- its response carries the private key, and an
+  uncaught error on the redirect hop would have printed the one-time Google URL that serves it; (2) a
+  public-key change (GitHub-secrets route only) now also clears stored subscriptions (`pushKeyChanged_`),
+  instead of leaving them failing every morning with only `errors: 1`, and the docs say "turn off, then on";
+  (3) GitHub-secret values are stripped, and a secrets-route private key whose public half the relay
+  refused is never used to send. Flow test now 17 cases, all pass; real-crypto test 8/8.
 - The owner's steps are now: tap "Turn on notifications" once after the first test run, and confirm the
   second test arrived (STATUS.md "Next up" 1).
 

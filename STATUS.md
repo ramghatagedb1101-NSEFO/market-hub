@@ -116,7 +116,8 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
         (`trig_011gp21txucmWGZPKqpR2FEu`) -- it is not visible to cloud sessions (list_triggers is empty
         there), so it lives in the desktop app or another scope.
      No GitHub secrets needed; `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` secrets, if ever added, override
-     the relay pair (devices then tap "Turn on notifications" once more). Each run's result is a
+     the relay pair -- the relay then clears stored subscriptions, and each device needs "Turn off
+     notifications" then "Turn on notifications" once (the phone keeps showing "On" for the old key). Each run's result is a
      `::notice` annotation (readable via the check-runs API -- a cloud session cannot download logs).
 2. **Code done 14 Oct, ~13:20 IST -- not deployed yet (market hours).** Relay counts its own BharatStock
    calls: `bsCount_(n)`/`bsUsage_(p)`/`utcDay_()` added to `Code.gs` (script property `BS_USAGE`

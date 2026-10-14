@@ -56,9 +56,14 @@ def is_nse_holiday(today: str | None = None) -> bool:
 
 
 def push_state(relay_url: str, relay_key: str) -> dict:
-    r = requests.get(relay_url, params={"mode": "push_state", "key": relay_key}, timeout=30)
-    r.raise_for_status()
-    return r.json()
+    """Never raises: the response carries the private key, and an uncaught requests error would print
+    the one-time Google URL (script.googleusercontent.com/macros/echo?...) that serves it."""
+    try:
+        r = requests.get(relay_url, params={"mode": "push_state", "key": relay_key}, timeout=30)
+        r.raise_for_status()
+        return r.json()
+    except Exception as exc:
+        return {"error": "push_state failed: " + _err(exc)}
 
 
 def _err(exc: Exception) -> str:
@@ -149,9 +154,15 @@ def send_to(sub: dict, payload: dict, vapid_private_key: str) -> str:
 def resolve_keys(relay_url: str, relay_key: str, st: dict) -> tuple[str, str, dict]:
     """Returns (private key or "", how the keys were found, push_state -- re-read after a first-run
     init). GitHub secrets win when both are set; otherwise the relay's pair, created on the first run."""
-    env_pub, env_priv = os.getenv("VAPID_PUBLIC_KEY", ""), os.getenv("VAPID_PRIVATE_KEY", "")
+    env_pub = os.getenv("VAPID_PUBLIC_KEY", "").strip()
+    env_priv = os.getenv("VAPID_PRIVATE_KEY", "").strip()
     if env_pub and env_priv:
-        return env_priv, "github secrets, public key to relay: " + publish_public_key(relay_url, relay_key, env_pub), st
+        published = publish_public_key(relay_url, relay_key, env_pub)
+        if published != "ok" and st.get("vapid_public_key") != env_pub:
+            # The phone subscribes with the relay's public key; signing with a private key the relay does
+            # not have the public half of would fail on every device.
+            return "", "github secrets, public key not on relay: " + published, st
+        return env_priv, "github secrets, public key to relay: " + published, st
     priv = st.get("vapid_private_key") or ""
     if priv:
         return priv, "relay", st
