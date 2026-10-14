@@ -15,6 +15,15 @@ As of Wed 14 Oct 2026, ~14:10 IST. Read the HANDOVER below first, then `CHANGELO
    Python/workflow changes are safe any time; `daily.yml` runs at 18:00 IST and right after each Kite login.
 4. Clasp on a new laptop is not needed: relay deploys from GitHub (`relay-deploy.yml`). Run `node relay/check.js`
    (check its exit code) before every relay push.
+5. **Browser automation (Claude-in-Chrome), Google side -- same account-mixup risk as GitHub, resurfaced 14 Oct
+   despite a cloud session having fixed it before:** the owner has several Google accounts signed in at once
+   (`ramghatagedb1101@gmail.com` plus others, e.g. `ramghatage@gmail.com`) and the extension can land on the
+   wrong one -- it did, for `script.google.com`, 14 Oct. Before clicking anything on a Google-hosted page
+   (`script.google.com`, the admin dashboard, Apps Script executions), check the account avatar button in the
+   top-right corner first. If it is wrong, it is very likely **not** a different Chrome profile -- it is the
+   same profile with multiple Google sessions, addressed by URL: try `.../u/0/...`, `/u/1/`, `/u/2/` etc. (the
+   owner's account chooser page lists which slot is which) before assuming a full browser-profile switch
+   (`list_connected_browsers`/`switch_browser`) is needed. Never use "Use another account" / type a password.
 
 **Done today (all pushed, details in CHANGELOG 14 Oct 2026):**
 - Kite audit fixes (commit 24be95d): one paced Kite client for every job (`hub/sources/kite.PacedKite`, also used by
@@ -201,8 +210,30 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 2. Adaptive band-learning step in the forecast engine (`hub/engine.py`; through `hub/backtest.py` first).
 
 **G. Still unverified (check when convenient)**
-1. Phone sign-in tested on the phone itself (the owner has used the phone app since 8 Oct, so likely fine).
-2. Admin dashboard: reopening the tab within six hours stays signed in.
+1. **Verified live, 14 Oct ~15:20 IST** (desktop browser, not literally a phone -- still a genuine live
+   test, not inference from usage): opened the real public URL
+   (`https://ramghatagedb1101-nsefo.github.io/market-hub/`), requested a sign-in code ("Code sent"),
+   the owner read it from email, signed in -- Home (index forecasts with settled-outcome counts, "What
+   changed for your stocks" with real shortlist moves) and F&O (live NIFTY/BANK NIFTY iron condor
+   structures, credit/max-loss/breakevens) both loaded real data, no console errors. Signed out
+   afterwards. Confirms the phone app's distinct sign-in path (`app_code`/`app_verify`/`app_data`,
+   separate from the admin dashboard's `google.script.run`) works end-to-end on the live relay right
+   now. (Hit an unrelated snag getting here: Claude-in-Chrome was connected to the wrong Google account
+   profile -- see the HANDOVER's "Start here" item 5 above -- resolved by using the correct profile's `/u/N/`
+   tab before touching anything.)
+2. **Checked 14 Oct, ~14:15 IST (code review, no live test): the wording above was stale.** "Within six
+   hours" described the old `CacheService`-based session; the dashboard moved to a 7-day
+   `PropertiesService` session with the token in `localStorage` (not `sessionStorage`) on 9 Oct --
+   confirmed still the live code just now (`relay/Admin.gs`'s `ADMIN_SESSION_DAYS = 7`,
+   `relay/AdminPage.html`'s `localStorage.getItem('mh_admin_token')`). Verified so far: offline only
+   (`test_sessions.js`, 13 cases, Apps Script services mocked -- valid at 6d23h, expired after 7d,
+   expired entries swept, two devices independent, sign-out ends only that session, `app_logout`
+   works). **Never verified against the real, live Apps Script backend with real elapsed time** -- that
+   needs either the owner actually leaving a tab signed in for several days and reopening it, or a
+   shorter live spot-check (sign in, close the tab, reopen -- confirms the `localStorage` mechanism
+   itself works live, though not the full 7-day boundary). Neither was practical to do in this
+   session (needs the owner's email code, or real elapsed days) -- left for the owner or a future
+   check.
 3. **Checked 14 Oct, ~13:55 IST (reading the private repo directly, no code change):** the write side is
    confirmed working live -- `state/stocks_positions.json` holds 3 real OPEN positions (SBIN rec'd
    8 Oct, RELIANCE 9 Oct, HCLTECH 13 Oct; three different sectors, consistent with the sector cap doing

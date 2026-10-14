@@ -4,6 +4,26 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Phone app sign-in verified live; a Google-account mixup on the way there (~15:20 IST)
+Checking G1 ("phone sign-in tested on the phone itself") hit the Google-side twin of the GitHub
+account-flip problem documented above: Claude-in-Chrome landed on `ramghatage@gmail.com` for
+`script.google.com`, not `ramghatagedb1101@gmail.com`, despite a cloud session having reportedly fixed
+this before. Stopped immediately on noticing (the account avatar button in the corner said so),
+confirmed via the Google account chooser that the connected profile does not even have
+`ramghatagedb1101@gmail.com` as an option -- so this specific browser is a different profile, not just
+a same-profile mixup. The actual fix needed neither a profile switch nor `switch_browser`: a second tab
+with a `/u/3/` URL (Google's own same-profile multi-account addressing) was already signed in as the
+right account. Added a HANDOVER note ("Start here" item 5) so the next session checks the account
+button and tries `/u/N/` URLs before assuming a full browser reconnect is needed.
+
+With the right account confirmed, verified the phone app for real: opened the public URL
+(`https://ramghatagedb1101-nsefo.github.io/market-hub/`) fresh, requested a sign-in code, owner read it
+from email, signed in. Home (forecast bands with settled-outcome counts, "What changed for your
+stocks" with real shortlist moves) and F&O (live NIFTY/BANK NIFTY iron condor structures) both loaded
+real data, no console errors. Signed out afterwards. This is a genuine live confirmation of the phone
+app's own sign-in path (`app_code`/`app_verify`/`app_data`), not an inference from "the owner has used
+it, so likely fine."
+
 ### Fixed working_capital_days and dividend_paid/dividend_policy_change (G4, confirmed broken then fixed, ~14:10 IST)
 `working_capital_days`, `working_capital_change` and `dividend_paid` had been a gap for every one of
 2,574 companies since they were added -- never noticed because the fail-safe design (never fabricate a
