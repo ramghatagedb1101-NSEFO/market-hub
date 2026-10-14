@@ -48,7 +48,7 @@ def build() -> dict:
         "registry": registry,
         "bulk_deals": bulk,
         "multibagger": {k: mb.get(k) for k in ("ts", "universe", "scored", "rated", "turnarounds",
-                                               "rated_all_four_gates", "failures", "endpoint_fields")},
+                                               "rated_all_five_gates", "failures", "endpoint_fields")},
         "tests": tests,
     }
 

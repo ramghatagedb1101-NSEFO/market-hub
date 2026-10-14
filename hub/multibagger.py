@@ -1,8 +1,8 @@
 """
 Multi-bagger screen over every NSE equity (series EQ and BE), on BharatStock quarterly financials.
 
-Every company with at least five consolidated quarters gets a rating: the number of the four gates it
-passes (0 to 4). Failed gates are kept, not dropped, so microcaps are rated too. Ranking is by rating,
+Every company with at least five consolidated quarters gets a rating: the number of the five gates it
+passes (0 to 5). Failed gates are kept, not dropped, so microcaps are rated too. Ranking is by rating,
 then by a recent turnaround in profit, then by fewer mutual fund holders (fresher names first).
 
 Writes docs/data/multibagger.json with derived scores, ranks and gate results only.
@@ -287,6 +287,25 @@ def score(symbol: str, rows: list[dict], annual_rows: list[dict] | None = None,
         a_cfo, a_pat = a[0].get("cash_flow_operating"), a[0].get("net_profit")
         if a_cfo is not None and a_pat:
             cfo_ratio = a_cfo / a_pat
+    # ROCE gate (Group F1, 14 Oct 2026): the last three annual years, not one quarter annualised --
+    # confirmed clean on real BharatStock responses for non-financial companies (hub/diag_roce_fields.py,
+    # diag_output/roce_fields.json: RELIANCE/TCS/ITC/INFY all three years present and well-formed).
+    # Financial-sector companies (sample: HDFCBANK) have no borrowings_current/non_current in this
+    # endpoint at all -- banks don't carry conventional "borrowings" the way a capital-employed formula
+    # assumes, so this is a real sector gap, not a wrong guess, and stays a gap rather than a fabricated
+    # pass or fail, same as the existing cash_backed gate's own missing-data handling.
+    def year_roce(row):
+        op = row.get("operating_profit")
+        eq = row.get("total_equity") or row.get("equity_attributable_to_owners")
+        cur, ncur = row.get("borrowings_current"), row.get("borrowings_non_current")
+        if op is None or eq is None or cur is None or ncur is None:
+            return None
+        ce = eq + cur + ncur
+        return None if not ce else op / ce * 100
+    roce_3y = [year_roce(r) for r in a[:3]] if len(a) >= 3 else []
+    roce_sustained = None
+    if len(roce_3y) == 3 and all(r is not None for r in roce_3y):
+        roce_sustained = all(r >= 15 for r in roce_3y)
     margin = None
     if latest.get("revenue") and latest.get("net_profit") is not None:
         margin = latest["net_profit"] / latest["revenue"] * 100
@@ -299,6 +318,7 @@ def score(symbol: str, rows: list[dict], annual_rows: list[dict] | None = None,
         "turnaround": turned,
         "net_margin_pct": _r(margin),
         "operating_cash_to_profit": _r(cfo_ratio, 2),
+        "roce_3y_pct": [_r(r) for r in roce_3y] if roce_3y else None,
     }
     # Gates: a gate that cannot be tested is a gap, never a pass.
     out["gates"] = {
@@ -306,6 +326,7 @@ def score(symbol: str, rows: list[dict], annual_rows: list[dict] | None = None,
         "profit_growing": None if pat_g is None else pat_g > 15,
         "profit_consistent": yoy_profit_quarters >= 6,
         "cash_backed": None if cfo_ratio is None else cfo_ratio >= 0.8,
+        "roce_sustained": roce_sustained,
     }
     out["gaps"] = [k for k, v in out["gates"].items() if v is None]
     out["failed_gates"] = [k for k, v in out["gates"].items() if v is False]
@@ -343,7 +364,7 @@ def _write(results, failures, names, processed, partial) -> dict:
         "scored": len(results),
         "rated": len(rated),
         "not_rated_few_quarters": len(results) - len(rated),
-        "rated_all_four_gates": sum(1 for r in ranked if r["score"] == 4),
+        "rated_all_five_gates": sum(1 for r in ranked if r["score"] == 5),
         "turnarounds": sum(1 for r in ranked if r["measures"].get("turnaround")),
         "failures": failures,
         "endpoint_fields": FIELDS,

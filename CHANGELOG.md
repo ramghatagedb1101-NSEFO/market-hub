@@ -4,6 +4,44 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### ROCE gate added to the multi-bagger screen, Group F1 (~18:30 IST)
+The two recommendations left "not started, by design" since the 8 Oct methodology review needed
+groundwork before either could be built. Started on the owner's explicit go-ahead, 14 Oct evening.
+
+Groundwork first: a new one-off `hub/diag_roce_fields.py` (`diag.yml`) checked whether BharatStock's
+annual financials carry `operating_profit`, `total_equity`/`equity_attributable_to_owners` and both
+`borrowings_current`/`borrowings_non_current` cleanly across the last three annual years (the existing
+quarterly `roce` measure only ever looks at one quarter, annualised) -- not a given, since the identical
+worry about guessed field names had just been confirmed true for `working_capital_days`/`dividend_paid`
+earlier today. This cloud session's egress policy blocks reading an Actions run log directly (the
+download redirects to Azure blob storage, denied by this session's proxy) -- worked around by having the
+probe write its derived-only findings (field presence booleans, computed ROCE%, never raw financial
+figures) to `diag_output/roce_fields.json` and `diag.yml` commit it, so the result reads back from git
+instead. Real finding: RELIANCE/TCS/ITC/INFY all three years clean, consistent magnitudes (9-70% ROCE
+range across the sample). HDFCBANK's `borrowings_current`/`equity_attributable_to_owners` are simply
+absent from this endpoint for all three years -- not a wrong field-name guess this time, but a genuine
+sector gap: banks don't carry conventional "borrowings" the way a capital-employed formula assumes.
+
+Added the fifth gate (`hub/multibagger.py`'s `score()`): `roce_sustained`, true only if all of the last
+three annual years clear 15% ROCE (`operating_profit / (equity + borrowings_current + borrowings_non_current)`,
+the registry's existing ROCE threshold), false if any of the three misses it, and a gap -- never a
+fabricated pass or fail -- if fewer than three annual rows exist or any required field is missing in any
+of them (so every financial-sector company stays a permanent, correct gap on this one gate, same
+missing-data philosophy as the existing `cash_backed` gate). `measures.roce_3y_pct` published alongside
+the gate so the figures behind a pass/fail/gap aren't invisible and debugging a sector gap is possible.
+Score range is now 0-5, not 0-4: renamed `rated_all_four_gates` to `rated_all_five_gates` (`hub/multibagger.py`,
+`hub/library.py`'s `merge_and_write_multibagger` -- the same screen, reused since the 10 Oct library-batch
+integration, not a second implementation) and `hub/admin_publish.py`'s mirrored key; updated the three
+places `relay/AdminPage.html` hardcoded the old `score === 4` / "4/4" / "/4" (nav badge count, Overview
+KPI, stock-report chip) to 5. `node relay/check.js` clean. 6-case standalone test (fake quarterly + annual
+rows, no live calls): clean 3-year pass, one year below 15% fails correctly, bank-like missing-field case
+stays a gap, fewer than 3 annual rows stays a gap, `annual_rows=None` stays a gap with no crash, and the
+score can reach 5 with everything passing. All pass.
+
+**Not yet seen on a live run** -- the next `library.yml` batch (or a manual `multibagger.yml` dispatch)
+is the first real check; look for `roce_sustained` gaps clustering on financial-sector names (expected
+and correct) rather than spread randomly (which would mean a field assumption was wrong after all).
+
 ### Phone app sign-in verified live; a Google-account mixup on the way there (~15:20 IST)
 Checking G1 ("phone sign-in tested on the phone itself") hit the Google-side twin of the GitHub
 account-flip problem documented above: Claude-in-Chrome landed on `ramghatage@gmail.com` for

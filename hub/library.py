@@ -665,7 +665,7 @@ def merge_and_write_multibagger(mb_stocks: list[dict], prior_mb: dict, mb_failur
         "scored": len(merged),
         "rated": len(rated),
         "not_rated_few_quarters": len(merged) - len(rated),
-        "rated_all_four_gates": sum(1 for r in ranked if r["score"] == 4),
+        "rated_all_five_gates": sum(1 for r in ranked if r["score"] == 5),
         "turnarounds": sum(1 for r in ranked if r["measures"].get("turnaround")),
         "failures": list(mb_failures.values()),
         "endpoint_fields": FIELDS,

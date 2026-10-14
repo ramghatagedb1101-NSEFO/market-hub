@@ -510,7 +510,7 @@ const NAV = [
 let current = { page: 'overview', arg: null };
 function renderNav(){
   const counts = {
-    multibagger: S.mb ? (S.mb.ranked || []).filter(r => r.score === 4).length : '',
+    multibagger: S.mb ? (S.mb.ranked || []).filter(r => r.score === 5).length : '',
     compounders: S.lib ? (compounders() || []).filter(x => x.fails === 0).length : '',
     library: S.lib ? (S.lib.stocks || []).filter(s => s.cells).length : ''
   };
@@ -586,7 +586,7 @@ function pageOverview(){
   const s = (S.admin && S.admin.status) || {};
   const libN = S.lib ? S.lib.stocks.filter(x => x.cells).length : null;
   const comp = S.lib ? compounders().filter(x => x.fails === 0) : null;
-  const mb4 = S.mb ? (S.mb.ranked || []).filter(r => r.score === 4) : null;
+  const mb4 = S.mb ? (S.mb.ranked || []).filter(r => r.score === 5) : null;
   const turn = S.mb ? S.mb.turnarounds : null;
   const trk = (S.lib && S.lib.tracker) || null;
   const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
@@ -595,7 +595,7 @@ function pageOverview(){
   html += '<div class="grid g4" style="margin-bottom:14px">' +
     kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed' + (trk ? ' · ' + num((trk.refreshed_this_run || {}).companies || 0, 0) + ' refreshed in the last run' : '') : 'loading the library') +
     kpi('Proven compounders', comp == null ? '…' : comp.length, 'pass all six rules') +
-    kpi('Early multibaggers 4/4', mb4 == null ? '…' : mb4.length, S.mb ? num(S.mb.rated, 0) + ' rated · ' + (turn || 0) + ' turnarounds' : 'loading') +
+    kpi('Early multibaggers 5/5', mb4 == null ? '…' : mb4.length, S.mb ? num(S.mb.rated, 0) + ' rated · ' + (turn || 0) + ' turnarounds' : 'loading') +
     kpi('Bulk deals stored', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' d', 'since ' + esc((S.admin && S.admin.bulk_deals || {}).first_day || '–')) +
     '</div>';
   const mini = (title, href, rows, cols) => '<div class="panel"><div class="panel-h"><h3>' + title + '</h3><a href="#' + href + '">View all →</a></div>' +
@@ -1018,7 +1018,7 @@ function pageStock(sym){
   // Badges
   const badges = [];
   if (isCompounder(sym)) badges.push('<span class="chip up">Proven compounder</span>');
-  if (r && r.score != null) badges.push('<span class="chip ' + (r.score === 4 ? 'up' : 'brand') + '">Multibagger ' + r.score + '/4</span>');
+  if (r && r.score != null) badges.push('<span class="chip ' + (r.score === 5 ? 'up' : 'brand') + '">Multibagger ' + r.score + '/5</span>');
   if (r && (r.measures || {}).turnaround) badges.push('<span class="chip brand">Turnaround</span>');
   if (val(s,'mf_discovery_tier') === 1) badges.push('<span class="chip warn">Undiscovered (&lt;5 funds)</span>');
   if (val(s,'pledge_pct') > 10) badges.push('<span class="chip down">Pledge ' + num(val(s,'pledge_pct'), 1) + '%</span>');
