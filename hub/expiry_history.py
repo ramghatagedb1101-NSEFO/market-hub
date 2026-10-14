@@ -306,7 +306,7 @@ def parse_index(text: str) -> dict:
     rows = csv.reader(io.StringIO(text))
     head = [h.strip() for h in next(rows)]
     i = {k: head.index(k) for k in ("Index Name", "Open Index Value", "High Index Value", "Low Index Value", "Closing Index Value")}
-    names = {v["name"].lower(): s for s, v in IDX.items()}
+    names = {v["name"].lower(): s for s, v in IDX.items() if v["name"]}      # SENSEX has no NSE name
     out = {}
     for r in rows:
         s = names.get(r[i["Index Name"]].strip().lower()) if len(r) > max(i.values()) else None
