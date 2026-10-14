@@ -216,6 +216,66 @@ def _pick_expiry(option_instruments) -> date:
     return eligible[0] if eligible else None
 
 
+def _chain_legs(symbol: str):
+    """The nearest-expiry (MIN_DTE..MAX_DTE) option instruments for `symbol` -- purely local filtering
+    over the already-cached NFO instrument dump, no network call. Returns (expiry, legs), or
+    (None, []) if nothing qualifies. Shared by get_chain_snapshot and prefetch_chain_data so the two
+    can never pick a different expiry for the same symbol."""
+    opts = [i for i in _nfo_instruments()
+            if i.get("name") == symbol and i.get("instrument_type") in ("CE", "PE")]
+    if not opts:
+        return None, []
+    expiry = _pick_expiry(opts)
+    if expiry is None:
+        return None, []
+    exp_opts = [i for i in opts
+                if (i["expiry"] if isinstance(i["expiry"], date)
+                    else datetime.strptime(i["expiry"], "%Y-%m-%d").date()) == expiry]
+    return (expiry, exp_opts) if exp_opts else (None, [])
+
+
+# Populated by prefetch_chain_data(); get_equity_spot() and get_chain_snapshot() both check these
+# before making their own single-symbol Kite call. Empty (and therefore a no-op everywhere) unless a
+# caller opts in by calling prefetch_chain_data() first.
+_SPOT_CACHE: dict = {}
+_LEG_CACHE: dict = {}
+
+
+def prefetch_chain_data(symbols: list) -> dict:
+    """
+    Batches every symbol's equity spot and nearest-expiry option legs into two Kite quote() calls
+    total -- PacedKite.quote() already splits any size into paced 500-instrument calls internally
+    (hub/sources/kite.py) -- instead of get_chain_snapshot()'s own TWO calls PER SYMBOL (spot, legs).
+    For a ~100-stock universe that was ~200 separately-paced round trips: well over 3 minutes of pure
+    >=1.05 s pacing before a single recommendation was even evaluated (14 Oct 2026 Kite/BharatStock
+    audit, left open as optional at the time).
+
+    Populates the process-local _SPOT_CACHE/_LEG_CACHE that get_equity_spot() and get_chain_snapshot()
+    both check first, so NEITHER function's interface or behaviour changes for a caller that skips
+    this (a test, a one-off lookup of a single symbol) -- it just runs at the old, slower pace.
+
+    No-op, no Kite call, in replay mode (CHAIN_CACHE_MODE == 'read'): get_kite() would refuse anyway,
+    and a replay must make no network call.
+    """
+    if config.CHAIN_CACHE_MODE == "read" or not symbols:
+        return {"symbols": len(symbols), "spot_keys": 0, "leg_keys": 0}
+    kite = get_kite()
+
+    spots = kite.quote([f"NSE:{s}" for s in symbols])
+    for s in symbols:
+        q = spots.get(f"NSE:{s}", {}) or {}
+        ohlc = q.get("ohlc", {}) or {}
+        _SPOT_CACHE[s] = {"last": q.get("last_price", 0) or 0, "prev_close": ohlc.get("close", 0) or 0}
+
+    leg_keys = []
+    for s in symbols:
+        _, legs = _chain_legs(s)
+        leg_keys.extend(f"NFO:{i['tradingsymbol']}" for i in legs)
+    if leg_keys:
+        _LEG_CACHE.update(kite.quote(leg_keys))
+    return {"symbols": len(symbols), "spot_keys": len(symbols), "leg_keys": len(leg_keys)}
+
+
 def get_cached_supplementary(symbol: str) -> dict:
     """
     Read the buying tool's cached per-symbol JSON (no new network call) for the
@@ -484,7 +544,10 @@ def get_expiry_close(symbol: str, expiry_str: str):
 
 
 def get_equity_spot(symbol: str) -> dict:
-    """Return {'last': float, 'prev_close': float} for the underlying."""
+    """Return {'last': float, 'prev_close': float} for the underlying. Uses prefetch_chain_data()'s
+    cache when it has already populated this symbol, else makes its own one-symbol Kite call."""
+    if symbol in _SPOT_CACHE:
+        return _SPOT_CACHE[symbol]
     q = get_kite().quote([f"NSE:{symbol}"]).get(f"NSE:{symbol}", {})
     ohlc = q.get("ohlc", {}) or {}
     return {"last": q.get("last_price", 0) or 0,
@@ -793,18 +856,8 @@ def get_chain_snapshot(symbol: str) -> dict | None:
             chain["as_of"] = chain.get("snapshot_captured_at")
         return chain
     kite = get_kite()
-    opts = [i for i in _nfo_instruments()
-            if i.get("name") == symbol and i.get("instrument_type") in ("CE", "PE")]
-    if not opts:
-        return None
-
-    expiry = _pick_expiry(opts)
+    expiry, exp_opts = _chain_legs(symbol)
     if expiry is None:
-        return None
-    exp_opts = [i for i in opts
-                if (i["expiry"] if isinstance(i["expiry"], date)
-                    else datetime.strptime(i["expiry"], "%Y-%m-%d").date()) == expiry]
-    if not exp_opts:
         return None
 
     lot_size = exp_opts[0].get("lot_size", 0) or 0
@@ -815,11 +868,15 @@ def get_chain_snapshot(symbol: str) -> dict | None:
     if not spot:
         return None
 
-    # Batch-quote every option leg (Kite limit 500 per call).
+    # Batch-quote every option leg. prefetch_chain_data() may already have populated _LEG_CACHE for
+    # this run's whole universe in two calls instead of one per symbol -- ask Kite only for whatever
+    # is still missing (PacedKite.quote splits/paces internally either way, so a plain single call
+    # here is correct regardless of how many legs are missing).
     keys = [f"NFO:{i['tradingsymbol']}" for i in exp_opts]
-    quotes = {}
-    for j in range(0, len(keys), 300):
-        quotes.update(kite.quote(keys[j:j + 300]))
+    quotes = {k: _LEG_CACHE[k] for k in keys if k in _LEG_CACHE}
+    missing = [k for k in keys if k not in _LEG_CACHE]
+    if missing:
+        quotes.update(kite.quote(missing))
 
     strikes: dict = {}
     for i in exp_opts:

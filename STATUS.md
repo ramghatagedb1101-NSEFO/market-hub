@@ -48,6 +48,10 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
   (`relay/Push.gs`, new file), sender (`hub/push.py`, `kite-reminder.yml`). Code done, phone app half
   verified in a static preview; relay half **not deployed** (market hours); sender **not run** (needs
   the owner's VAPID keys first). Full detail in "Next up" 1 below.
+- `rg/market_data.py`'s `prefetch_chain_data`: batches the whole stock universe's equity spots and
+  option legs into 2 Kite calls instead of ~200 (one call per symbol, twice); `get_chain_snapshot` /
+  `get_equity_spot` use the cache transparently, interfaces unchanged. 6-case standalone test, all
+  pass. Pure Python, pushed. Not yet seen on a live run.
 
 **Owner decisions on record:**
 - Range calibration (a quarter narrower at the right hit rate on history): **wait for a few recorded expiries first**;
@@ -112,8 +116,23 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
 3. **Done 14 Oct**, ahead of item 2 (no real dependency between them -- `diag_quota_headers.py` was a
    finished one-off probe, not something item 2 needed first). The `diag.yml` key line stayed: two other
    diag modules still use it. See group A3 below.
-4. Audit item left open by design: `rg/market_data.py` still sends one quote call per stock chain (~100 a run, now
-   paced, so ~2 min); batching several stocks per 500-instrument call would shorten the run (optional).
+4. **Done 14 Oct.** `rg/market_data.py`: new `prefetch_chain_data(symbols)` batches every symbol's
+   equity spot and nearest-expiry option legs into **two** `kite.quote()` calls total (PacedKite
+   already splits/paces any size into 500-instrument calls internally -- see `hub/sources/kite.py` --
+   so one call per category is enough), instead of `get_chain_snapshot`'s own two calls **per symbol**.
+   For a ~100-stock universe that was ~200 separately-paced round trips. `get_equity_spot`/
+   `get_chain_snapshot` both check the resulting cache first and fall back to their own per-symbol
+   call for whatever is missing -- their interfaces are unchanged, so no other caller (`rg/mtm.py`'s
+   settlement-time spot lookup, any test) needed touching. Wired into `hub/stocks.py` right before
+   `generate_recommendations`, skipped in replay mode (`prefetch_chain_data` already no-ops there too
+   -- belt and braces). Shared a new `_chain_legs(symbol)` helper between `get_chain_snapshot` and the
+   prefetch so the two can never resolve a different expiry for the same symbol. 6-case standalone
+   test (fake Kite, no live calls): exactly 2 calls for 20 symbols; both functions read the cache with
+   zero extra calls when it's warm; `get_equity_spot` still works with no prefetch at all (unchanged
+   behaviour); a partially-warmed cache fetches only what's missing; replay mode makes no Kite call.
+   All pass. **Not yet verified against a live run** -- next `python -m hub.stocks` (the 18:22 IST daily
+   job, or a manual dispatch) is the first real check; watch its log for the new
+   `[STOCKS] prefetched ...` line and a shorter wall-clock time than before.
 
 ## NEXT STEPS -- the full list (Wed 14 Oct 2026; replaces the 9 Oct "To-do, in order" further down)
 
@@ -126,7 +145,7 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 3. **Done 14 Oct.** Removed the one-off `hub/diag_quota_headers.py`. Its `BHARATSTOCK_API_KEY` line in
    `diag.yml` stayed -- `diag_library_sample.py` and `diag_shareholding.py` both still need it; only the
    comment was wrong (named the deleted module), fixed to name the two real users.
-4. Optional: batch several stocks per quote call in `rg/market_data.py` (shorter daily run; "Next up" 4).
+4. **Done 14 Oct**, tested standalone, not yet seen on a live run (next `hub.stocks` run; "Next up" 4).
 
 **B. Owner actions**
 1. Thu 15 Oct 2026: log in to Kite between 07:35 and 09:05 IST (first live SENSEX expiry with the walls record).
@@ -147,7 +166,9 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 2. Thu 15 Oct 06:15 library run: `state/bs_usage.json` appears in the private repo with the library's count
    (relay counts 0 until A2); tracker shows `others_today`.
 3. Thu 15 Oct 18:00 daily run (and the post-login run): no Kite refusals, F&O expiries right (SENSEX expiry horizon
-   targets Thu, BANK NIFTY Tue 27 Oct).
+   targets Thu, BANK NIFTY Tue 27 Oct). Same run is the first live check of A4's `prefetch_chain_data`:
+   look for `[STOCKS] prefetched ...` in `hub.stocks`'s log, 2 quote calls instead of ~200, and a
+   shorter wall-clock time for that step than previous runs.
 4. Mon 19 Oct 2026 (NIFTY's holiday-moved expiry): `expiry-theta.yml` runs on Monday and finds the expiry; the meter
    opens on NIFTY; `expiry-tape.yml` saves `state/expiry/2026-10-19_NIFTY.json`.
 5. After every expiry day: the day file exists in `state/expiry/` (if not, re-run `expiry-tape.yml` before ~21:30 IST),

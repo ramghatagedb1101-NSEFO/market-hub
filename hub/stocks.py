@@ -156,6 +156,14 @@ def main() -> dict:
     open_keys = tracker.open_position_keys()
     vix = context.get("india_vix")
 
+    if not replaying:
+        # Two batched Kite calls instead of two per symbol (market_data.prefetch_chain_data, 14 Oct
+        # 2026): get_chain_snapshot/get_equity_spot use whatever this populates and fall back to their
+        # own per-symbol call for anything it missed, so skipping this (e.g. in a replay) is harmless.
+        pf = market_data.prefetch_chain_data(symbols)
+        print(f"[STOCKS] prefetched {pf['spot_keys']} spot(s), {pf['leg_keys']} option leg(s) "
+              f"for {pf['symbols']} symbol(s) in 2 batched Kite calls")
+
     recos, diagnostics, cap_rows = strategy.generate_recommendations(
         symbols, market_data.get_chain_snapshot, flags=flags,
         open_counts=open_counts, open_keys=open_keys, india_vix=vix)

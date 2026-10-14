@@ -4,6 +4,36 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Stock screen's Kite calls batched across the whole universe, not one pair per stock (~14:50 IST, pushed)
+The last item on the 13-14 Oct Kite/BharatStock audit, left open as optional: `rg/market_data.py`'s
+`get_chain_snapshot(symbol)` made two Kite `quote()` calls per stock (one for the equity spot, one for
+its option legs) -- for the ~100-stock Nifty 50 universe, ~200 separately-paced round trips at
+`PacedKite`'s >=1.05 s gap, well over 3 minutes before a single recommendation was evaluated.
+
+- New `prefetch_chain_data(symbols)`: **two** `kite.quote()` calls total, not 200. `PacedKite.quote()`
+  already splits and paces any size internally into 500-instrument calls (`hub/sources/kite.py`, the
+  13-14 Oct audit's own work) -- so one call covering every symbol's spot, and one covering every
+  symbol's option legs, is enough; PacedKite does the real chunking underneath.
+- `get_equity_spot` and `get_chain_snapshot` both check the resulting cache first and fall back to
+  their own original per-symbol call for anything missing -- **neither function's interface changed**,
+  so `rg/mtm.py`'s settlement-time spot lookup (a single symbol, no prefetch) and any other caller that
+  skips the prefetch keep working exactly as before, just at the old pace.
+- New shared `_chain_legs(symbol)` helper (pure local filtering over the already-cached NFO instrument
+  dump, no network call) replaces duplicated expiry-resolution code in `get_chain_snapshot` and backs
+  the new prefetch -- the two can never resolve a different expiry for the same symbol now.
+- Wired into `hub/stocks.py` right before `generate_recommendations`, skipped in replay mode (belt and
+  braces: `prefetch_chain_data` already no-ops under `CHAIN_CACHE_MODE=read` too, since `get_kite()`
+  refuses there).
+- 6-case standalone test (fake Kite client, no live calls, scratchpad `test_prefetch_chain_data.py`):
+  exactly 2 `quote()` calls for 20 symbols; `get_equity_spot` reads the warm cache with zero extra
+  calls, and still works correctly with no prefetch at all (the pre-existing behaviour, unchanged);
+  `get_chain_snapshot` reads a fully-warm leg cache with zero extra calls; a partially-warm cache (one
+  symbol's legs evicted to simulate it) fetches only that symbol's missing legs, not re-fetching what
+  was already cached; replay mode makes no Kite call. All pass.
+- **Not yet confirmed on a live run** -- the next `hub.stocks` invocation (today's 18:22 IST daily job,
+  or tomorrow's) is the first real check; its log should show a new `[STOCKS] prefetched ...` line and
+  a noticeably shorter run.
+
 ### Market Hub push notifications: phone, relay and sender built (code done ~14:10 IST; three owner steps left)
 Starting with the Kite login reminder, which was supposed to come from the app itself, not Claude
 (owner decision, recorded above) -- the claude.ai routine sending it today never actually reached the
