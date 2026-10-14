@@ -237,7 +237,7 @@
     <div class="pb">
       <div><b>Kite login for today</b></div>
       <div class="mut" style="margin-top:4px">Once each morning, after 07:35 and before 09:05 IST. Zerodha opens in a new tab. Enter your login and 2FA code there, not here.</div>
-      <a class="btn" href="https://kite.zerodha.com/connect/login?v=3&amp;api_key=t0kjzcu1vcl09fch" target="_blank" rel="noopener">Log in to Kite</a>
+      <a class="btn" id="kite-login-btn" href="https://kite.zerodha.com/connect/login?v=3&amp;api_key=t0kjzcu1vcl09fch" target="_blank" rel="noopener">Log in to Kite</a>
       <div class="mut">After you log in, the page says "Logged in for [date]". If it says the daily run did not start, tell the owner.</div>
       <div style="margin-top:14px"><b>Notifications</b></div>
       <div class="mut" id="push-status" style="margin-top:4px">Checking…</div>
@@ -408,6 +408,22 @@
     if (b.dataset.pane === "mb") renderIdeas();
   });
   $("#gear").onclick = () => { $("#settings").classList.add("on"); refreshPushUi(); };
+  // A tapped Kite reminder lands here (sw.js): iOS will not open an outside site from a notification tap,
+  // so the app opens on Settings with the usual "Log in to Kite" button highlighted -- one more tap.
+  function openKiteLogin(){
+    $("#settings").classList.add("on");
+    refreshPushUi();
+    const b = $("#kite-login-btn");
+    b.scrollIntoView({block: "center"});
+    b.style.background = "var(--blu)"; b.style.color = "#fff"; b.style.padding = "12px 18px"; b.style.fontSize = "13px";
+  }
+  if (new URLSearchParams(location.search).get("open") === "kite") {
+    history.replaceState(null, "", location.pathname);   // a later reload does not reopen it
+    openKiteLogin();
+  }
+  if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (ev) => {
+    if (ev.data && ev.data.open === "kite") openKiteLogin();
+  });
   $("#set-close").onclick = () => $("#settings").classList.remove("on");
   $("#settings").onclick = e => { if (e.target.id === "settings") $("#settings").classList.remove("on"); };
 

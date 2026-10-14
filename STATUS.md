@@ -103,6 +103,9 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
      Kite" (tap opens the Kite login link) with `pywebpush`, drops 404/410 endpoints back to the relay.
      `pywebpush>=2.0` added to `requirements.txt`. Syntax-checked (`py_compile`); **not run end to end**
      (needs real VAPID keys and a real subscription -- can't be tested until the owner's steps below).
+   - **14 Oct ~21:40 IST: steps 1-3 done and confirmed by the owner (a real push arrived on the iPhone).
+     A tap now opens Market Hub on Settings with "Log in to Kite" highlighted (iOS does not open the
+     outside link from a notification tap). Left: the owner confirms the tap behaviour once, then step 4.**
    - **Steps, in this order (14 Oct evening: no key-copying any more -- owner chose relay-held keys;
      the phone reads the public key from the relay, so a workflow run must come before the tap):**
      1. Claude or owner: run `kite-reminder.yml` with `mode=test` once. Expected result annotation:

@@ -196,8 +196,8 @@ def main(mode: str = "send") -> dict:
 
     login_link = st.get("login_link") or ""
     title = "Log in to Kite" if mode != "test" else "Market Hub: test notification"
-    body = "Tap to log in now -- needed for today's live quotes and the daily run." if mode != "test" \
-        else "If you see this, push notifications are working."
+    body = "Tap, then \"Log in to Kite\" -- needed for today's live quotes and the daily run." if mode != "test" \
+        else "If you see this, push notifications are working. Tap: Market Hub opens on \"Log in to Kite\"."
     payload = {"title": title, "body": body, "url": login_link}
 
     sent, gone, errors = 0, [], 0

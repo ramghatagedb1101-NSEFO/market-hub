@@ -4,6 +4,18 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Push notifications live on the owner's iPhone; tapping now opens Market Hub on "Log in to Kite" (~21:40 IST, cache v33)
+First real push confirmed by the owner (test run: `sent: 1, errors: 0`). Tapping it did not open the Kite
+login: `sw.js` asked iOS to open the outside link (kite.zerodha.com) from the notification tap, and a Home
+Screen app on iOS does not do that. Now a tap opens Market Hub itself -- an already-open app is focused
+and messaged, otherwise it opens at `./?open=kite` -- straight onto Settings with the usual "Log in to Kite"
+button highlighted (`openKiteLogin()` in `docs/index.html`), so login is one more tap, by the same route
+the owner already uses each morning. The service worker never opens an outside URL itself any more. The
+reminder text says so ("Tap, then "Log in to Kite""). Tests: 5-case unit test of the tap handler in a
+simulated service-worker global (closed app, open app, focus failure, non-Kite, outside URL never opened);
+browser test at 375 px now 9 cases (adds: opened from the reminder, message to an open app, normal open
+not highlighted). All pass.
+
 ### Phone app: "Turn on notifications" could show "On" while the relay had nothing (~21:00 IST, cache v32)
 After the owner's tap, the second test run reported `no subscribed devices`. The phone code (`togglePush`)
 sent the subscription to the relay (`app_push_subscribe`) but never checked the answer -- any refusal or

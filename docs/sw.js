@@ -1,6 +1,6 @@
 // Network-first everywhere: the phone always gets the latest page and feed when online.
 // The cache is only a fallback for when the network is unavailable.
-const CACHE = "market-hub-v32";
+const CACHE = "market-hub-v33";
 const SHELL = ["./", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -43,11 +43,23 @@ self.addEventListener("push", (e) => {
   }));
 });
 
-// Always opens a new tab at the notification's url (the Kite login link, an external site -- the same
-// as the in-app "Log in to Kite" button's target="_blank"), rather than just focusing an already-open
-// Market Hub tab and leaving it on whatever page it was already showing.
+// Opens Market Hub itself, never the outside link: iOS does not open an outside site from a Home Screen
+// app's notification tap (seen live 14 Oct 2026 -- the test arrived, the tap did not reach Kite). A Kite
+// reminder opens the app on Settings with "Log in to Kite" highlighted (index.html openKiteLogin): an
+// already-open app is focused and told by message, otherwise it opens at ./?open=kite.
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const url = (e.notification.data && e.notification.data.url) || "./";
-  e.waitUntil(self.clients.openWindow(url));
+  const url = (e.notification.data && e.notification.data.url) || "";
+  const kite = url.indexOf("https://kite.zerodha.com/") === 0;
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const w of wins) {
+      try {
+        await w.focus();
+        if (kite) w.postMessage({ open: "kite" });
+        return;
+      } catch (err) { /* fall through to opening a new window */ }
+    }
+    await self.clients.openWindow(new URL(kite ? "./?open=kite" : "./", self.registration.scope).href);
+  })());
 });
