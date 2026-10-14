@@ -184,6 +184,9 @@ function appApi_(mode, body) {
   if (mode === 'app_profile') return appProfile_(p.token, p.symbol);
   if (mode === 'app_results') return adminStock(p.token, p.symbol, p.name);
   if (mode === 'app_funds') return adminFunds(p.token, p.symbol);
+  if (mode === 'app_push_key') return appPushKey_(p.token);
+  if (mode === 'app_push_subscribe') return appPushSubscribe_(p.token, p.subscription);
+  if (mode === 'app_push_unsubscribe') return appPushUnsubscribe_(p.token, p.endpoint);
   return { error: 'unknown mode' };
 }
 

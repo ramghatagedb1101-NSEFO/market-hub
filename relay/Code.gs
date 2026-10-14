@@ -28,6 +28,7 @@ function doGet(e) {
   if (p.mode === 'expiry_close') return json_(expiryCloseHook_(p.key || ''));
   if (p.mode === 'expiry_tape') return json_(expiryTapeHook_(p.key || ''));
   if (p.mode === 'bs_usage') return json_(bsUsage_(p));
+  if (p.mode === 'push_state') return json_(pushState_(p));
   if (p.request_token) return handleLogin_(p.request_token);
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
 }
@@ -41,6 +42,8 @@ function doPost(e) {
   if (p.mode === 'alert') return json_(sendDiscoveryAlert_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'health') return json_(sendHealth_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'digest') return json_(sendDigest_(p.key || '', (e.postData && e.postData.contents) || ''));
+  if (p.mode === 'push_key') return json_(pushKey_(p.key || '', (e.postData && e.postData.contents) || ''));
+  if (p.mode === 'push_drop') return json_(pushDrop_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (/^app_/.test(p.mode || '')) return json_(appApi_(p.mode, (e.postData && e.postData.contents) || ''));
   return json_({ error: 'unknown mode' });
 }
