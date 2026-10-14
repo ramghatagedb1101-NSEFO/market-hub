@@ -70,7 +70,9 @@ As of Wed 14 Oct 2026, ~10:45 IST. Read the HANDOVER below first, then `CHANGELO
    `relay/Report.gs`, `relay/Funds.gs`, `relay/Research.gs` (bsChart_) in a script property `BS_USAGE`
    `{date_utc, requests}`; add key-protected `?mode=bs_usage` returning it (hub/bs_budget.relay_used already calls it
    and treats a missing mode as 0). Deploy after 15:30.
-3. Remove the one-off `hub/diag_quota_headers.py` (and the BharatStock key line it needed in `diag.yml`) once item 2 is in.
+3. **Done 14 Oct**, ahead of item 2 (no real dependency between them -- `diag_quota_headers.py` was a
+   finished one-off probe, not something item 2 needed first). The `diag.yml` key line stayed: two other
+   diag modules still use it. See group A3 below.
 4. Audit item left open by design: `rg/market_data.py` still sends one quote call per stock chain (~100 a run, now
    paced, so ~2 min); batching several stocks per 500-instrument call would shorten the run (optional).
 
@@ -81,7 +83,9 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 **A. Build now (approved by the owner)**
 1. Market Hub push notifications on the owner's iPhone, starting with the Kite login reminder (plan in "Next up" 1).
 2. Relay counts its own BharatStock calls (`?mode=bs_usage`; "Next up" 2).
-3. Remove the one-off `hub/diag_quota_headers.py` and its key line in `diag.yml` ("Next up" 3).
+3. **Done 14 Oct.** Removed the one-off `hub/diag_quota_headers.py`. Its `BHARATSTOCK_API_KEY` line in
+   `diag.yml` stayed -- `diag_library_sample.py` and `diag_shareholding.py` both still need it; only the
+   comment was wrong (named the deleted module), fixed to name the two real users.
 4. Optional: batch several stocks per quote call in `rg/market_data.py` (shorter daily run; "Next up" 4).
 
 **B. Owner actions**

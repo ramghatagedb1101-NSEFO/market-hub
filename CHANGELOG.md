@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Removed the one-off BharatStock quota-headers probe (~13:10 IST)
+`hub/diag_quota_headers.py` had already answered its question (no usage headers, no `/v1/usage`
+endpoint -- see the audit entry below) and wasn't needed again, so removed it. The handover note said
+to also drop its `BHARATSTOCK_API_KEY` line in `diag.yml`, but checked first: `diag_library_sample.py`
+and `diag_shareholding.py` both still read that key, so removing the line would have broken two
+reusable diagnostics for one dead one. Kept the line, fixed its comment (named the deleted module) to
+name the two real users instead.
+
 ### Kite / BharatStock audit, remaining fixes (done in this session; the cloud's 19:30 routine never ran) (~09:00-10:40 IST)
 - **One paced Kite client for every job** (`hub/sources/kite.PacedKite`; `rg/market_data.get_kite` uses it too): quote / ltp / ohlc calls >= 1.05 s apart across the whole process (Kite: 1 a second), historical candles 0.35 s apart, a "Too many requests" refusal waited out and retried (3 tries), quotes over 500 instruments split into paced calls, each exchange's instrument list downloaded once a day (memory + `.cache/kite_instruments/`, shared by every step of a job). Before: `rg/market_data.py` sent ~100-150 quote calls back to back; `hub/fno.py`, `hub/expiry_theta.py`, `hub/sources/commodities.py`, `hub/context.py` unpaced; NFO downloaded several times per job. Tested with a fake Kite (1,203 instruments -> 500/500/203, gaps 1.05-1.1 s, a refusal retried; 3 list requests -> 1 download).
 - **Expiry calendar** (`hub/expiries.py`): from Kite's contract lists (NFO for NIFTY / BANK NIFTY, BFO for SENSEX), so holiday moves and rule changes follow by themselves; fallback `config.EXPIRY_RULE` (NIFTY weekly Tue, SENSEX weekly Thu, BANK NIFTY monthly last Tue). The old `EXPIRY_WEEKDAY` had BANK NIFTY Wednesday and SENSEX Monday, so the forecast hub's "expiry" horizon aimed both at the wrong day (`hub/horizons.py`). Past dates (back-tests) use the rule.
