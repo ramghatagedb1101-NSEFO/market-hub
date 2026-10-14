@@ -440,9 +440,17 @@
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        status.textContent = "On: you'll get a reminder to log in to Kite each morning.";
         btn.textContent = "Turn off notifications";
         btn.onclick = () => togglePush(false, sub);
+        status.textContent = "Checking with the relay…";
+        // Re-sent on every open: the relay de-duplicates by endpoint, and this repairs a subscription
+        // the phone has but the relay never received.
+        try {
+          await registerPushSub(sub);
+          status.textContent = "On: you'll get a reminder to log in to Kite each morning.";
+        } catch(e) {
+          if (e.message !== "signed out") status.textContent = "On this phone, but the relay did not confirm it (" + e.message + "). Tap Turn off, then Turn on.";
+        }
       } else {
         status.textContent = "Get a reminder to log in to Kite each morning.";
         btn.textContent = "Turn on notifications";
@@ -468,10 +476,18 @@
       if (!keyRes.key) { status.textContent = keyRes.error || "Push is not set up on the relay yet."; btn.disabled = false; return; }
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64ToUint8Array(keyRes.key)});
-      await relayPost("app_push_subscribe", {token: SESSION, subscription: sub.toJSON()});
+      try { await registerPushSub(sub); }
+      catch(e) { await sub.unsubscribe().catch(() => {}); throw e; }   // never show "On" for a subscription the relay lacks
       await refreshPushUi();
-    } catch(e) { status.textContent = "Could not turn on notifications: " + (e && e.message ? e.message : "unknown error"); }
+    } catch(e) {
+      if (!(e && e.message === "signed out")) status.textContent = "Could not turn on notifications: " + (e && e.message ? e.message : "unknown error");
+    }
     btn.disabled = false;
+  }
+  async function registerPushSub(sub){
+    const r = await relayPost("app_push_subscribe", {token: SESSION, subscription: sub.toJSON()});
+    if (r && r.error === "session_expired") { signOut("Your session ended. Sign in again."); throw new Error("signed out"); }
+    if (!r || r.error || !r.ok) throw new Error((r && r.error) || "the relay did not confirm");
   }
 
   function ageMin(iso){ return (Date.now() - new Date(iso).getTime()) / 60000; }
