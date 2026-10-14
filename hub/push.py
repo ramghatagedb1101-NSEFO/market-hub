@@ -57,14 +57,18 @@ def push_state(relay_url: str, relay_key: str) -> dict:
     return r.json()
 
 
-def publish_public_key(relay_url: str, relay_key: str, public_key: str) -> None:
+def publish_public_key(relay_url: str, relay_key: str, public_key: str) -> str:
     """Keeps the relay's copy of the public key in sync with the GitHub secret -- cheap, so just done
-    every run rather than tracked as a one-off setup step."""
+    every run rather than tracked as a one-off setup step. Returns "ok" or the reason it failed: the
+    relay answers HTTP 200 even for {"error": ...}, so the body is checked, not just the status."""
     try:
-        requests.post(relay_url, params={"mode": "push_key", "key": relay_key},
-                      json={"public_key": public_key}, timeout=30).raise_for_status()
-    except Exception:
-        pass   # the phone's "Turn on notifications" tap will surface a clearer error than this run can
+        r = requests.post(relay_url, params={"mode": "push_key", "key": relay_key},
+                          json={"public_key": public_key}, timeout=30)
+        r.raise_for_status()
+        body = r.json()
+        return "ok" if not body.get("error") else str(body["error"])
+    except Exception as exc:
+        return str(exc)[:120]
 
 
 def drop_endpoints(relay_url: str, relay_key: str, endpoints: list[str]) -> None:
@@ -101,20 +105,20 @@ def main(mode: str = "send") -> dict:
     if not vapid_public or not vapid_private:
         return {"sent": 0, "reason": "VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY not set"}
 
-    publish_public_key(relay_url, relay_key, vapid_public)
+    key_status = publish_public_key(relay_url, relay_key, vapid_public)
 
     if mode != "test" and is_nse_holiday():
-        return {"sent": 0, "reason": "NSE holiday today"}
+        return {"sent": 0, "key_published": key_status, "reason": "NSE holiday today"}
 
     st = push_state(relay_url, relay_key)
     if "error" in st:
-        return {"sent": 0, "reason": "push_state: " + str(st["error"])}
+        return {"sent": 0, "key_published": key_status, "reason": "push_state: " + str(st["error"])}
     if mode != "test" and st.get("kite_state") == "ok":
-        return {"sent": 0, "reason": "already logged in to Kite today"}
+        return {"sent": 0, "key_published": key_status, "reason": "already logged in to Kite today"}
 
     subs = st.get("subscriptions") or []
     if not subs:
-        return {"sent": 0, "reason": "no subscribed devices"}
+        return {"sent": 0, "key_published": key_status, "reason": "no subscribed devices"}
 
     login_link = st.get("login_link") or ""
     title = "Log in to Kite" if mode != "test" else "Market Hub: test notification"
@@ -132,9 +136,15 @@ def main(mode: str = "send") -> dict:
         else:
             errors += 1
     drop_endpoints(relay_url, relay_key, gone)
-    return {"sent": sent, "dropped": len(gone), "errors": errors, "subscribed": len(subs)}
+    return {"sent": sent, "dropped": len(gone), "errors": errors, "subscribed": len(subs),
+            "key_published": key_status}
 
 
 if __name__ == "__main__":
     import sys
-    print(json.dumps(main(sys.argv[1] if len(sys.argv) > 1 else "send"), indent=2))
+    result = main(sys.argv[1] if len(sys.argv) > 1 else "send")
+    print(json.dumps(result, indent=2))
+    if os.getenv("GITHUB_ACTIONS"):
+        # Also as a run annotation: shown on the run's summary page and readable through the check-runs
+        # API, unlike the log itself (a cloud Claude session's egress policy blocks log downloads).
+        print(f"::notice title=push result::{json.dumps(result)}")

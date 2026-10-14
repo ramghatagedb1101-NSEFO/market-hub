@@ -103,15 +103,21 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
      Kite" (tap opens the Kite login link) with `pywebpush`, drops 404/410 endpoints back to the relay.
      `pywebpush>=2.0` added to `requirements.txt`. Syntax-checked (`py_compile`); **not run end to end**
      (needs real VAPID keys and a real subscription -- can't be tested until the owner's steps below).
-   - **Owner, next (never hand Claude the private key):**
-     1. `npx web-push generate-vapid-keys` (on their laptop or any machine with Node).
-     2. Add GitHub repo secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` from that output.
-     3. Open Market Hub from the Home Screen (Add to Home Screen first if not done), Settings, tap "Turn
-        on notifications", allow when iOS asks.
-     4. Run `kite-reminder.yml` manually with `mode=test`; confirm the notification arrives and tapping
-        it opens the Kite login page.
-     5. Only after that's confirmed: disable the claude.ai routine ("Kite login reminder",
-        `trig_011gp21txucmWGZPKqpR2FEu`, `RemoteTrigger` update `enabled=false`).
+   - **Steps, in this order (corrected 14 Oct evening -- the original order had the phone tap before
+     the first workflow run, which fails: the phone reads the public key from the relay, and only a
+     `kite-reminder.yml` run puts it there). Never hand Claude the private key:**
+     1. Owner: `npx web-push generate-vapid-keys` on the laptop.
+     2. Owner: add GitHub repo secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` from that output.
+     3. Claude or owner: run `kite-reminder.yml` with `mode=test` once. Expected result annotation:
+        `key_published: "ok"`, `reason: "no subscribed devices"` (puts the public key on the relay).
+     4. Owner, on the iPhone: open Market Hub from the Home Screen (Add to Home Screen first if not
+        done), Settings, tap "Turn on notifications", allow when iOS asks.
+     5. Claude or owner: run `kite-reminder.yml` with `mode=test` again -- expect `sent: 1`; owner
+        confirms the notification arrives and tapping it opens the Kite login page.
+     6. Only after that's confirmed: disable the claude.ai routine ("Kite login reminder",
+        `trig_011gp21txucmWGZPKqpR2FEu`, `update_trigger enabled=false`).
+     Each run's result is a `::notice` annotation on the run (readable via the check-runs API -- a cloud
+     session cannot download Actions logs).
 2. **Code done 14 Oct, ~13:20 IST -- not deployed yet (market hours).** Relay counts its own BharatStock
    calls: `bsCount_(n)`/`bsUsage_(p)`/`utcDay_()` added to `Code.gs` (script property `BS_USAGE`
    `{date_utc, requests}`, reset on a new UTC day); `?mode=bs_usage` routed in `doGet`, key-protected like
@@ -159,9 +165,10 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 **B. Owner actions**
 1. Thu 15 Oct 2026: log in to Kite between 07:35 and 09:05 IST (first live SENSEX expiry with the walls record).
 2. **Push notification code is ready (14 Oct)**: run `npx web-push generate-vapid-keys`, add GitHub secrets
-   `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`, open Market Hub from the Home Screen and tap "Turn on
-   notifications"; run `kite-reminder.yml` manually with `mode=test`, confirm it arrives and opens the Kite
-   login page. Then the claude.ai "Kite login reminder" routine is switched off.
+   `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`; then one `kite-reminder.yml` `mode=test` run (puts the key on
+   the relay) **before** tapping "Turn on notifications" on the phone; then a second test run, confirm it
+   arrives and opens the Kite login page. Then the claude.ai "Kite login reminder" routine is switched off.
+   Full order: "Next up" 1 above.
 3. Still open from 6 Oct: rotate the credentials that were exposed then (owner's call; never done by Claude).
 4. Optional: a weekly copy of the private repo onto the laptop as a second backup (offered 14 Oct, not decided).
 

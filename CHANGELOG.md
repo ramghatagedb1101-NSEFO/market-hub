@@ -4,6 +4,22 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Push notification setup: step order corrected, sender reports its result (~20:00 IST)
+Preparing the owner's push-notification setup found the documented order would fail: STATUS.md said to
+tap "Turn on notifications" on the phone, then run `kite-reminder.yml`. But the phone asks the relay for
+the VAPID public key (`appPushKey_` in `relay/Push.gs`), and the relay only gets that key when
+`hub/push.py` posts it (`mode=push_key`) during a workflow run -- tapping first would show "Push is not
+set up on the relay yet." Corrected order (STATUS.md "Next up" 1): secrets, one test run, phone tap,
+second test run, then switch off the claude.ai routine.
+
+`hub/push.py`: `publish_public_key()` used to swallow every failure silently -- including the relay's
+`{"error": "forbidden"}`, which comes back as HTTP 200 and so passed `raise_for_status()`. It now returns
+"ok" or the reason, reported as `key_published` in the run's result. The result is also emitted as a
+`::notice` run annotation, readable through the check-runs API, because this cloud session cannot
+download Actions logs (egress policy). 6-case offline test (network and `pywebpush` stubbed): first run
+with no subscribers, relay error body surfaced, test mode sends even when Kite is logged in, a gone
+(410) endpoint dropped, missing VAPID secrets reported, send mode still skips when logged in. All pass.
+
 ### Adaptive band step switched on live for the year horizon only, Group F2 (owner's decision, ~19:30 IST)
 Owner confirmed, from the comparison below: switch the adaptive step on for `year` (the evidence-backed,
 unanimous-across-all-three-indices fix), hold everywhere else. `hub/tracker.py`'s `settle_due()` now
