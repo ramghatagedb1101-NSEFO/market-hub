@@ -1,0 +1,54 @@
+name: expiry-intraday
+
+# Intraday index path for every recorded expiry day (hub/expiry_intraday.py, 14 Oct 2026): Kite minute candles,
+# saved to the private repository's state/expiry_history/intraday/. Fetches only days not stored yet (a first run
+# is ~60 paced Kite requests). Needs today's Kite login. Run by hand; the result is a ::notice annotation on the run.
+on:
+  workflow_dispatch:
+    inputs:
+      retry_missing:
+        description: "1 = ask Kite again for days it returned nothing for before"
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: expiry-intraday
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Fetch today's Kite access token from the relay
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          # Same transient-404 retry as daily.yml/threshold-test.yml.
+          TOKEN=""
+          for attempt in 1 2 3; do
+            RESP=$(curl -sSL -G "$RELAY_URL" -w " HTTP:%{http_code}" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" || true)
+            TOKEN=$(echo "$RESP" | sed 's/ HTTP:[0-9]*$//' | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+            if [ -n "$TOKEN" ]; then break; fi
+            echo "Attempt $attempt: no token yet."
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 3)); fi
+          done
+          if [ -z "$TOKEN" ]; then echo "No Kite token for today after 3 attempts."; exit 1; fi
+          echo "::add-mask::$TOKEN"
+          echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+      - name: Backfill intraday paths
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          RETRY_MISSING: ${{ inputs.retry_missing }}
+        run: python -m hub.expiry_intraday
