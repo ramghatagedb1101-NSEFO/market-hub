@@ -2,9 +2,9 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
-## 2026-10-15
+## 2026-10-14
 
-### Expiry history, second look: four patterns the straight-line test missed (early morning)
+### Expiry history, second look: four patterns the straight-line test missed (~07:20 IST)
 Owner: "you say it is not useful, but I don't think so. Probably we are not analysing the right way." Right. The first test asked one question (does a straight-line formula on max pain and walls forecast the close better than the open, averaged over all days). New `hub/expiry_patterns.py` asks the questions traders actually mean, on the same 398 expiries (no new downloads), each against a shuffle baseline (other days' walls / max pain, scaled to this day's one standard deviation, on this day's real path), then split into first and second half of the period:
 - **BANK NIFTY pins to max pain**: close within one strike of max pain 30.5% of expiries vs 19.0% by chance (p 0.002); both halves (26.8% vs 17.8%; 34.1% vs 22.0%). Strongest when the open is already near it: within 0.25 sd, the median expiry closed the whole gap (+1.01); within 0.25-0.5 sd, half of it; beyond 1 sd, nothing. A pull that works only up close, which a straight line cannot represent.
 - **SENSEX walls act as barriers through the day**: the high stayed below the call wall 96.2% vs 92.5% by chance (p 0.007), the low above the put wall 90.5% vs 86.1% (p 0.008); both walls held all day 87% vs 81% (first half), 86% vs 79% (second half), and in every era. SENSEX also moved toward max pain from the previous close 68% of the time (44 of 65; 76% first half, 61% second half).
@@ -14,13 +14,13 @@ Owner: "you say it is not useful, but I don't think so. Probably we are not anal
 - **Caveats**: about 40 comparisons were run; a couple of p-values near 0.05 can be chance. The three headline patterns hold in both halves; p-values are against the shuffle baseline. All from the evening-before chain and end-of-day prices.
 - **Not changed yet**: the live meter. These point to index-specific rules (BANK NIFTY: pin only when near; SENSEX: walls as range limits; NIFTY: no pull to max pain), which need their own walk-forward test before going live.
 
-### SENSEX in the expiry history test (BSE data); SENSEX starts from its own fit (01:00 IST; relay Version 65, commit 4e6614e)
+### SENSEX in the expiry history test (BSE data); SENSEX starts from its own fit (~01:15 IST; relay Version 65, commit 4e6614e)
 Owner: "add SENSEX to the history test using BSE data".
 - **Data** (checked from GitHub with a one-off diag, now removed; curl_cffi, as BSE refuses plain requests): BSE's derivatives bhavcopy in UDiFF layout (`download/BhavCopy/Derivative/BhavCopy_BSE_FO_0_0_0_YYYYMMDD_F_0000.CSV`, present from at least 2 Jan 2024), before that BSE's own zip (`download/Bhavcopy/Derivative/bhavcopyDD-MM-YY.zip`: Contract Type IO, Option Type CALL/PUT, Open Interest); SENSEX daily OHLC from BSE's `ProduceCSVForDate` (753 days in one request). BSE answers a missing day with its home page, not a 404: treated as a holiday. SENSEX50 excluded. No participant signals (NSE's file covers NSE only).
 - **Run 38456243321**: 158 SENSEX expiries (6 Oct 2023 - 8 Oct 2026), 377 BSE requests; NSE needed 4 (all recorded).
 - **SENSEX results** (mean absolute error vs the close, bp): open 53.0; max pain 60.9; wall midpoint 71.4; meter formula fitted walk-forward 53.5, old starting weights 53.8. Close between the walls 91.8% (wide walls); toward max pain 57.3% of 124 days (71 of 124; not significant, z ~1.6). Fit k 0.18, m 0.10, v -0.13. No direction signal with |t| >= 2. Move size: net gamma + 0.64 sd vs - 0.66; event days 0.73 sd (n 6, 33% outside 1 sd vs 23%), too few. Pin within half a step: max-gamma strike 9.5%, max pain 8.2%, strike nearest the open 9.5%.
 - **Same answer as NIFTY and BANK NIFTY**: walls and max pain from the evening before do not beat the open.
-- **Starting weights**: SENSEX had borrowed NIFTY's (no history); now its own fit, k 0.18, m 0.10, v -0.13 (`EXP_START`), following the owner's "set the weights to the history fit". Checked: `node relay/check.js` exit 0; simulated SENSEX day (Kite >= 1.1 s apart, cache max 52 KB, property max 4.7 KB, close recorded); deployed by relay-deploy (Version 65, content matched), before the first live SENSEX expiry.
+- **Starting weights**: SENSEX had borrowed NIFTY's (no history); now its own fit, k 0.18, m 0.10, v -0.13 (`EXP_START`), following the owner's "set the weights to the history fit". Checked: `node relay/check.js` exit 0; simulated SENSEX day (Kite >= 1.1 s apart, cache max 52 KB, property max 4.7 KB, close recorded); deployed by relay-deploy (Version 65, content matched), before the first live SENSEX expiry (Thu 15 Oct 2026).
 
 ## 2026-10-13
 

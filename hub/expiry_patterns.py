@@ -1,8 +1,8 @@
-"""Second look at the expiry history (owner, 15 Oct 2026: "probably we are not analysing the right way").
+"""Second look at the expiry history (owner, 14 Oct 2026: "probably we are not analysing the right way").
 Run on the private repo's state/expiry_history/records.json (hub/expiry_history.py):
     gh api -H "Accept: application/vnd.github.raw" repos/ramghatagedb1101-NSEFO/market-hub-private/contents/state/expiry_history/records.json > <dir>/recs.json
     python -m hub.expiry_patterns <dir>
-Findings of 15 Oct 2026 in CHANGELOG ("Expiry history, second look").
+Findings of 14 Oct 2026 in CHANGELOG ("Expiry history, second look").
 Questions the first test did not ask, each against a shuffle baseline (other days' walls / max pain, scaled by each
 day's one standard deviation, applied to this day's actual path), so chance cannot pass for a pattern."""
 import json
