@@ -74,6 +74,73 @@ As of Wed 14 Oct 2026, ~10:45 IST. Read the HANDOVER below first, then `CHANGELO
 4. Audit item left open by design: `rg/market_data.py` still sends one quote call per stock chain (~100 a run, now
    paced, so ~2 min); batching several stocks per 500-instrument call would shorten the run (optional).
 
+## NEXT STEPS -- the full list (Wed 14 Oct 2026; replaces the 9 Oct "To-do, in order" further down)
+
+Grouped by what each step waits for. "Build" items are detailed in "Next up" above.
+
+**A. Build now (approved by the owner)**
+1. Market Hub push notifications on the owner's iPhone, starting with the Kite login reminder (plan in "Next up" 1).
+2. Relay counts its own BharatStock calls (`?mode=bs_usage`; "Next up" 2).
+3. Remove the one-off `hub/diag_quota_headers.py` and its key line in `diag.yml` ("Next up" 3).
+4. Optional: batch several stocks per quote call in `rg/market_data.py` (shorter daily run; "Next up" 4).
+
+**B. Owner actions**
+1. Thu 15 Oct 2026: log in to Kite between 07:35 and 09:05 IST (first live SENSEX expiry with the walls record).
+2. When push is built: run `npx web-push generate-vapid-keys`, add GitHub secrets `VAPID_PUBLIC_KEY` and
+   `VAPID_PRIVATE_KEY`, open Market Hub from the Home Screen and tap "Turn on notifications"; confirm the test arrives.
+   Then the claude.ai "Kite login reminder" routine is switched off.
+3. Still open from 6 Oct: rotate the credentials that were exposed then (owner's call; never done by Claude).
+4. Optional: a weekly copy of the private repo onto the laptop as a second backup (offered 14 Oct, not decided).
+
+**C. First live checks of today's changes (next few days)**
+1. Thu 15 Oct 06:15 library run: `state/bs_usage.json` appears in the private repo with the library's count
+   (relay counts 0 until A2); tracker shows `others_today`.
+2. Thu 15 Oct 18:00 daily run (and the post-login run): no Kite refusals, F&O expiries right (SENSEX expiry horizon
+   targets Thu, BANK NIFTY Tue 27 Oct).
+3. Mon 19 Oct 2026 (NIFTY's holiday-moved expiry): `expiry-theta.yml` runs on Monday and finds the expiry; the meter
+   opens on NIFTY; `expiry-tape.yml` saves `state/expiry/2026-10-19_NIFTY.json`.
+4. After every expiry day: the day file exists in `state/expiry/` (if not, re-run `expiry-tape.yml` before ~21:30 IST),
+   and the track record shows the meter against the forward.
+
+**D. Waiting for data (do not build before the data exists)**
+1. After 3-5 recorded expiries per index: decide the range calibration (history: about a quarter narrower at the right
+   2-in-3 hit rate; owner chose to wait). Compare the live +-1 sd range's hit rate first (`hub/expiry_rules_test.py`
+   logic on `state/expiry/` days).
+2. After ~10 recorded expiry days: test wall movement within the day (rolls, reinforcement, abandonment) -- only our own
+   record has it; check whether BANK NIFTY's near-max-pain pin and SENSEX's wall barriers also show within the day;
+   re-fit the meter's weights on live readings.
+3. Monthly (first: mid-Nov 2026): re-run `expiry-history.yml` (fetches only new expiries), then
+   `hub/expiry_patterns.py` and `hub/expiry_rules_test.py`; re-test the BANK NIFTY / FII net index puts candidate
+   (monthly expiries only, so slow).
+4. Expiry theta: 50-100 settled sessions before any thought of more than 1 lot (`state/expiry_theta_log.json`).
+5. Forecast track record: 20 settled outcomes per horizon before the app shows a verdict.
+6. `sector_pe_vs_history`: 8 weekly observations (started 8 Oct; about early Dec 2026).
+
+**E. Watch (outside events)**
+1. SEBI circular on expiry settlement (expected Oct 2026): if it returns to a 30-minute average, set `EXP_SETTLE` in
+   `relay/Expiry.gs` to `method: 'average'` with the window it names (built and tested, switched off).
+2. Exchange expiry calendar changes and holidays: followed by themselves from Kite's lists now; nothing to do unless a
+   check in C fails.
+3. Since the closing auction (Aug 2026) NIFTY's close sat between the walls 4 of 10 expiries vs ~6 expected: keep an
+   eye on it as expiries accumulate.
+
+**F. Not started, by design (groundwork first)**
+1. ROCE gate on the multibagger screen (needs clean 3-year annual ROCE in BharatStock's responses).
+2. Adaptive band-learning step in the forecast engine (`hub/engine.py`; through `hub/backtest.py` first).
+
+**G. Still unverified (check when convenient)**
+1. Phone sign-in tested on the phone itself (the owner has used the phone app since 8 Oct, so likely fine).
+2. Admin dashboard: reopening the tab within six hours stays signed in.
+3. Position tracker: a full live run.
+4. BharatStock field-name guesses (`dividend_paid`, volume / delivery, working-capital receivable / inventory /
+   payable): confirm against a live response; they fail safe (stay a gap) if wrong.
+5. Expiry theta's first real expiry-day behaviour (Mon 19 Oct is the next chance).
+
+**Closed since the 9 Oct list:** first real email alert arrived (discovery email, 11 Oct, fact-checked by the owner);
+the multibagger screen scores on live data (174 early multibaggers on the dashboard); the daily run and library batch
+read and save `state/` and `site/` through the private repo (daily runs succeed and publish since 8 Oct); the Kite
+login day starts 07:35 (13 Oct).
+
 **Owner, Thu 15 Oct 2026 (first live SENSEX expiry with the walls record):** log in to Kite after 07:35 and before
 09:05 (the Market Hub reminder will not exist yet). Then check: `expiry-tape.yml` ran (09:08 and 12:33 runs), the meter
 shows both expiries' walls, and `state/expiry/2026-10-15_SENSEX.json` exists in the private repo after 15:46. If the
@@ -205,7 +272,7 @@ names before it was removed for exactly that reason.
 | Email alerts | Built and deployed (relay Version 19). Not yet seen firing on a real batch. |
 | News | Not built as a standalone feature; `hub.context` pulls FII/DII, FX, US markets and headlines for the daily brief. |
 
-## To-do, in order
+## To-do, in order (9 Oct 2026; SUPERSEDED by "NEXT STEPS" at the top, kept for history)
 
 ### A. Tomorrow morning (9 Oct), once BharatStock's quota resets
 1. Manually restart the stock-library-weekly chain (stopped 8 Oct, won't auto-resume until Saturday's cron otherwise) -- scheduled.
