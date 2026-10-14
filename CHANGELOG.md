@@ -4,6 +4,35 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Fixed working_capital_days and dividend_paid/dividend_policy_change (G4, confirmed broken then fixed, ~14:10 IST)
+`working_capital_days`, `working_capital_change` and `dividend_paid` had been a gap for every one of
+2,574 companies since they were added -- never noticed because the fail-safe design (never fabricate a
+figure for a wrong field-name guess) made it look like silence rather than a bug. Found by reading
+`library_compact.json` directly and checking: 2574/2574, zero exceptions, while a confirmed-field-name
+annual measure (`cfo`) from the same response was healthy (1,809 met / 655 not-met / only 110 gap) --
+ruling out a broader annual-data problem.
+
+- New one-off `hub/diag_financials_fields.py` (`diag.yml`): prints real quarterly/annual field names
+  for RELIANCE/TCS/HDFCBANK. Pushed via a clean side branch cherry-picked onto `main` (not the held
+  relay commits sitting on top of local `main` this session -- see the push-notification/bs_usage
+  entries above) so the probe could run without dragging relay changes live mid-market-hours.
+- **Working capital: a wrong guess.** Real names: `trade_receivables_current`, `trade_payables_current`
+  (`inventories` already matched). Fixed in `hub/library.py`'s `wc_days()`, old guesses kept as a
+  fallback.
+- **Dividends: not a wrong guess.** Confirmed BharatStock's financials endpoint has no dividend field
+  at all, quarterly or annual, for any of the three sampled companies. Removed the dead `dps()` guess
+  from `cash_flow_values()` entirely (it could never have produced a value) and moved
+  `dividend_paid`/`dividend_policy_change` into `company_values()`, sourced from `hub.corporate_actions`
+  -- the same confirmed-working NSE source `dividend_yield` already uses. `dividend_policy_change`
+  needs a year-over-year comparison: a second `ca.values()` call at last year's `as_of`, which is free
+  (pure local filtering over records already fetched for `dividend_yield`, no extra network call).
+  Also dropped both keys from `ANN_KEYS` (they were never really tied to the annual-refresh cadence).
+- 5-case standalone test, all pass: real-name computation, stays-a-gap without the fields,
+  `cash_flow_values` no longer touches dividends with no dangling reference (the removal would have
+  been a `NameError` on every run if done carelessly), `company_values` computes both dividend fields
+  from fake corporate-actions records, stays a gap with none.
+- **Not yet seen on a live run** -- the next `library.yml` batch is the first real check.
+
 ### Stock screen's Kite calls batched across the whole universe, not one pair per stock (~14:50 IST, pushed)
 The last item on the 13-14 Oct Kite/BharatStock audit, left open as optional: `rg/market_data.py`'s
 `get_chain_snapshot(symbol)` made two Kite `quote()` calls per stock (one for the equity spot, one for

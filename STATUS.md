@@ -203,9 +203,38 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 **G. Still unverified (check when convenient)**
 1. Phone sign-in tested on the phone itself (the owner has used the phone app since 8 Oct, so likely fine).
 2. Admin dashboard: reopening the tab within six hours stays signed in.
-3. Position tracker: a full live run.
-4. BharatStock field-name guesses (`dividend_paid`, volume / delivery, working-capital receivable / inventory /
-   payable): confirm against a live response; they fail safe (stay a gap) if wrong.
+3. **Checked 14 Oct, ~13:55 IST (reading the private repo directly, no code change):** the write side is
+   confirmed working live -- `state/stocks_positions.json` holds 3 real OPEN positions (SBIN rec'd
+   8 Oct, RELIANCE 9 Oct, HCLTECH 13 Oct; three different sectors, consistent with the sector cap doing
+   its job), and the published `site/stocks_track_record.json` matches it exactly
+   (`total_recommended: 3, open: 3, closed: 0`, win-rate correctly gated at "0/10"). **Still genuinely
+   unverified: the settlement half** (`evaluate_closed`) -- all three positions expire 2026-11-23, so
+   nothing has reached expiry yet for it to have anything to do. Re-check after the first of these
+   three settles (expect activity around 20-23 Nov), or sooner if a shorter-dated pick gets recommended
+   and expires first.
+4. **Checked, diagnosed and fixed, all 14 Oct.** Reading `library_compact.json` (2,574 companies) found
+   `working_capital_days`/`working_capital_change`/`dividend_paid` a gap for **every single company,
+   2574/2574, zero exceptions** -- confirmed not a broader annual-data problem (`cfo` and the other
+   confirmed-field-name annual measures, same `fetch_annual()` response, were healthy: 1,809 met / 655
+   not-met / only 110 gap). Ran a new one-off diag (`hub/diag_financials_fields.py`, `diag.yml`, pushed
+   via a clean side-branch so it didn't drag the held relay commits onto `main`) against real
+   RELIANCE/TCS/HDFCBANK responses:
+   - **Working capital: a wrong guess, now fixed.** Real names are `trade_receivables_current` and
+     `trade_payables_current` (`inventories` already matched). Old guesses kept as a fallback.
+   - **Dividends: not a wrong guess -- confirmed the data isn't in this endpoint at all**, quarterly or
+     annual, for any of the three companies. Removed the dead `dps()` guess from `cash_flow_values()`
+     entirely (it could never have worked) and rewired `dividend_paid`/`dividend_policy_change` in
+     `company_values()` to `hub.corporate_actions` instead -- the same confirmed-working NSE source
+     `dividend_yield` already uses, no new network call (a second `ca.values()` at last year's `as_of`,
+     pure local filtering over records already fetched for `dividend_yield`).
+   - 5-case standalone test, all pass: correct computation with the real names; stays a gap without
+     them; `cash_flow_values` no longer touches dividends (and the removal left no dangling reference,
+     which would have been a `NameError` on every run); `company_values` computes both dividend fields
+     correctly from fake corporate-actions records; stays a gap with none.
+   - Pushed (`2722af8`, via the same clean side-branch trick). **Not yet seen on a live run** -- next
+     `library.yml` batch (Saturday cron, or a manual dispatch) is the first real check; a spot-check of
+     a handful of symbols in the next published `library_compact.json` should show real
+     `working_capital_days`/`dividend_paid` values instead of an all-gap column.
 5. Expiry theta's first real expiry-day behaviour (Mon 19 Oct is the next chance).
 
 **Closed since the 9 Oct list:** first real email alert arrived (discovery email, 11 Oct, fact-checked by the owner);
