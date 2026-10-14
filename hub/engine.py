@@ -61,11 +61,20 @@ def forecast(index: str, horizon: str, asof: date, dates: list, closes: np.ndarr
     }
 
 
-def learn(fc: dict, actual: float, weights: dict, band_k: float):
-    """Update tool weights and band multiplier from one settled forecast. Returns (weights, k)."""
+def learn(fc: dict, actual: float, weights: dict, band_k: float, n: int | None = None):
+    """Update tool weights and band multiplier from one settled forecast. Returns (weights, k).
+
+    n: settlements already seen for this (index, horizon), for an adaptive step size (Group F2,
+    hub.band_step_test). A fixed step (n=None, the live default) never converges -- it keeps
+    nudging the band by the same amount forever, so it oscillates around the target coverage
+    indefinitely rather than settling near it. Passing n decays the step as eta0/sqrt(1+n), floored
+    at ETA_BAND_MIN so the band stays able to react to a real regime change. Not switched on live
+    until hub.band_step_test shows it actually improves (or at least doesn't worsen) calibration
+    walk-forward against the real history -- see STATUS.md Group F2."""
     z_real = math.log(actual / fc["base"]) / fc["sig_h"]
     missed = not (fc["lo"] <= actual <= fc["hi"])
-    k = band_k + config.ETA_BAND * ((1.0 if missed else 0.0) - (1 - config.TARGET_COVERAGE))
+    eta = config.ETA_BAND if n is None else max(config.ETA_BAND_MIN, config.ETA_BAND / math.sqrt(1 + n))
+    k = band_k + eta * ((1.0 if missed else 0.0) - (1 - config.TARGET_COVERAGE))
     k = min(max(k, 0.3), 4.0)
 
     new = dict(weights)

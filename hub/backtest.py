@@ -15,11 +15,14 @@ from . import config, engine, horizons
 from .store import Store
 
 
-def run(index: str, dates: list, closes: list, start: int = config.MIN_HISTORY):
+def run(index: str, dates: list, closes: list, start: int = config.MIN_HISTORY, adaptive_band: bool = False):
+    """adaptive_band: pass the settlement count into engine.learn() for a decaying band step
+    (Group F2, hub.band_step_test), instead of the live default's fixed step."""
     weights = {h: {} for h in config.HORIZONS}
     bands = {h: config.BAND_K0 for h in config.HORIZONS}
     pending = {h: [] for h in config.HORIZONS}
     scores = defaultdict(list)
+    settled_n = defaultdict(int)
 
     for i in range(start, len(closes)):
         cd, cc = dates[: i + 1], closes[: i + 1]
@@ -32,7 +35,9 @@ def run(index: str, dates: list, closes: list, start: int = config.MIN_HISTORY):
                     still.append(fc)
                     continue
                 scores[h].append(engine.score(fc, float(act[1])))
-                weights[h], bands[h] = engine.learn(fc, float(act[1]), weights[h], bands[h])
+                n = settled_n[h] if adaptive_band else None
+                weights[h], bands[h] = engine.learn(fc, float(act[1]), weights[h], bands[h], n=n)
+                settled_n[h] += 1
             pending[h] = still
             pending[h].append(engine.forecast(index, h, asof, cd, cc, weights[h], bands[h]))
     return scores, weights, bands

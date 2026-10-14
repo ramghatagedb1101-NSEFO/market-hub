@@ -42,5 +42,7 @@ DRIFT_SCALE = 0.5         # max expected move, in units of horizon sigma, when a
 BAND_K0 = 1.2816          # z for an 80% band (starting point)
 TARGET_COVERAGE = 0.80    # the band should contain the actual close this share of the time
 ETA_WEIGHT = 0.15         # multiplicative-weights learning rate for tools
-ETA_BAND = 0.02           # step size for band calibration
+ETA_BAND = 0.02           # step size for band calibration (fixed-step; still the live default)
+ETA_BAND_MIN = 0.004      # floor for the adaptive step size (hub.band_step_test), a fifth of ETA_BAND --
+                          # the band is never frozen solid, same principle as WEIGHT_FLOOR below
 WEIGHT_FLOOR = 0.02       # no tool is ever switched fully off
