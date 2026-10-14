@@ -18,6 +18,7 @@ function adminFunds(token, symbol) {
   for (let page = 1; page <= 5; page++) {
     const r = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/mf-holdings' + (page > 1 ? '?page=' + page : ''),
       { muteHttpExceptions: true, headers: { 'X-API-Key': key } });
+    bsCount_(1);
     const code = r.getResponseCode();
     if (code === 404) break;
     if (code === 429) return { error: 'BharatStock daily limit reached; try again after it resets (05:30 IST).' };

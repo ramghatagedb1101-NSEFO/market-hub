@@ -27,6 +27,7 @@ function doGet(e) {
   if (p.mode === 'watch_check') return json_(watchCheck_(p.key || ''));
   if (p.mode === 'expiry_close') return json_(expiryCloseHook_(p.key || ''));
   if (p.mode === 'expiry_tape') return json_(expiryTapeHook_(p.key || ''));
+  if (p.mode === 'bs_usage') return json_(bsUsage_(p));
   if (p.request_token) return handleLogin_(p.request_token);
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
 }
@@ -227,6 +228,38 @@ function todayIst_() {
  */
 function kiteDayIst_() {
   return Utilities.formatDate(new Date(Date.now() - (7 * 60 + 35) * 60 * 1000), 'Asia/Kolkata', 'yyyy-MM-dd');
+}
+
+/**
+ * The relay's own BharatStock request count, finishing the shared budget (14 Oct 2026, hub/bs_budget.py
+ * -- a job's remaining() call reads this through ?mode=bs_usage so the relay's clicks-driven calls
+ * (Report.gs, Funds.gs, Research.gs's bsChart_) count against the same 9,000-a-day cap as the batch
+ * jobs. A script property, not CacheService: it must survive all day, and CacheService entries can be
+ * evicted early.
+ */
+function bsCount_(n) {
+  const props = PropertiesService.getScriptProperties();
+  const today = utcDay_();
+  let d;
+  try { d = JSON.parse(props.getProperty('BS_USAGE') || '{}'); } catch (e) { d = {}; }
+  if (d.date_utc !== today) d = { date_utc: today, requests: 0 };
+  d.requests = (d.requests || 0) + n;
+  props.setProperty('BS_USAGE', JSON.stringify(d));
+}
+
+/** Key-protected, like handleCheck_: hub/bs_budget.relay_used() reads {date, requests}. */
+function bsUsage_(p) {
+  const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
+  if (!relayKey || !p.key || p.key !== relayKey) return { error: 'forbidden' };
+  const today = utcDay_();
+  let d;
+  try { d = JSON.parse(PropertiesService.getScriptProperties().getProperty('BS_USAGE') || '{}'); } catch (e) { d = {}; }
+  if (d.date_utc !== today) d = { date_utc: today, requests: 0 };
+  return { date: d.date_utc, requests: d.requests };
+}
+
+function utcDay_() {
+  return Utilities.formatDate(new Date(), 'Etc/UTC', 'yyyy-MM-dd');
 }
 
 function html_(message) {

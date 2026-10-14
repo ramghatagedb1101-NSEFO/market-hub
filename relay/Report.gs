@@ -29,6 +29,7 @@ function adminStock(token, symbol, companyName) {
     add('fina', { url: BHARAT + encodeURIComponent(sym) + '/financials?period_type=annual', headers: { 'X-API-Key': bsKey } });
   }
   add('news', { url: 'https://news.google.com/rss/search?q=' + encodeURIComponent(newsQuery) + '&hl=en-IN&gl=IN&ceid=IN:en' });
+  if (bsKey) bsCount_(2);   // 'fin' + 'fina', counted before the batch so a mid-batch failure still counts the attempt
   const res = UrlFetchApp.fetchAll(reqs);
   const out = { symbol: sym, errors: {}, news_query: newsQuery };
   const bsMissing = 'BHARATSTOCK_API_KEY is not set in the script properties (Project Settings).';
@@ -51,6 +52,7 @@ function adminStock(token, symbol, companyName) {
         while (page <= 10 && bsHasNext_(body, page - 1) && consolidated_(rows).length < 40) {
           const more = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/financials?period_type=quarterly&page=' + page,
                                          { muteHttpExceptions: true, headers: { 'X-API-Key': bsKey } });
+          bsCount_(1);
           if (more.getResponseCode() !== 200) break;
           body = JSON.parse(more.getContentText());
           rows = rows.concat(bsRows_(body));

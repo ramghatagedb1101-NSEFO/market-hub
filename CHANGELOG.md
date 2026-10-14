@@ -4,6 +4,25 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Relay counts its own BharatStock calls, finishing the shared budget (code done ~13:20 IST, deploy held for market close)
+`hub/bs_budget.remaining()` already subtracted `relay_used()` from the shared 9,000-a-day cap, but the
+relay never answered `?mode=bs_usage`, so every job's math has been treating the relay's clicks-driven
+BharatStock calls (stock report, mutual-fund holdings, price charts) as zero all along.
+
+- `relay/Code.gs`: `bsCount_(n)` adds to a script property `BS_USAGE` (`{date_utc, requests}`, reset on a
+  new UTC day -- BharatStock's own reset is 00:00 UTC); `bsUsage_(p)` is the key-protected reader (same
+  pattern as `handleCheck_`), returning `{date, requests}` to match what `hub/bs_budget.relay_used()`
+  already parses; routed as `?mode=bs_usage` in `doGet`.
+- Counted at the real fetch, not estimated: `Report.gs`'s `adminStock` (2 for fin+fina, counted before
+  `fetchAll` so a mid-batch failure still counts the attempt; 1 per quarterly-pagination page), `Funds.gs`'s
+  `adminFunds` (1 per mf-holdings page, up to 5), `Research.gs`'s `bsChart_` (1 per prices page, up to 3).
+- `node relay/check.js`: clean (all files parse, no top-level name clashes, all 22 `AdminPage.html` server
+  calls resolve).
+- **Not deployed yet**: CLAUDE.md's market-hours rule (no `relay/*` push 09:15-15:30 IST, since a push
+  deploys at once) -- committed locally around 13:20 IST, well inside that window. Push and deploy after
+  15:30 today, then re-check `?mode=bs_usage` live before marking this closed (group C in STATUS.md's
+  NEXT STEPS should pick up a live-check item for it).
+
 ### Removed the one-off BharatStock quota-headers probe (~13:10 IST)
 `hub/diag_quota_headers.py` had already answered its question (no usage headers, no `/v1/usage`
 endpoint -- see the audit entry below) and wasn't needed again, so removed it. The handover note said

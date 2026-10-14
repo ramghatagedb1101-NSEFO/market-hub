@@ -66,10 +66,16 @@ As of Wed 14 Oct 2026, ~10:45 IST. Read the HANDOVER below first, then `CHANGELO
      add GitHub secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`; the workflow posts the public key to the relay.
    - Test: owner opens the app from the Home Screen, taps the button; run the workflow with mode=test; only after the
      owner confirms it arrived, disable the claude.ai routine (RemoteTrigger update enabled=false).
-2. **Relay counts its own BharatStock calls** (finishes the budget): count each BharatStock fetch in
-   `relay/Report.gs`, `relay/Funds.gs`, `relay/Research.gs` (bsChart_) in a script property `BS_USAGE`
-   `{date_utc, requests}`; add key-protected `?mode=bs_usage` returning it (hub/bs_budget.relay_used already calls it
-   and treats a missing mode as 0). Deploy after 15:30.
+2. **Code done 14 Oct, ~13:20 IST -- not deployed yet (market hours).** Relay counts its own BharatStock
+   calls: `bsCount_(n)`/`bsUsage_(p)`/`utcDay_()` added to `Code.gs` (script property `BS_USAGE`
+   `{date_utc, requests}`, reset on a new UTC day); `?mode=bs_usage` routed in `doGet`, key-protected like
+   `handleCheck_`, returns `{date, requests}` -- matches `hub/bs_budget.relay_used()` exactly (already
+   written, already calls this, already treats a missing/wrong-day response as 0). Counted at every real
+   BharatStock fetch: `Report.gs` (`adminStock`: 2 upfront for fin+fina if the key is set, 1 per
+   quarterly-pagination page), `Funds.gs` (`adminFunds`: 1 per mf-holdings page), `Research.gs`
+   (`bsChart_`: 1 per prices page). `node relay/check.js` clean (exit 0): all files parse, no name clashes,
+   all 22 `AdminPage.html` server calls still resolve. **Committed locally, not pushed** -- CLAUDE.md's
+   market-hours rule (no `relay/*` push 09:15-15:30 IST; it deploys at once). Push after 15:30 today.
 3. **Done 14 Oct**, ahead of item 2 (no real dependency between them -- `diag_quota_headers.py` was a
    finished one-off probe, not something item 2 needed first). The `diag.yml` key line stayed: two other
    diag modules still use it. See group A3 below.
@@ -82,7 +88,7 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 
 **A. Build now (approved by the owner)**
 1. Market Hub push notifications on the owner's iPhone, starting with the Kite login reminder (plan in "Next up" 1).
-2. Relay counts its own BharatStock calls (`?mode=bs_usage`; "Next up" 2).
+2. **Code done 14 Oct, not deployed** (market hours block `relay/*` pushes until 15:30 IST -- see "Next up" 2).
 3. **Done 14 Oct.** Removed the one-off `hub/diag_quota_headers.py`. Its `BHARATSTOCK_API_KEY` line in
    `diag.yml` stayed -- `diag_library_sample.py` and `diag_shareholding.py` both still need it; only the
    comment was wrong (named the deleted module), fixed to name the two real users.

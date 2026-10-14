@@ -181,6 +181,7 @@ function bsChart_(sym, days) {
   do {
     const r = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/prices?from=' + from + '&page_size=1000' + (page > 1 ? '&page=' + page : ''),
                                 { muteHttpExceptions: true, headers: { 'X-API-Key': bsKey } });
+    bsCount_(1);
     if (r.getResponseCode() === 429) return { error: "today's BharatStock allowance is used up (it resets at 05:30 IST)", reason: 'quota' };
     if (r.getResponseCode() === 404) return { error: 'BharatStock has no prices for ' + sym, reason: 'no_trades' };
     if (r.getResponseCode() !== 200) return { error: 'BharatStock returned ' + r.getResponseCode(), reason: 'other' };
