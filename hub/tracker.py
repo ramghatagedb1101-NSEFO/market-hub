@@ -16,7 +16,17 @@ def settle_due(store: Store) -> list:
             continue
         settled_on, actual = act
         outcome = engine.score(p, float(actual))
-        weights, k = engine.learn(p, float(actual), store.get_weights(idx, h), store.get_band(idx, h))
+        # Group F2 (14 Oct 2026, owner's go-ahead): hub.band_step_test's walk-forward comparison found
+        # the fixed band step unstable specifically on the year horizon, on all three indices (band_k
+        # drifting 1.6-2.9x its start, extreme first/second-half coverage splits) -- the decaying
+        # adaptive step fixed it there. day/expiry were already converged under the fixed step and
+        # month was mixed, so only year switches; n is settlements already recorded for this
+        # (index, horizon), same counting rule as hub.backtest.run(adaptive_band=True).
+        n = None
+        if h == "year":
+            n = sum(1 for q in store.data["predictions"]
+                    if q["index"] == idx and q["horizon"] == h and q["settled_on"] is not None)
+        weights, k = engine.learn(p, float(actual), store.get_weights(idx, h), store.get_band(idx, h), n=n)
         store.save_weights(idx, h, weights)
         store.save_band(idx, h, k)
         store.mark_settled(p["id"], settled_on.isoformat(), float(actual),

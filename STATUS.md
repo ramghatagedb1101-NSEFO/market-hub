@@ -217,22 +217,21 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
    e026678). Details: CHANGELOG 14 Oct, "ROCE gate added to the multi-bagger screen, Group F1".
    **Not yet seen on a live run** -- next `library.yml` batch is the first real check; `roce_sustained`
    gaps should cluster on financial-sector names, not spread randomly.
-2. **Groundwork built, 14 Oct ~19:00 IST -- not yet switched on live.** Adaptive band-learning step
-   (`hub/engine.py`'s `learn()` takes an optional settlement count `n`; `n=None`, every existing caller,
-   reproduces the old fixed-step formula exactly -- confirmed by a standalone offline test). New
-   `hub/band_step_test.py` (workflow `band-step-test.yml`) runs the walk-forward backtest fixed vs.
-   adaptive and compares first-half vs. second-half coverage against the 80% target, so a genuine
-   step-size win (closer to target AND actually converging) is told apart from a lucky sample.
-   **Run completed 14 Oct ~19:10 IST** (`site/band_step_test.json`, private repo): not a clean global
-   win. `day`/`expiry` (9 of 9 index/horizon pairs): fixed step already near the 80% target and
-   converged -- hold. `month`: mixed (BANKNIFTY favours adaptive, NIFTY/SENSEX don't) -- hold. `year`:
-   **all three indices** show the fixed step unstable (`band_k` drifting 1.6-2.9x its start, first/
-   second-half coverage split 47%/100% for NIFTY and SENSEX, 78.6%/56.8% for BANKNIFTY the other way);
-   the adaptive step tempers all three back toward the target. Full numbers and reasoning: CHANGELOG
-   14 Oct, "Band-learning step comparison run, Group F2". **Owner decision needed before going
-   further**: switch the adaptive step on for the `year` horizon only (the evidence-backed, narrow
-   change), or hold everywhere. Not done without that confirmation -- it changes a live forecasting
-   model's actual behaviour.
+2. **Done, 14 Oct ~19:30 IST.** Adaptive band-learning step (`hub/engine.py`'s `learn()` takes an
+   optional settlement count `n`; `n=None` reproduces the old fixed-step formula exactly). The
+   walk-forward comparison (`hub/band_step_test.py`, `site/band_step_test.json` in the private repo) was
+   not a clean global win: `day`/`expiry` (9 of 9 index/horizon pairs) already converged under the fixed
+   step -- hold; `month` mixed (BANKNIFTY favours adaptive, NIFTY/SENSEX don't) -- hold; `year` showed
+   the fixed step genuinely unstable on **all three indices** (`band_k` drifting 1.6-2.9x its start,
+   extreme first/second-half coverage splits). **Owner confirmed switching the adaptive step on for
+   `year` only.** `hub/tracker.py`'s `settle_due()` now passes `n` into `engine.learn()` only when
+   `horizon == "year"` -- every other horizon's live behaviour is byte-for-byte unchanged (standalone
+   test: fake Store, `n` is `None` for every `day` call and the correct count for every `year` call, all
+   pass). Full reasoning and numbers: CHANGELOG 14 Oct, "Adaptive band step switched on live for the
+   year horizon only" and "Band-learning step comparison run". **Not yet seen on a live run** -- a
+   `year`-horizon settlement is rare by design (once a year per index); the first real check is whenever
+   one next settles -- watch `state.json`'s `band` entry for that index move toward the comparison's
+   adaptive numbers (1.44-1.53) rather than drifting further away.
 
 **G. Still unverified (check when convenient)**
 1. **Verified live, 14 Oct ~15:20 IST** (desktop browser, not literally a phone -- still a genuine live

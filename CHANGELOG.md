@@ -4,6 +4,20 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Adaptive band step switched on live for the year horizon only, Group F2 (owner's decision, ~19:30 IST)
+Owner confirmed, from the comparison below: switch the adaptive step on for `year` (the evidence-backed,
+unanimous-across-all-three-indices fix), hold everywhere else. `hub/tracker.py`'s `settle_due()` now
+passes `n` (settlements already recorded for that index/horizon, same counting rule as
+`hub.backtest.run(adaptive_band=True)`) into `engine.learn()` only when `horizon == "year"` -- every
+other horizon keeps calling `learn()` without `n`, so `day`/`expiry`/`month` are byte-for-byte unaffected
+(confirmed by the existing `n=None` regression test, Group F2's engine.py change). Standalone test (fake
+Store, `horizons.settle_value` mocked, no network): across NIFTY/BANKNIFTY day+year settlements, `n` is
+`None` for every `day` call and the correct prior-settlement count for every `year` call. All pass.
+**Not yet seen on a live run** -- the next time a `year`-horizon prediction actually settles is the first
+real check (rare by design: once a year per index); watch `state.json`'s `band` entry for NIFTY/
+BANKNIFTY/SENSEX `year` move toward the comparison's adaptive numbers (1.44-1.53) rather than drifting
+further from them.
+
 ### Band-learning step comparison run, Group F2 (~19:10 IST): a real but horizon-specific finding
 `hub.band_step_test` (dispatched via `band-step-test.yml`) ran the walk-forward backtest fixed vs.
 adaptive for all three indices and four horizons (`site/band_step_test.json` in the private repo).
