@@ -44,7 +44,14 @@ history test"; record version 2, older records are fetched again once):
   - event days (RBI policy decisions, Union Budgets, the 2024 election result) on the expiry day itself.
 Direction signals are judged by walk-forward error against the open and by correlation with the close-minus-open;
 gamma and event days by the size of the move (close - open against the straddle's one standard deviation).
-Many signals are tried on few expiries: about one in twenty will look significant by chance."""
+Many signals are tried on few expiries: about one in twenty will look significant by chance.
+
+Keeping the data (14 Oct 2026, owner: "make sure no data is lost"; record version 3):
+  - the raw chains are stored, not only what was worked out from them: per expiry, the expiring chain the day before
+    and two days before, and the next expiry's chain the day before, every strike within +-5% of spot (call and put
+    close and open interest), in state/expiry_history/chains/<INDEX>_<YEAR>.json; a new question needs no new downloads;
+  - records are never dropped: a record of an older layout stays until its replacement is collected, so a run that
+    stops halfway cannot shrink records.json (each save is also a commit in the private repository)."""
 import base64
 import csv
 import io
@@ -69,7 +76,8 @@ NSE_SYMS = [s for s in IDX if IDX[s]["exch"] == "NSE"]
 RANGE_PCT = 3.0                            # strikes read around spot, as the live meter (relay/Expiry.gs EXP_RANGE_PCT)
 PRIOR = [(0.30, 0.5), (0.20, 0.5), (0.0, 0.3)]          # k, m, v: the relay's starting values and spreads
 BOUNDS = [(-0.5, 1.5), (-0.5, 1.5), (-0.5, 1.0)]
-VERSION = 2                               # record layout; records of older layouts are collected again
+VERSION = 3                               # record layout; older records are collected again (and kept until then)
+CHAIN_PCT = 5.0                           # raw chains kept within +-5% of spot
 # Expiry-day events (decision or announcement days). RBI: MPC policy decisions (FY27 from the RBI's calendar of
 # 23 Mar 2026; earlier from past announcements). Budget: Union Budgets (1 Feb 2026 was a Sunday special session).
 EVENTS = {
@@ -379,6 +387,12 @@ def gamma_stats(chain: dict, F: float, step: int) -> dict | None:
     return {"gex_net": round(net / gross, 4), "gamma_near": round(near / gross, 4), "max_gamma_strike": top[0]}
 
 
+def raw_chain(chain: dict, spot: float) -> list:
+    """[[strike, call close, put close, call OI, put OI], ...] within +-CHAIN_PCT of spot (strikes with any OI or price)."""
+    return [[k, round(v[0], 2), round(v[1], 2), int(v[2]), int(v[3])] for k, v in sorted(chain.items())
+            if abs(k / spot - 1) * 100 <= CHAIN_PCT and (v[0] or v[1] or v[2] or v[3])]
+
+
 # ------------------------------------------------------------------ walking the expiry calendar
 def prev_trading_day(nse: Nse, d: date) -> tuple[date, dict] | tuple[None, None]:
     p = d - timedelta(days=1)
@@ -451,7 +465,10 @@ def collect(nse: Nse, start: date, end: date, have: dict, budget: int) -> dict:
             ch, ch2 = f[s][e_d.isoformat()], (f2 or {}).get(s, {}).get(e_d.isoformat(), {})
             oi_chg = lambda k, i: round((ch[k][i] - ch2[k][i]) / ch2[k][i], 3) if k in ch2 and ch2[k][i] else None
             tot2 = lambda i: sum(v[i] for k, v in ch2.items() if abs(k / spot - 1) * 100 <= RANGE_PCT)
-            new[f"{s}_{e_d}"] = {"v": VERSION,
+            raw = {"day_before": raw_chain(ch, spot),
+                   "two_days_before": raw_chain(ch2, day_p2[s][3]) if ch2 and day_p2 and s in day_p2 else None,
+                   "next_expiry_day_before": raw_chain(f[s][later[0]], spot) if later else None}
+            new[f"{s}_{e_d}"] = {"v": VERSION, "_chains": raw,
                 "event": EVENT_DAY.get(e_d.isoformat()),
                 "gamma": gamma_stats(ch, st["forward"], IDX[s]["step"]),
                 "participants": po,
@@ -707,7 +724,8 @@ def main() -> None:
     start = date.fromisoformat(os.getenv("START") or "2023-10-01")
     end = datetime.now(config.IST).date() - timedelta(days=1)
     budget = int(os.getenv("BUDGET") or 1500)
-    have = {k: v for k, v in (load("state/expiry_history/records.json") or {}).items() if v.get("v") == VERSION}
+    stored = load("state/expiry_history/records.json") or {}
+    have = {k: v for k, v in stored.items() if v.get("v") == VERSION}           # older layouts are collected again
     print(f"{len(have)} expiries already recorded; collecting {start} to {end} (budget {budget} requests)")
     new = {}
     for name, src in (("NSE", Nse()), ("BSE", Bse(start, end))):
@@ -718,10 +736,21 @@ def main() -> None:
             got = {}
         new.update(got)
         print(f"{name}: {len(got)} new expiries, {src.requests} requests")
-    have.update(new)
-    print(f"{len(new)} new expiries, {len(have)} in all")
+    # Raw chains to state/expiry_history/chains/<INDEX>_<YEAR>.json, merged with what is stored there.
+    files = {}
+    for k, r in new.items():
+        files.setdefault(f"state/expiry_history/chains/{r['symbol']}_{r['expiry'][:4]}.json", {})[k] = r.pop("_chains")
+    for path, chains in sorted(files.items()):
+        old = load(path) or {}
+        old.update(chains)
+        save(path, old, f"expiry history chains: {path.rsplit('/', 1)[-1]} ({len(old)} expiries)")
+    # Never drop a record: older layouts stay until replaced (a run that stops halfway cannot shrink the file).
+    merged = dict(stored)
+    merged.update(new)
+    have = {k: v for k, v in merged.items() if v.get("v") == VERSION}
+    print(f"{len(new)} new expiries, {len(merged)} records kept ({len(have)} in the current layout)")
     if new:
-        save("state/expiry_history/records.json", have, f"expiry history: {len(have)} expiries")
+        save("state/expiry_history/records.json", merged, f"expiry history: {len(merged)} expiries")
     rep = report(have)
     save("state/expiry_history/summary.json", rep, "expiry history summary")
     lines = []
