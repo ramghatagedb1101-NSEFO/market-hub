@@ -205,9 +205,26 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 3. Since the closing auction (Aug 2026) NIFTY's close sat between the walls 4 of 10 expiries vs ~6 expected: keep an
    eye on it as expiries accumulate.
 
-**F. Not started, by design (groundwork first)**
-1. ROCE gate on the multibagger screen (needs clean 3-year annual ROCE in BharatStock's responses).
-2. Adaptive band-learning step in the forecast engine (`hub/engine.py`; through `hub/backtest.py` first).
+**F. Started 14 Oct evening, owner's explicit go-ahead (was "not started, by design")**
+1. **Done, 14 Oct ~18:30 IST.** ROCE gate on the multibagger screen (`hub/multibagger.py`'s `score()`):
+   `roce_sustained`, true only if the last three annual years all clear 15% ROCE, false if any misses
+   it, a gap if fewer than three annual rows exist or a required field is missing. Groundwork confirmed
+   the fields are clean for non-financial companies (`diag_output/roce_fields.json`: RELIANCE/TCS/ITC/
+   INFY all three years); financial-sector companies (HDFCBANK sampled) genuinely lack
+   `borrowings_current`/`non_current` in this endpoint, so they stay a permanent, correct gap, not a
+   wrong guess. Score range is 0-5 now (`rated_all_four_gates` -> `rated_all_five_gates` everywhere,
+   `relay/AdminPage.html`'s three `score === 4` spots -> 5). Pushed, relay deployed (Version 67, commit
+   e026678). Details: CHANGELOG 14 Oct, "ROCE gate added to the multi-bagger screen, Group F1".
+   **Not yet seen on a live run** -- next `library.yml` batch is the first real check; `roce_sustained`
+   gaps should cluster on financial-sector names, not spread randomly.
+2. **Groundwork built, 14 Oct ~19:00 IST -- not yet switched on live.** Adaptive band-learning step
+   (`hub/engine.py`'s `learn()` takes an optional settlement count `n`; `n=None`, every existing caller,
+   reproduces the old fixed-step formula exactly -- confirmed by a standalone offline test). New
+   `hub/band_step_test.py` (workflow `band-step-test.yml`) runs the walk-forward backtest fixed vs.
+   adaptive and compares first-half vs. second-half coverage against the 80% target, so a genuine
+   step-size win (closer to target AND actually converging) is told apart from a lucky sample. First run
+   dispatched 14 Oct ~19:00 IST; see CHANGELOG for its verdict once it lands -- the live default only
+   changes if the comparison actually favours it.
 
 **G. Still unverified (check when convenient)**
 1. **Verified live, 14 Oct ~15:20 IST** (desktop browser, not literally a phone -- still a genuine live
@@ -376,11 +393,10 @@ unlikely to actually get, and a settled-session log for the expiry-theta module
 condition can eventually be checked against real data instead of nothing. Both tested standalone
 before landing.
 
-Two further recommendations are **not yet started**, by design -- they need groundwork first: an ROCE
-gate on the multi-bagger screen (needs confirming 3-year annual ROCE data actually exists cleanly in
-BharatStock's responses, same as the existing cash-flow gate's own "best-effort guess" caveat), and an
-adaptive band-learning step size in the core forecast engine (`hub/engine.py`, a change that should go
-through `hub/backtest.py` before it ever reaches the live model). A third recommendation -- splitting
+Two further recommendations needed groundwork first, started 14 Oct evening (owner's go-ahead) -- see
+Group F above for current state: an ROCE gate on the multi-bagger screen (**done**, live), and an
+adaptive band-learning step size in the core forecast engine (**groundwork built**, comparison run
+pending before it reaches the live model). A third recommendation -- splitting
 "Financial Services" into Private Banks/NBFCs/PSU Banks/Insurance/AMC sub-sectors for the concentration
 cap -- was explicitly left as is by the owner: neither NSE's own constituent CSV nor BharatStock expose
 that breakdown, and a prior hand-built sector taxonomy disagreed with NSE's own label on 24 of 25
