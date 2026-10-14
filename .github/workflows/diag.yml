@@ -25,4 +25,4 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python -m "hub.${{ inputs.module }}"
         env:
-          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}     # needed by diag_library_sample and diag_shareholding
+          BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}     # needed by diag_library_sample, diag_shareholding, diag_roce_fields
