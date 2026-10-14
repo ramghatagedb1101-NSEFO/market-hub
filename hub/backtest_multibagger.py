@@ -83,7 +83,14 @@ def main() -> dict:
         raise RuntimeError("BHARATSTOCK_API_KEY is not set")
     names = universe()
     fin, px = {}, {}
+    from . import bs_budget                       # shared BharatStock budget (14 Oct 2026): it used to have no limit
+    from .multibagger import BS_REQUESTS
+    cap, bs_start = bs_budget.remaining("backtest_multibagger"), BS_REQUESTS[0]
+    print(f"BharatStock: {cap} requests left for this run today (shared budget {bs_budget.SHARED_CAP})")
     for s in names:
+        if BS_REQUESTS[0] - bs_start >= cap:
+            DIAG["stopped_at_budget"] = f"{len(fin)} companies read before the shared BharatStock budget ran out"
+            break
         try:
             fin[s] = fetch(s, key)
             px[s] = prices(s, key)
@@ -91,6 +98,7 @@ def main() -> dict:
             DIAG["price_errors"] += 1
             DIAG["first_error"] = DIAG["first_error"] or str(exc)[:120]
             continue
+    bs_budget.record("backtest_multibagger", BS_REQUESTS[0] - bs_start)
     dates = list(quarter_ends())
     obs = []   # (score, excess_1y, excess_3y, passed_all)
     for asof in dates:

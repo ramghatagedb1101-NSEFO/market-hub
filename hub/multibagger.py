@@ -367,8 +367,11 @@ def main() -> dict:
     results, failures = [], []
     processed = 0
     partial = False
+    from . import bs_budget                       # shared BharatStock budget (14 Oct 2026)
+    cap, bs_start = bs_budget.remaining("multibagger"), BS_REQUESTS[0]
+    print(f"BharatStock: {cap} requests left for this run today (shared budget {bs_budget.SHARED_CAP})")
     for sym in names:
-        if time.time() - started > TIME_BUDGET_SECONDS:
+        if time.time() - started > TIME_BUDGET_SECONDS or BS_REQUESTS[0] - bs_start >= cap:
             partial = True
             break
         try:
@@ -395,6 +398,7 @@ def main() -> dict:
         if processed % CHECKPOINT_EVERY == 0:
             _write(results, failures, names, processed, partial=True)
         time.sleep(0.2)
+    bs_budget.record("multibagger", BS_REQUESTS[0] - bs_start)
     return _write(results, failures, names, processed, partial=partial)
 
 

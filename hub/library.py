@@ -22,6 +22,7 @@ import requests
 
 from . import config
 from . import alerts
+from . import bs_budget
 from .multibagger import (universe, fetch, fetch_annual, fetch_insider, fetch_mf,
                           insider_signal, mf_counts, _consolidated, score, UA, EQUITY_LIST,
                           FIELDS, ENDPOINT_COUNTS, BS_REQUESTS)
@@ -1345,8 +1346,12 @@ def main() -> dict:
     plan = {sym: needs(companies[sym], prior_mb.get(sym), today) for sym in names}
     work = sorted((s for s in names if plan[s]), key=lambda s: (_priority(plan[s], companies[s]), s))
 
+    # Shared budget (14 Oct 2026, hub/bs_budget.py): the manual multibagger / back-test runs and the relay's own calls
+    # today count against the same 9,000.
+    others = bs_budget.used_by_others("library")
+
     def bs_ok():
-        return not usage["exhausted"] and usage["requests"] < BS_DAILY_BUDGET
+        return not usage["exhausted"] and usage["requests"] + others < BS_DAILY_BUDGET
 
     ctx = {"today": today, "key": key, "nse": nse, "bs_ok": bs_ok, "mb_new": {}, "mb_failures": mb_failures,
            "prior_mb": prior_mb, "registry": registry_investors, "symbol_matches": {}}
@@ -1491,6 +1496,8 @@ def main() -> dict:
         except Exception:
             pass
     state["bs_usage"] = usage
+    bs_budget.record("library", usage["requests"], absolute=True)
+    tracker["bharatstock"]["others_today"] = others
     state["tracker"] = tracker
     save_state(state)
 
