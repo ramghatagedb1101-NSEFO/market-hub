@@ -14,10 +14,10 @@ after 14:00, about 3.6 times the typical late-afternoon move in the 399-expiry h
 - `relay/Expiry.gs`: one formula for the expected close (`expiryFormula_`), used live and by the replay, so the two cannot
   drift apart (checked identical to the old inline formula). New `expiryScore_`: every stored expiry (last 30 per index)
   at 10:00/12:00/14:00/15:00 -- the meter as shown live, today's model replayed on the same reading, the forward, and the
-  spot -- with how often the close fell inside the live +-1 sd band and inside a 0.75 sd trial band (the evidence the
-  range decision is waiting for). Fewer than 10 expiries at a time = too few to judge. Readings now also store the spot
-  (p[9]); spot and bands start with readings from 15 Oct (earlier ones lack them). Cached with the model (key exp_ma3_).
-- Dashboard (Analysis -> Expiry meter): a scoreboard table under each index's track record, the best column highlighted.
+  spot -- with how often the close fell inside the live +-1 sd band and inside a 0.88 sd trial band (a warning light
+  for the range decision, not proof; see the review below). Fewer than 10 expiries at a time = too few to judge. Readings now also store the spot
+  (p[9], as spot minus forward); spot and bands start with readings from 15 Oct (earlier ones lack them). Cached with the model (key exp_ma3_).
+- Dashboard (Analysis -> Expiry meter): a scoreboard table under each index's track record, a single clear best column highlighted.
 - Phone (F&O tab): "Expiry meter scoreboard", one collapsed row per index. `hub/expiry_day.py` writes it to the public
   `docs/data/expiry_score.json` from the relay's answer on any day (not only expiry days), with no timestamp so live.yml
   commits it only when a new close changes it.
@@ -25,6 +25,17 @@ after 14:00, about 3.6 times the typical late-afternoon move in the 399-expiry h
   empty times, last reading at or before each time, bands, spot, too-few flag); `write_score` (not rewritten when
   unchanged, labels, no tracks); phone at 375 px (scoreboard, too-few label, empty index hidden, missing file, no overflow,
   no page errors). All pass.
+- Independent review before deploy (2 reviewers, each finding checked by a skeptic): 4 confirmed, 2 refuted; all 4 fixed.
+  (1) The dashboard's green "best" could crown spot just because spot skips 13 Oct (stored before spot existed, a big
+  miss for everyone): spot now competes only when it covers the same expiries, and shows "k of n; forward on those".
+  (2) With wall weights at 0 the model often equals the forward: ties are counted apart, and a shared best gets no
+  highlight. (3) Real storage limit: the relay's script-property store is capped at 500 KB in total, and ~90 stored
+  expiry days at ~5-6 KB each were already close to it; spot is now stored as spot minus forward (one decimal, a few
+  characters), and readings from earlier days that never got a close are deleted when a close is recorded. Still a
+  watch item (STATUS E). (4) The separate research review found the 0.75 trial band the wrong comparison: the history's
+  ~0.76 factor came from the evening-before straddle, which also prices the overnight gap, so the trial band is 0.88;
+  and with ~10 expiries a hit rate cannot tell 68% from 80%, so the band rows are a warning light, not the decision.
+  12 more test cases (offset spot, forward on spot days, ties, 0.88, orphan cleanup, highlight rules): all pass.
 
 ### Expiry meter: wall and max-pain weights set to zero and pinned (owner's decision, ~22:20 IST)
 From the intraday test below. `relay/Expiry.gs`: `EXP_START` k, m, v = 0 for all three indices (was the 13 Oct history

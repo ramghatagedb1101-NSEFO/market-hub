@@ -280,18 +280,23 @@ function expiryFormula_(M, F, MP, W, eu, us, NW) {
 }
 
 // Replay scoreboard (14 Oct 2026, owner): every stored expiry re-scored at 10:00/12:00/14:00/15:00 four ways -- what the
-// meter showed live (p[4]), the CURRENT model replayed on that same reading, the forward (p[1]) and the spot (p[9], stored
-// from 15 Oct 2026) -- so a model change is judged on every recorded day, not only on later ones. Also how often the close
-// fell inside the live band (shown expected close +- 1 sd, sd = straddle / 0.8; straddle stored from 15 Oct 2026) and
-// inside a narrower trial band (EXP_TRIAL_BAND x sd around the replayed model): the evidence the range decision waits for.
+// meter showed live (p[4]), the CURRENT model replayed on that same reading, the forward (p[1]) and the spot (stored from
+// 15 Oct 2026 as p[9] = spot - forward, to keep the property store small) -- so a model change is judged on every recorded
+// day, not only on later ones. Spot covers fewer expiries than the rest at first, so it is also compared with the forward on
+// exactly its own readings (forward_bp_on_spot_days). Ties between the model and the forward are counted apart: with the
+// wall weights at 0 the model often equals the forward. Bands: how often the close fell inside the live band (shown expected
+// close +- 1 sd, sd = straddle / 0.8; straddle stored from 15 Oct 2026) and inside a trial band of EXP_TRIAL_BAND x sd.
+// 0.88, not 0.75 (independent review, 14 Oct 2026): the history's ~0.76 factor came from the evening-before straddle, which
+// also prices the overnight gap; a live expiry-day straddle does not, so the fair narrower comparison is ~0.88. With ~10
+// expiries a band hit rate cannot tell 68% from 80%: these rows are a warning light, not the range decision itself.
 // Under EXP_SCORE_MIN expiries a time is marked too few to judge. The current model's Europe/US weights were fitted on these
 // same days, so their part of the replay is in-sample; the wall weights are pinned at 0 and are not.
-const EXP_SCORE_MIN = 10, EXP_TRIAL_BAND = 0.75;
+const EXP_SCORE_MIN = 10, EXP_TRIAL_BAND = 0.88;
 function expiryScore_(id, M) {
   const props = PropertiesService.getScriptProperties();
   const closes = JSON.parse(props.getProperty('EXP_CLOSES_' + id) || '{}');
   const T = [['10:00', 0], ['12:00', 1], ['14:00', 2], ['15:00', 3]];
-  const acc = T.map(() => ({ n: 0, live: 0, model: 0, fwd: 0, spot: 0, nSpot: 0, beat: 0, nBand: 0, liveIn: 0, trialIn: 0 }));
+  const acc = T.map(() => ({ n: 0, live: 0, model: 0, fwd: 0, spot: 0, fwdS: 0, nSpot: 0, beat: 0, tie: 0, nBand: 0, liveIn: 0, trialIn: 0 }));
   Object.keys(closes).forEach(d => {
     const c = closes[d], pts = JSON.parse(props.getProperty('EXPD_' + id + '_' + d) || '[]');
     const bp = x => Math.abs(x - c) / c * 1e4;
@@ -300,8 +305,9 @@ function expiryScore_(id, M) {
       if (!p) return;
       const a = acc[i], F = p[1], replay = expiryFormula_(M, F, p[2], p[3], p[5], p[6], p[7]);
       a.n++; a.live += bp(p[4]); a.model += bp(replay); a.fwd += bp(F);
-      if (Math.abs(replay - c) < Math.abs(F - c)) a.beat++;
-      if (p[9] != null) { a.spot += bp(p[9]); a.nSpot++; }
+      const dm = Math.abs(replay - c), df = Math.abs(F - c);
+      if (Math.abs(dm - df) < 0.005) a.tie++; else if (dm < df) a.beat++;
+      if (p[9] != null) { a.spot += bp(F + p[9]); a.fwdS += bp(F); a.nSpot++; }
       if (p[8]) {
         const sd = expirySd_(F, p[8]);
         a.nBand++; a.liveIn += Math.abs(c - p[4]) <= sd ? 1 : 0; a.trialIn += Math.abs(c - replay) <= EXP_TRIAL_BAND * sd ? 1 : 0;
@@ -311,7 +317,8 @@ function expiryScore_(id, M) {
   const avg = (s, n) => n ? Math.round(s / n * 10) / 10 : null;
   return T.map(([hm, i]) => { const a = acc[i];
     return { at: hm, n: a.n, enough: a.n >= EXP_SCORE_MIN, min_n: EXP_SCORE_MIN, live_bp: avg(a.live, a.n), model_bp: avg(a.model, a.n),
-             forward_bp: avg(a.fwd, a.n), spot_bp: avg(a.spot, a.nSpot), n_spot: a.nSpot, model_beat_forward: a.beat,
+             forward_bp: avg(a.fwd, a.n), spot_bp: avg(a.spot, a.nSpot), forward_bp_on_spot_days: avg(a.fwdS, a.nSpot), n_spot: a.nSpot,
+             model_beat_forward: a.beat, model_tied_forward: a.tie,
              n_band: a.nBand, live_band_hits: a.liveIn, trial_band_hits: a.trialIn, trial_band: EXP_TRIAL_BAND }; });
 }
 
@@ -543,8 +550,9 @@ function expiryIndex_(ix, snap, now, M, ov) {
         const props = PropertiesService.getScriptProperties(), pk = 'EXPD_' + ix.id + '_' + now.date;
         const pts = JSON.parse(props.getProperty(pk) || '[]');
         cache.put(lk, now.hm, 21600);
-        // p[9] spot from 15 Oct 2026 (replay scoreboard); older readings end at the straddle.
-        if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred), eu, us, NW, r2(C.straddle), r2(spot)]); props.setProperty(pk, JSON.stringify(pts)); }
+        // p[9] = spot - forward from 15 Oct 2026 (replay scoreboard), one decimal: a few characters, not a full price -- the
+        // script-property store is capped at 500 KB in total. Older readings end at the straddle.
+        if (!pts.length || mins(now.hm) - mins(pts[pts.length - 1][0]) >= 5) { pts.push([now.hm, r2(F), MP, W, r2(pred), eu, us, NW, r2(C.straddle), Math.round((spot - F) * 10) / 10]); props.setProperty(pk, JSON.stringify(pts)); }
       }
     } finally { lock.releaseLock(); }
   }
@@ -561,6 +569,10 @@ function expiryRecordClose_(id, date, close) {
   const keep = Object.keys(closes).sort().slice(-EXP_KEEP), kept = {};
   keep.forEach(d => kept[d] = closes[d]);
   Object.keys(closes).forEach(d => { if (!kept[d]) props.deleteProperty('EXPD_' + id + '_' + d); });
+  // Also readings from earlier days that never got a close (independent review, 14 Oct 2026): they would otherwise sit in
+  // the 500 KB property store for good.
+  const pre = 'EXPD_' + id + '_';
+  props.getKeys().forEach(k => { if (k.indexOf(pre) === 0) { const d = k.slice(pre.length); if (d < date && !kept[d]) props.deleteProperty(k); } });
   props.setProperty('EXP_CLOSES_' + id, JSON.stringify(kept));
   CacheService.getScriptCache().remove('exp_ma3_' + id);   // re-fit with the new close on the next call
 }
@@ -604,7 +616,7 @@ function expiryTapeHook_(key) {
     out.indices.push({ id: ix.id, label: ix.label, expiry: now.date, next_expiry: base ? base.nexp || null : null, close: closes[now.date] || null,
       model_after_close: expiryTrack_(ix.id).model, tape_fields: EXP_TAPE_FIELDS, tape: tape || [],
       history_fields: ['time', 'expected_close', 'spot', 'forward', 'max_pain', 'wall_mid'], history: hist || [],
-      sample_fields: ['time', 'forward', 'max_pain', 'wall_mid', 'expected_close', 'europe_pct', 'us_pct', 'next_wall_mid', 'straddle', 'spot'], samples: samples || [],
+      sample_fields: ['time', 'forward', 'max_pain', 'wall_mid', 'expected_close', 'europe_pct', 'us_pct', 'next_wall_mid', 'straddle', 'spot_minus_forward'], samples: samples || [],
       settle: EXP_SETTLE, settle_minutes: JSON.parse(cache.get('exps_' + ix.id + '_' + now.date) || 'null'),
       baseline: base });
   });

@@ -195,7 +195,8 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 5. After every expiry day: the day file exists in `state/expiry/` (if not, re-run `expiry-tape.yml` before ~21:30 IST),
    and the track record shows the meter against the forward. The replay scoreboard (dashboard Expiry meter page, phone
    F&O tab, `docs/data/expiry_score.json`; 14 Oct) gains that expiry; Thu 15 Oct SENSEX is its first day with spot and
-   range-band data. Range decision (D1): read its "close in +-1 sd band" vs "0.75 sd band" once 10 expiries per index.
+   range-band data. Range decision (D1): its "close in +-1 sd band" vs "0.88 sd band" rows are a warning light only --
+   10 expiries cannot tell 68% from 80% coverage (research review, 14 Oct); a decision needs a pre-registered rule.
 
 **D. Waiting for data (do not build before the data exists)**
 1. After 3-5 recorded expiries per index: decide the range calibration (history: about a quarter narrower at the right
@@ -228,6 +229,10 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
    check in C fails.
 3. Since the closing auction (Aug 2026) NIFTY's close sat between the walls 4 of 10 expiries vs ~6 expected: keep an
    eye on it as expiries accumulate.
+4. Relay storage (watch): the relay's script properties are capped at 500 KB in total, and the stored expiry-day
+   readings (`EXPD_<index>_<date>`, ~5-6 KB a day, up to ~90 days kept) are the biggest user. Spot is now stored as a
+   short offset and orphan days are deleted (14 Oct), but if the store nears the cap, move expiry readings to the
+   private repo (the tape already saves the day there) and keep only the last few days in the relay.
 
 **F. Started 14 Oct evening, owner's explicit go-ahead (was "not started, by design")**
 1. **Done, 14 Oct ~18:30 IST.** ROCE gate on the multibagger screen (`hub/multibagger.py`'s `score()`):

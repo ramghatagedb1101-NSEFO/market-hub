@@ -1820,16 +1820,24 @@ function expScore(t){
   const S = (t && t.score) || [];
   if (!S.some(s => s.n)) return '';
   const v = x => x == null ? '–' : x + ' bp';
-  const best = s => { const c = [['live', s.live_bp], ['model', s.model_bp], ['forward', s.forward_bp], ['spot', s.spot_bp]].filter(x => x[1] != null);
-    return c.length ? c.reduce((a, b) => b[1] < a[1] ? b : a)[0] : null; };
-  const td = (s, key, x) => '<td' + (best(s) === key ? ' style="color:var(--up);font-weight:600"' : '') + '>' + v(x) + '</td>';
+  // Highlight one clear winner only: no highlight on a shared minimum (with the wall weights at 0 the model often equals the
+  // forward), and spot competes only when it covers the same expiries as the rest (independent review, 14 Oct 2026).
+  const best = s => { const c = [['live', s.live_bp], ['model', s.model_bp], ['forward', s.forward_bp]].concat(s.n_spot === s.n ? [['spot', s.spot_bp]] : [])
+      .filter(x => x[1] != null);
+    if (!c.length) return null;
+    const lo = Math.min.apply(null, c.map(x => x[1])), at = c.filter(x => x[1] === lo);
+    return at.length === 1 ? at[0][0] : null; };
+  const td = (s, key, x, extra) => '<td' + (best(s) === key ? ' style="color:var(--up);font-weight:600"' : '') + '>' + v(x) + (extra || '') + '</td>';
+  const spotNote = s => s.spot_bp == null || s.n_spot === s.n ? '' :
+    '<div class="muted" style="font-size:11px">' + s.n_spot + ' of ' + s.n + ' expiries; forward on those: ' + v(s.forward_bp_on_spot_days) + '</div>';
+  const vsFwd = s => !s.n ? '–' : s.model_beat_forward + ' of ' + s.n + (s.model_tied_forward ? ' <span class="muted">(tied ' + s.model_tied_forward + ')</span>' : '');
   const band = (h, n) => n ? h + ' of ' + n : '–';
   return '<div style="margin-top:12px"><b>Replay scoreboard</b> <span class="muted" style="font-size:12px">every recorded expiry re-scored with today\'s model · average distance from the close</span></div>' +
-    '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th>Time</th><th>Expiries</th><th>Meter (live)</th><th>Model (today)</th><th>Forward</th><th>Spot</th><th>Model beat forward</th><th>Close in ±1 sd band</th><th>In ' + (S[0] ? S[0].trial_band : 0.75) + ' sd band</th></tr>' +
+    '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th>Time</th><th>Expiries</th><th>Meter (live)</th><th>Model (today)</th><th>Forward</th><th>Spot</th><th>Model beat forward</th><th>Close in ±1 sd band</th><th>In ' + (S[0] ? S[0].trial_band : 0.88) + ' sd band</th></tr>' +
     S.map(s => '<tr><td>' + esc(s.at) + '</td><td>' + s.n + (s.n && !s.enough ? ' <span class="muted">(too few, ' + s.n + ' of ' + s.min_n + ')</span>' : '') + '</td>' +
-      td(s, 'live', s.live_bp) + td(s, 'model', s.model_bp) + td(s, 'forward', s.forward_bp) + td(s, 'spot', s.spot_bp) +
-      '<td>' + (s.n ? s.model_beat_forward + ' of ' + s.n : '–') + '</td><td>' + band(s.live_band_hits, s.n_band) + '</td><td>' + band(s.trial_band_hits, s.n_band) + '</td></tr>').join('') +
-    '</table></div><div class="muted" style="margin-top:4px;font-size:12px">Spot and the bands start with readings from 15 Oct 2026 (earlier readings did not store them). Under ' + ((S[0] && S[0].min_n) || 10) + ' expiries a row is too few to judge. Today\'s Europe/US weights were fitted on these same days, so their part of the replay is in-sample.</div>';
+      td(s, 'live', s.live_bp) + td(s, 'model', s.model_bp) + td(s, 'forward', s.forward_bp) + td(s, 'spot', s.spot_bp, spotNote(s)) +
+      '<td>' + vsFwd(s) + '</td><td>' + band(s.live_band_hits, s.n_band) + '</td><td>' + band(s.trial_band_hits, s.n_band) + '</td></tr>').join('') +
+    '</table></div><div class="muted" style="margin-top:4px;font-size:12px">Spot and the bands start with readings from 15 Oct 2026 (earlier readings did not store them). Under ' + ((S[0] && S[0].min_n) || 10) + ' expiries a row is too few to judge; even at 10, a band hit rate is a warning light, not proof (it cannot tell 68% from 80%). Today\'s Europe/US weights were fitted on these same days, so their part of the replay is in-sample.</div>';
 }
 function expTrack(label, t){
   const acc = (t && t.accuracy) || [], M = (t && t.model) || {}, T = [['10', '10:00'], ['12', '12:00'], ['14', '14:00'], ['15', '15:00']];
