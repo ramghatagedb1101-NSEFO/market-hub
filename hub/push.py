@@ -8,11 +8,15 @@ through the relay's key-protected ?mode=push_state); otherwise sends "Log in to 
 Kite login link on tap) to every subscribed device with pywebpush, and reports any endpoint Web Push
 says is gone (404/410, e.g. the app was removed) back to the relay so it stops being tried.
 
-Needs VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY (GitHub secrets -- the owner's own
-`npx web-push generate-vapid-keys` output, never typed by Claude) alongside the existing
-RELAY_URL/RELAY_KEY secrets. The public key is also posted to the relay (mode=push_key) so the phone
-can read it without the owner ever opening Apps Script's script-properties page.
+VAPID keys (owner's choice, 14 Oct 2026 evening -- no key-copying by anyone): by default the relay
+holds the pair. The first run finds none there, generates one here on GitHub's runner in web-push's
+own format, masks the private key from the Actions log, and stores it on the relay once
+(mode=push_keys_init, which never overwrites a working pair); later runs read it back through the
+key-protected push_state. If the GitHub secrets VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY are ever added
+they take precedence, and their public key is posted to the relay (mode=push_key) for the phone.
+Needs only the existing RELAY_URL/RELAY_KEY secrets.
 """
+import base64
 import json
 import os
 from datetime import datetime
@@ -57,18 +61,64 @@ def push_state(relay_url: str, relay_key: str) -> dict:
     return r.json()
 
 
-def publish_public_key(relay_url: str, relay_key: str, public_key: str) -> str:
-    """Keeps the relay's copy of the public key in sync with the GitHub secret -- cheap, so just done
-    every run rather than tracked as a one-off setup step. Returns "ok" or the reason it failed: the
-    relay answers HTTP 200 even for {"error": ...}, so the body is checked, not just the status."""
+def _err(exc: Exception) -> str:
+    """A failure reason safe to print: the exception type and HTTP status only. requests' own messages
+    quote the full URL, which carries RELAY_KEY as a query parameter."""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    return type(exc).__name__ + (f" (HTTP {status})" if status else "")
+
+
+def _mask(value: str) -> None:
+    """Hides a secret from the rest of this run's Actions log. Called before anything could print it."""
+    if value and os.getenv("GITHUB_ACTIONS"):
+        print(f"::add-mask::{value}", flush=True)
+
+
+def _b64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
+
+
+def generate_vapid_keys() -> tuple[str, str]:
+    """A fresh P-256 pair in `npx web-push generate-vapid-keys`'s own format (base64url, no padding): the
+    65-byte uncompressed public point, which the phone hands to pushManager.subscribe, and the 32-byte
+    private scalar, which pywebpush accepts as is."""
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    k = ec.generate_private_key(ec.SECP256R1())
+    pub = k.public_key().public_bytes(serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint)
+    priv = k.private_numbers().private_value.to_bytes(32, "big")
+    return _b64url(pub), _b64url(priv)
+
+
+def _post(relay_url: str, relay_key: str, mode: str, body: dict) -> dict:
+    """The relay answers HTTP 200 even for {"error": ...}, so callers check the body, not the status."""
+    r = requests.post(relay_url, params={"mode": mode, "key": relay_key}, json=body, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def init_relay_keys(relay_url: str, relay_key: str) -> str:
+    """Generates a pair and offers it to the relay, which stores it only if it holds no working pair.
+    Returns "created", "existing" (a pair was already there; this one is discarded), or why it failed."""
+    pub, priv = generate_vapid_keys()
+    _mask(priv)
     try:
-        r = requests.post(relay_url, params={"mode": "push_key", "key": relay_key},
-                          json={"public_key": public_key}, timeout=30)
-        r.raise_for_status()
-        body = r.json()
-        return "ok" if not body.get("error") else str(body["error"])
+        body = _post(relay_url, relay_key, "push_keys_init", {"public_key": pub, "private_key": priv})
     except Exception as exc:
-        return str(exc)[:120]
+        return "init failed: " + _err(exc)
+    if body.get("error"):
+        return "init failed: " + str(body["error"])[:80]
+    return "created" if body.get("created") else "existing"
+
+
+def publish_public_key(relay_url: str, relay_key: str, public_key: str) -> str:
+    """GitHub-secrets route only: keeps the relay's copy of the public key in sync with the secret --
+    cheap, so done every run rather than tracked as a one-off setup step. Returns "ok" or why not."""
+    try:
+        body = _post(relay_url, relay_key, "push_key", {"public_key": public_key})
+    except Exception as exc:
+        return _err(exc)
+    return "ok" if not body.get("error") else str(body["error"])[:80]
 
 
 def drop_endpoints(relay_url: str, relay_key: str, endpoints: list[str]) -> None:
@@ -96,29 +146,42 @@ def send_to(sub: dict, payload: dict, vapid_private_key: str) -> str:
         return "error"
 
 
+def resolve_keys(relay_url: str, relay_key: str, st: dict) -> tuple[str, str, dict]:
+    """Returns (private key or "", how the keys were found, push_state -- re-read after a first-run
+    init). GitHub secrets win when both are set; otherwise the relay's pair, created on the first run."""
+    env_pub, env_priv = os.getenv("VAPID_PUBLIC_KEY", ""), os.getenv("VAPID_PRIVATE_KEY", "")
+    if env_pub and env_priv:
+        return env_priv, "github secrets, public key to relay: " + publish_public_key(relay_url, relay_key, env_pub), st
+    priv = st.get("vapid_private_key") or ""
+    if priv:
+        return priv, "relay", st
+    how = "relay, " + init_relay_keys(relay_url, relay_key)
+    st = push_state(relay_url, relay_key)
+    return ("" if "error" in st else st.get("vapid_private_key") or ""), how, st
+
+
 def main(mode: str = "send") -> dict:
     relay_url, relay_key = os.getenv("RELAY_URL", ""), os.getenv("RELAY_KEY", "")
-    vapid_public = os.getenv("VAPID_PUBLIC_KEY", "")
-    vapid_private = os.getenv("VAPID_PRIVATE_KEY", "")
     if not relay_url or not relay_key:
         return {"sent": 0, "reason": "RELAY_URL/RELAY_KEY not set"}
-    if not vapid_public or not vapid_private:
-        return {"sent": 0, "reason": "VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY not set"}
-
-    key_status = publish_public_key(relay_url, relay_key, vapid_public)
-
-    if mode != "test" and is_nse_holiday():
-        return {"sent": 0, "key_published": key_status, "reason": "NSE holiday today"}
 
     st = push_state(relay_url, relay_key)
     if "error" in st:
-        return {"sent": 0, "key_published": key_status, "reason": "push_state: " + str(st["error"])}
+        return {"sent": 0, "reason": "push_state: " + str(st["error"])[:80]}
+    _mask(st.get("vapid_private_key") or "")
+    vapid_private, keys, st = resolve_keys(relay_url, relay_key, st)
+    _mask(vapid_private)
+    if not vapid_private:
+        return {"sent": 0, "keys": keys, "reason": "no VAPID private key available"}
+
+    if mode != "test" and is_nse_holiday():
+        return {"sent": 0, "keys": keys, "reason": "NSE holiday today"}
     if mode != "test" and st.get("kite_state") == "ok":
-        return {"sent": 0, "key_published": key_status, "reason": "already logged in to Kite today"}
+        return {"sent": 0, "keys": keys, "reason": "already logged in to Kite today"}
 
     subs = st.get("subscriptions") or []
     if not subs:
-        return {"sent": 0, "key_published": key_status, "reason": "no subscribed devices"}
+        return {"sent": 0, "keys": keys, "reason": "no subscribed devices"}
 
     login_link = st.get("login_link") or ""
     title = "Log in to Kite" if mode != "test" else "Market Hub: test notification"
@@ -136,8 +199,7 @@ def main(mode: str = "send") -> dict:
         else:
             errors += 1
     drop_endpoints(relay_url, relay_key, gone)
-    return {"sent": sent, "dropped": len(gone), "errors": errors, "subscribed": len(subs),
-            "key_published": key_status}
+    return {"sent": sent, "dropped": len(gone), "errors": errors, "subscribed": len(subs), "keys": keys}
 
 
 if __name__ == "__main__":

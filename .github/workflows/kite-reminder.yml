@@ -5,7 +5,10 @@ name: kite-reminder
 # the 09:05 IST close of the window the owner is asked to log in by. hub.push itself skips NSE
 # holidays and skips if Kite is already logged in today (both checked live, not by this schedule).
 # workflow_dispatch with mode=test ignores both checks and sends a "push notifications are working"
-# test to every subscribed device -- use this once after the owner taps "Turn on notifications".
+# test to every subscribed device. Setup: run mode=test once (the first run creates the VAPID key pair
+# and stores it on the relay -- no secrets to add), then tap "Turn on notifications" on the phone, then
+# run mode=test again. The VAPID_* secrets below are optional; if both are set they take precedence.
+# Each run's result is also a ::notice annotation on the run.
 on:
   schedule:
     - cron: "6 2 * * 1-5"    # 02:06 UTC = 07:36 IST, Mon-Fri
