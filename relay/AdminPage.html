@@ -1813,6 +1813,24 @@ function ovPanel(o){
 // One index's track record (13 Oct 2026): at 10:00, 12:00, 14:00 and 15:00, the meter's expected close against the
 // close, beside the market's forward at the same moment. The forward is the bar to beat: late in the day the move left
 // is small, so "within 25 bp" proves little unless the meter is closer than the market's own estimate.
+// Replay scoreboard (relay expiryScore_, 14 Oct 2026): every recorded expiry re-scored with the CURRENT model beside what
+// the meter showed live, the forward and the spot; plus how often the close fell inside the live band and a narrower
+// trial band. Average distance from the close in bp (lower is better).
+function expScore(t){
+  const S = (t && t.score) || [];
+  if (!S.some(s => s.n)) return '';
+  const v = x => x == null ? '–' : x + ' bp';
+  const best = s => { const c = [['live', s.live_bp], ['model', s.model_bp], ['forward', s.forward_bp], ['spot', s.spot_bp]].filter(x => x[1] != null);
+    return c.length ? c.reduce((a, b) => b[1] < a[1] ? b : a)[0] : null; };
+  const td = (s, key, x) => '<td' + (best(s) === key ? ' style="color:var(--up);font-weight:600"' : '') + '>' + v(x) + '</td>';
+  const band = (h, n) => n ? h + ' of ' + n : '–';
+  return '<div style="margin-top:12px"><b>Replay scoreboard</b> <span class="muted" style="font-size:12px">every recorded expiry re-scored with today\'s model · average distance from the close</span></div>' +
+    '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th>Time</th><th>Expiries</th><th>Meter (live)</th><th>Model (today)</th><th>Forward</th><th>Spot</th><th>Model beat forward</th><th>Close in ±1 sd band</th><th>In ' + (S[0] ? S[0].trial_band : 0.75) + ' sd band</th></tr>' +
+    S.map(s => '<tr><td>' + esc(s.at) + '</td><td>' + s.n + (s.n && !s.enough ? ' <span class="muted">(too few, ' + s.n + ' of ' + s.min_n + ')</span>' : '') + '</td>' +
+      td(s, 'live', s.live_bp) + td(s, 'model', s.model_bp) + td(s, 'forward', s.forward_bp) + td(s, 'spot', s.spot_bp) +
+      '<td>' + (s.n ? s.model_beat_forward + ' of ' + s.n : '–') + '</td><td>' + band(s.live_band_hits, s.n_band) + '</td><td>' + band(s.trial_band_hits, s.n_band) + '</td></tr>').join('') +
+    '</table></div><div class="muted" style="margin-top:4px;font-size:12px">Spot and the bands start with readings from 15 Oct 2026 (earlier readings did not store them). Under ' + ((S[0] && S[0].min_n) || 10) + ' expiries a row is too few to judge. Today\'s Europe/US weights were fitted on these same days, so their part of the replay is in-sample.</div>';
+}
 function expTrack(label, t){
   const acc = (t && t.accuracy) || [], M = (t && t.model) || {}, T = [['10', '10:00'], ['12', '12:00'], ['14', '14:00'], ['15', '15:00']];
   const bp = (x, a) => (x - a.close) / a.close * 1e4;
@@ -1831,6 +1849,7 @@ function expTrack(label, t){
       acc.map(a => '<tr><td>' + esc(expDay(a.date)) + '</td><td><b>' + fmt(a.close) + '</b></td>' + T.map(([k]) => '<td>' + cell(a, k) + '</td>').join('') + '</tr>').join('') + '</table></div>' +
       '<div class="muted" style="margin-top:6px;font-size:12px">Forward = strike + call − put at the ATM strike: the option market\'s own expected settlement. The meter earns its keep only where it is closer than that.</div>'
       : '<div class="muted">No finished expiries recorded yet. Each close is recorded after 15:45 IST and the weights are re-fitted from it.</div>') +
+    expScore(t) +
     '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + M.k + ' × (max pain − forward) + ' + M.m + ' × (wall midpoint − forward) + ' + (M.e || 0) + ' × Europe move + ' + (M.u || 0) + ' × US futures move + ' + (M.v || 0) + ' × (next expiry\'s wall midpoint − forward). ' +
     (M.expiries ? 'Fitted on ' + M.expiries + ' expir' + (M.expiries > 1 ? 'ies' : 'y') + ' (' + M.samples + ' readings; late readings count more, by their straddle).' : 'Starting values from 3 years of expiries (NSE end-of-day files); re-fitted after each expiry.') +
     ' Max pain and wall weights (k, m, v) are held at 0 since 14 Oct 2026: replayed minute by minute on 399 past expiries, they did no better than the forward from any time of day. Only the Europe/US terms still learn.</div></div></div>';

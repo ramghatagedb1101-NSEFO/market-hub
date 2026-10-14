@@ -4,6 +4,28 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Expiry meter replay scoreboard: every recorded expiry re-scored with today's model (~23:00 IST, cache v34)
+Owner asked to replay last Tuesday's NIFTY expiry (13 Oct) with the model as it is now, and to keep tracking that. On
+13 Oct's 15 live readings (13:45-15:23) today's model (walls at 0, so the forward) was closer to the close at all 15:
+average 86 points (38 bp) against the live meter's 102 (45 bp); the old meter was pulled toward max pain and the walls
+(22,550-22,650) while NIFTY rallied through the 22,600 call wall to close at 22,721.95. Most of the error is a +75 bp move
+after 14:00, about 3.6 times the typical late-afternoon move in the 399-expiry history: a tail day, not a missing input.
+
+- `relay/Expiry.gs`: one formula for the expected close (`expiryFormula_`), used live and by the replay, so the two cannot
+  drift apart (checked identical to the old inline formula). New `expiryScore_`: every stored expiry (last 30 per index)
+  at 10:00/12:00/14:00/15:00 -- the meter as shown live, today's model replayed on the same reading, the forward, and the
+  spot -- with how often the close fell inside the live +-1 sd band and inside a 0.75 sd trial band (the evidence the
+  range decision is waiting for). Fewer than 10 expiries at a time = too few to judge. Readings now also store the spot
+  (p[9]); spot and bands start with readings from 15 Oct (earlier ones lack them). Cached with the model (key exp_ma3_).
+- Dashboard (Analysis -> Expiry meter): a scoreboard table under each index's track record, the best column highlighted.
+- Phone (F&O tab): "Expiry meter scoreboard", one collapsed row per index. `hub/expiry_day.py` writes it to the public
+  `docs/data/expiry_score.json` from the relay's answer on any day (not only expiry days), with no timestamp so live.yml
+  commits it only when a new close changes it.
+- Tests: real `Expiry.gs` in node on 13 Oct's actual readings plus synthetic new-format ones (10 cases: formula identical,
+  empty times, last reading at or before each time, bands, spot, too-few flag); `write_score` (not rewritten when
+  unchanged, labels, no tracks); phone at 375 px (scoreboard, too-few label, empty index hidden, missing file, no overflow,
+  no page errors). All pass.
+
 ### Expiry meter: wall and max-pain weights set to zero and pinned (owner's decision, ~22:20 IST)
 From the intraday test below. `relay/Expiry.gs`: `EXP_START` k, m, v = 0 for all three indices (was the 13 Oct history
 fit, e.g. NIFTY 0.18 / -0.13 / 0.17), and pinned there with a near-zero prior spread in `EXP_SPREAD` -- otherwise the
