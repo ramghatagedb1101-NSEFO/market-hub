@@ -4,6 +4,50 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Market Hub push notifications: phone, relay and sender built (code done ~14:10 IST; three owner steps left)
+Starting with the Kite login reminder, which was supposed to come from the app itself, not Claude
+(owner decision, recorded above) -- the claude.ai routine sending it today never actually reached the
+phone.
+
+- **`docs/sw.js`** (cache bumped to v31): a `push` handler (`showNotification`, JSON payload
+  `{title, body, url}`) and `notificationclick` that always opens a new tab at `url` -- the Kite login
+  link is an external site, so focusing an already-open Market Hub tab instead (the more common
+  service-worker pattern) would silently do nothing useful here.
+- **`docs/index.html`** Settings: a "Turn on notifications" button. `refreshPushUi()` feature-detects,
+  checks for an existing subscription, and specifically checks `navigator.standalone === false` (iOS
+  Safari, not opened from the Home Screen) to show "Add Market Hub to the Home Screen first..." instead
+  of letting `pushManager.subscribe()` fail with a confusing error. `togglePush()` does
+  `Notification.requestPermission()` then subscribes with the relay's VAPID public key
+  (`app_push_key`) and registers the subscription (`app_push_subscribe`). Also fixed stale copy there:
+  "before the 16:30 run" (long gone) -> "after 07:35 and before 09:05 IST" (today's real window).
+  Verified in a plain static preview (`.claude/launch.json` added: `python -m http.server` over `docs/`)
+  with the sign-in gate hidden via devtools, not a real session: the button renders correctly and
+  `refreshPushUi()` runs clean (no console errors, correctly reports no existing subscription). Real
+  push delivery needs the owner's actual phone, which this preview cannot exercise.
+- **`relay/Push.gs`** (new file): `appPushKey_`/`appPushSubscribe_`/`appPushUnsubscribe_` (session-gated,
+  routed through the existing `appApi_` in `Admin.gs`), key-protected `pushState_` (subscriptions +
+  `kiteStatus_().state` + login link, for `hub/push.py`), `pushKey_` (POST: the sender workflow stores
+  `VAPID_PUBLIC_KEY` here from its own GitHub secret, so the owner never opens Apps Script's
+  script-properties page to paste it in), `pushDrop_` (POST: removes endpoints Web Push reports gone).
+  `PUSH_SUBS` script property, de-duplicated by endpoint, newest 5 kept. Routed in `Code.gs`'s
+  `doGet`/`doPost`. `node relay/check.js`: clean, no name clashes, all `AdminPage.html` calls still
+  resolve. **Not deployed**: committed locally (same commit as the `bs_usage` relay change), held for
+  CLAUDE.md's market-hours rule -- push both together after 15:30 today.
+- **`hub/push.py`** (new) + workflow **`kite-reminder.yml`** (new; cron 02:06 and 03:03 UTC = 07:36 and
+  08:33 IST Mon-Fri, after Kite's own ~07:30 clear-out and before the 09:05 close of the login window;
+  `workflow_dispatch` with `mode=test` skips the holiday/already-logged-in checks and sends a plain test
+  notification): `is_nse_holiday()` reads NSE's own `holiday-master` API (same Akamai-cookie session
+  pattern as `hub/shareholding.py`) and fails toward sending if it cannot tell -- an occasional reminder
+  on a holiday is a minor nuisance, a missed one on a real trading day defeats the whole feature.
+  **Untested against a live NSE response** (blocked from the laptop, same as everything else that talks
+  to nseindia.com); the first `kite-reminder.yml` run is the first real check of its parsing.
+  `pywebpush>=2.0` added to `requirements.txt`. Syntax-checked only (`py_compile`); the full send path
+  needs real VAPID keys and a real subscription, so it has not run end to end yet.
+- **Owner, next** (never hand Claude the private key): `npx web-push generate-vapid-keys`; add GitHub
+  secrets `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`; open Market Hub from the Home Screen, Settings, "Turn
+  on notifications"; run `kite-reminder.yml` with `mode=test` and confirm it arrives and opens the Kite
+  login page; only then switch off the claude.ai routine (`trig_011gp21txucmWGZPKqpR2FEu`).
+
 ### Relay counts its own BharatStock calls, finishing the shared budget (code done ~13:20 IST, deploy held for market close)
 `hub/bs_budget.remaining()` already subtracted `relay_used()` from the shared 9,000-a-day cap, but the
 relay never answered `?mode=bs_usage`, so every job's math has been treating the relay's clicks-driven

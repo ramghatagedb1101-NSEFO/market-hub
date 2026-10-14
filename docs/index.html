@@ -236,9 +236,12 @@
     <div class="ph"><span>Settings</span><button class="btn" id="set-close">Close</button></div>
     <div class="pb">
       <div><b>Kite login for today</b></div>
-      <div class="mut" style="margin-top:4px">Once each morning, before the 16:30 run. Zerodha opens in a new tab. Enter your login and 2FA code there, not here.</div>
+      <div class="mut" style="margin-top:4px">Once each morning, after 07:35 and before 09:05 IST. Zerodha opens in a new tab. Enter your login and 2FA code there, not here.</div>
       <a class="btn" href="https://kite.zerodha.com/connect/login?v=3&amp;api_key=t0kjzcu1vcl09fch" target="_blank" rel="noopener">Log in to Kite</a>
       <div class="mut">After you log in, the page says "Logged in for [date]". If it says the daily run did not start, tell the owner.</div>
+      <div style="margin-top:14px"><b>Notifications</b></div>
+      <div class="mut" id="push-status" style="margin-top:4px">Checking…</div>
+      <button class="btn" id="push-btn" type="button" style="margin-top:6px">Turn on notifications</button>
       <div style="margin-top:14px"><b>This device</b></div>
       <button class="btn" id="signout" type="button" style="margin-top:6px">Sign out</button>
     </div>
@@ -404,9 +407,72 @@
     if (b.dataset.pane === "desk") drawChart();
     if (b.dataset.pane === "mb") renderIdeas();
   });
-  $("#gear").onclick = () => $("#settings").classList.add("on");
+  $("#gear").onclick = () => { $("#settings").classList.add("on"); refreshPushUi(); };
   $("#set-close").onclick = () => $("#settings").classList.remove("on");
   $("#settings").onclick = e => { if (e.target.id === "settings") $("#settings").classList.remove("on"); };
+
+  // Push notifications (14 Oct 2026), starting with the Kite login reminder (hub/push.py). iOS 16.4+
+  // only, and only once Market Hub has been added to the Home Screen -- iOS does not deliver push to a
+  // page opened in a regular Safari tab, even though the APIs are present there too.
+  function b64ToUint8Array(b64){
+    const pad = "=".repeat((4 - b64.length % 4) % 4);
+    const base64 = (b64 + pad).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(base64);
+    const arr = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+    return arr;
+  }
+  async function refreshPushUi(){
+    const btn = $("#push-btn"), status = $("#push-status");
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      status.textContent = "Not supported in this browser.";
+      btn.style.display = "none";
+      return;
+    }
+    if (navigator.standalone === false) {   // iOS Safari, not opened from the Home Screen
+      status.textContent = "Add Market Hub to the Home Screen first (Share → Add to Home Screen), then open it from there.";
+      btn.style.display = "none";
+      return;
+    }
+    btn.style.display = "";
+    btn.disabled = false;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        status.textContent = "On: you'll get a reminder to log in to Kite each morning.";
+        btn.textContent = "Turn off notifications";
+        btn.onclick = () => togglePush(false, sub);
+      } else {
+        status.textContent = "Get a reminder to log in to Kite each morning.";
+        btn.textContent = "Turn on notifications";
+        btn.onclick = () => togglePush(true, null);
+      }
+    } catch(e) { status.textContent = "Could not check notification status."; }
+  }
+  async function togglePush(turnOn, existingSub){
+    const btn = $("#push-btn"), status = $("#push-status");
+    btn.disabled = true;
+    try {
+      if (!turnOn) {
+        if (existingSub) {
+          relayPost("app_push_unsubscribe", {token: SESSION, endpoint: existingSub.endpoint}).catch(() => {});
+          await existingSub.unsubscribe();
+        }
+        await refreshPushUi();
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { status.textContent = "Notifications were not allowed."; btn.disabled = false; return; }
+      const keyRes = await relayPost("app_push_key", {token: SESSION});
+      if (!keyRes.key) { status.textContent = keyRes.error || "Push is not set up on the relay yet."; btn.disabled = false; return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64ToUint8Array(keyRes.key)});
+      await relayPost("app_push_subscribe", {token: SESSION, subscription: sub.toJSON()});
+      await refreshPushUi();
+    } catch(e) { status.textContent = "Could not turn on notifications: " + (e && e.message ? e.message : "unknown error"); }
+    btn.disabled = false;
+  }
 
   function ageMin(iso){ return (Date.now() - new Date(iso).getTime()) / 60000; }
 

@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Wed 14 Oct 2026, ~10:45 IST. Read the HANDOVER below first, then `CHANGELOG.md` (newest first) and `CLAUDE.md`.
+As of Wed 14 Oct 2026, ~14:10 IST. Read the HANDOVER below first, then `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
 ## HANDOVER -- Wed 14 Oct 2026, for a new Claude session (e.g. the owner's second laptop)
 
@@ -38,6 +38,17 @@ As of Wed 14 Oct 2026, ~10:45 IST. Read the HANDOVER below first, then `CHANGELO
   (sellers keep 11-17%). Live meter starting weights = history fit (relay Version 65: NIFTY 0.18/-0.13/0.17,
   BANK NIFTY -0.23/0.19/0.04, SENSEX 0.18/0.10/-0.13).
 
+**Also done today, same session continued (commits 259b09b pushed; 18f4960 and the push-notification
+commit local-only, held for market hours -- see "Next up" below for exact state of each):**
+- Removed the one-off `hub/diag_quota_headers.py` probe; kept `diag.yml`'s `BHARATSTOCK_API_KEY` line
+  (two other diag modules need it) and fixed its comment.
+- Relay counts its own BharatStock calls (`relay/Code.gs`'s `bsCount_`/`bsUsage_`, `?mode=bs_usage`;
+  counted in `Report.gs`, `Funds.gs`, `Research.gs`). Code done, **not deployed** (market hours).
+- Market Hub push notifications: phone app (`docs/sw.js`, `docs/index.html` Settings), relay
+  (`relay/Push.gs`, new file), sender (`hub/push.py`, `kite-reminder.yml`). Code done, phone app half
+  verified in a static preview; relay half **not deployed** (market hours); sender **not run** (needs
+  the owner's VAPID keys first). Full detail in "Next up" 1 below.
+
 **Owner decisions on record:**
 - Range calibration (a quarter narrower at the right hit rate on history): **wait for a few recorded expiries first**;
   then compare the live range's hit rate (state/expiry/) before changing it.
@@ -46,26 +57,48 @@ As of Wed 14 Oct 2026, ~10:45 IST. Read the HANDOVER below first, then `CHANGELO
   phone** (owner said yes). It ran today at 07:37 and "sent" a Claude-app push that never arrived.
 
 **Next up -- build in this order:**
-1. **Market Hub push notifications (iPhone PWA)** -- approved, not started. Plan:
-   - `docs/sw.js`: `push` handler (showNotification with title/body/icon, data.url) and `notificationclick`
-     (open data.url or the app). Bump the cache name.
-   - `docs/index.html` Settings: "Turn on notifications" button (from a tap: `Notification.requestPermission()`, then
-     `registration.pushManager.subscribe({userVisibleOnly: true, applicationServerKey})`); if not opened from the Home
-     Screen (`navigator.standalone` false on iOS) say "Add Market Hub to the Home Screen first (Share > Add to Home
-     Screen), then open it from there". iOS 16.4+ only. Also fix the stale text there ("before the 16:30 run" ->
-     log in after 07:35 and before 09:05 IST).
-   - Relay (deploy after 15:30): `app_push_key` (public key from script property `VAPID_PUBLIC_KEY`),
-     `app_push_subscribe` / `app_push_unsubscribe` (session token; property `PUSH_SUBS`, de-duplicated by endpoint, at
-     most 5), key-protected `push_state` (subscriptions + `kiteStatus_().state` + login link), `push_key` (POST: store
-     the public key), `push_drop` (POST: remove dead endpoints).
-   - Sender `hub/push.py` + workflow `kite-reminder.yml` (cron ~07:36 and ~08:33 IST weekdays, odd minutes; manual
-     dispatch with mode=test): skip NSE holidays (NSE holiday API works from GitHub), skip if Kite already logged in
-     today, send "Log in to Kite now" (click opens the Kite login link) with `pywebpush`, drop 404/410 endpoints.
-     Contact claim `mailto:ramghatagedb1101@gmail.com`. GitHub cron can run some minutes late.
-   - Owner step (never handle the private key yourself): run `npx web-push generate-vapid-keys` on their laptop and
-     add GitHub secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`; the workflow posts the public key to the relay.
-   - Test: owner opens the app from the Home Screen, taps the button; run the workflow with mode=test; only after the
-     owner confirms it arrived, disable the claude.ai routine (RemoteTrigger update enabled=false).
+1. **Market Hub push notifications (iPhone PWA) -- code done 14 Oct, ~14:10 IST. Three things left, all
+   the owner's: generate VAPID keys, add two GitHub secrets, and test on the phone (below).**
+   - `docs/sw.js`: `push` handler (`showNotification` with title/body/icon, `data.url`) and
+     `notificationclick` (always opens a new tab at `data.url` -- the Kite login link is an external
+     site, same as the in-app button's `target="_blank"`, so focusing an already-open Market Hub tab
+     instead would silently do nothing useful). Cache bumped to v31.
+   - `docs/index.html` Settings: "Turn on notifications" button, wired to `refreshPushUi()` (checks
+     support, an existing subscription, and `navigator.standalone === false` specifically -- iOS Safari
+     not opened from the Home Screen -- to show "Add Market Hub to the Home Screen first (Share → Add to
+     Home Screen), then open it from there" instead of a confusing failure) and `togglePush()`
+     (`Notification.requestPermission()`, then `pushManager.subscribe({userVisibleOnly, applicationServerKey})`
+     with the key from `app_push_key`, then `app_push_subscribe`). Stale text fixed too ("before the
+     16:30 run" -> "after 07:35 and before 09:05 IST"). Verified in a plain static preview (gate overlay
+     hidden via devtools, not a real sign-in): the button renders, `refreshPushUi()` runs with no
+     console errors and correctly reports "no subscription yet" in a browser that supports the APIs.
+     Real push delivery needs the owner's actual phone -- not something this preview can exercise.
+   - `relay/Push.gs` (new file) + `Code.gs`/`Admin.gs` wiring: `app_push_key`/`app_push_subscribe`/
+     `app_push_unsubscribe` (session-gated, routed through the existing `appApi_`), key-protected
+     `push_state` (subscriptions + `kiteStatus_().state` + login link, for `hub/push.py`), `push_key`
+     (POST: the sender workflow stores the public key here from its own secret -- the owner never opens
+     Apps Script's script-properties page), `push_drop` (POST: drops endpoints Web Push reports gone).
+     `PUSH_SUBS` script property, de-duplicated by endpoint, newest 5 kept. `node relay/check.js` clean.
+     **Not deployed**: committed locally, held for the market-hours rule (same as item 2 above) -- push
+     after 15:30 today, alongside item 2's commit.
+   - `hub/push.py` + workflow `kite-reminder.yml` (cron 02:06 and 03:03 UTC = 07:36 and 08:33 IST,
+     Mon-Fri; `workflow_dispatch` with `mode=test` skips the holiday/already-logged-in checks): skips NSE
+     holidays (`is_nse_holiday()`, NSE's own `holiday-master` API, same Akamai-cookie session as
+     `hub/shareholding.py` -- **untested against a live response**, NSE blocks the laptop; fails toward
+     *not* skipping on any error, since an occasional reminder on a holiday is a minor nuisance and a
+     missed one on a real trading day is not), skips if Kite is already logged in today, sends "Log in to
+     Kite" (tap opens the Kite login link) with `pywebpush`, drops 404/410 endpoints back to the relay.
+     `pywebpush>=2.0` added to `requirements.txt`. Syntax-checked (`py_compile`); **not run end to end**
+     (needs real VAPID keys and a real subscription -- can't be tested until the owner's steps below).
+   - **Owner, next (never hand Claude the private key):**
+     1. `npx web-push generate-vapid-keys` (on their laptop or any machine with Node).
+     2. Add GitHub repo secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` from that output.
+     3. Open Market Hub from the Home Screen (Add to Home Screen first if not done), Settings, tap "Turn
+        on notifications", allow when iOS asks.
+     4. Run `kite-reminder.yml` manually with `mode=test`; confirm the notification arrives and tapping
+        it opens the Kite login page.
+     5. Only after that's confirmed: disable the claude.ai routine ("Kite login reminder",
+        `trig_011gp21txucmWGZPKqpR2FEu`, `RemoteTrigger` update `enabled=false`).
 2. **Code done 14 Oct, ~13:20 IST -- not deployed yet (market hours).** Relay counts its own BharatStock
    calls: `bsCount_(n)`/`bsUsage_(p)`/`utcDay_()` added to `Code.gs` (script property `BS_USAGE`
    `{date_utc, requests}`, reset on a new UTC day); `?mode=bs_usage` routed in `doGet`, key-protected like
@@ -87,7 +120,8 @@ As of Wed 14 Oct 2026, ~10:45 IST. Read the HANDOVER below first, then `CHANGELO
 Grouped by what each step waits for. "Build" items are detailed in "Next up" above.
 
 **A. Build now (approved by the owner)**
-1. Market Hub push notifications on the owner's iPhone, starting with the Kite login reminder (plan in "Next up" 1).
+1. **Code done 14 Oct** (phone app + relay + sender workflow); relay half not deployed yet (market
+   hours). Owner still needed for VAPID keys, two GitHub secrets, and the on-phone test ("Next up" 1).
 2. **Code done 14 Oct, not deployed** (market hours block `relay/*` pushes until 15:30 IST -- see "Next up" 2).
 3. **Done 14 Oct.** Removed the one-off `hub/diag_quota_headers.py`. Its `BHARATSTOCK_API_KEY` line in
    `diag.yml` stayed -- `diag_library_sample.py` and `diag_shareholding.py` both still need it; only the
@@ -96,20 +130,27 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 
 **B. Owner actions**
 1. Thu 15 Oct 2026: log in to Kite between 07:35 and 09:05 IST (first live SENSEX expiry with the walls record).
-2. When push is built: run `npx web-push generate-vapid-keys`, add GitHub secrets `VAPID_PUBLIC_KEY` and
-   `VAPID_PRIVATE_KEY`, open Market Hub from the Home Screen and tap "Turn on notifications"; confirm the test arrives.
-   Then the claude.ai "Kite login reminder" routine is switched off.
+2. **Push notification code is ready (14 Oct)**: run `npx web-push generate-vapid-keys`, add GitHub secrets
+   `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`, open Market Hub from the Home Screen and tap "Turn on
+   notifications"; run `kite-reminder.yml` manually with `mode=test`, confirm it arrives and opens the Kite
+   login page. Then the claude.ai "Kite login reminder" routine is switched off.
 3. Still open from 6 Oct: rotate the credentials that were exposed then (owner's call; never done by Claude).
 4. Optional: a weekly copy of the private repo onto the laptop as a second backup (offered 14 Oct, not decided).
 
 **C. First live checks of today's changes (next few days)**
-1. Thu 15 Oct 06:15 library run: `state/bs_usage.json` appears in the private repo with the library's count
+1. Once A1/A2 are pushed and deployed (after 15:30 today): open the dashboard's stock report / mutual
+   funds / price chart once each (exercises `Report.gs`/`Funds.gs`/`Research.gs`), then check `?mode=bs_usage&key=...`
+   returns a non-zero `requests` for today -- confirms the relay's own BharatStock counting is live, not
+   just committed. Separately: `is_nse_holiday()` in `hub/push.py` has never run against a real NSE
+   response (laptop-blocked); the first `kite-reminder.yml` run (test or scheduled) is the first real
+   check that it parses `holiday-master`'s shape correctly -- read its log once.
+2. Thu 15 Oct 06:15 library run: `state/bs_usage.json` appears in the private repo with the library's count
    (relay counts 0 until A2); tracker shows `others_today`.
-2. Thu 15 Oct 18:00 daily run (and the post-login run): no Kite refusals, F&O expiries right (SENSEX expiry horizon
+3. Thu 15 Oct 18:00 daily run (and the post-login run): no Kite refusals, F&O expiries right (SENSEX expiry horizon
    targets Thu, BANK NIFTY Tue 27 Oct).
-3. Mon 19 Oct 2026 (NIFTY's holiday-moved expiry): `expiry-theta.yml` runs on Monday and finds the expiry; the meter
+4. Mon 19 Oct 2026 (NIFTY's holiday-moved expiry): `expiry-theta.yml` runs on Monday and finds the expiry; the meter
    opens on NIFTY; `expiry-tape.yml` saves `state/expiry/2026-10-19_NIFTY.json`.
-4. After every expiry day: the day file exists in `state/expiry/` (if not, re-run `expiry-tape.yml` before ~21:30 IST),
+5. After every expiry day: the day file exists in `state/expiry/` (if not, re-run `expiry-tape.yml` before ~21:30 IST),
    and the track record shows the meter against the forward.
 
 **D. Waiting for data (do not build before the data exists)**

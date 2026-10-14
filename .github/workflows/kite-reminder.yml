@@ -1,0 +1,47 @@
+name: kite-reminder
+
+# Kite login reminder, pushed to the owner's iPhone through the Market Hub PWA (hub/push.py, 14 Oct
+# 2026). Runs twice on weekday mornings: after Kite's own ~07:30 IST morning token clear-out, before
+# the 09:05 IST close of the window the owner is asked to log in by. hub.push itself skips NSE
+# holidays and skips if Kite is already logged in today (both checked live, not by this schedule).
+# workflow_dispatch with mode=test ignores both checks and sends a "push notifications are working"
+# test to every subscribed device -- use this once after the owner taps "Turn on notifications".
+on:
+  schedule:
+    - cron: "6 2 * * 1-5"    # 02:06 UTC = 07:36 IST, Mon-Fri
+    - cron: "3 3 * * 1-5"    # 03:03 UTC = 08:33 IST, Mon-Fri
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "send (the real reminder) or test (ignores the holiday/already-logged-in checks)"
+        required: false
+        default: "send"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kite-reminder
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Send the Kite login reminder
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: python -m hub.push "${{ github.event.inputs.mode || 'send' }}"
