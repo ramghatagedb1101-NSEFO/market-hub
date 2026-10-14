@@ -310,6 +310,16 @@ score can reach 5 with everything passing. All pass.
 is the first real check; look for `roce_sustained` gaps clustering on financial-sector names (expected
 and correct) rather than spread randomly (which would mean a field assumption was wrong after all).
 
+### Held relay commits pushed and deployed after market close (~15:35 IST, relay Version 66)
+Everything held for the 09:15-15:30 IST market-hours rule went out as soon as the window closed: push notifications
+(phone app, `relay/Push.gs`, `hub/push.py`/`kite-reminder.yml`), the relay's own BharatStock call counting
+(`?mode=bs_usage`), and A4's `prefetch_chain_data` batching -- six held commits pushed to `main` after
+`git pull --rebase` skipped two already-applied duplicates. `relay-deploy.yml` created Apps Script Version 66 from
+commit `c61245f`, moved both deployments to it, and its `mode=check` passed live (`token_ok_for_today: true`).
+Still open then (STATUS "C. First live checks" 1): nobody had opened the dashboard's stock report / funds / price chart
+since the deploy, so `?mode=bs_usage` read 0 for the day; the next `library.yml` run reads it through `relay_used()`.
+(Written 14 Oct 18:24 IST by the laptop session but left unpushed in this folder; added here 15 Oct.)
+
 ### Phone app sign-in verified live; a Google-account mixup on the way there (~15:20 IST)
 Checking G1 ("phone sign-in tested on the phone itself") hit the Google-side twin of the GitHub
 account-flip problem documented above: Claude-in-Chrome landed on `ramghatage@gmail.com` for

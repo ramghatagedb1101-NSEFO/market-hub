@@ -87,14 +87,14 @@ run `python -m hub.method_check --base origin/main` before pushing."
   BANK NIFTY -0.23/0.19/0.04, SENSEX 0.18/0.10/-0.13).
 
 **Also done today, same session continued (commits 259b09b pushed; 18f4960 and the push-notification
-commit local-only, held for market hours -- see "Next up" below for exact state of each):**
+commit, held for market hours, then pushed and deployed after 15:30 as relay Version 66 -- see CHANGELOG 14 Oct):**
 - Removed the one-off `hub/diag_quota_headers.py` probe; kept `diag.yml`'s `BHARATSTOCK_API_KEY` line
   (two other diag modules need it) and fixed its comment.
 - Relay counts its own BharatStock calls (`relay/Code.gs`'s `bsCount_`/`bsUsage_`, `?mode=bs_usage`;
-  counted in `Report.gs`, `Funds.gs`, `Research.gs`). Code done, **not deployed** (market hours).
+  counted in `Report.gs`, `Funds.gs`, `Research.gs`). Deployed 14 Oct ~15:35 IST (relay Version 66).
 - Market Hub push notifications: phone app (`docs/sw.js`, `docs/index.html` Settings), relay
   (`relay/Push.gs`, new file), sender (`hub/push.py`, `kite-reminder.yml`). Code done, phone app half
-  verified in a static preview; relay half **not deployed** (market hours); sender **not run** (needs
+  verified in a static preview; relay half deployed 14 Oct ~15:35 IST (Version 66); sender **not run** (needs
   the owner's VAPID keys first). Full detail in "Next up" 1 below.
 - `rg/market_data.py`'s `prefetch_chain_data`: batches the whole stock universe's equity spots and
   option legs into 2 Kite calls instead of ~200 (one call per symbol, twice); `get_chain_snapshot` /
@@ -131,7 +131,7 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
      (POST: the sender workflow stores the public key here from its own secret -- the owner never opens
      Apps Script's script-properties page), `push_drop` (POST: drops endpoints Web Push reports gone).
      `PUSH_SUBS` script property, de-duplicated by endpoint, newest 5 kept. `node relay/check.js` clean.
-     **Not deployed**: committed locally, held for the market-hours rule (same as item 2 above) -- push
+     **Deployed 14 Oct ~15:35 IST (Version 66)**; it had been held for the market-hours rule (same as item 2 above) -- pushed
      after 15:30 today, alongside item 2's commit.
    - `hub/push.py` + workflow `kite-reminder.yml` (cron 02:06 and 03:03 UTC = 07:36 and 08:33 IST,
      Mon-Fri; `workflow_dispatch` with `mode=test` skips the holiday/already-logged-in checks): skips NSE
@@ -165,7 +165,7 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
      the relay pair -- the relay then clears stored subscriptions, and each device needs "Turn off
      notifications" then "Turn on notifications" once (the phone keeps showing "On" for the old key). Each run's result is a
      `::notice` annotation (readable via the check-runs API -- a cloud session cannot download logs).
-2. **Code done 14 Oct, ~13:20 IST -- not deployed yet (market hours).** Relay counts its own BharatStock
+2. **Code done 14 Oct, ~13:20 IST -- deployed ~15:35 IST (relay Version 66).** Relay counts its own BharatStock
    calls: `bsCount_(n)`/`bsUsage_(p)`/`utcDay_()` added to `Code.gs` (script property `BS_USAGE`
    `{date_utc, requests}`, reset on a new UTC day); `?mode=bs_usage` routed in `doGet`, key-protected like
    `handleCheck_`, returns `{date, requests}` -- matches `hub/bs_budget.relay_used()` exactly (already
@@ -173,7 +173,7 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
    BharatStock fetch: `Report.gs` (`adminStock`: 2 upfront for fin+fina if the key is set, 1 per
    quarterly-pagination page), `Funds.gs` (`adminFunds`: 1 per mf-holdings page), `Research.gs`
    (`bsChart_`: 1 per prices page). `node relay/check.js` clean (exit 0): all files parse, no name clashes,
-   all 22 `AdminPage.html` server calls still resolve. **Committed locally, not pushed** -- CLAUDE.md's
+   all 22 `AdminPage.html` server calls still resolve. **Was held** (then pushed after 15:30 and deployed as Version 66) -- CLAUDE.md's
    market-hours rule (no `relay/*` push 09:15-15:30 IST; it deploys at once). Push after 15:30 today.
 3. **Done 14 Oct**, ahead of item 2 (no real dependency between them -- `diag_quota_headers.py` was a
    finished one-off probe, not something item 2 needed first). The `diag.yml` key line stayed: two other
@@ -201,9 +201,9 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
 Grouped by what each step waits for. "Build" items are detailed in "Next up" above.
 
 **A. Build now (approved by the owner)**
-1. **Code done 14 Oct** (phone app + relay + sender workflow); relay half not deployed yet (market
+1. **Code done 14 Oct** (phone app + relay + sender workflow); relay half deployed 14 Oct as Version 66 (it waited for the market
    hours). Owner still needed for VAPID keys, two GitHub secrets, and the on-phone test ("Next up" 1).
-2. **Code done 14 Oct, not deployed** (market hours block `relay/*` pushes until 15:30 IST -- see "Next up" 2).
+2. **Code done 14 Oct, deployed ~15:35 IST as Version 66** (market hours had blocked `relay/*` pushes until 15:30 IST -- see "Next up" 2).
 3. **Done 14 Oct.** Removed the one-off `hub/diag_quota_headers.py`. Its `BHARATSTOCK_API_KEY` line in
    `diag.yml` stayed -- `diag_library_sample.py` and `diag_shareholding.py` both still need it; only the
    comment was wrong (named the deleted module), fixed to name the two real users.
