@@ -227,14 +227,17 @@ def financial_values(rows: list[dict]) -> dict:
         out["roce"] = op * 4 / ce * 100 if ce else None
 
     def wc_days(row):
-        # Field names are an educated guess (same defensive pattern as dividend_paid elsewhere in
-        # this file): a wrong guess just leaves working_capital_days/_change a gap, never a
-        # fabricated figure. Days approximated against the quarter's own revenue (~91 days/quarter),
-        # the same simplification the registry's own definition implies (receivable + inventory -
-        # payable days, not a full operating-cycle model with separate COGS/purchases bases).
-        rcv = row.get("trade_receivables") or row.get("receivables") or row.get("sundry_debtors")
+        # Field names confirmed 14 Oct 2026 (hub/diag_financials_fields.py, against real RELIANCE/
+        # TCS/HDFCBANK rows): trade_receivables_current, inventories, trade_payables_current. The
+        # original guess (trade_receivables/receivables/sundry_debtors, etc.) never matched -- this
+        # was a gap for every one of 2574 companies the whole time it existed. Older guesses kept as
+        # a fallback (never fabricates a figure if a field name is ever wrong again): Days
+        # approximated against the quarter's own revenue (~91 days/quarter), the same simplification
+        # the registry's own definition implies (receivable + inventory - payable days, not a full
+        # operating-cycle model with separate COGS/purchases bases).
+        rcv = row.get("trade_receivables_current") or row.get("trade_receivables") or row.get("receivables") or row.get("sundry_debtors")
         inv = row.get("inventories") or row.get("inventory") or row.get("stock_in_trade")
-        pay = row.get("trade_payables") or row.get("payables") or row.get("sundry_creditors")
+        pay = row.get("trade_payables_current") or row.get("trade_payables") or row.get("payables") or row.get("sundry_creditors")
         rv = row.get("revenue")
         if not rv or rcv is None or inv is None or pay is None:
             return None
@@ -274,19 +277,12 @@ def cash_flow_values(annual_rows: list[dict]) -> dict:
         if rev:
             out["capex_to_sales"] = abs(capex) / rev * 100
 
-    def dps(row):
-        # Field name is an educated guess, same defensive pattern as elsewhere in this file: a wrong
-        # guess just leaves dividend_paid/dividend_policy_change out, never a fabricated figure.
-        div = (row.get("dividend_paid") or row.get("dividends_paid") or
-               row.get("total_dividend_paid") or row.get("dividend_payout"))
-        face, paid_up = row.get("face_value_per_share"), row.get("paid_up_equity_capital")
-        if div is None or not face or not paid_up:
-            return None, None
-        return abs(div), abs(div) / (paid_up / face)
-
-    div_paid, div_per_share = dps(latest)
-    if div_paid is not None:
-        out["dividend_paid"] = div_paid
+    # dividend_paid/dividend_policy_change used to be guessed from this same annual row (field names
+    # like dividend_paid/dividends_paid/dividend_payout) -- confirmed 14 Oct 2026
+    # (hub/diag_financials_fields.py) that BharatStock's financials endpoint has no dividend field at
+    # all, quarterly or annual, for any of three sampled companies: not a wrong guess, the data simply
+    # is not there. Both now come from hub.corporate_actions instead (company_values(), the same
+    # confirmed-working NSE source dividend_yield already uses) -- see there, not here.
     if len(a) > 1:
         ya = a[1]
         ya_cfo, ya_capex = ya.get("cash_flow_operating"), ya.get("capex")
@@ -294,9 +290,6 @@ def cash_flow_values(annual_rows: list[dict]) -> dict:
             out["cfo_growth"] = (cfo / ya_cfo - 1) * 100 if ya_cfo > 0 else None
         if capex is not None and ya_capex is not None:
             out["capex_change"] = abs(capex) - abs(ya_capex)   # sign of the raw field is unconfirmed; compare magnitudes
-        _, ya_div_per_share = dps(ya)
-        if div_per_share is not None and ya_div_per_share is not None:
-            out["dividend_policy_change"] = div_per_share - ya_div_per_share
     out["_annual_period"] = latest.get("period_end_date")
     return out
 
@@ -774,9 +767,12 @@ BS_STAGES = ("fin", "ann", "fund")
 FIN_KEYS = ("rev_yoy", "profit_yoy", "eps_yoy", "profit_consistency_8q", "profit_run", "net_margin",
             "operating_margin", "interest_cover", "roe", "debt_to_equity", "debt_change_1y", "roce",
             "working_capital_days", "working_capital_change")
-ANN_KEYS = ("cfo", "cfo_to_pat", "cfo_margin", "fcf", "capex", "capex_to_sales", "dividend_paid", "cfo_growth",
-            "capex_change", "dividend_policy_change", "rev_cagr_5y", "profit_cagr_5y", "profit_cagr_10y", "eps_cagr_5y",
+ANN_KEYS = ("cfo", "cfo_to_pat", "cfo_margin", "fcf", "capex", "capex_to_sales", "cfo_growth",
+            "capex_change", "rev_cagr_5y", "profit_cagr_5y", "profit_cagr_10y", "eps_cagr_5y",
             "profitable_share_10y", "cfo_positive_share_10y", "cfo_to_pat_5y", "roe_avg_5y", "roe_min_5y")
+# dividend_paid/dividend_policy_change moved out 14 Oct 2026: no longer part of cash_flow_values()'s
+# annual-stage output (see there) -- company_values() computes them fresh every run from corporate
+# actions, so there is nothing to carry forward from a prior published entry.
 VAL_KEYS = ("market_value_bucket", "pe", "pb", "ps")
 INST_KEYS = ("promoter_holding", "public_float", "promoter_change_qoq", "promoter_change_yoy",
              "promoter_holding_change_3q", "fii_holding", "dii_holding", "pledge_pct", "fii_change_qoq",
@@ -1224,6 +1220,19 @@ def company_values(sym: str, c: dict, ctx: dict, prior_entry: dict | None) -> tu
             values["dividend_yield"] = cav["dividend_per_share_ttm"] / last * 100
         else:
             values.pop("dividend_yield", None)
+        # dividend_paid/dividend_policy_change (14 Oct 2026): BharatStock has no dividend field at
+        # all (confirmed, hub/diag_financials_fields.py -- see cash_flow_values), so both come from
+        # the same NSE corporate-actions source dividend_yield already uses, not a second guess.
+        # ca.values() is pure local filtering over `recs` (already fetched above), so a second call
+        # at last year's as_of is free -- no extra network call -- to get the prior TTM for the
+        # year-over-year comparison dividend_policy_change's rule (name and wording) expects.
+        div_ttm = cav.get("dividend_per_share_ttm")
+        if div_ttm is not None:
+            values["dividend_paid"] = div_ttm
+        cav_ya = ca.values(recs, ctx["today"] - timedelta(days=365))
+        div_ttm_ya = cav_ya.get("dividend_per_share_ttm")
+        if div_ttm is not None and div_ttm_ya is not None:
+            values["dividend_policy_change"] = div_ttm - div_ttm_ya
     sector = ctx["sector_map"].get(sym)
     if sector:
         cache = ctx["sector_cache"]
