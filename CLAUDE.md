@@ -43,9 +43,12 @@ ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
 - **AI summaries**: Google Gemini free tier (`hub/summaries.py`), not Anthropic, unless the owner says so.
 
 ## Making changes
-- Push with the owner's GitHub CLI login:
-  `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin main`
-  (pull with rebase first; the batch commits too).
+- GitHub: the owner's `gh` keyring holds two logins and the *active* one can flip to ramghatage-ux. Never rely on it
+  or switch it globally; name the account in every command:
+  `export GH_TOKEN=$(gh auth token -u ramghatagedb1101-NSEFO)` (check `gh api user --jq .login`), and push with
+  `git -c credential.helper= -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$(gh auth token -u ramghatagedb1101-NSEFO)"; }; f' push origin main`
+  (pull with rebase the same way first; the batch commits too).
+- Market days: no push to `relay/*` between 09:15 and 15:30 IST (it deploys at once).
 - Update `CHANGELOG.md` (newest first, IST dates, the why) and `STATUS.md` for every change.
 - Relay: run `node relay/check.js` and check its exit code (never pipe it through tail/grep). Deploy only
   with `bash relay/tools/deploy_relay.sh <repo> <folder holding relay-live> <last deployed commit> "<label>"`.

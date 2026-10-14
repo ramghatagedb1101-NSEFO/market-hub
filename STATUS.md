@@ -1,8 +1,89 @@
 # Build status and to-do
 
-As of Tue 13 Oct 2026, ~17:55 IST. Earlier handover notes below are dated. Read this together with `CHANGELOG.md`.
+As of Wed 14 Oct 2026, ~10:45 IST. Read the HANDOVER below first, then `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
-## HANDOVER -- read this first if you are a new Claude session
+## HANDOVER -- Wed 14 Oct 2026, for a new Claude session (e.g. the owner's second laptop)
+
+**Start here (in order):**
+1. Accounts: only Google `ramghatagedb1101@gmail.com`, GitHub `ramghatagedb1101-NSEFO`. The `gh` keyring on the
+   owner's machines also holds `ramghatage-ux` and the *active* account can flip to it (it did on 14 Oct and a push got
+   403). Never switch it globally; name the account in every command (see CLAUDE.md "Making changes"):
+   `export GH_TOKEN=$(gh auth token -u ramghatagedb1101-NSEFO)` then check `gh api user --jq .login`.
+   If that account is not logged in on this laptop: the owner runs `gh auth login` and picks ramghatagedb1101-NSEFO.
+2. `git status` (tell the owner before touching anything uncommitted), then pull with rebase (CLAUDE.md command).
+3. Market days: **no relay push (`relay/*`) between 09:15 and 15:30 IST** (pushing relay files deploys at once).
+   Python/workflow changes are safe any time; `daily.yml` runs at 18:00 IST and right after each Kite login.
+4. Clasp on a new laptop is not needed: relay deploys from GitHub (`relay-deploy.yml`). Run `node relay/check.js`
+   (check its exit code) before every relay push.
+
+**Done today (all pushed, details in CHANGELOG 14 Oct 2026):**
+- Kite audit fixes (commit 24be95d): one paced Kite client for every job (`hub/sources/kite.PacedKite`, also used by
+  `rg/market_data.get_kite`): quote calls >= 1.05 s apart, "Too many requests" retried, quotes split at 500,
+  instrument lists downloaded once a day (`.cache/kite_instruments/`). Expiry calendar from Kite's contract lists
+  (`hub/expiries.py`; fallback `config.EXPIRY_RULE`: NIFTY weekly Tue, SENSEX weekly Thu, BANK NIFTY monthly last Tue;
+  the old `EXPIRY_WEEKDAY` had BANK NIFTY Wed and SENSEX Mon). F&O chains read once; theta legs in one quote;
+  `expiry-theta.yml` now Mon+Tue (NIFTY expires Mon 19 Oct and Mon 9 Nov 2026). Verified on GitHub: daily run
+  38500211113 (no Kite refusals, nearest NIFTY expiry 2026-10-19).
+- BharatStock shared budget (`hub/bs_budget.py`, ledger `state/bs_usage.json` in the private repo): library counts the
+  other jobs; manual `multibagger.yml` and `backtest-multibagger.yml` stop at what is left of 9,000 (the back-test had
+  no limit). BharatStock reports no usage (probe 14 Oct: no headers, no endpoint), so the count is ours.
+- Expiry history kept in full: `state/expiry_history/records.json` (399 expiries: NIFTY 159, BANK NIFTY 82, SENSEX 158,
+  Oct 2023 - Oct 2026), raw chains in `state/expiry_history/chains/<INDEX>_<YEAR>.json` (+-5% of spot, day before,
+  two days before, next expiry), `summary.json`. Records are never dropped (older layouts kept until replaced).
+  Analyses: `hub/expiry_history.py` (workflow `expiry-history.yml`, manual; NSE + BSE), `hub/expiry_patterns.py`,
+  `hub/expiry_rules_test.py`.
+- Findings (CHANGELOG 13-14 Oct): walls/max pain from the evening before do not beat the open as a point forecast for
+  any index, even with per-index rules; real patterns: BANK NIFTY pins to max pain when the open is near it; SENSEX
+  walls act as intraday barriers; NIFTY moves away from max pain from the previous close; expiry straddles overpriced
+  (sellers keep 11-17%). Live meter starting weights = history fit (relay Version 65: NIFTY 0.18/-0.13/0.17,
+  BANK NIFTY -0.23/0.19/0.04, SENSEX 0.18/0.10/-0.13).
+
+**Owner decisions on record:**
+- Range calibration (a quarter narrower at the right hit rate on history): **wait for a few recorded expiries first**;
+  then compare the live range's hit rate (state/expiry/) before changing it.
+- Kite login reminder must come **from the Market Hub app** on the owner's **iPhone**, not from Claude. Switch off the
+  claude.ai routine "Kite login reminder" (`trig_011gp21txucmWGZPKqpR2FEu`) **once a Market Hub push has reached the
+  phone** (owner said yes). It ran today at 07:37 and "sent" a Claude-app push that never arrived.
+
+**Next up -- build in this order:**
+1. **Market Hub push notifications (iPhone PWA)** -- approved, not started. Plan:
+   - `docs/sw.js`: `push` handler (showNotification with title/body/icon, data.url) and `notificationclick`
+     (open data.url or the app). Bump the cache name.
+   - `docs/index.html` Settings: "Turn on notifications" button (from a tap: `Notification.requestPermission()`, then
+     `registration.pushManager.subscribe({userVisibleOnly: true, applicationServerKey})`); if not opened from the Home
+     Screen (`navigator.standalone` false on iOS) say "Add Market Hub to the Home Screen first (Share > Add to Home
+     Screen), then open it from there". iOS 16.4+ only. Also fix the stale text there ("before the 16:30 run" ->
+     log in after 07:35 and before 09:05 IST).
+   - Relay (deploy after 15:30): `app_push_key` (public key from script property `VAPID_PUBLIC_KEY`),
+     `app_push_subscribe` / `app_push_unsubscribe` (session token; property `PUSH_SUBS`, de-duplicated by endpoint, at
+     most 5), key-protected `push_state` (subscriptions + `kiteStatus_().state` + login link), `push_key` (POST: store
+     the public key), `push_drop` (POST: remove dead endpoints).
+   - Sender `hub/push.py` + workflow `kite-reminder.yml` (cron ~07:36 and ~08:33 IST weekdays, odd minutes; manual
+     dispatch with mode=test): skip NSE holidays (NSE holiday API works from GitHub), skip if Kite already logged in
+     today, send "Log in to Kite now" (click opens the Kite login link) with `pywebpush`, drop 404/410 endpoints.
+     Contact claim `mailto:ramghatagedb1101@gmail.com`. GitHub cron can run some minutes late.
+   - Owner step (never handle the private key yourself): run `npx web-push generate-vapid-keys` on their laptop and
+     add GitHub secrets `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`; the workflow posts the public key to the relay.
+   - Test: owner opens the app from the Home Screen, taps the button; run the workflow with mode=test; only after the
+     owner confirms it arrived, disable the claude.ai routine (RemoteTrigger update enabled=false).
+2. **Relay counts its own BharatStock calls** (finishes the budget): count each BharatStock fetch in
+   `relay/Report.gs`, `relay/Funds.gs`, `relay/Research.gs` (bsChart_) in a script property `BS_USAGE`
+   `{date_utc, requests}`; add key-protected `?mode=bs_usage` returning it (hub/bs_budget.relay_used already calls it
+   and treats a missing mode as 0). Deploy after 15:30.
+3. Remove the one-off `hub/diag_quota_headers.py` (and the BharatStock key line it needed in `diag.yml`) once item 2 is in.
+4. Audit item left open by design: `rg/market_data.py` still sends one quote call per stock chain (~100 a run, now
+   paced, so ~2 min); batching several stocks per 500-instrument call would shorten the run (optional).
+
+**Owner, Thu 15 Oct 2026 (first live SENSEX expiry with the walls record):** log in to Kite after 07:35 and before
+09:05 (the Market Hub reminder will not exist yet). Then check: `expiry-tape.yml` ran (09:08 and 12:33 runs), the meter
+shows both expiries' walls, and `state/expiry/2026-10-15_SENSEX.json` exists in the private repo after 15:46. If the
+day file is missing, re-run `expiry-tape.yml` by hand before ~21:30 IST (the relay keeps the minute rows 6 hours).
+
+**Not running:** the 13 Oct cloud session's 19:30 claude.ai routine ("Batch daily jobs' Kite and BharatStock calls",
+`trig_01XasAeQgzBU9dsq3cQ3oY2A`) did not run and pushed nothing; its work was done in this session (above). Ignore
+older notes that say to wait for it.
+
+### Earlier handover notes (13 Oct 2026 and before; dated, partly superseded)
 
 **Expiry meter items 1-3: LIVE (Tue 13 Oct 2026, ~17:52 IST, relay Version 62, commit b13c14e, deployed by relay-deploy run 38396704530; see CHANGELOG 13 Oct, "judged against the forward").** Track record now shows the meter beside the forward ("meter closer than the forward: X of Y"); each reading's uncertainty comes from its ATM straddle (stored from Thu 15 Oct 2026); the chart covers the whole session with Day / 2h / 1h / 30m and nothing after 15:30; after the close the meter shows the actual close. **Settlement averaging is built but OFF** (`EXP_SETTLE` in `relay/Expiry.gs`): since 3 Aug 2026 NIFTY, BANK NIFTY and SENSEX constituents close in a 15:15-15:35 auction at both NSE and BSE, so a 15:00-15:30 average does not match today's rule. **Watch for SEBI's circular on derivatives settlement (expected Oct 2026)**; if it returns to a 30-minute average, set `method: 'average'` and the window it names. On the one real expiry so far (13 Oct) the forward beat the meter at 14:00 and 15:00. Phone expiry range now labelled ±1 standard deviation (about 2 in 3), phone cache v30.
 
@@ -13,10 +94,6 @@ As of Tue 13 Oct 2026, ~17:55 IST. Earlier handover notes below are dated. Read 
 **Second look at the history (14 Oct 2026, CHANGELOG "Expiry history, second look"):** four patterns hold in both halves: BANK NIFTY pins to max pain when the open is near it; SENSEX walls act as barriers through the day; NIFTY moves away from max pain from the previous close; expiry-day straddles overpriced on all three (sellers keep 11-17%). Next, if the owner agrees: index-specific meter rules, walk-forward tested before going live.
 
 **Was:** (4) history test on NSE's free F&O end-of-day files (about 3 years of weekly expiries; morning walls and max pain from the previous day's OI against the open and the close; next week's chain from the day-before file), run on GitHub (NSE blocks the laptop); fit the starting weights from it. (5) Only after ~10 recorded expiry days: wall movement (rolls, reinforcement or abandonment), gamma exposure from the chain, NSE's participant-wise OI (client / FII / pro / DII), event days (wider range only).
-
-**Scheduled (claude.ai Routines):** tonight 19:30 IST "Batch daily jobs' Kite and BharatStock calls" (`trig_01XasAeQgzBU9dsq3cQ3oY2A`, fires into the 13 Oct cloud session: `hub/config.py` expiry calendar from Kite's contract lists, batching `rg/market_data.py` / `hub/stocks.py` / `fno.py` / `expiry_theta.py` quotes, BharatStock budget for manual runs). Every weekday 07:36 IST "Kite login reminder" (`trig_011gp21txucmWGZPKqpR2FEu`, a fresh cloud session that sends a phone notification; skips NSE holidays when NSE's list can be read).
-
-**Owner, Thu 15 Oct 2026 (first live SENSEX expiry with the walls record):** log in to Kite after 07:35 and before 09:05. Then check: `expiry-tape.yml` ran (09:08 and 12:33 runs), the meter shows both expiries' walls, and `state/expiry/2026-10-15_SENSEX.json` exists in the private repo after 15:46.
 
 **Still unverified:** rotation of the credentials exposed on 6 Oct; phone sign-in tested on the phone itself; position tracker full live run. In the 13 Oct cloud session the `gh` CLI token was invalid: pushes went through the session's git connection, and workflow results were read from GitHub's public API.
 
