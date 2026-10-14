@@ -103,9 +103,13 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
      Kite" (tap opens the Kite login link) with `pywebpush`, drops 404/410 endpoints back to the relay.
      `pywebpush>=2.0` added to `requirements.txt`. Syntax-checked (`py_compile`); **not run end to end**
      (needs real VAPID keys and a real subscription -- can't be tested until the owner's steps below).
-   - **14 Oct ~21:40 IST: steps 1-3 done and confirmed by the owner (a real push arrived on the iPhone).
-     A tap now opens Market Hub on Settings with "Log in to Kite" highlighted (iOS does not open the
-     outside link from a notification tap). Left: the owner confirms the tap behaviour once, then step 4.**
+   - **DONE 14 Oct ~21:50 IST, confirmed by the owner on the iPhone: the test push arrives, and tapping it
+     opens Market Hub on Settings with "Log in to Kite" highlighted (iOS does not open the outside link
+     from a notification tap, so login is one more tap). First real reminders: Thu 15 Oct 2026, 07:36 and
+     08:33 IST (skipped if already logged in or an NSE holiday). Left for the owner only: switch off the
+     old "Kite login reminder" routine (step 4 below); optionally word the VAPID exception into
+     CLAUDE.md, and delete the merged branch `relay-held-vapid-keys` on GitHub (a cloud session's push
+     cannot delete branches).**
    - **Steps, in this order (14 Oct evening: no key-copying any more -- owner chose relay-held keys;
      the phone reads the public key from the relay, so a workflow run must come before the tap):**
      1. Claude or owner: run `kite-reminder.yml` with `mode=test` once. Expected result annotation:
@@ -168,9 +172,8 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 
 **B. Owner actions**
 1. Thu 15 Oct 2026: log in to Kite between 07:35 and 09:05 IST (first live SENSEX expiry with the walls record).
-2. **Push notifications (14 Oct)**: no keys to copy any more. After the first `kite-reminder.yml` test
-   run, tap "Turn on notifications" on the phone; after the second test run, confirm the notification
-   arrived. Then switch off the old "Kite login reminder" routine. Full order: "Next up" 1 above.
+2. **Push notifications: working on the iPhone (14 Oct).** Only left: switch off the old "Kite login
+   reminder" routine in the Claude app (not visible to cloud sessions).
 3. Still open from 6 Oct: rotate the credentials that were exposed then (owner's call; never done by Claude).
 4. Optional: a weekly copy of the private repo onto the laptop as a second backup (offered 14 Oct, not decided).
 

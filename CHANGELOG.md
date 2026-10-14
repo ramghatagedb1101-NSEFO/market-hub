@@ -14,7 +14,8 @@ the owner already uses each morning. The service worker never opens an outside U
 reminder text says so ("Tap, then "Log in to Kite""). Tests: 5-case unit test of the tap handler in a
 simulated service-worker global (closed app, open app, focus failure, non-Kite, outside URL never opened);
 browser test at 375 px now 9 cases (adds: opened from the reminder, message to an open app, normal open
-not highlighted). All pass.
+not highlighted). All pass. **Confirmed live by the owner, ~21:50 IST:** test push arrived (`sent: 1,
+errors: 0`), and the tap opened Settings with the Kite button highlighted.
 
 ### Phone app: "Turn on notifications" could show "On" while the relay had nothing (~21:00 IST, cache v32)
 After the owner's tap, the second test run reported `no subscribed devices`. The phone code (`togglePush`)
