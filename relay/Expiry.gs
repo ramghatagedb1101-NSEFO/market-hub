@@ -15,8 +15,10 @@
  *   EU% / US% = average move today of the European indices / US index futures (Market.gs), only once they trade today;
  *   NW = midpoint of the NEXT expiry's call and put walls (13 Oct 2026, owner: on expiry day sellers roll into next week,
  *        and where they write it shows the range they plan to defend).
- * Each index has its own k, m, e, u, v: starting values from 3 years of expiries (EXP_START) and re-fitted after every expiry from what
- * the meter said during the day against the actual close (Bayesian ridge, see expiryModel_: one expiry only nudges them).
+ * Each index has its own k, m, e, u, v: starting values in EXP_START, re-fitted after every expiry from what the meter said
+ * during the day against the actual close (Bayesian ridge, see expiryModel_: one expiry only nudges them). Since 14 Oct 2026
+ * the wall and max-pain weights (k, m, v) are pinned at 0 -- 399 expiries showed they add nothing beyond the forward -- so
+ * the expected close is the forward plus the overseas terms, and the range is what the meter adds.
  * A signal with no track record (overseas, next week's walls) starts at 0 and earns weight only if past expiries show it helps.
  *
  * Sellers' positions, tracked through the day (13 Oct 2026, owner: "we update every 10 seconds but do not track these
@@ -39,10 +41,15 @@ const EXP_RANGE_PCT = 3, EXP_KEEP = 30;
 // Before: 0.30 / 0.20 for every index, guesses. Caveats: fitted at the open, not on readings through the day, and even
 // fitted the formula did not beat the open on history (NIFTY 50.2 bp vs 49.9 walk-forward); live expiries re-fit them.
 // Europe and US (e, u) were not in the history: 0.
+// 14 Oct 2026 (owner: "set meter wall weights to zero"): k, m and v are now 0 for every index, and pinned there by
+// EXP_SPREAD below. hub/expiry_intraday_test.py replayed 399 expiries minute by minute (Oct 2023 - Oct 2026): from every
+// reading time 10:00-15:15, on every index, pulling toward max pain, the wall midpoint or next week's wall midpoint did
+// no better than the current level (the forward), often slightly worse; next week's walls hurt NIFTY at several times.
+// Was (history fit, 13 Oct): NIFTY [0.18, -0.13, 0, 0, 0.17], BANK NIFTY [-0.23, 0.19, 0, 0, 0.04], SENSEX [0.18, 0.10, 0, 0, -0.13].
 const EXP_START = {
-  NIFTY: [0.18, -0.13, 0, 0, 0.17],
-  BANKNIFTY: [-0.23, 0.19, 0, 0, 0.04],
-  SENSEX: [0.18, 0.10, 0, 0, -0.13],
+  NIFTY: [0, 0, 0, 0, 0],
+  BANKNIFTY: [0, 0, 0, 0, 0],
+  SENSEX: [0, 0, 0, 0, 0],
 };
 const EXP_IDX = [
   { id: 'NIFTY', label: 'NIFTY 50', exch: 'NFO', spot: 'NSE:NIFTY 50', step: 50, wd: 2, weekly: true },
@@ -202,7 +209,10 @@ const EXP_NOISE_PCT = 0.4;
 // certainty. Readings stored before 15 Oct 2026 have no straddle and keep EXP_NOISE_PCT of the level.
 const EXP_SD_PER_STRADDLE = 1 / 0.8, EXP_SD_FLOOR_PCT = 0.05;
 function expirySd_(F, straddle) { return straddle ? Math.max(straddle * EXP_SD_PER_STRADDLE, F * EXP_SD_FLOOR_PCT / 100) : F * EXP_NOISE_PCT / 100; }
-const EXP_SPREAD = [0.5, 0.5, 0.3, 0.3, 0.3];   // prior spread for k, m, e, u, v; starts in EXP_START
+// Prior spread for k, m, e, u, v; starts in EXP_START. k, m and v are pinned (14 Oct 2026): a near-zero spread means a
+// few live expiries cannot pull them off 0 -- one expiry moved m by 0.26 on 13 Oct, noise that 399 expiries outweigh.
+// Re-open them only if the monthly intraday test (expiry-intraday.yml) shows a real gain. Europe/US still learn.
+const EXP_SPREAD = [0.001, 0.001, 0.3, 0.3, 0.001];
 const EXP_BOUNDS = [[-0.5, 1.5], [-0.5, 1.5], [-1, 1], [-1, 1], [-0.5, 1]];
 function expiryModel_(id) {
   const props = PropertiesService.getScriptProperties();

@@ -218,9 +218,8 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
    40% and at 15:25 by about 85% on all three indices.
 
 **Owner decisions offered from the intraday test (14 Oct, none taken without the owner):**
-1. Meter: walls and max pain add nothing beyond the current spot from any checkpoint (10:00-15:15) -- set their
-   weights to zero so the meter reads as the forward plus its range? (the live track record so far agrees: the forward
-   beat the meter at 14:00 and 15:00 on 13 Oct).
+1. **Done 14 Oct ~22:20 IST (owner):** meter wall, max-pain and next-week-wall weights (k, m, v) set to 0 and pinned
+   (`relay/Expiry.gs`); the meter is now the forward plus the Europe/US terms, plus its range. CHANGELOG 14 Oct.
 2. Expiry theta: 3x daily sigma never saw a NIFTY close beyond it in 159 expiries; 2.5x would collect more credit with
    0 closes beyond and 1 touch. Keep 3x until the 50-100 session paper record (D4), or paper-test 2.5x alongside?
 2. Exchange expiry calendar changes and holidays: followed by themselves from Kite's lists now; nothing to do unless a

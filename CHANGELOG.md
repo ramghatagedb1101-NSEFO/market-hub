@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-14
 
+### Expiry meter: wall and max-pain weights set to zero and pinned (owner's decision, ~22:20 IST)
+From the intraday test below. `relay/Expiry.gs`: `EXP_START` k, m, v = 0 for all three indices (was the 13 Oct history
+fit, e.g. NIFTY 0.18 / -0.13 / 0.17), and pinned there with a near-zero prior spread in `EXP_SPREAD` -- otherwise the
+live re-fit would pull them off 0 again (one expiry moved m by 0.26 on 13 Oct, noise that 399 expiries outweigh).
+Next week's wall midpoint (v) was checked the same way first: no help at any reading time, slightly worse on NIFTY
+(t about -2 at 10:00, 12:00, 14:45). The meter's expected close is now the forward plus the Europe/US terms (which still
+learn, starting at 0); what it adds is the range. Dashboard text says so. Test (real `Expiry.gs` loaded in node, script
+properties mocked): with 6 made-up expiries closing exactly on the wall midpoint, k, m, v stay at 0 and the Europe weight
+still learns. `node relay/check.js` clean. To re-open: only if the monthly intraday test shows a real gain.
+
 ### Expiry days, minute by minute: 399 intraday paths and what they show (~22:30 IST)
 Owner asked what else the data could do for expiry-day prediction. Every history test so far compared the evening-before
 chain with the expiry day's open and close only, while the meter reads at 10:00-15:00. New `hub/expiry_intraday.py`
