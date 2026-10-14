@@ -1,0 +1,192 @@
+{
+  "RELIANCE": {
+    "rows": 10,
+    "years": [
+      {
+        "period_end_date": "2026-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 10.287224360690741
+      },
+      {
+        "period_end_date": "2025-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 9.599928084906967
+      },
+      {
+        "period_end_date": "2024-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 10.193296598715621
+      }
+    ]
+  },
+  "TCS": {
+    "rows": 11,
+    "years": [
+      {
+        "period_end_date": "2026-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 65.67230221796125
+      },
+      {
+        "period_end_date": "2025-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 69.04699752534692
+      },
+      {
+        "period_end_date": "2024-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 69.79160963216854
+      }
+    ]
+  },
+  "HDFCBANK": {
+    "rows": 7,
+    "years": [
+      {
+        "period_end_date": "2026-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": false,
+          "borrowings_current": false,
+          "borrowings_non_current": true
+        },
+        "roce": null
+      },
+      {
+        "period_end_date": "2025-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": false,
+          "borrowings_current": false,
+          "borrowings_non_current": true
+        },
+        "roce": null
+      },
+      {
+        "period_end_date": "2024-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": false,
+          "borrowings_current": false,
+          "borrowings_non_current": true
+        },
+        "roce": null
+      }
+    ]
+  },
+  "ITC": {
+    "rows": 10,
+    "years": [
+      {
+        "period_end_date": "2026-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 37.348073335141684
+      },
+      {
+        "period_end_date": "2025-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 38.107369639604364
+      },
+      {
+        "period_end_date": "2024-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 36.26882061380818
+      }
+    ]
+  },
+  "INFY": {
+    "rows": 8,
+    "years": [
+      {
+        "period_end_date": "2026-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 44.695970931541204
+      },
+      {
+        "period_end_date": "2025-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 39.52475494527198
+      },
+      {
+        "period_end_date": "2024-03-31",
+        "present": {
+          "operating_profit": true,
+          "total_equity": true,
+          "equity_attributable_to_owners": true,
+          "borrowings_current": true,
+          "borrowings_non_current": true
+        },
+        "roce": 41.213642169995815
+      }
+    ]
+  }
+}
