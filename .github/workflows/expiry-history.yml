@@ -16,6 +16,11 @@ on:
         description: "most NSE requests this run"
         required: false
         default: "1500"
+      task:
+        description: "history = the expiry history test; next_chains = the next expiry's chain at each expiry-day close (15 Oct 2026, research)"
+        type: choice
+        options: [history, next_chains]
+        default: history
 
 permissions:
   contents: read
@@ -43,4 +48,4 @@ jobs:
           START: ${{ inputs.start }}
           BUDGET: ${{ inputs.budget }}
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: python -m hub.expiry_history
+        run: python -m ${{ inputs.task == 'next_chains' && 'hub.expiry_nextchain' || 'hub.expiry_history' }}

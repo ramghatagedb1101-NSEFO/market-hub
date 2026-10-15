@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
+### Research collector: the next expiry's chain at each expiry-day close (~14:45 IST)
+Owner, on the next-expiry chain the meter watches: "smart money is preparing for the next expiry after making money
+today", then "ok" to testing it properly. The expiry history only holds the next expiry's chain as of the evening
+BEFORE each expiry (a first test on that found nothing); the owner's signal is the build-up DURING expiry day. New
+`hub/expiry_nextchain.py` fetches the same free end-of-day F&O files for each recorded expiry day (NSE on GitHub, which
+blocks the laptop; BSE for SENSEX) and keeps the next expiry's chain at that close, plus NSE participant-wise OI, in the
+private repo (`state/expiry_history/next_chains/`). Run by hand: `expiry-history.yml`, task `next_chains`. Research
+only: nothing on the dashboard or phone reads it. Tested locally on BSE (new and old file formats).
+
 ### METHOD.md guard: false failure on GitHub fixed (~10:55 IST)
 The USD/INR push below updated METHOD.md in the private repo first, yet the GitHub guard failed ("METHOD.md did
 not" change). Cause, in this morning's guard: it read the private repo's history only when the copy sat OUTSIDE this
