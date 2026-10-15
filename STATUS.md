@@ -4,6 +4,8 @@ As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct 
 first) and `CLAUDE.md`.
 
 ## Thu 15 Oct 2026, morning -- read this first
+- **Dashboard Overview now shows the phone's Brief** (market tiles, moves, FII/DII, written brief; relay `adminBrief`).
+  Committed ~09:45 IST, pushed and deployed after 15:30 IST.
 - **METHOD.md now lives in the PRIVATE repo** `market-hub-private` (moved ~08:10 IST; local copy
   `C:\nse_fo_analyser\market-hub-private`; CLAUDE.md says how to update it). Its earlier copies stay in this public
   repo's history. **Pending owner decision:** make this repo private (Actions minutes: ~2,100 in the last 7 days vs

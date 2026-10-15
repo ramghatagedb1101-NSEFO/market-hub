@@ -160,6 +160,17 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--panel2);border-radi
 .ws{display:grid;grid-template-columns:150px 1fr 1fr;column-gap:12px;font-size:12.5px}
 .ws>div{padding:7px 0;border-bottom:1px solid var(--line2)} .ws .wh{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
 @media (max-width:600px){ .ws{grid-template-columns:1fr 1fr} .ws .wl{grid-column:1/-1;border-bottom:0;padding-bottom:0;font-weight:600;color:var(--text2)} .ws .wl:empty{display:none} }
+.glance{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.glance .kpi{padding:12px 14px} .glance .kpi .v{font-size:20px} .glance .kpi .k{text-transform:uppercase;letter-spacing:.05em;font-size:11px}
+.brow{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:10px;margin:8px 0;font-size:12.5px}
+.brow .bl{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .bv{text-align:right;font-family:var(--mono);white-space:nowrap}
+.btrack{position:relative;height:10px;background:var(--line2);border-radius:3px}
+.bfill{position:absolute;top:0;bottom:0;border-radius:3px} .bfill.pos{background:var(--up);left:50%} .bfill.neg{background:var(--down);right:50%}
+.bzero{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.brief-text{white-space:pre-wrap;font-size:13.5px;line-height:1.65;margin-top:10px}
+@media (max-width:1100px){ .glance{grid-template-columns:repeat(3,minmax(0,1fr))} }
+@media (max-width:600px){ .glance{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:1100px){ .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .stats{grid-template-columns:repeat(3,minmax(0,1fr))} }
 @media (max-width:860px){
   .shell{grid-template-columns:1fr}
@@ -270,7 +281,7 @@ function logout(){
 // ======================================================================================
 // Data
 // ======================================================================================
-const S = { admin: null, lib: null, mb: null, sl: null, watch: null, kite: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {}, funds: {} };
+const S = { brief: null, quotes: null, btc: null, briefOpen: false, admin: null, lib: null, mb: null, sl: null, watch: null, kite: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {}, funds: {} };
 
 function start(){
   $('login').style.display = 'none'; $('app').style.display = 'block';
@@ -287,6 +298,9 @@ function start(){
   loadWatch();
   tapeTick(); setInterval(() => { if (!document.hidden && (marketHoursIst() || Date.now() - TAPE_LAST > 300000)) tapeTick(); }, 10000);
   call('adminKiteStatus', token).then(d => { S.kite = d; rerender(); }).catch(() => {});
+  call('adminBrief', token).then(d => { S.brief = (d && d.files) || { error: (d && d.error) || 'no answer' }; drawBriefBox(); })
+    .catch(e => { S.brief = { error: e.message }; drawBriefBox(); });
+  fetchBitcoin(); setInterval(() => { if (!document.hidden) fetchBitcoin(); }, 300000);
   call('adminAlertSettings', token).then(d => { S.alerts = d; if (current.page === 'overview') rerender(); }).catch(() => {});
   call('adminShortlist', token).then(d => { S.sl = d; if (current.page === 'shortlist' || current.page === 'overview') rerender(); })
     .catch(e => { S.sl = { error: e.message }; rerender(); });
@@ -592,6 +606,7 @@ function pageOverview(){
   const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
   let html = '<div class="page-head"><div><h1 class="h1">Overview</h1><p class="sub">Daily run ' + esc(fmtTs(s.daily_ts)) +
     (S.lib ? ' · library updated ' + esc(fmtTs(S.lib.generated)) : '') + '</p></div></div>';
+  html += '<div id="briefBox">' + briefHtml() + '</div>';
   html += '<div class="grid g4" style="margin-bottom:14px">' +
     kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed' + (trk ? ' · ' + num((trk.refreshed_this_run || {}).companies || 0, 0) + ' refreshed in the last run' : '') : 'loading the library') +
     kpi('Proven compounders', comp == null ? '…' : comp.length, 'pass all six rules') +
@@ -637,6 +652,96 @@ function pageOverview(){
   html = kiteBanner() + html;
   v.innerHTML = html;
 }
+// Market brief (15 Oct 2026, owner: "overview on admin panel and brief on mobile needs to be same"): the phone's
+// Brief tab, drawn from the same files (brief, context, stocks) and the same live quotes, with the same labels.
+// Only its box is redrawn on each 10-second quote, so the open written brief and the page scroll stay put.
+const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], DOW3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function istOf(ts){
+  if (!ts) return null;
+  const s = String(ts);
+  if (/[+-]\d{2}:?\d{2}$|Z$/.test(s)) { const d = new Date(s); return isNaN(d) ? null : new Date(d.getTime() + 5.5 * 3600e3); }
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+  return m ? new Date(Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5])) : null;   // no zone: already IST
+}
+function dayOf(s){
+  const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return new Date(Date.UTC(+m[1], m[2] - 1, +m[3]));
+  const n = String(s || '').match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})/);
+  if (n) { const i = MON3.findIndex(x => x.toLowerCase() === n[2].toLowerCase()); if (i >= 0) return new Date(Date.UTC(+n[3], i, +n[1])); }
+  return null;
+}
+const bDay = d => d ? DOW3[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear() : '';
+const bTime = d => d ? String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0') + ' IST' : '';
+const bClose = day => day ? 'Close · ' + bDay(dayOf(day)) : 'Close';
+const bSnap = ts => { const d = istOf(ts); return d ? 'As of ' + bTime(d) + ' · ' + bDay(d) : ''; };
+function bQuote(ts){
+  const d = istOf(ts); if (!d) return '';
+  const now = new Date(Date.now() + 5.5 * 3600e3), m = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const open = now.getUTCDay() >= 1 && now.getUTCDay() <= 5 && m >= 555 && m <= 930;
+  return open && bDay(d) === bDay(now) ? 'Live · ' + bTime(d) : 'Last quote · ' + bTime(d) + ' · ' + bDay(d);
+}
+function fetchBitcoin(){
+  fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true', { cache: 'no-store' })
+    .then(r => r.json()).then(j => { S.btc = { usd: j.bitcoin.usd, chg: j.bitcoin.usd_24h_change, ts: new Date().toISOString() }; drawBriefBox(); })
+    .catch(() => {});   // keep the last value
+}
+function drawBriefBox(){ const el = $('briefBox'); if (el && current.page === 'overview') el.innerHTML = briefHtml(); }
+function briefBars(items){
+  const max = Math.max(...items.map(i => Math.abs(i.v) || 0), 0.01);
+  return items.map(i => {
+    const w = Math.min(Math.abs(i.v || 0) / max * 50, 50), pos = (i.v || 0) >= 0;
+    return '<div class="brow"><span class="bl">' + esc(i.label) + '</span><div class="btrack"><div class="bfill ' + (pos ? 'pos' : 'neg') + '" style="width:' + w + '%"></div><div class="bzero"></div></div>' +
+      '<span class="bv ' + (pos ? 'up' : 'down') + '">' + esc(i.txt) + '</span></div>';
+  }).join('');
+}
+function briefHtml(){
+  const F = S.brief;
+  if (!F) return '<div class="panel" style="margin-bottom:14px"><div class="panel-b"><div class="skel"></div></div></div>';
+  if (F.error || !F.brief || F.brief.error) return '<div class="panel" style="margin-bottom:14px"><div class="panel-b muted">Brief not available' + (F.error ? ': ' + esc(F.error) : '') + '.</div></div>';
+  const B = F.brief, C = (F.context && !F.context.error) ? F.context : {}, ST = (F.stocks && !F.stocks.error) ? F.stocks : {};
+  const LQ = S.quotes, ex = (LQ && LQ.extra) || {};
+  const failed = /could not be written/.test(B.text || ''), plain = failed ? '' : (B.text || '').replace(/\*\*/g, '');
+  const com = C.commodities || {}, glob = C.global || {};
+  const fii = (C.fii_dii || []).reduce((a, r) => { a[r.category] = r.net; return a; }, {});
+  const fiiDate = (C.fii_dii && C.fii_dii[0]) ? C.fii_dii[0].date : null;
+  // Gold and crude in rupees: live if the relay has them, else the daily snapshot (as the phone)
+  const goldRaw = ex.gold || com['Gold (MCX, ₹/10g)'], crudeRaw = ex.crude || com['Crude oil (MCX, ₹/bbl)'];
+  const usd = ex.usd_inr || C.usd_inr_live || null, usdRate = usd ? usd.last : (C.fx ? C.fx.usd_inr : null);
+  const crudeUsd = crudeRaw && usdRate ? { last: crudeRaw.last / usdRate, change_pct: crudeRaw.change_pct } : null;
+  const vixNow = LQ && LQ.india_vix ? LQ.india_vix : (C.india_vix || ST.india_vix), sp = glob['S&P 500'], btc = S.btc;
+  const chg = x => x == null ? '–' : pct(x, 2);
+  const tile = (k, v, sub, c) => '<div class="panel kpi"><div class="k">' + esc(k) + '</div><div class="v ' + (c || '') + '">' + v + '</div><div class="s ' + (c || '') + '">' + sub + '</div></div>';
+  const tiles = [
+    tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct) + '<br>' + esc(ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(goldRaw && goldRaw.change_pct)),
+    tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct) + '<br>' + esc(ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(crudeUsd && crudeUsd.change_pct)),
+    tile('USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'),
+         usd ? chg(usd.change_pct) + '<br>' + esc(ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? 'ECB rate<br>' + esc(bClose(C.fx.date)) : 'no data'), cls(usd && usd.change_pct)),
+    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct) + '<br>' + esc(LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(vixNow && vixNow.change_pct)),
+    tile('S&P 500', sp ? fmt(sp.last, 0) : '–', sp ? chg(sp.change_pct) + '<br>' + esc(bClose(sp.date)) : 'no data', cls(sp && sp.change_pct)),
+    tile('Bitcoin US$', btc ? fmt(btc.usd, 0) : '–', btc ? chg(btc.chg) + '<br>24 h · ' + esc(bTime(istOf(btc.ts))) : 'no data', cls(btc && btc.chg))
+  ].join('');
+  const moves = briefBars([
+    ...(goldRaw ? [{ label: 'Gold', v: goldRaw.change_pct, txt: chg(goldRaw.change_pct) }] : []),
+    ...(crudeUsd ? [{ label: 'Crude US$', v: crudeUsd.change_pct, txt: chg(crudeUsd.change_pct) }] : []),
+    ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(' Composite', ''), v: glob[k].change_pct, txt: chg(glob[k].change_pct) }))
+  ]);
+  const FII_LABELS = { 'FII/FPI': 'FII (cash)', 'DII': 'DII (cash)' };   // NSE's two known categories; any other shows its own name
+  const flows = briefBars(Object.keys(fii).map(k => ({ label: FII_LABELS[k] || k, v: fii[k], txt: (fii[k] >= 0 ? '+' : '') + fmt(fii[k], 0) + ' cr' })));
+  const when = LQ && LQ.ts ? bQuote(LQ.ts) : bSnap(B.ts);
+  return '<div class="panel-h" style="border:0;padding:0 0 8px"><h3>Market brief · ' + esc(when) + '</h3><span class="muted" style="font-size:12px">same as the phone\'s Brief tab</span></div>' +
+    '<div class="glance">' + tiles + '</div>' +
+    '<div class="grid g2" style="margin-bottom:14px">' +
+      '<div class="panel"><div class="panel-h"><h3>Moves</h3><span class="muted" style="font-size:12px">% · latest session of each</span></div><div class="panel-b">' +
+        (moves || '<div class="muted">No market data yet.</div>') + '</div></div>' +
+      '<div class="panel"><div class="panel-h"><h3>Institutional flows: FII and DII</h3><span class="muted" style="font-size:12px">cash' + (fiiDate ? ' · ' + esc(bClose(fiiDate)) : '') + '</span></div><div class="panel-b">' +
+        (flows || '<div class="muted">Flow data not available today.</div>') +
+        '<div class="muted" style="font-size:12px;margin-top:8px">NSE publishes this once a day for the previous session\'s settled trades, not live.</div></div></div>' +
+    '</div>' +
+    '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Written brief</h3><span class="muted" style="font-size:12px">Written ' + esc(bSnap(B.ts).replace(/^As of /, '')) + ' by ' + esc(B.source || '') + '</span></div><div class="panel-b">' +
+      (failed ? '<div class="notice">Brief pending: the AI service did not respond. It updates on the next daily run.</div>'
+              : '<details' + (S.briefOpen ? ' open' : '') + ' ontoggle="S.briefOpen = this.open"><summary style="cursor:pointer;font-weight:600">Show full brief</summary><div class="brief-text">' + esc(plain) + '</div></details>') +
+      '<div class="muted" style="font-size:12px;margin-top:8px">From this dashboard\'s numbers and headlines. Not advice.</div></div></div>';
+}
+
 // Kite login alarm (relay KiteWatch.gs): a replaced login is otherwise invisible until something breaks.
 function kiteBanner(){
   const k = S.kite;
@@ -1717,6 +1822,7 @@ function marketHoursIst(){ const d = new Date(Date.now() + 5.5 * 3600e3), m = d.
 function tapeTick(){
   TAPE_LAST = Date.now();
   call('adminQuotes', token).then(d => {
+    if (d && !d.error) { S.quotes = d; drawBriefBox(); }
     const el = $('tape'); if (!el) return;
     if (!d || d.error) {
       el.innerHTML = '<span style="color:var(--warn)">Quotes unavailable: ' + esc(d && d.error || 'no answer') + '</span>' +

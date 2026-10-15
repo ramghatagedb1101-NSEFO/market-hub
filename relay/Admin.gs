@@ -212,6 +212,11 @@ function appData_(token, files) {
   return { files: out };
 }
 
+/** Dashboard Overview (15 Oct 2026): the phone's Brief tab files, so both show the same brief. */
+function adminBrief(token) {
+  return appData_(token, ['brief', 'context', 'stocks']);
+}
+
 /** Reads the stock library (library.json) from the private repo for the signed-in owner. */
 function adminLibrary(token) {
   if (!sessionValid_(token)) return { error: 'session_expired' };

@@ -4,6 +4,18 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
+### Dashboard Overview shows the phone's Brief (~09:45 IST; deploys after 15:30)
+Owner: "overview on admin panel and brief on mobile needs to be same ... no changes on mobile needed, but add missing
+components to admin". The dashboard's Overview had only library figures; the phone's Brief tab (market tiles, moves,
+FII/DII flows, the AI-written brief) had no desktop equivalent.
+- New relay call `adminBrief` (Admin.gs) returns the same three files the phone reads (`brief`, `context`, `stocks`).
+- Overview now opens with "Market brief": gold, crude (US$), USD/INR, India VIX, S&P 500 and Bitcoin tiles, the Moves
+  bars, the FII/DII bars and the written brief, with the phone's own rules: live Kite values from the market strip's
+  10-second quote when there is one, else the daily snapshot; the phone's time labels. Only this box redraws on each
+  quote, so an open brief stays open. Phone unchanged.
+- Checked with today's real files from the private repo (rendered locally). Held until after 15:30 IST because a
+  relay push deploys at once.
+
 ### METHOD.md moved to the private repo (~08:10 IST)
 Owner: "move method to private". This repo is public (anyone can read it without signing in; checked), so the full
 method document is now kept in the private repo `market-hub-private` only, and removed from here.
