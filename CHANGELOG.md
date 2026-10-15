@@ -4,6 +4,18 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
+### USD/INR stuck at 0.00%: wrong futures contract (~10:40 IST)
+Owner: "correct it now". USD/INR showed "Live" but 0.00% all morning: the relay (and the daily job's snapshot) quoted
+the NEAREST USDINR future, which is now a weekly contract (USDINR26O16FUT, expires Fri 16 Oct 2026) that barely
+trades: last = previous close = 96.14 in three samples 30 s apart (public quote endpoint, 10:29-10:30 IST). Crude was
+fine (8,945 -> 8,936 in the same samples), gold too.
+- Both pickers (`frontMonths_` in relay/Code.gs, `_front_month` in hub/sources/commodities.py) now take MONTHLY
+  contracts only and roll to the next month 3 days before expiry, when trading leaves the old one. Checked on Kite's
+  real instrument lists: today USDINR26OCTFUT, GOLD26DECFUT, CRUDEOIL26OCTFUT; from Fri 16 Oct CRUDEOIL26NOVFUT
+  (October crude expires Mon 19 Oct). The relay's cached pick is renamed so the new rule applies at once.
+- The shared Kite snapshot still asks for the same number of instruments; the expiry recorder's option quotes are
+  untouched. Pushed in market hours on the owner's instruction.
+
 ### Overview: % / Points switch, heading not repeated (~10:15 IST)
 Owner: "the word overview itself is repeating" and "a switch which shows absolute numbers for change or change in %
 for all". The Overview's own heading is gone (the top bar already says Overview). A "% | Points" switch sits where the

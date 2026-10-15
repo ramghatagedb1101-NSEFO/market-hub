@@ -169,7 +169,7 @@ function quoteData_() {
  */
 function frontMonths_() {
   const cache = CacheService.getScriptCache();
-  const hit = cache.get('front_months');
+  const hit = cache.get('front_months_v2');   // v2: new rule, so the old cached pick is not reused
   if (hit) return JSON.parse(hit);
   const today = todayIst_();
   const pickFront = (csv, name) => {
@@ -177,11 +177,14 @@ function frontMonths_() {
     const head = rows[0];
     const iSym = head.indexOf('tradingsymbol'), iName = head.indexOf('name');
     const iExp = head.indexOf('expiry'), iType = head.indexOf('instrument_type');
-    let best = null;
-    rows.slice(1).forEach(r => {
-      if (r[iName] !== name || r[iType] !== 'FUT' || !r[iExp] || r[iExp] < today) return;
-      if (!best || r[iExp] < best[iExp]) best = r;
-    });
+    // Monthly contracts only, rolled 3 days before expiry (15 Oct 2026): the nearest USDINR future was a weekly one
+    // (USDINR26O16FUT) that barely trades, so the strip showed last = previous close, 0.00%. Same rule as
+    // hub/sources/commodities.py.
+    const pat = new RegExp('^' + name + '[0-9]{2}[A-Z]{3}FUT$');
+    const roll = Utilities.formatDate(new Date(Date.now() + 3 * 86400e3), 'Asia/Kolkata', 'yyyy-MM-dd');
+    const fut = rows.slice(1).filter(r => r[iName] === name && r[iType] === 'FUT' && r[iExp] && r[iExp] >= today && pat.test(r[iSym]))
+      .sort((a, b) => a[iExp] < b[iExp] ? -1 : 1);
+    const best = fut.find(r => r[iExp] > roll) || fut[0];
     return best ? best[iSym] : null;
   };
   const out = {};
@@ -192,7 +195,7 @@ function frontMonths_() {
     const cds = UrlFetchApp.fetch('https://api.kite.trade/instruments/CDS', { muteHttpExceptions: true }).getContentText();
     out.usd = pickFront(cds, 'USDINR');
   } catch (e) { /* leave missing: the page falls back to the daily snapshot */ }
-  cache.put('front_months', JSON.stringify(out), 21600);
+  cache.put('front_months_v2', JSON.stringify(out), 21600);
   return out;
 }
 

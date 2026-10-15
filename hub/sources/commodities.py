@@ -5,6 +5,7 @@ Picks the nearest unexpired monthly futures contract for each commodity and quot
 futures price is the price people trade, so it is the right figure for a brief. Prices are in
 rupees per unit of the contract (gold per 10 g, crude per barrel).
 """
+import re
 from datetime import date
 
 from . import kite
@@ -12,9 +13,17 @@ from . import kite
 COMMODITIES = {"Gold (MCX, ₹/10g)": "GOLD", "Crude oil (MCX, ₹/bbl)": "CRUDEOIL"}
 
 
+ROLL_DAYS = 3   # move to the next month this many days before expiry: trading leaves an expiring contract early
+
+
 def _front_month(rows: list, name: str, today: date) -> dict | None:
-    fut = [r for r in rows if r["name"] == name and r["instrument_type"] == "FUT" and r["expiry"] >= today]
-    return min(fut, key=lambda r: r["expiry"]) if fut else None
+    """Nearest MONTHLY futures contract, rolled ROLL_DAYS before expiry (15 Oct 2026). Monthly only: NSE's weekly
+    USDINR futures (e.g. USDINR26O16FUT) barely trade, so the nearest one showed last = previous close, 0.00%."""
+    pat = re.compile(rf"^{re.escape(name)}\d{{2}}[A-Z]{{3}}FUT$")
+    fut = sorted((r for r in rows if r["name"] == name and r["instrument_type"] == "FUT" and r["expiry"] >= today
+                  and pat.match(r["tradingsymbol"])), key=lambda r: r["expiry"])
+    live = [r for r in fut if (r["expiry"] - today).days > ROLL_DAYS]
+    return (live or fut or [None])[0]
 
 
 def main() -> dict:
