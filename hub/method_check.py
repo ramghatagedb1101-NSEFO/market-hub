@@ -200,7 +200,9 @@ def check_coverage(text: str, base: str | None, head: str = "HEAD", doc: Path | 
         return [], [f"no prediction-engine file changed in {base[:12]}..{head}"]
     if DOC in changed:
         return [], [f"engine files changed and {DOC} updated with them: {', '.join(hit)}"]
-    if doc is not None and ROOT not in doc.resolve().parents:
+    # A copy of the private repo, wherever it sits: beside this repo (laptop) or inside it (the GitHub job checks it out
+    # to ./market-hub-private). Fixed 15 Oct 2026: the old test, "not under this repo", skipped the GitHub layout.
+    if doc is not None and doc.resolve() != (ROOT / DOC).resolve():
         upd = _doc_updated_since(doc, base)
         if upd:
             return [], [f"engine files changed and {DOC} updated in the private repo since {base[:12]}: {', '.join(hit)}"]

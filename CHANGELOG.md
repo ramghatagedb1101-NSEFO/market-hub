@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
+### METHOD.md guard: false failure on GitHub fixed (~10:55 IST)
+The USD/INR push below updated METHOD.md in the private repo first, yet the GitHub guard failed ("METHOD.md did
+not" change). Cause, in this morning's guard: it read the private repo's history only when the copy sat OUTSIDE this
+repo. On the laptop it sits beside it (so local checks passed); the GitHub job checks it out INSIDE (./market-hub-private),
+so the private history was never consulted. Now any copy other than this repo's own METHOD.md path counts. Two new
+tests reproduce the GitHub layout (the first fails on the old guard, passes on the new); all 14 pass. The red run
+for commit 0637fd5 was this false alarm; nothing to fix there.
+
 ### USD/INR stuck at 0.00%: wrong futures contract (~10:40 IST)
 Owner: "correct it now". USD/INR showed "Live" but 0.00% all morning: the relay (and the daily job's snapshot) quoted
 the NEAREST USDINR future, which is now a weekly contract (USDINR26O16FUT, expires Fri 16 Oct 2026) that barely

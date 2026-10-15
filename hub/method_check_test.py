@@ -50,5 +50,28 @@ with tempfile.TemporaryDirectory() as d:
     # pipe in value round trip
     (d/'relay/y.gs').write_text("const S = 'a|b';\n"); rc,out = run('--write','--settings-only'); rc2,out2 = run('--settings-only')
     R.append(('pipe value round-trips', rc2 == 0 and r'`a\|b`' in (d/'METHOD.md').read_text().replace("'", "")))
+# METHOD.md in the private repo, checked out INSIDE this repo as the GitHub job does (./market-hub-private)
+with tempfile.TemporaryDirectory() as d:
+    d = pathlib.Path(d); mc.ROOT = d
+    def commit(c, m, date):
+        import os
+        env = dict(os.environ, GIT_COMMITTER_DATE=date, GIT_AUTHOR_DATE=date)
+        subprocess.run(['git', 'add', '.'], cwd=c, check=True, capture_output=True)
+        subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', m], cwd=c, check=True, capture_output=True, env=env)
+    def run(*a):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf): rc = mc.main(list(a))
+        return rc, buf.getvalue()
+    (d/'relay').mkdir(); (d/'relay/y.gs').write_text('const S = [1, 2];\n'); (d/'.gitignore').write_text('market-hub-private/\n')
+    git(d, 'init', '-q', '-b', 'main'); commit(d, 'init', '2026-10-15T10:00:00+05:30')
+    pv = d/'market-hub-private'; pv.mkdir(); (pv/'METHOD.md').write_text(DOC.replace('- `hub/x.py`\n', '').replace('| `K` | `0.88` | `hub/x.py` | trial band |\n', ''))
+    git(pv, 'init', '-q', '-b', 'main'); commit(pv, 'doc', '2026-10-15T10:30:00+05:30')
+    (d/'relay/y.gs').write_text('const S = [1, 2];\nconst T = 1;\n'); commit(d, 'engine', '2026-10-15T10:40:00+05:30')
+    rc, out = run('--doc', str(pv/'METHOD.md'), '--base', 'HEAD~1')
+    R.append(('private copy inside the repo (GitHub layout), doc newer than base: passes', rc == 0 and 'private repo' in out))
+    (d/'relay/y.gs').write_text('const S = [1, 2];\nconst T = 2;\n'); commit(d, 'base after doc', '2026-10-15T10:50:00+05:30')
+    (d/'relay/y.gs').write_text('const S = [1, 2];\nconst T = 3;\n'); commit(d, 'engine again', '2026-10-15T10:55:00+05:30')
+    rc, out = run('--doc', str(pv/'METHOD.md'), '--base', 'HEAD~1')
+    R.append(('private copy inside the repo, doc older than base: fails', rc == 1))
 for n, ok in R: print(('PASS' if ok else 'FAIL'), n)
 print('ALL PASS' if all(ok for _, ok in R) else 'FAILURES')
