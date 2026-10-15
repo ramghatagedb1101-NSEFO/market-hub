@@ -128,8 +128,8 @@ commit local-only, held for market hours -- see "Next up" below for exact state 
    - **DONE 14 Oct ~21:50 IST, confirmed by the owner on the iPhone: the test push arrives, and tapping it
      opens Market Hub on Settings with "Log in to Kite" highlighted (iOS does not open the outside link
      from a notification tap, so login is one more tap). First real reminders: Thu 15 Oct 2026, 07:36 and
-     08:33 IST (skipped if already logged in or an NSE holiday). Left for the owner only: switch off the
-     old "Kite login reminder" routine (step 4 below); optionally word the VAPID exception into
+     08:33 IST (skipped if already logged in or an NSE holiday). The old "Kite login reminder" routine was
+     switched off 15 Oct 06:50 IST (laptop session); optionally word the VAPID exception into
      CLAUDE.md, and delete the merged branch `relay-held-vapid-keys` on GitHub (a cloud session's push
      cannot delete branches).**
    - **Steps, in this order (14 Oct evening: no key-copying any more -- owner chose relay-held keys;
