@@ -670,11 +670,11 @@
   }
 
   function viewBlock(v){
-    if (!v.structure) return `<div class="row"><span class="l">${esc(v.label)} · ${esc(v.expiry)}</span><span class="r mut">no structure</span></div>
+    if (!v.structure) return `<div class="row"><span class="l">${esc(v.label)} · ${esc(dayTxt(parseDay(v.expiry)) || v.expiry)}</span><span class="r mut">no structure</span></div>
       <div class="note" style="margin:0 0 8px">${esc(v.reason || "")}</div>`;
     const legs = v.legs.map(l => `<tr><td>${l.action} ${l.type}</td><td>${f(l.strike)}</td><td>${l.price == null ? "–" : f(l.price,2)}</td></tr>`).join("");
     const credit = v.net_per_unit > 0;
-    return `<div class="row"><span class="l">${esc(v.label)} · ${esc(v.expiry)}</span><span class="r">${esc(v.structure)}</span></div>
+    return `<div class="row"><span class="l">${esc(v.label)} · ${esc(dayTxt(parseDay(v.expiry)) || v.expiry)}</span><span class="r">${esc(v.structure)}</span></div>
       <div class="row"><span class="l">${credit ? "Credit / unit" : "Debit / unit"}</span><span class="r">${f(Math.abs(v.net_per_unit),2)}</span></div>
       <div class="row"><span class="l">Max loss / lot</span><span class="r">${v.max_loss_per_lot == null ? "–" : f(v.max_loss_per_lot)}</span></div>
       <div class="row"><span class="l">Breakevens</span><span class="r">${v.breakevens.map(b => f(b,0)).join(" / ")}</span></div>
@@ -757,7 +757,7 @@
   }
   function reasonTable(rows, category){
     return `<table class="t"><tr><th>Symbol</th><th>Value</th></tr>` +
-      rows.map(r => `<tr><td>${esc(r.symbol)}</td><td title="${esc(r.clause)}">${esc(shortReason(category, r.clause))}</td></tr>`).join("") +
+      rows.map(r => `<tr><td>${esc(r.symbol)}</td><td title="${esc(r.clause)}" style="white-space:normal">${esc(shortReason(category, r.clause))}</td></tr>`).join("") +
       `</table>`;
   }
   function stockScreen(d){
@@ -873,7 +873,7 @@
       let S = null;
       try { S = await getFile("stocks"); } catch(e) { S = null; }
       el.innerHTML = exp + score + idx + stockScreen(S) +
-        `<div class="foot">${esc(D.disclaimer)} No track record yet. Check margin and your own risk limits before placing anything.</div>`;
+        `<div class="foot">${esc(D.disclaimer)} Check margin and your own risk limits before placing anything.</div>`;
     }catch(e){
       el.innerHTML = exp + score + `<div class="panel"><div class="pb mut">No F&amp;O suggestions yet.</div></div>`;
     }
@@ -1241,7 +1241,7 @@
       const body = groups.map(([g, label]) => {
         const ks = byGroup[g], met = ks.filter(k => V[k][1] === "Y").length, tested = ks.filter(k => V[k][1] !== ".").length;
         return sect("g-" + g, esc(label), tested ? `passes ${met} of ${tested}` : `${ks.length} figures`,
-          ks.map(k => `<div class="mrow"><div class="ml"><div>${esc((M[k] || [k])[0])}</div><div>${esc(P.rules[k] || "")}</div></div><div class="mv">${fmtM(k, V[k][0])} ${mark(V[k][1])}</div></div>`).join(""));
+          ks.map(k => `<div class="mrow"><div class="ml"><div>${esc((M[k] || [String(k).replace(/_/g, " ").replace(/^./, c => c.toUpperCase())])[0])}</div><div>${esc(P.rules[k] || "")}</div></div><div class="mv">${fmtM(k, V[k][0])} ${mark(V[k][1])}</div></div>`).join(""));
       }).join("");
       html += sect("figures", "Key figures", esc(sumKeys.join(" · ")) || (CAT ? "" : "loading labels…"), body + `<div class="note">✓ meets the rule shown under it · ✗ does not · · not testable. ${esc(asSnap(P.generated))}.</div>`);
     } else if (!P.error) html += sect("figures", "Key figures", "loading…", `<div class="mut">Loading…</div>`);
@@ -1363,7 +1363,7 @@
       <div class="sec">Track record</div>
       <div class="panel"><div class="pb">
         <div class="note" style="margin:0 0 8px">Needs ${MIN_N}+ settled outcomes per horizon to show a hit rate.</div>
-        <table class="t"><tr><th>Horizon</th><th>N</th><th>Direction</th><th>Model err</th><th>Naive err</th></tr>${outcomes}</table>
+        <div style="overflow-x:auto"><table class="t"><tr><th>Horizon</th><th>N</th><th>Direction</th><th>Model err</th><th>Naive err</th></tr>${outcomes}</table></div>
       </div></div>
       <div class="sec">NIFTY 50 · last 250 sessions</div>
       <div class="panel"><div class="pb"><div class="chart"><canvas id="cPrice"></canvas></div></div></div>

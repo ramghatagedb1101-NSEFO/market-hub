@@ -4,6 +4,8 @@ As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct 
 first) and `CLAUDE.md`.
 
 ## Thu 15 Oct 2026, morning -- read this first
+- **Screen and wording audit done (evening)**: overlap and sideways scrolling fixed, multibagger count fixed (4 gates),
+  plain wording on dashboard, phone and relay messages (no provider or build terms). See CHANGELOG.
 - **Dashboard Overview now shows the phone's Brief** (market tiles, moves, FII/DII, written brief; relay `adminBrief`).
   Deployed ~09:40 IST (Version 71, owner's go-ahead). The strip's quotes are tiles on the Overview (strip hidden there only).
 - **METHOD.md now lives in the PRIVATE repo** `market-hub-private` (moved ~08:10 IST; local copy

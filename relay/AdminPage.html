@@ -367,6 +367,8 @@ function renderFoot(){
 }
 
 // Cell helpers -------------------------------------------------------------------------
+// A measure's display name; one without a label reads as words, never as its code name.
+function labelOf(k){ return M[k] ? M[k][0] : String(k).replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()); }
 function cell(s, k){ return s && s.cells ? s.cells[k] : null; }
 function val(s, k){ const c = cell(s, k); return c && c.value != null ? c.value : null; }
 function nameOf(sym){ const n = S.names[sym]; return n ? n.replace(/\s+(Limited|Ltd\.?)$/i, '') : ''; }
@@ -961,7 +963,7 @@ function pageLibrary(){
   const G = { cs: s => fac(s.symbol, 'composite'), met: s => s.testable ? (s.met || 0) / s.testable : null, dq: s => s.data_quality_pct, mcap: s => val(s,'market_value_bucket'), pe: s => val(s,'pe'), r12: s => val(s,'ret_12m'), pg: s => val(s,'profit_yoy'), sym: s => s.symbol };
   rows = sortRows(rows, st, G);
   const pg = pager(st, rows.length, 50);
-  const opts = Object.keys(S.lib.rules || {}).map(k => '<option value="' + esc(k) + '" ' + (st.f.p === k ? 'selected' : '') + '>' + esc((M[k] || [k])[0]) + '</option>').join('');
+  const opts = Object.keys(S.lib.rules || {}).map(k => '<option value="' + esc(k) + '" ' + (st.f.p === k ? 'selected' : '') + '>' + esc(labelOf(k)) + '</option>').join('');
   const body = rows.slice(pg.from, pg.from + 50).map(s => {
     if (!s.cells) return '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l">' + companyCell(s.symbol) + '</td><td colspan="7" class="l down" style="font-size:12px">' + esc(String(s.error || 'No data yet').slice(0, 90)) + '</td></tr>';
     const r = s.testable ? s.met / s.testable : 0;
@@ -1025,7 +1027,7 @@ function pageParams(){
   v.innerHTML = '<div class="page-head"><div><p class="sub">All measures. ' + all.length + ' in total · ' + Object.keys(byStatus).map(k => byStatus[k] + ' ' + (SW[k] || k.replace(/_/g, ' '))).join(' · ') + '.</p></div></div>' +
     '<div class="toolbar"><input id="parq" class="field" placeholder="Filter parameters" value="' + esc(st.q) + '" oninput="setQ(\'par\',this)"></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Parameter</th><th class="l">Family</th><th class="l">Status</th><th class="l">Definition</th></tr></thead><tbody>' +
-    rows.map(p => '<tr><td class="l"><b>' + esc((M[p.id] || [p.id])[0]) + '</b></td><td class="l">' + esc(p.family) + '</td><td class="l">' + chip(p.status) + '</td><td class="l" style="white-space:normal;min-width:260px">' + esc(p.definition) + '</td></tr>').join('') + '</tbody></table></div>';
+    rows.map(p => '<tr><td class="l"><b>' + esc(labelOf(p.id)) + '</b></td><td class="l">' + esc(p.family) + '</td><td class="l">' + chip(p.status) + '</td><td class="l" style="white-space:normal;min-width:260px">' + esc(p.definition) + '</td></tr>').join('') + '</tbody></table></div>';
 }
 
 // ---- Back-tests ----
@@ -1222,7 +1224,7 @@ function pageStock(sym){
   if (s && s.cells) {
     html += '<div class="panel"><div class="panel-b"><details class="all"><summary>All ' + Object.keys(s.cells).length + ' parameters with their rules</summary><div class="tbl-wrap" style="margin-top:10px;max-height:none"><table class="t"><tr><th class="l">Parameter</th><th>Value</th><th class="l">Result</th><th class="l">Rule</th></tr>' +
       Object.keys(s.cells).map(k => { const c = s.cells[k];
-        return '<tr><td class="l">' + esc((M[k] || [k])[0]) + '</td><td class="num">' + fmtMeasure(k, c.value) + '</td><td class="l">' + statusChip(c.status) + '</td><td class="l muted" style="white-space:normal">' + esc(c.rule) + '</td></tr>'; }).join('') + '</table></div></details></div></div>';
+        return '<tr><td class="l">' + esc(labelOf(k)) + '</td><td class="num">' + fmtMeasure(k, c.value) + '</td><td class="l">' + statusChip(c.status) + '</td><td class="l muted" style="white-space:normal">' + esc(c.rule) + '</td></tr>'; }).join('') + '</table></div></details></div></div>';
   } else if (s && s.error) {
     html += errBlock('Library entry: ' + s.error);
   }
@@ -1648,7 +1650,7 @@ function pageFactors(){
     '<select class="field" onchange="setF(\'fac\',\'ind\',this.value)"><option value="">All industries</option>' + inds.map(x => '<option ' + (st.f.ind === x ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
     '<div class="seg">' + [[0, 'Any size'], [1000, '₹1,000 cr+'], [5000, '₹5,000 cr+'], [20000, '₹20,000 cr+']].map(([n, l]) => '<button class="' + ((st.f.minmc || 0) === n ? 'on' : '') + '" onclick="setF(\'fac\',\'minmc\',' + n + ')">' + l + '</button>').join('') + '</div></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">#</th><th class="l">Company</th><th class="l">Industry</th>' + th('mcap', 'Mkt cap', st) + th('composite', 'Composite', st) +
-    FACTORS.map(([k, l, inputs]) => th(k, '<span title="' + esc(inputs.map(([i, d]) => (M[i] || [i])[0] + (d < 0 ? ' (lower is better)' : '')).join(', ')) + '">' + l + '</span>', st)).join('') + '</tr></thead><tbody>' +
+    FACTORS.map(([k, l, inputs]) => th(k, '<span title="' + esc(inputs.map(([i, d]) => labelOf(i) + (d < 0 ? ' (lower is better)' : '')).join(', ')) + '">' + l + '</span>', st)).join('') + '</tr></thead><tbody>' +
     (body || '<tr><td colspan="10" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
 }
 

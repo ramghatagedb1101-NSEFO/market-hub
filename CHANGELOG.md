@@ -21,6 +21,10 @@ want any contextual wordings suggesting how the app is built or why is it that w
   "07:58 IST · Thu 15 Oct 2026" style; Parameters without the source column and code names (status words: available,
   coming, planned, not available); Back-tests as tables instead of raw data dumps; a stock's fund list shows 10 with
   "See all"; no sideways scrolling on any page; shorter intros on Factor rankings, Scatter explorer and Sectors.
+- Phone, checked at 375 px with today's real data (local copy, sign-in skipped): the F&O "rejected names" table (711 px)
+  and the Desk track-record table (387 px) ran off the screen; both fit now. All five tabs, settings and a company page
+  measured: nothing wider than the screen. Measures without a label read as words, not code names (both screens);
+  F&O expiry dates as "Mon 19 Oct 2026"; a repeated "No track record yet" removed. Phone cache v37.
 
 ### Research collector: the next expiry's chain at each expiry-day close (~14:45 IST)
 Owner, on the next-expiry chain the meter watches: "smart money is preparing for the next expiry after making money
