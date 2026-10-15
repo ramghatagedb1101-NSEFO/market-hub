@@ -247,6 +247,8 @@ Grouped by what each step waits for. "Build" items are detailed in "Next up" abo
 1. After 3-5 recorded expiries per index: decide the range calibration (history: about a quarter narrower at the right
    2-in-3 hit rate; owner chose to wait). Compare the live +-1 sd range's hit rate first (`hub/expiry_rules_test.py`
    logic on `state/expiry/` days).
+1b. After ~10 recorded NIFTY expiries (about late Dec 2026): re-run the private repo's buying-side research lead with
+   REAL recorded option prices instead of estimates (details: market-hub-private `research/premium_test/README.md`).
 2. After ~10 recorded expiry days: test wall movement within the day (rolls, reinforcement, abandonment) -- only our own
    record has it; check whether BANK NIFTY's near-max-pain pin and SENSEX's wall barriers also show within the day;
    re-fit the meter's weights on live readings.
