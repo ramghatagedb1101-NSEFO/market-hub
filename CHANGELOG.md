@@ -4,10 +4,46 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
+### METHOD.md merged to `main`, with its push guard (~07:40 IST)
+Owner: "finish the METHOD.md merge to main". The laptop session (second Claude subscription) had finished all 9
+sections on the `method-doc` branch and committed them (`69f61a0`), but its session limit hit during the push, so the
+commit sat only on the laptop; it was found in this folder and pushed to `method-doc` first (after a private-data scan:
+no keys or tokens, none of the 102 Shortlist/watchlist symbols, rupee figures are method settings).
+- Checked before merging: every file:line reference in METHOD.md (207) against the code -- all files exist; one stale
+  reference fixed (`hub/sources/kite.py:207-210` -> `:147-150`, the file was rewritten on 14 Oct). A sample of 10
+  concrete claims in the four cloud-drafted sections (2 forecasts, 3 library, 4 Shortlist and multi-bagger, 5 F&O
+  selection) read against the code: all correct; it turned up a stale code docstring instead (`hub/multibagger.py`
+  said the score is 0-4; it is 0-5 since the ROCE gate on 14 Oct -- fixed). Not done: a line-by-line review of all
+  1,779 lines; the settings table (189 rows) is checked by the guard itself (`python -m hub.method_check
+  --settings-only`: in step with the code).
+- Merged `method-doc` into `main` with `.github/workflows/method-doc.yml` (the guard: a push that changes a
+  prediction-engine file without METHOD.md fails, unless the commit says `[method: no change]`). The guard's 12 tests
+  moved from the temporary `handover/` folder to `hub/method_check_test.py` (all pass); `handover/` removed.
+- CLAUDE.md: the owner-approved line (update METHOD.md in the same push as any engine change; run
+  `python -m hub.method_check --base origin/main` first), and the one-folder rule below.
+- Left: the private repo's `method-doc-drafts` branch (drafting scratch space, can be deleted); the drift items the
+  drafters listed and did not fix (STOCKS.md, CLAUDE.md's feed list, live.yml's header time, hub/expiry_day.py's
+  docstring after the 14 Oct pinning) -- see STATUS.
+
+### One working folder for the project: `C:\nse_fo_analyser\forecast_hub` (~07:10 IST)
+Owner asked why there were two folders. The project lived in `C:\nse_fo_analyser\forecast_hub` from 6 Oct (its
+first commit); the long laptop session had started on 8 Oct without choosing a folder, so the desktop app gave it a
+temporary folder, where it cloned the repo. Two copies syncing through GitHub is workable, but it caused this
+morning's confusion (finished work sat unpushed in one copy while the other was checked), and the temporary folder is
+deleted with its session. Decision (owner): one folder.
+- Kept outside the repo in `C:\nse_fo_analyser\extras\` (README.txt there): the Market Hub showcase PDF and HTML,
+  the dashboard/phone preview with its mock relay (holds sample data from the private repo, so never in this public
+  repo), the test tools (simulated expiry day, learning checks, early analysis scripts) and old one-off edit scripts.
+  Copies compared with the originals before the temporary folder was emptied; its repo copy had nothing uncommitted,
+  unpushed or stashed.
+- The session moved to `forecast_hub`; Claude's saved notes for Market Hub (accounts, relay deployments, email-only
+  alerts, API budgeting) were copied to the notes used by sessions in `forecast_hub` and in `C:\nse_fo_analyser`.
+- Rule (CLAUDE.md): one session at a time in that folder; pull before starting, push before stopping.
+
 ### Old Claude "Kite login reminder" routine switched off (06:50 IST)
 `trig_011gp21txucmWGZPKqpR2FEu` set to disabled from the laptop session (the cloud session could not see it), as the owner approved on 14 Oct once Market Hub's own push reached the iPhone (confirmed 14 Oct ~21:50 IST). From today the 07:36 / 08:33 IST reminders come only from Market Hub (`kite-reminder.yml`).
 
-### METHOD.md: one document for the whole prediction method, drafted and assembled (branch `method-doc`, not yet merged)
+### METHOD.md: one document for the whole prediction method, drafted and assembled (merged to `main` the same morning, entry above)
 Owner asked for a single document explaining every technique the platform uses, that stays true as the code changes --
 there was nothing like it (README is setup notes and partly stale, STOCKS.md is port notes, CHANGELOG/STATUS are
 history/state, not method). A cloud session started this, drafted 4 of 9 sections (index, library, shortlist,

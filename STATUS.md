@@ -1,9 +1,26 @@
 # Build status and to-do
 
-As of Thu 15 Oct 2026. Read this HANDOVER first, then the 14 Oct one right below it, `CHANGELOG.md` (newest
+As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
-## HANDOVER -- Thu 15 Oct 2026
+## Thu 15 Oct 2026, morning -- read this first
+- **METHOD.md is on `main`** (one document for the whole prediction method, 9 sections, settings table checked by
+  code). Every push that changes a prediction-engine file must update it in the same push (guard:
+  `.github/workflows/method-doc.yml`; run `python -m hub.method_check --base origin/main` before pushing;
+  `[method: no change]` in the commit message when the method does not change). CHANGELOG 15 Oct.
+- **One working folder**: `C:\nse_fo_analyser\forecast_hub`. Extras outside the repo: `C:\nse_fo_analyser\extras\`.
+  One session at a time; pull before starting, push before stopping.
+- **Old Claude "Kite login reminder" routine is off**; Market Hub's own push (`kite-reminder.yml`, 07:36 / 08:33 IST)
+  replaces it. First real run: today.
+- **Today: first live SENSEX expiry** with the walls record. Owner logs in to Kite 07:35-09:05; after 15:46 check
+  `state/expiry/2026-10-15_SENSEX.json` exists (re-run `expiry-tape.yml` before ~21:30 IST if not).
+- **Small open items from the METHOD.md drafting** (prose only, any session): STOCKS.md still says the stock screen
+  does not book positions (fixed in code 8 Oct); CLAUDE.md's data-source list omits the free ECB/FRED/Alpha Vantage/NSE
+  FII-DII feeds and `hub/context.py`'s docstring says no source needs a key (FRED/Alpha Vantage do); `live.yml`'s
+  header says 16:30 IST, its cron runs to 17:25; `hub/expiry_day.py`'s docstring predates the 14 Oct pinning of the
+  wall/max-pain weights to 0. The private repo's `method-doc-drafts` branch can be deleted (owner).
+
+## HANDOVER -- Thu 15 Oct 2026, early morning (laptop session; its METHOD.md part is DONE -- merged to `main` ~07:40 IST, see above)
 
 **In progress right now: METHOD.md** (branch `method-doc`, not yet merged to `main`). Owner asked for one
 document explaining the whole prediction method, kept true as the code changes. A cloud session drafted 4 of

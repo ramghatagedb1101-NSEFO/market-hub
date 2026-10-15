@@ -50,6 +50,12 @@ ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
   (pull with rebase the same way first; the batch commits too).
 - Market days: no push to `relay/*` between 09:15 and 15:30 IST (it deploys at once).
 - Update `CHANGELOG.md` (newest first, IST dates, the why) and `STATUS.md` for every change.
+- Update `METHOD.md` in the same push as any change to a prediction-engine file (its source map lists them);
+  run `python -m hub.method_check --base origin/main` before pushing (owner-approved, 15 Oct 2026). A change that
+  does not alter the method says `[method: no change]` in its commit message.
+- One working folder: `C:\nse_fo_analyser\forecast_hub` (15 Oct 2026). Extras that must stay out of this public
+  repo (showcase PDF, dashboard/phone preview with private sample data, test tools) are in
+  `C:\nse_fo_analyser\extras\`.
 - Relay: run `node relay/check.js` and check its exit code (never pipe it through tail/grep). Deploy only
   with `bash relay/tools/deploy_relay.sh <repo> <folder holding relay-live> <last deployed commit> "<label>"`.
   `relay-live` is a clasp folder: `.clasp.json` = `{"scriptId":"13rGqOxSSC3aQzZGYjpDWT4NnNXUO_kjCQKeA4oo2pZ8MD22KEilKWR7s","rootDir":"."}`

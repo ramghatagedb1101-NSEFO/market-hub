@@ -1,4 +1,5 @@
 import sys, subprocess, tempfile, pathlib, io, contextlib
+# Tests for hub/method_check.py (the METHOD.md guard). Run from the repo root: python -m hub.method_check_test
 sys.path.insert(0, '.')
 import hub.method_check as mc
 R = []

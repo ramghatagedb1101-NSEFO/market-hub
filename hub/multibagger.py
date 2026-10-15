@@ -234,7 +234,7 @@ def _consolidated(rows: list[dict]) -> list[dict]:
 
 def score(symbol: str, rows: list[dict], annual_rows: list[dict] | None = None,
           cfo_ratio: float | None = None) -> dict:
-    """Derived measures only. The rating is the number of gates passed (0 to 4); failed gates are
+    """Derived measures only. The rating is the number of gates passed (0 to 5, ROCE gate added 14 Oct 2026); failed gates are
     listed, not dropped. Fewer than five quarters means no rating at all.
 
     annual_rows: separate annual financials for the cash_backed gate. BharatStock fills
