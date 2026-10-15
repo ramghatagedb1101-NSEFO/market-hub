@@ -116,6 +116,8 @@ table.t td{padding:10px 12px;border-bottom:1px solid var(--line2);text-align:rig
 table.t td.l,table.t th.l{text-align:left}
 table.t tr.click{cursor:pointer} table.t tr.click:hover td{background:var(--brand-soft)}
 table.t tr:last-child td{border-bottom:0}
+table.t td.wrap,table.t th.wrap{white-space:normal;min-width:140px}
+.grid > .panel{overflow:hidden}
 .co b{font-family:var(--mono);font-size:12.5px} .co span{display:block;font-size:12px;color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis}
 .dots{display:inline-flex;gap:3px} .dots i{width:9px;height:9px;border-radius:50%;background:var(--line)} .dots i.on{background:var(--up)}
 .bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;overflow:hidden} .bar i{display:block;height:100%;background:var(--brand)}
@@ -191,7 +193,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--panel2);border-radi
       <svg viewBox="0 0 96 96" width="34" height="34"><rect width="96" height="96" rx="20" fill="#0b1220"/><polyline points="14,64 34,44 48,54 70,28 82,36" fill="none" stroke="#60a5fa" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="82" cy="36" r="5" fill="#22c55e"/></svg>
       <div>Market Hub<div class="muted" style="font-weight:500;font-size:12.5px">Research dashboard</div></div>
     </div>
-    <p class="muted" style="margin:0 0 16px;font-size:13.5px">A six-digit code goes to the owner's Google account. It lasts 10 minutes; you stay signed in for seven days.</p>
+    <p class="muted" style="margin:0 0 16px;font-size:13.5px">A sign-in code will be emailed to you.</p>
     <button id="send" class="btn primary" style="width:100%" onclick="sendCode()">Email me a code</button>
     <div id="codebox" style="display:none;margin-top:14px">
       <div style="display:flex;gap:8px">
@@ -347,20 +349,20 @@ function toggleStar(sym){
 }
 function watchPanel(){
   const W = S.watch;
-  const head = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Watchlist</h3><span class="muted" style="font-size:12px">shared with the phone · return since starred vs NIFTY</span></div>';
+  const head = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Watchlist</h3><span class="muted" style="font-size:12px">return since starred, vs NIFTY</span></div>';
   if (!W) return head + '<div class="panel-b"><div class="skel"></div></div></div>';
   if (W.error) return head + '<div class="panel-b"><div class="notice">' + esc(W.error) + '</div></div></div>';
-  if (!(W.items || []).length) return head + '<div class="empty">Nothing starred yet. Use ☆ Star on any stock report, here or on the phone.</div></div>';
+  if (!(W.items || []).length) return head + '<div class="empty">Nothing starred yet. Tap ☆ Star on any company.</div></div>';
   return head + '<table class="t"><tr><th class="l">Company</th><th>Starred</th><th>Since starred</th><th>vs NIFTY</th><th>Mkt cap</th><th>P/E</th><th>12M</th></tr>' +
     W.items.map(w => { const g = w.figures || {};
       return '<tr class="click" onclick="openStock(\'' + esc(w.symbol) + '\')"><td class="l">' + companyCell(w.symbol) + '</td><td class="num">' + esc(fmtDate(w.starred_on)) + '</td>' +
         '<td class="num ' + cls(w.ret) + '">' + pct(w.ret) + '</td><td class="num ' + cls(w.excess) + '">' + (w.excess == null ? '–' : (w.excess > 0 ? '+' : '') + num(w.excess, 1) + ' pts') + '</td>' +
         '<td class="num">' + crore(g.market_value_bucket) + '</td><td class="num">' + (g.pe == null ? '–' : num(g.pe, 1) + '×') + '</td><td class="num ' + cls(g.ret_12m) + '">' + pct(g.ret_12m) + '</td></tr>'; }).join('') +
-    '</table>' + (W.live ? '' : '<div class="muted" style="font-size:12px;padding:8px 12px">Returns since starring need today\'s Kite login.</div>') + '</div>';
+    '</table>' + (W.live ? '' : '<div class="muted" style="font-size:12px;padding:8px 12px">Returns appear after today\'s Kite login.</div>') + '</div>';
 }
 function renderFoot(){
   const s = (S.admin && S.admin.status) || {};
-  $('sidefoot').innerHTML = 'Signed in<br><span style="font-size:11.5px">Daily run ' + esc(fmtTs(s.daily_ts)) + '</span>';
+  $('sidefoot').innerHTML = 'Signed in' + (s.daily_ts ? '<br><span style="font-size:11.5px">Updated ' + esc(bSnap(s.daily_ts).replace(/^As of /, '')) + '</span>' : '');
 }
 
 // Cell helpers -------------------------------------------------------------------------
@@ -523,7 +525,7 @@ const NAV = [
 let current = { page: 'overview', arg: null };
 function renderNav(){
   const counts = {
-    multibagger: S.mb ? (S.mb.ranked || []).filter(r => r.score === 5).length : '',
+    multibagger: S.mb ? (S.mb.ranked || []).filter(r => r.score === 4).length : '',
     compounders: S.lib ? (compounders() || []).filter(x => x.fails === 0).length : '',
     library: S.lib ? (S.lib.stocks || []).filter(s => s.cells).length : ''
   };
@@ -600,18 +602,17 @@ function pageOverview(){
   const s = (S.admin && S.admin.status) || {};
   const libN = S.lib ? S.lib.stocks.filter(x => x.cells).length : null;
   const comp = S.lib ? compounders().filter(x => x.fails === 0) : null;
-  const mb4 = S.mb ? (S.mb.ranked || []).filter(r => r.score === 5) : null;
+  const mb4 = S.mb ? (S.mb.ranked || []).filter(r => r.score === 4) : null;
   const turn = S.mb ? S.mb.turnarounds : null;
   const trk = (S.lib && S.lib.tracker) || null;
   const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
-  let html = '<div class="page-head"><div><p class="sub" style="margin:0">Daily run ' + esc(fmtTs(s.daily_ts)) +
-    (S.lib ? ' · library updated ' + esc(fmtTs(S.lib.generated)) : '') + '</p></div></div>';
+  let html = '<div class="page-head"><div><p class="sub" style="margin:0">Updated ' + esc(bSnap(s.daily_ts).replace(/^As of /, '')) + '</p></div></div>';
   html += '<div id="briefBox">' + briefHtml() + '</div>';
   html += '<div class="grid g4" style="margin-bottom:14px">' +
-    kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed' + (trk ? ' · ' + num((trk.refreshed_this_run || {}).companies || 0, 0) + ' refreshed in the last run' : '') : 'loading the library') +
-    kpi('Proven compounders', comp == null ? '…' : comp.length, 'pass all six rules') +
-    kpi('Early multibaggers 5/5', mb4 == null ? '…' : mb4.length, S.mb ? num(S.mb.rated, 0) + ' rated · ' + (turn || 0) + ' turnarounds' : 'loading') +
-    kpi('Bulk deals stored', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' d', 'since ' + esc((S.admin && S.admin.bulk_deals || {}).first_day || '–')) +
+    kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed' + (trk ? ' · ' + num((trk.refreshed_this_run || {}).companies || 0, 0) + ' updated today' : '') : 'loading') +
+    kpi('Proven compounders', comp == null ? '…' : comp.length, 'pass all eight rules') +
+    kpi('Early multibaggers 4/4', mb4 == null ? '…' : mb4.length, S.mb ? num(S.mb.rated, 0) + ' rated · ' + (turn || 0) + ' turnarounds' : 'loading') +
+    kpi('Bulk deals', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' days', 'since ' + esc((S.admin && S.admin.bulk_deals || {}).first_day || '–')) +
     '</div>';
   const mini = (title, href, rows, cols) => '<div class="panel"><div class="panel-h"><h3>' + title + '</h3><a href="#' + href + '">View all →</a></div>' +
     (rows == null ? '<div class="panel-b">' + '<div class="skel"></div>' + '</div>' : rows.length ? '<table class="t"><tr>' + cols.map(c => '<th class="' + (c[2] || '') + '">' + c[0] + '</th>').join('') + '</tr>' +
@@ -622,7 +623,7 @@ function pageOverview(){
                               (L.emerging.top || []).slice(0, 3).map(x => Object.assign({ style: 'emerging' }, x))).map(x => Object.assign({ sym: x.symbol }, x)) : (S.sl && S.sl.error ? [] : null);
   const topMb = mb4 ? mb4.slice().sort((a, b) => (a.rank || 1e9) - (b.rank || 1e9)).slice(0, 6).map(r => ({ sym: r.symbol, r, s: S.bySym[r.symbol] })) : null;
   html += '<div class="grid g2" style="margin-bottom:14px">' +
-    mini('Shortlist — top 3 of each list', 'shortlist', topSl, [['Company', r => companyCell(r.sym), 'l'], ['List', r => slStyle(r.style), 'l'], ['Score', r => scoreChip(r.score)], ['Top reason', r => '<span class="muted" style="font-size:12px">' + esc((r.why[0] || '').replace(/ - better than.*$/, '')) + '</span>', 'l']]) +
+    mini('Shortlist — top 3 of each list', 'shortlist', topSl, [['Company', r => companyCell(r.sym), 'l'], ['List', r => slStyle(r.style), 'l'], ['Score', r => scoreChip(r.score)], ['Top reason', r => '<span class="muted" style="font-size:12px">' + esc((r.why[0] || '').replace(/ - better than.*$/, '')) + '</span>', 'l wrap']]) +
     mini('Early multibaggers (all four gates)', 'multibagger', topMb, [['Company', r => companyCell(r.sym), 'l'], ['Profit gr.', r => '<span class="num ' + cls((r.r.measures||{}).profit_growth_yoy_pct) + '">' + pct((r.r.measures||{}).profit_growth_yoy_pct) + '</span>'], ['Funds', r => '<span class="num">' + num(((r.r.mutual_funds||{}).schemes_holding), 0) + '</span>'], ['Score', r => dots(r.r.score || 0, 4)]]) +
     '</div>';
   // Upcoming corporate actions across the library
@@ -632,15 +633,15 @@ function pageOverview(){
     S.lib.stocks.forEach(st => (st.actions || []).forEach(a => { if (a.upcoming) ups.push({ sym: st.symbol, a }); }));
     ups.sort((x, y) => x.a.ex_date < y.a.ex_date ? -1 : 1);
   }
-  html += '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>Upcoming corporate actions</h3><span class="muted" style="font-size:12px">from NSE · whole market, refreshed every run</span></div>' +
+  html += '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>Upcoming corporate actions</h3></div>' +
     (ups == null ? '<div class="panel-b"><div class="skel"></div></div>' : ups.length ? '<table class="t"><tr><th class="l">Ex-date</th><th class="l">Company</th><th class="l">Action</th></tr>' +
-      ups.slice(0, 10).map(u => '<tr class="click" onclick="openStock(\'' + esc(u.sym) + '\')"><td class="l num">' + esc(fmtDate(u.a.ex_date)) + '</td><td class="l">' + companyCell(u.sym) + '</td><td class="l">' + esc(u.a.subject) + '</td></tr>').join('') + '</table>'
-      : '<div class="empty">None recorded yet. The batch now keeps NSE corporate actions; they appear here as each company is next scored.</div>') + '</div>';
+      ups.slice(0, 10).map(u => '<tr class="click" onclick="openStock(\'' + esc(u.sym) + '\')"><td class="l num">' + esc(fmtDate(u.a.ex_date)) + '</td><td class="l">' + companyCell(u.sym) + '</td><td class="l wrap">' + esc(u.a.subject) + '</td></tr>').join('') + '</table>'
+      : '<div class="empty">None coming up.</div>') + '</div>';
   // Data health
   let dq = null;
   if (S.lib) { dq = [0, 0, 0, 0]; S.lib.stocks.forEach(st => { if (!st.cells) { dq[3]++; return; } const p = st.data_quality_pct || 0; dq[p >= 70 ? 0 : p >= 40 ? 1 : 2]++; }); }
   html += '<div class="panel"><div class="panel-h"><h3>Data coverage</h3><a href="#library">Open library →</a></div><div class="panel-b">' +
-    (dq == null ? '<div class="skel"></div>' : [['70%+ of measures', dq[0], 'var(--up)'], ['40–70%', dq[1], 'var(--warn)'], ['Under 40%', dq[2], 'var(--faint)'], ['Not scored yet / error', dq[3], 'var(--down)']].map(([l, n, c]) => {
+    (dq == null ? '<div class="skel"></div>' : [['70%+ of measures', dq[0], 'var(--up)'], ['40–70%', dq[1], 'var(--warn)'], ['Under 40%', dq[2], 'var(--faint)'], ['No data yet', dq[3], 'var(--down)']].map(([l, n, c]) => {
       const tot = dq.reduce((a, b) => a + b, 0) || 1;
       return '<div style="display:flex;align-items:center;gap:10px;margin:8px 0"><span style="width:170px;font-size:13px">' + l + '</span><span style="flex:1;height:8px;border-radius:4px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:' + (n / tot * 100) + '%;background:' + c + '"></i></span><span class="num" style="width:56px;text-align:right">' + num(n, 0) + '</span></div>';
     }).join('')) + '</div></div></div>';
@@ -748,21 +749,20 @@ function briefHtml(){
       '<div class="panel"><div class="panel-h"><h3>Moves</h3><span class="muted" style="font-size:12px">% · latest session of each</span></div><div class="panel-b">' +
         (moves || '<div class="muted">No market data yet.</div>') + '</div></div>' +
       '<div class="panel"><div class="panel-h"><h3>Institutional flows: FII and DII</h3><span class="muted" style="font-size:12px">cash' + (fiiDate ? ' · ' + esc(bClose(fiiDate)) : '') + '</span></div><div class="panel-b">' +
-        (flows || '<div class="muted">Flow data not available today.</div>') +
-        '<div class="muted" style="font-size:12px;margin-top:8px">NSE publishes this once a day for the previous session\'s settled trades, not live.</div></div></div>' +
+        (flows || '<div class="muted">Flow data not available today.</div>') + '</div></div>' +
     '</div>' +
-    '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Written brief</h3><span class="muted" style="font-size:12px">Written ' + esc(bSnap(B.ts).replace(/^As of /, '')) + ' by ' + esc(B.source || '') + '</span></div><div class="panel-b">' +
-      (failed ? '<div class="notice">Brief pending: the AI service did not respond. It updates on the next daily run.</div>'
+    '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Written brief</h3><span class="muted" style="font-size:12px">Written ' + esc(bSnap(B.ts).replace(/^As of /, '')) + '</span></div><div class="panel-b">' +
+      (failed ? '<div class="notice">Brief not ready yet.</div>'
               : '<details' + (S.briefOpen ? ' open' : '') + ' ontoggle="S.briefOpen = this.open"><summary style="cursor:pointer;font-weight:600">Show full brief</summary><div class="brief-text">' + esc(plain) + '</div></details>') +
-      '<div class="muted" style="font-size:12px;margin-top:8px">From this dashboard\'s numbers and headlines. Not advice.</div></div></div>';
+      '<div class="muted" style="font-size:12px;margin-top:8px">Not advice.</div></div></div>';
 }
 
 // Kite login alarm (relay KiteWatch.gs): a replaced login is otherwise invisible until something breaks.
 function kiteBanner(){
   const k = S.kite;
   if (!k || k.error || k.state === 'ok') return '';
-  const msg = k.state === 'rejected' ? 'Kite refused the saved login at ' + esc(k.at || '') + ' IST: another login replaced it. Live quotes and candle charts are off until you log in again.'
-                                     : 'No Kite login yet today. Live quotes and candle charts start after the morning login.';
+  const msg = k.state === 'rejected' ? 'Kite login ended at ' + esc(k.at || '') + ' IST. Log in again for live prices.'
+                                     : 'Not logged in to Kite today. Live prices start after login.';
   return '<div class="notice" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;justify-content:space-between"><span>' + msg + '</span>' +
     (k.login_link ? '<a class="btn" href="' + esc(k.login_link) + '" target="_blank" rel="noopener noreferrer">Log in to Kite</a>' : '') + '</div>';
 }
@@ -770,44 +770,44 @@ function kiteBanner(){
 // Email alerts (relay Alerts.gs): the daily digest and watchlist moves, on top of the Kite, discovery and weekly-health emails.
 function alertsPanel(){
   const g = S.alerts;
-  const head = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Email alerts</h3><span class="muted" style="font-size:12px">to your Gmail · Kite login, discovery and weekly health emails are always on</span></div><div class="panel-b">';
+  const head = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Email alerts</h3><span class="muted" style="font-size:12px">by email</span></div><div class="panel-b">';
   if (!g) return head + '<div class="skel"></div></div></div>';
   if (g.error) return head + '<div class="notice">' + esc(g.error) + '</div></div></div>';
   const row = (k, on, label, note) => '<div style="display:flex;align-items:center;gap:12px;margin:6px 0"><div class="seg"><button class="' + (on ? 'on' : '') + '" onclick="alertToggle(\'' + k + '\')">' + (on ? 'On' : 'Off') + '</button></div>' +
     '<span><b>' + label + '</b> <span class="muted" style="font-size:12.5px">' + note + '</span></span></div>';
-  return head + row('digest', g.digest, 'Daily digest', 'one email after the morning library run: Shortlist changes, filings, big moves, coming ex-dates') +
-    row('moves', g.moves, 'Watchlist moves', 'a starred company up or down 4%+ in market hours (again at 8%), checked every 5 minutes') + '</div></div>';
+  return head + row('digest', g.digest, 'Daily digest', 'each morning: Shortlist changes, filings, big moves, coming ex-dates') +
+    row('moves', g.moves, 'Watchlist moves', 'a starred company moves 4% or more in market hours (again at 8%)') + '</div></div>';
 }
 function alertToggle(k){ call('adminAlertToggle', token, k).then(d => { S.alerts = d; rerender(); }).catch(e => { S.alerts = { error: e.message }; rerender(); }); }
 
 // What the library still needs, and how much of the BharatStock allowance is used (library tracker, 10 Oct 2026).
 function freshnessPanel(trk){
   if (!S.lib) return '';
-  if (!trk) return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Data freshness</h3></div><div class="empty">The tracker starts with the next library run.</div></div>';
+  if (!trk) return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Data updates</h3></div><div class="empty">Not available yet.</div></div>';
   const bs = trk.bharatstock || {}, pend = trk.pending || {}, ref = trk.refreshed_this_run || {}, fd = trk.feeds || {}, px = trk.prices || {};
   const used = bs.requests_today || 0, budget = bs.budget || 1;
   const bar = '<span style="flex:1;height:8px;border-radius:4px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:' + Math.min(100, used / budget * 100) + '%;background:' + (bs.allowance_used_up ? 'var(--down)' : 'var(--brand)') + '"></i></span>';
   const row = (label, value, note) => '<tr><td class="l">' + label + '</td><td class="num">' + value + '</td><td class="l muted">' + (note || '') + '</td></tr>';
-  const feed = (f) => !f ? '–' : f.error ? '<span style="color:var(--down)">could not read</span>' : (f.companies_filed != null ? num(f.companies_filed, 0) + ' filed, ' + num(f.newer_than_stored, 0) + ' newer than stored' : num(f.companies || 0, 0) + ' companies');
-  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Data freshness</h3><span class="muted" style="font-size:12px">fetches only what changed · ' + esc(fmtTs(S.lib.generated)) + '</span></div><div class="panel-b">' +
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="width:230px;font-size:13px">BharatStock requests today (UTC day)</span>' + bar +
+  const feed = (f) => !f ? '–' : f.error ? '<span style="color:var(--down)">not available</span>' : (f.companies_filed != null ? num(f.companies_filed, 0) + ' filed, ' + num(f.newer_than_stored, 0) + ' new' : num(f.companies || 0, 0) + ' companies');
+  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Data updates</h3><span class="muted" style="font-size:12px">' + esc(bSnap(S.lib.generated)) + '</span></div><div class="panel-b">' +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="width:230px;font-size:13px">Data requests today</span>' + bar +
     '<span class="num" style="width:150px;text-align:right">' + num(used, 0) + ' of ' + num(budget, 0) + (bs.allowance_used_up ? ' · used up' : '') + '</span></div>' +
-    '<table class="t"><tr><th class="l">Still needed</th><th>Companies</th><th class="l">Source</th></tr>' +
-    row('Quarterly results', num(pend.fin || 0, 0), 'BharatStock, only after a company files at NSE') +
-    row('Annual results', num(pend.ann || 0, 0), 'BharatStock, once a year') +
-    row('Shareholding', num(pend.shp || 0, 0), 'NSE, free') +
-    row('Insider and fund holdings', num(pend.fund || 0, 0), 'BharatStock, monthly') +
-    row('Waiting for tomorrow', num(trk.pending_waiting_for_bharatstock || 0, 0), 'need BharatStock, allowance used for today') +
-    row('No results at BharatStock', num(trk.no_bharatstock_results || 0, 0), 'asked once per filed quarter, not every run') +
-    '</table><table class="t" style="margin-top:10px"><tr><th class="l">Last run</th><th>Count</th><th class="l"></th></tr>' +
+    '<table class="t"><tr><th class="l">Still needed</th><th>Companies</th><th class="l"></th></tr>' +
+    row('Quarterly results', num(pend.fin || 0, 0), '') +
+    row('Annual results', num(pend.ann || 0, 0), '') +
+    row('Shareholding', num(pend.shp || 0, 0), '') +
+    row('Insider and fund holdings', num(pend.fund || 0, 0), '') +
+    row('Waiting for tomorrow', num(trk.pending_waiting_for_bharatstock || 0, 0), '') +
+    row('No results available', num(trk.no_bharatstock_results || 0, 0), '') +
+    '</table><table class="t" style="margin-top:10px"><tr><th class="l">Last update</th><th>Count</th><th class="l"></th></tr>' +
     row('Companies refreshed', num(ref.companies || 0, 0), ['fin', 'ann', 'shp', 'fund'].filter(k => ref[k]).map(k => ({fin: 'results', ann: 'annual', shp: 'shareholding', fund: 'funds'})[k] + ' ' + ref[k]).join(' · ')) +
-    row('BharatStock requests', num(bs.requests_this_run || 0, 0), '') +
-    row('Prices (NSE daily file)', num(px.companies || 0, 0), px.error ? '<span style="color:var(--down)">' + esc(px.error) + '</span>' : 'as of ' + esc(fmtDate(px.as_of))) +
-    row('Results filings list', '', feed(fd.results)) +
-    row('Shareholding filings list', '', feed(fd.shareholding)) +
-    row('Corporate actions list', '', feed(fd.corporate_actions)) +
-    row('Checked against NSE filings', '', trk.checks ? ['ok', 'mismatch', 'period_differs', 'nse_only', 'bse_only', 'basis_differs', 'unavailable', 'not checked yet'].filter(k => trk.checks[k]).map(k => ({ ok: 'match', mismatch: 'disagree (NSE used)', period_differs: 'BharatStock behind', nse_only: 'from NSE only (no BharatStock results)', bse_only: 'from BSE only', basis_differs: 'BSE standalone vs consolidated', unavailable: 'not checkable', 'not checked yet': 'not checked yet' })[k] + ' ' + num(trk.checks[k], 0)).join(' · ') : '–') +
-    row('Figures that cannot be right', num((trk.flagged || {}).severe || 0, 0), 'kept out of the Shortlist ranking; shown on each report') +
+    row('Data requests', num(bs.requests_this_run || 0, 0), '') +
+    row('Prices', num(px.companies || 0, 0), px.error ? '<span style="color:var(--down)">' + esc(px.error) + '</span>' : 'as of ' + esc(fmtDate(px.as_of))) +
+    row('Results filings', '', feed(fd.results)) +
+    row('Shareholding filings', '', feed(fd.shareholding)) +
+    row('Corporate actions', '', feed(fd.corporate_actions)) +
+    row('Checked against exchange filings', '', trk.checks ? ['ok', 'mismatch', 'period_differs', 'nse_only', 'bse_only', 'basis_differs', 'unavailable', 'not checked yet'].filter(k => trk.checks[k]).map(k => ({ ok: 'match', mismatch: 'differ (exchange figures used)', period_differs: 'older figures', nse_only: 'exchange filing only', bse_only: 'BSE only', basis_differs: 'standalone vs consolidated', unavailable: 'not checkable', 'not checked yet': 'not checked yet' })[k] + ' ' + num(trk.checks[k], 0)).join(' · ') : '–') +
+    row('Suspect figures', num((trk.flagged || {}).severe || 0, 0), 'left out of the Shortlist') +
     '</table></div></div>';
 }
 
@@ -838,7 +838,7 @@ function matchQ(sym, q){ return !q || sym.includes(q) || (S.names[sym] || '').to
 function pageMultibagger(){
   const v = $('view');
   if (S.mbErr) { v.innerHTML = errBlock(S.mbErr); return; }
-  if (!S.mb) { v.innerHTML = loadingBlock('Loading the multi-bagger screen…'); return; }
+  if (!S.mb) { v.innerHTML = loadingBlock('Loading…'); return; }
   const st = tableState('mb', { id: 'mb', sort: 'rank', dir: 1, f: { min: 3, turn: false } });
   const m = r => r.measures || {};
   let rows = (S.mb.ranked || []).filter(r => matchQ(r.symbol, st.q) && (r.score || 0) >= (st.f.min || 0) && (!st.f.turn || m(r).turnaround));
@@ -863,7 +863,7 @@ function pageMultibagger(){
     '<div class="toolbar"><input id="mbq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'mb\',this)">' +
     '<div class="seg">' + [0, 2, 3, 4].map(n => '<button class="' + ((st.f.min || 0) === n ? 'on' : '') + '" onclick="setF(\'mb\',\'min\',' + n + ')">' + (n ? n + '+ gates' : 'All') + '</button>').join('') + '</div>' +
     '<div class="seg"><button class="' + (st.f.turn ? 'on' : '') + '" onclick="setF(\'mb\',\'turn\',' + !st.f.turn + ')">Turnarounds only</button></div>' +
-    '<span class="muted" style="margin-left:auto;font-size:12.5px">Updated ' + esc(fmtTs(S.mb.ts)) + (S.mb.partial ? ' · partial pass' : '') + '</span></div>' +
+    '<span class="muted" style="margin-left:auto;font-size:12.5px">Updated ' + esc(fmtTs(S.mb.ts)) + (S.mb.partial ? ' · updating' : '') + '</span></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th>' + th('score', 'Gates', st) + '<th>Turnaround</th>' + th('rev', 'Revenue gr.', st) + th('pg', 'Profit gr.', st) + th('nm', 'Net margin', st) + th('cons', 'Consistency', st) + th('funds', 'Fund schemes', st) + th('mcap', 'Mkt cap', st) + '<th>Promoter</th></tr></thead><tbody>' +
     (body || '<tr><td colspan="10" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
 }
@@ -872,7 +872,7 @@ function pageMultibagger(){
 function pageCompounders(){
   const v = $('view');
   if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
-  if (!S.lib) { v.innerHTML = loadingBlock('Loading the library to run the compounder screen…'); return; }
+  if (!S.lib) { v.innerHTML = loadingBlock('Loading…'); return; }
   const st = tableState('cp', { id: 'cp', sort: 'quality', dir: -1, f: { near: false } });
   let rows = compounders().filter(x => (st.f.near ? x.fails === 1 : x.fails === 0) && matchQ(x.s.symbol, st.q));
   const G = { quality: x => x.quality * 1e12 + (val(x.s,'market_value_bucket') || 0), mcap: x => val(x.s,'market_value_bucket'), pe: x => val(x.s,'pe'), r12: x => val(x.s,'ret_12m'),
@@ -887,9 +887,9 @@ function pageCompounders(){
       '<td class="num">' + (val(s,'profit_consistency_8q') == null ? '–' : val(s,'profit_consistency_8q') + '/8') + '</td><td class="num">' + num(val(s,'mf_schemes_holding'), 0) + '</td>' +
       '<td class="num">' + (val(s,'promoter_holding') == null ? '–' : num(val(s,'promoter_holding'), 1) + '%') + '</td>' +
       '<td>' + (st.f.near ? '<span class="chip warn" title="' + esc(x.failed.join(', ')) + '">misses: ' + esc(x.failed[0]) + '</span>' : dots(x.quality, 5)) + '</td></tr>'; }).join('');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Proven compounders</h1><p class="sub">Established, widely-held companies with a long record of profitable, cash-backed growth — the opposite end from early multibaggers. Judged on years of annual results: must pass all eight rules; ranked by five extra quality checks, then size.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Proven compounders</h1><p class="sub">Established, widely-held companies with a long record of profitable, cash-backed growth. Must pass all eight rules; ranked by five quality checks, then size.</p></div></div>' +
     '<div class="rules">' + COMPOUNDER_RULES.map(r => '<span class="chip">' + esc(r[0]) + '</span>').join('') + '</div>' +
-    (S.lib.stocks.some(s => s.cells && !hasLongTerm(s)) ? '<div class="notice" style="margin-bottom:12px">' + num(S.lib.stocks.filter(s => s.cells && !hasLongTerm(s)).length, 0) + ' companies are not judged yet: their 10-year record arrives with each company&#39;s next annual refresh.</div>' : '') +
+    (S.lib.stocks.some(s => s.cells && !hasLongTerm(s)) ? '<div class="notice" style="margin-bottom:12px">' + num(S.lib.stocks.filter(s => s.cells && !hasLongTerm(s)).length, 0) + ' companies are not judged yet (no 10-year record).</div>' : '') +
     '<div class="toolbar"><input id="cpq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'cp\',this)">' +
     '<div class="seg"><button class="' + (!st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',false)">Pass all eight</button><button class="' + (st.f.near ? 'on' : '') + '" onclick="setF(\'cp\',\'near\',true)">Near misses (one rule)</button></div>' +
     '<span class="muted" style="margin-left:auto;font-size:12.5px" title="' + esc(QUALITY_CHECKS.map(q => q[0]).join(' · ')) + '">Quality: ' + esc(QUALITY_CHECKS.map(q => q[0]).join(' · ')) + '</span></div>' +
@@ -926,8 +926,7 @@ function slRecord(tr){
       '<td class="num ' + cls(r.avg_excess) + '">' + (r.avg_excess == null ? '–' : (r.avg_excess > 0 ? '+' : '') + num(r.avg_excess, 1) + ' pts') + '</td><td class="num">' + (r.stints ? r.beat_nifty + ' of ' + r.stints : '–') + '</td></tr>'; };
   return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Track record</h3><span class="muted" style="font-size:12px">since ' + esc(fmtDate(tr.first_week)) + ' · ' + tr.weekly_records + ' weekly record' + (tr.weekly_records === 1 ? '' : 's') + '</span></div><div class="panel-b">' +
     '<table class="t"><tr><th class="l">List</th><th>Picks</th><th>Still on</th><th>Dropped</th><th>Average vs NIFTY</th><th>Beat NIFTY</th></tr>' + row('compounders', 'Compounders') + row('emerging', 'Emerging') + '</table>' +
-    '<div class="muted" style="font-size:12px;margin-top:8px">Each pick is measured from the close on the day it joined the list (to the day it left, or today), against NIFTY 50 over the same dates. ' +
-    'A weekly record is taken on the first run of each week. This needs 3–6 months before it says anything; until then treat it as a log, not a verdict.</div></div></div>';
+    '<div class="muted" style="font-size:12px;margin-top:8px">Each pick is measured from the day it joined the list to the day it left (or today), against NIFTY 50. Needs 3–6 months before it means much.</div></div></div>';
 }
 function pageShortlist(){
   const v = $('view');
@@ -940,12 +939,12 @@ function pageShortlist(){
     ((X.next || []).length ? '<details class="all" style="margin-top:12px"><summary>Next in line (' + X.next.length + ')</summary>' + slTable(X.next) + '</details>' : '') +
     ((X.industry_cap_held_back || []).length ? '<div class="muted" style="font-size:12.5px;margin-top:10px">Held back by the two-per-industry limit: ' + X.industry_cap_held_back.map(s => '<a href="#stock/' + esc(s) + '">' + esc(s) + '</a>').join(', ') + '</div>' : '') +
     ((X.left_out || []).length ? '<div class="muted" style="font-size:12.5px;margin-top:6px">Left out: ' + X.left_out.map(o => '<a href="#stock/' + esc(o.symbol) + '" title="' + esc(o.reason) + '">' + esc(o.symbol) + '</a>').join(', ') + ' (hover for the reason)</div>' : '');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Shortlist</h1><p class="sub">Two lists, because the screens answer different questions. <b>Compounders</b>: proven compounders ranked for quality at a sensible price. ' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Shortlist</h1><p class="sub"><b>Compounders</b>: proven compounders ranked for quality at a sensible price. ' +
     '<b>Emerging</b>: four-gate early multibaggers (not already compounders) ranked for growth the market is starting to see. Hard-to-trade, weakly cash-backed, pledged and thinly covered companies are left out; at most ' + S.sl.per_industry + ' per industry. ' +
-    'Updated by the daily run, ' + esc(fmtTs(S.sl.generated)) + '. A ranked screen of your own rules, not a recommendation.</p></div></div>' +
+    'Updated ' + esc(bSnap(S.sl.generated).replace(/^As of /, '')) + '. Not a recommendation.</p></div></div>' +
     '<div class="toolbar"><div class="seg"><button class="' + (tab === 'compounders' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'compounders\')">Compounders (' + L.compounders.ranked + ' ranked)</button>' +
     '<button class="' + (tab === 'emerging' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'emerging\')">Emerging (' + L.emerging.ranked + ' ranked)</button></div>' +
-    '<span class="muted" style="margin-left:auto;font-size:12px">Score: ' + Object.keys(w).map(k => Math.round(w[k] * 100) + '% ' + k).join(' · ') + ' · momentum = 6–12 month trend ÷ volatility, latest month skipped</span></div>' +
+    '<span class="muted" style="margin-left:auto;font-size:12px">Score: ' + Object.keys(w).map(k => Math.round(w[k] * 100) + '% ' + k).join(' · ') + '</span></div>' +
     slTable(X.top || []) + extra + slRecord(S.sl.track_record);
 }
 
@@ -970,7 +969,7 @@ function pageLibrary(){
       '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td><td><span class="num" style="margin-right:8px">' + (s.met || 0) + '/' + (s.testable || 0) + '</span><span class="bar"><i style="width:' + Math.round(r * 100) + '%"></i></span></td>' +
       '<td class="num ' + ((s.data_quality_pct || 0) >= 70 ? 'up' : (s.data_quality_pct || 0) >= 40 ? '' : 'faint') + '">' + num(s.data_quality_pct, 0) + '%</td></tr>';
   }).join('');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Stock library</h1><p class="sub">Every listed NSE equity, scored on up to 124 parameters, rescored daily. ' + num(S.lib.stocks.filter(s => s.cells).length, 0) + ' with data · updated ' + esc(fmtTs(S.lib.generated)) + (S.lib.partial ? ' (pass in progress)' : '') + '.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Stock library</h1><p class="sub">Every listed NSE company, on up to 124 measures. ' + num(S.lib.stocks.filter(s => s.cells).length, 0) + ' with data · updated ' + esc(bSnap(S.lib.generated).replace(/^As of /, '')) + (S.lib.partial ? ' (updating)' : '') + '.</p></div></div>' +
     '<div class="toolbar"><input id="libq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'lib\',this)">' +
     '<select class="field" onchange="setF(\'lib\',\'p\',this.value)"><option value="">Any parameter</option>' + opts + '</select>' +
     '<select class="field" onchange="setF(\'lib\',\'ps\',this.value)">' + [['met','is met'],['not_met','is not met'],['not_testable','is not testable']].map(o => '<option value="' + o[0] + '" ' + (st.f.ps === o[0] ? 'selected' : '') + '>' + o[1] + '</option>').join('') + '</select>' +
@@ -985,10 +984,10 @@ function pageRegistry(){
   if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
   const statusBy = {}; (d.registry || []).forEach(r => { statusBy[r.name] = r.status; });
   const chipS = s => '<span class="chip ' + (s === 'confirmed' ? 'up' : 'warn') + '">' + esc(s || 'unconfirmed') + '</span>';
-  let html = '<div class="page-head"><div><h1 class="h1">Investor registry</h1><p class="sub">Marquee investors tracked across NSE shareholding filings. Only confirmed investors count toward the registry parameters.</p></div></div>' +
+  let html = '<div class="page-head"><div><h1 class="h1">Investor registry</h1><p class="sub">Well-known investors found in shareholding filings.</p></div></div>' +
     '<div class="tbl-wrap" style="margin-bottom:18px"><table class="t"><thead><tr><th class="l">Investor</th><th class="l">Type</th><th class="l">Status</th><th class="l">Aliases</th></tr></thead><tbody>' +
     (d.registry || []).map(r => '<tr><td class="l"><b>' + esc(r.name) + '</b></td><td class="l">' + esc(r.type) + '</td><td class="l">' + chipS(r.status) + '</td><td class="l muted" style="white-space:normal">' + esc((r.aliases || []).join(', ')) + '</td></tr>').join('') + '</tbody></table></div>';
-  html += '<div class="panel"><div class="panel-h"><h3>Candidate matches to review</h3><span class="muted" style="font-size:12px">A filing name lining up with a registry alias — confirm in hub/registry.json before it counts</span></div>';
+  html += '<div class="panel"><div class="panel-h"><h3>Candidate matches to review</h3><span class="muted" style="font-size:12px">names that may match a listed investor</span></div>';
   if (!S.lib) html += '<div class="panel-b"><div class="skel"></div></div>';
   else {
     const rows = []; Object.keys(S.lib.investor_matches || {}).forEach(sym => (S.lib.investor_matches[sym] || []).forEach(m => rows.push(Object.assign({ sym }, m))));
@@ -1006,7 +1005,7 @@ function pageBulk(){
   if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
   const days = (d.bulk_deals || {}).by_day || {};
   const keys = Object.keys(days).sort().reverse();
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Bulk deals</h1><p class="sub">Daily NSE bulk deals collected since ' + esc((d.bulk_deals || {}).first_day || '–') + '. Registry buys are deals by confirmed registry investors.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Bulk deals</h1><p class="sub">Daily bulk deals since ' + esc((d.bulk_deals || {}).first_day || '–') + '. Registry buys: deals by listed investors.</p></div></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Day</th><th>Deals</th><th>Buys</th><th>Sells</th><th>Registry buys</th></tr></thead><tbody>' +
     (keys.map(k => '<tr><td class="l num">' + esc(fmtDate(k)) + '</td><td class="num">' + days[k].deals + '</td><td class="num up">' + days[k].buys + '</td><td class="num down">' + days[k].sells + '</td><td class="num">' + days[k].registry_buys + '</td></tr>').join('') || '<tr><td colspan="5" class="empty">No days stored yet.</td></tr>') + '</tbody></table></div>';
 }
@@ -1020,7 +1019,7 @@ function pageParams(){
   const byStatus = {}; all.forEach(p => { byStatus[p.status] = (byStatus[p.status] || 0) + 1; });
   const rows = all.filter(p => !st.q || (p.id + ' ' + p.definition + ' ' + p.family).toUpperCase().includes(st.q));
   const chip = s => '<span class="chip ' + ({ available: 'up', collecting: 'warn', to_build: 'warn', gap: 'down' }[s] || '') + '">' + esc(String(s).replace(/_/g, ' ')) + '</span>';
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Parameters</h1><p class="sub">The registry of measures the library scores. ' + all.length + ' in total · ' + Object.keys(byStatus).map(k => byStatus[k] + ' ' + k.replace(/_/g, ' ')).join(' · ') + '.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Parameters</h1><p class="sub">All measures. ' + all.length + ' in total · ' + Object.keys(byStatus).map(k => byStatus[k] + ' ' + k.replace(/_/g, ' ')).join(' · ') + '.</p></div></div>' +
     '<div class="toolbar"><input id="parq" class="field" placeholder="Filter parameters" value="' + esc(st.q) + '" oninput="setQ(\'par\',this)"></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Parameter</th><th class="l">Family</th><th class="l">Status</th><th class="l">Definition</th><th class="l">Source</th></tr></thead><tbody>' +
     rows.map(p => '<tr><td class="l"><b>' + esc((M[p.id] || [p.id])[0]) + '</b><div class="faint num" style="font-size:11.5px">' + esc(p.id) + '</div></td><td class="l">' + esc(p.family) + '</td><td class="l">' + chip(p.status) + '</td><td class="l" style="white-space:normal;min-width:260px">' + esc(p.definition) + '</td><td class="l muted" style="white-space:normal;font-size:12px">' + esc(p.source) + '</td></tr>').join('') + '</tbody></table></div>';
@@ -1034,7 +1033,7 @@ function pageTests(){
   const kv = obj => '<table class="t">' + Object.keys(obj).map(k => { const x = obj[k];
     return '<tr><td class="l" style="white-space:normal">' + esc(k.replace(/_/g, ' ')) + '</td><td class="l" style="white-space:normal">' +
       (x && typeof x === 'object' ? '<pre class="raw">' + esc(JSON.stringify(x, null, 1)) + '</pre>' : '<span class="num">' + esc(x) + '</span>') + '</td></tr>'; }).join('') + '</table>';
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Back-tests</h1><p class="sub">Summary statistics only. Survivorship bias applies wherever the universe is today\'s index members.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Back-tests</h1><p class="sub">Survivorship bias applies where the universe is today\'s index members.</p></div></div>' +
     (Object.keys(t).map(k => '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>' + esc(k.replace(/_/g, ' ')) + '</h3></div>' + kv(t[k]) + '</div>').join('') || '<div class="panel"><div class="empty">No back-test results yet.</div></div>');
 }
 
@@ -1067,7 +1066,7 @@ function loadFunds(sym){
 }
 function fundsPanel(sym, s){
   const X = S.funds[sym] || { loading: true };
-  const head = '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Mutual funds holding it</h3><span class="muted" style="font-size:12px">latest monthly fund portfolios · live from BharatStock, not stored</span></div><div class="panel-b">';
+  const head = '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Mutual funds holding it</h3><span class="muted" style="font-size:12px">latest monthly portfolios</span></div><div class="panel-b">';
   if (X.loading) return head + '<div class="skel"></div></div></div>';
   if (X.error) return head + '<div class="notice">' + esc(X.error) + '</div></div></div>';
   const items = X.items || [];
@@ -1090,9 +1089,9 @@ function fundsPanel(sym, s){
       '<td class="num">' + (i.shares != null ? num(Number(i.shares), 0) : '–') + '</td><td class="num">' + (pctOf(i) != null ? num(pctOf(i), 3) + '%' : '–') + '</td>' +
       '<td class="num">' + (chg(i) || '–') + '</td><td class="num">' + (i.pct_scheme != null ? num(Number(i.pct_scheme), 2) + '%' : '–') + '</td>' +
       '<td class="l">' + esc(i.date ? fmtDate(String(i.date).slice(0, 10)) : '–') + '</td></tr>').join('') + '</table></div>' +
-    '<div class="muted" style="font-size:11.5px;margin-top:6px">"New" means the scheme first appears in its latest monthly portfolio; BharatStock does not give the date a fund first bought.' +
-    (pctOf(items[0]) != null && items[0].pct_company == null ? ' % of company is estimated from market value and the latest close.' : '') +
-    (missing.length ? ' Fields returned: ' + esc((X.fields || []).join(', ')) + '.' : '') + '</div></div></div>';
+    '<div class="muted" style="font-size:11.5px;margin-top:6px">"New" = first seen in the latest monthly portfolio.' +
+    (pctOf(items[0]) != null && items[0].pct_company == null ? ' % of company is estimated.' : '') +
+    '</div></div></div>';
 }
 function loadDocs(sym, force){
   if (S.docs[sym] && !force) return;
@@ -1138,15 +1137,15 @@ function pageStock(sym){
   // Badges
   const badges = [];
   if (isCompounder(sym)) badges.push('<span class="chip up">Proven compounder</span>');
-  if (r && r.score != null) badges.push('<span class="chip ' + (r.score === 5 ? 'up' : 'brand') + '">Multibagger ' + r.score + '/5</span>');
+  if (r && r.score != null) badges.push('<span class="chip ' + (r.score === 4 ? 'up' : 'brand') + '">Multibagger ' + r.score + '/4</span>');
   if (r && (r.measures || {}).turnaround) badges.push('<span class="chip brand">Turnaround</span>');
   if (val(s,'mf_discovery_tier') === 1) badges.push('<span class="chip warn">Undiscovered (&lt;5 funds)</span>');
   if (val(s,'pledge_pct') > 10) badges.push('<span class="chip down">Pledge ' + num(val(s,'pledge_pct'), 1) + '%</span>');
   const ck = (s && s.check) || {}, severe = ((s && s.flags) || []).filter(f => f.level === 'severe');
-  if (ck.status === 'ok') badges.push('<span class="chip up" title="Growth rebuilt from the company&#39;s own NSE filing matches">✓ Matches NSE filing</span>');
-  if (ck.status === 'bse_only') badges.push('<span class="chip" title="BharatStock has no results; the company files no results data at NSE">Figures from BSE results</span>');
-  if (ck.status === 'nse_only') badges.push('<span class="chip" title="BharatStock has no results for this company">Figures from NSE filing</span>');
-  if (ck.status === 'mismatch') badges.push('<span class="chip down" title="' + esc((ck.diffs || []).join('; ')) + '">NSE filing disagreed · NSE figures used</span>');
+  if (ck.status === 'ok') badges.push('<span class="chip up" title="Matches the NSE filing">✓ Matches NSE filing</span>');
+  if (ck.status === 'bse_only') badges.push('<span class="chip" title="Figures from BSE results">Figures from BSE results</span>');
+  if (ck.status === 'nse_only') badges.push('<span class="chip" title="Figures from the NSE filing">Figures from NSE filing</span>');
+  if (ck.status === 'mismatch') badges.push('<span class="chip down" title="' + esc((ck.diffs || []).join('; ')) + '">NSE figures used</span>');
   if (severe.length) badges.push('<span class="chip down" title="' + esc(severe.map(f => f.text).join('; ')) + '">Data check: ' + severe.length + '</span>');
 
   let html = '<button class="back" onclick="history.length > 1 ? history.back() : go(\'overview\')">← Back</button>' +
@@ -1172,10 +1171,9 @@ function pageStock(sym){
     '<div class="seg">' + (intraday ? '' : segBtn(pxMA, '50/200 DMA', 'pxMA=!pxMA')) + segBtn(pxBB, 'Bollinger', 'pxBB=!pxBB') + (intraday ? '' : segBtn(px52, '52W hi/lo', 'px52=!px52')) + '</div>' +
     '<div class="seg">' + [['vol', 'Volume'], ['rsi', 'RSI'], ['macd', 'MACD'], ['none', 'No panel']].map(([k, l]) => segBtn(pxLower === k, l, 'pxLower=\'' + k + '\'')).join('') + '</div></div></div><div class="panel-b">' +
     (DK.loading ? '<div class="lwc"><div class="skel" style="height:100%"></div></div>'
-      : DK.error ? '<div class="notice"><b>' + esc(DK.error) + '</b>' + (DK.why ? '<ul style="margin:6px 0 4px 16px;padding:0">' + DK.why.map(w => '<li>' + esc(w) + '</li>').join('') + '</ul>' : '') + (DK.fix ? '<div><b>What to do:</b> ' + esc(DK.fix) + '</div>' : '') + '</div>'
+      : DK.error ? '<div class="notice"><b>' + esc(DK.error) + '</b>' + (DK.fix ? '<div><b>What to do:</b> ' + esc(DK.fix) + '</div>' : '') + '</div>'
       : '<div class="lwc" id="lwc"><div class="lwc-legend" id="lwcLegend"></div></div><div class="lwc-credit">' +
-        ({ kite: 'Prices: Kite', nse: 'Prices: NSE daily closes', bharatstock: 'Prices: BharatStock daily' }[DK.source] || '') + (DK.note ? ' (' + esc(DK.note) + ')' : '') +
-        ' · markers: D dividend, S split/bonus, B buyback, R results call · chart: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a></div>') + '</div></div>';
+        'Markers: D dividend, S split/bonus, B buyback, R results call · chart: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a></div>') + '</div></div>';
 
   const finErr = (R.errors || {}).financials;
   const qN = (R.quarters || []).length, aN = (R.annual || []).length;
@@ -1183,8 +1181,8 @@ function pageStock(sym){
     '<div class="panel"><div class="panel-h"><h3>' + (qMode === 'a' ? 'Annual' : 'Quarterly') + ' revenue &amp; profit</h3><div class="seg">' +
       segBtn(qMode === 'q', 'Quarterly' + (qN ? ' (' + qN + ')' : ''), 'qMode=\'q\'') + segBtn(qMode === 'a', 'Annual' + (aN ? ' (' + aN + ' yrs)' : ''), 'qMode=\'a\'') + '</div></div><div class="panel-b">' +
     (R.loading ? '<div class="chart"><div class="skel" style="height:100%"></div></div>' : finErr && qMode === 'q' ? '<div class="notice">' + esc(finErr) + '</div>'
-      : qMode === 'a' && !aN ? '<div class="notice">' + esc((R.errors || {}).annual || 'No annual results on BharatStock.') + '</div>' : '<div class="chart"><canvas id="cQ"></canvas></div>') +
-    '<div class="muted" style="font-size:11.5px;margin-top:6px">₹ crore · live from BharatStock, not stored</div></div></div>' +
+      : qMode === 'a' && !aN ? '<div class="notice">' + esc((R.errors || {}).annual || 'No annual results available.') + '</div>' : '<div class="chart"><canvas id="cQ"></canvas></div>') +
+    '<div class="muted" style="font-size:11.5px;margin-top:6px">₹ crore</div></div></div>' +
     documentsPanel(sym) + '</div>';
   html += aiPanel(sym);
   html += fundsPanel(sym, S.bySym[sym]);
@@ -1193,7 +1191,7 @@ function pageStock(sym){
   // Scorecard
   if (s && s.cells) {
     const testable = s.testable || 0, met = s.met || 0, p = testable ? Math.round(met / testable * 100) : 0;
-    html += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Scorecard</h3><span class="muted" style="font-size:12px">Bar shows where this company sits among all ' + num(S.lib.stocks.filter(x => x.cells).length, 0) + ' in the library</span></div><div class="panel-b" style="display:flex;gap:16px;align-items:center;border-bottom:1px solid var(--line2)">' +
+    html += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Scorecard</h3><span class="muted" style="font-size:12px">bar = rank among ' + num(S.lib.stocks.filter(x => x.cells).length, 0) + ' companies</span></div><div class="panel-b" style="display:flex;gap:16px;align-items:center;border-bottom:1px solid var(--line2)">' +
       '<div class="ring" style="--p:' + p + '"><span>' + p + '%</span></div><div><div style="font-weight:700">' + met + ' of ' + testable + ' rules met</div><div class="muted" style="font-size:12.5px">' + (s.not_testable || 0) + ' not testable · data quality ' + num(s.data_quality_pct, 0) + '%</div></div></div>' +
       '<div class="cols">' + GROUPS.map(([g, label]) => {
         const keys = Object.keys(M).filter(k => M[k][1] === g && cell(s, k) && cell(s, k).value != null && (k !== 'fii_change_qoq' || fiiOk(s)));
@@ -1206,8 +1204,8 @@ function pageStock(sym){
   html += peersPanel(sym);
   html += shareholdingPanel(s);
   html += '<div class="grid g2" style="margin-bottom:14px">' +
-    '<div class="panel"><div class="panel-h"><h3>Corporate actions</h3><span class="muted" style="font-size:12px">NSE · upcoming first</span></div><div class="panel-b timeline">' + actionsHtml(s) + '</div></div>' +
-    '<div class="panel"><div class="panel-h"><h3>Recent news</h3><span class="muted" style="font-size:12px">Google News</span></div><div class="panel-b news">' + newsHtml(R) + '</div></div></div>';
+    '<div class="panel"><div class="panel-h"><h3>Corporate actions</h3><span class="muted" style="font-size:12px">upcoming first</span></div><div class="panel-b timeline">' + actionsHtml(s) + '</div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Recent news</h3></div><div class="panel-b news">' + newsHtml(R) + '</div></div></div>';
 
   // Multibagger gates + full table
   if (r) {
@@ -1261,7 +1259,7 @@ function moveWords(now, chg, when){
 }
 function shareholdingPanel(s){
   const rows = s ? holders(s) : [];
-  const head = '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Shareholding</h3><span class="muted" style="font-size:12px">NSE filings · changes are in percentage points</span></div>';
+  const head = '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Shareholding</h3><span class="muted" style="font-size:12px">changes in percentage points</span></div>';
   if (!rows.length) return head + '<div class="panel-b muted">Shareholding not available for this company yet.</div></div>';
   const lines = rows.map(([k, now, chg]) => '<div class="metric" style="grid-template-columns:1fr"><span class="n"><b style="font-weight:600;color:var(--text)">' + esc(k) + '</b></span>' +
     '<span class="' + cls(chg) + '" style="font-size:13.5px">' + esc(moveWords(now, chg, 'last quarter')) + '</span></div>').join('');
@@ -1276,13 +1274,13 @@ function shareholdingPanel(s){
     '<div class="panel-b" style="border-right:1px solid var(--line2)">' + lines + (extra.length ? '<div class="muted" style="font-size:12.5px;margin-top:10px">' + esc(extra.join(' ')) + '</div>' : '') + '</div>' +
     '<div class="panel-b" style="border-right:1px solid var(--line2)"><div style="font-weight:600;font-size:13px;margin-bottom:2px">Who bought, who sold</div><div class="muted" style="font-size:12px;margin-bottom:8px">Change since last quarter, in percentage points</div>' +
       (hasChanges ? '<div class="chart sm"><canvas id="cOwnChg"></canvas></div>' : '<div class="muted">Quarter-on-quarter changes not available yet.</div>') + '</div>' +
-    '<div class="panel-b"><div style="font-weight:600;font-size:13px;margin-bottom:2px">Holding by quarter</div><div class="muted" style="font-size:12px;margin-bottom:8px">' + (hasTrend ? hist.length + ' quarters stored' : 'Builds up as the weekly batch saves each quarter') + '</div>' +
-      (hasTrend ? '<div class="chart sm"><canvas id="cOwnTrend"></canvas></div>' : '<div class="muted" style="font-size:13px">The batch started saving quarterly holdings on 9 Oct 2026. This trend appears once this company has three quarters stored — promoter history fills in on its next pass, FII and DII a quarter at a time.</div>') + '</div>' +
+    '<div class="panel-b"><div style="font-weight:600;font-size:13px;margin-bottom:2px">Holding by quarter</div><div class="muted" style="font-size:12px;margin-bottom:8px">' + (hasTrend ? hist.length + ' quarters' : 'needs three quarters') + '</div>' +
+      (hasTrend ? '<div class="chart sm"><canvas id="cOwnTrend"></canvas></div>' : '<div class="muted" style="font-size:13px">Not enough quarters yet.</div>') + '</div>' +
     '</div></div>';
 }
 function actionsHtml(s){
   const a = (s && s.actions) || null;
-  if (a == null) return '<div class="muted">No corporate actions on record at NSE for this company in the last year.</div>';
+  if (a == null) return '<div class="muted">No corporate actions in the last year.</div>';
   if (!a.length) return '<div class="muted">No dividends, splits, bonuses or buybacks in the last year, and none announced.</div>';
   return a.map(x => '<div class="ev"><span class="d">' + esc(fmtDate(x.ex_date)) + '</span><span>' + (x.upcoming ? '<span class="chip brand" style="margin-right:6px">Upcoming</span>' : '') + esc(x.subject) +
     (x.record_date ? '<div class="faint" style="font-size:12px">Record date ' + esc(fmtDate(x.record_date)) + '</div>' : '') + '</span></div>').join('');
@@ -1442,7 +1440,7 @@ function drawPriceChart(sym, s){
 // Documents: links to NSE's own PDFs (annual reports, call transcripts, presentations, recordings).
 function documentsPanel(sym){
   const X = S.docs[sym] || { loading: true };
-  const head = '<div class="panel"><div class="panel-h"><h3>Documents</h3><span class="muted" style="font-size:12px">NSE filings · opens the PDF</span></div><div class="panel-b docs">';
+  const head = '<div class="panel"><div class="panel-h"><h3>Documents</h3><span class="muted" style="font-size:12px">opens the PDF</span></div><div class="panel-b docs">';
   if (X.loading) return head + '<div class="skel"></div><div class="skel" style="margin-top:10px;width:70%"></div></div></div>';
   if (X.error) return head + '<div class="notice">' + esc(X.error) + '</div></div></div>';
   const d = X.docs || {};
@@ -1451,7 +1449,7 @@ function documentsPanel(sym){
                   ['Earnings-call transcripts', (d.tr || []).map(x => link(x, 'Transcript'))],
                   ['Investor presentations', (d.pr || []).map(x => link(x, 'Presentation'))],
                   ['Call recordings', (d.rec || []).map(x => link(x, 'Recording link'))]].filter(g => g[1].length);
-  if (!groups.length) return head + '<div class="muted">' + esc(X.docs_note || 'No documents collected for this company yet. The daily library run gathers them from NSE, company by company.') + '</div></div></div>';
+  if (!groups.length) return head + '<div class="muted">' + 'No documents yet.' + '</div></div></div>';
   return head + groups.map(g => '<h4>' + g[0] + '</h4>' + g[1].join('')).join('') + '</div></div>';
 }
 
@@ -1483,11 +1481,11 @@ function aiPanel(sym){
       (z.numbers && z.numbers.length ? '<div class="lbl">Numbers mentioned</div><table class="t" style="margin-top:4px"><tr><th class="l">Metric</th><th class="l">Value</th><th class="l">Context</th></tr>' +
         z.numbers.map(n => '<tr><td class="l">' + esc(n.metric) + '</td><td class="l num">' + esc(n.value) + '</td><td class="l muted" style="white-space:normal">' + esc(n.context) + '</td></tr>').join('') + '</table>' : '') +
       list('Watch next quarter', z.watch_next) +
-      '<div class="faint" style="font-size:11.5px;margin-top:8px">AI summary by ' + esc(e.model || 'Claude') + ', ' + esc(fmtTs(e.created)) + (e.coverage ? ' · covers ' + esc(e.coverage) : '') + '. Check figures against the source before acting.</div></div>';
+      '<div class="faint" style="font-size:11.5px;margin-top:8px">AI summary, ' + esc(fmtTs(e.created)) + (e.coverage ? ' · covers ' + esc(e.coverage) : '') + '. Check figures against the source before acting.</div></div>';
   } else {
     body = '<div class="muted">' + (docsAny ? 'No AI summary yet for this company.' : 'No transcript or annual report on file yet, so nothing to summarise.') + '</div>';
   }
-  const status = pending ? '<div class="notice" style="margin-bottom:10px">Summary run started at ' + esc(String(X.summary_started).slice(11)) + '. A transcript takes about 3–5 minutes, an annual report up to 10. <button class="btn" style="padding:3px 9px;margin-left:6px" onclick="loadDocs(\'' + esc(sym) + '\', true)">Refresh</button></div>'
+  const status = pending ? '<div class="notice" style="margin-bottom:10px">Summary started at ' + esc(String(X.summary_started).slice(11)) + '. Takes 3–10 minutes. <button class="btn" style="padding:3px 9px;margin-left:6px" onclick="loadDocs(\'' + esc(sym) + '\', true)">Refresh</button></div>'
     : st && st.state === 'error' ? '<div class="notice" style="margin-bottom:10px">' + esc(st.message) + '</div>' : '';
   return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>AI summary</h3><div style="display:flex;gap:8px;align-items:center">' +
     (tabs.length > 1 ? '<div class="seg">' + tabs.map(x => '<button class="' + (tab === x[0] ? 'on' : '') + '" onclick="aiTab=\'' + x[0] + '\';rerender()">' + x[1] + '</button>').join('') + '</div>' : '') +
@@ -1718,7 +1716,7 @@ function pageScreener(){
     '<span class="muted" style="font-size:12px">' + esc(unitHint(c.field)) + '</span>' +
     '<button class="btn ghost" title="Remove" onclick="scrDel(' + i + ')">✕</button></div>').join('');
   const saved = SCR.saved == null ? '<div class="skel"></div>' : SCR.saved.length ? SCR.saved.map((x, i) => '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed var(--line2)"><a href="javascript:void 0" onclick="scrLoadSaved(' + i + ')" style="flex:1">' + esc(x.name) + '</a><span class="faint num" style="font-size:12px">' + runScreen(x.conditions).length + '</span><button class="btn ghost" style="padding:2px 6px" title="Delete" onclick="scrDelete(' + i + ')">✕</button></div>').join('') : '<div class="muted" style="font-size:12.5px">No saved screens yet.</div>';
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Screener</h1><p class="sub">Combine any measures or factor scores. A company must have a value for every condition to pass. Saved screens are stored on the relay and follow you across devices.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Screener</h1><p class="sub">Combine any measures or factor scores. A company must have a value for every condition to pass. Saved screens appear on every device.</p></div></div>' +
     '<div class="grid" style="grid-template-columns:minmax(0,1fr) 280px;align-items:start;margin-bottom:14px">' +
     '<div class="panel"><div class="panel-h"><h3>Conditions</h3><span class="muted" style="font-size:12.5px"><b class="num" style="color:var(--text);font-size:15px">' + num(syms.length, 0) + '</b> companies match</span></div><div class="panel-b">' + condRows +
     '<button class="btn" onclick="scrAdd()">+ Add condition</button>' +
@@ -1870,9 +1868,9 @@ function pageExpiry(){
   // Background data loads call rerender(); keep a running meter instead of restarting it (review, 13 Oct 2026).
   if (EXP.timer && EXP.data) { drawExpiry(); return; }
   stopExpiry(); EXP.data = null; EXP.okAt = 0; EXP.err = null; EXP.tapes = {}; EXP.full = false;
-  $('view').innerHTML = loadingBlock('Reading today\'s expiring option chains…');
+  $('view').innerHTML = loadingBlock('Loading…');
   const tick = () => call('adminExpiry', token, expSince()).then(d => { if (current.page !== 'expiry') return; expMerge(d); EXP.data = d; EXP.err = null; if (!d.error) EXP.okAt = Date.now(); drawExpiry(); })
-    .catch(e => { if (current.page !== 'expiry') return; EXP.err = 'Could not reach the relay: ' + e.message;
+    .catch(e => { if (current.page !== 'expiry') return; EXP.err = 'Could not load: ' + e.message;
       if (!EXP.data) $('view').innerHTML = errBlock(EXP.err); else drawExpiry(); });
   // Every 10 s in market hours, every minute after (closes are recorded after 15:45); paused while the tab is hidden.
   let last = 0;
@@ -1926,10 +1924,9 @@ function ovPanel(o){
   const row = x => '<tr><td style="text-align:left">' + esc(x.name) + '</td><td>' + fmt(x.last, 2) + '</td><td style="color:' + (x.change_pct >= 0 ? 'var(--up)' : 'var(--down)') + '">' +
     (x.change_pct >= 0 ? '+' : '') + fmt(x.change_pct, 2) + '%</td><td class="muted">' + esc(x.at || '') + (x.today === false ? ' · not open today yet' : '') + '</td></tr>';
   const avg = (n, v) => '<span style="margin-right:18px">' + n + ' <b style="color:' + (v >= 0 ? 'var(--up)' : 'var(--down)') + '">' + (v == null ? '–' : (v >= 0 ? '+' : '') + fmt(v, 2) + '%') + '</b></span>';
-  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Overseas markets</h3><span class="muted" style="font-size:12px">Europe live during Indian afternoon hours; US index futures trade around the clock · Yahoo Finance, refreshed every minute</span></div><div class="panel-b">' +
+  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Overseas markets</h3><span class="muted" style="font-size:12px">refreshes every minute</span></div><div class="panel-b">' +
     '<div style="margin-bottom:8px">' + avg('Europe today', o.eu) + avg('US futures today', o.us) + '</div>' +
-    '<div style="overflow-x:auto"><table class="t"><tr><th style="text-align:left">Market</th><th>Level</th><th>Today</th><th>As of (IST)</th></tr>' + o.items.map(row).join('') + '</table></div>' +
-    '<div class="muted" style="margin-top:6px;font-size:12px">The option chain already prices what overseas markets have done so far; what moves the close is what they do next. The meter records these with every reading and gives them weight only if past expiries show it helps.</div></div></div>';
+    '<div style="overflow-x:auto"><table class="t"><tr><th style="text-align:left">Market</th><th>Level</th><th>Today</th><th>As of (IST)</th></tr>' + o.items.map(row).join('') + '</table></div>' + '</div></div>';
 }
 // One index's track record (13 Oct 2026): at 10:00, 12:00, 14:00 and 15:00, the meter's expected close against the
 // close, beside the market's forward at the same moment. The forward is the bar to beat: late in the day the move left
@@ -1953,12 +1950,12 @@ function expScore(t){
     '<div class="muted" style="font-size:11px">' + s.n_spot + ' of ' + s.n + ' expiries; forward on those: ' + v(s.forward_bp_on_spot_days) + '</div>';
   const vsFwd = s => !s.n ? '–' : s.model_beat_forward + ' of ' + s.n + (s.model_tied_forward ? ' <span class="muted">(tied ' + s.model_tied_forward + ')</span>' : '');
   const band = (h, n) => n ? h + ' of ' + n : '–';
-  return '<div style="margin-top:12px"><b>Replay scoreboard</b> <span class="muted" style="font-size:12px">every recorded expiry re-scored with today\'s model · average distance from the close</span></div>' +
+  return '<div style="margin-top:12px"><b>Replay scoreboard</b> <span class="muted" style="font-size:12px">average distance from the close</span></div>' +
     '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th>Time</th><th>Expiries</th><th>Meter (live)</th><th>Model (today)</th><th>Forward</th><th>Spot</th><th>Model beat forward</th><th>Close in ±1 sd band</th><th>In ' + (S[0] ? S[0].trial_band : 0.88) + ' sd band</th></tr>' +
     S.map(s => '<tr><td>' + esc(s.at) + '</td><td>' + s.n + (s.n && !s.enough ? ' <span class="muted">(too few, ' + s.n + ' of ' + s.min_n + ')</span>' : '') + '</td>' +
       td(s, 'live', s.live_bp) + td(s, 'model', s.model_bp) + td(s, 'forward', s.forward_bp) + td(s, 'spot', s.spot_bp, spotNote(s)) +
       '<td>' + vsFwd(s) + '</td><td>' + band(s.live_band_hits, s.n_band) + '</td><td>' + band(s.trial_band_hits, s.n_band) + '</td></tr>').join('') +
-    '</table></div><div class="muted" style="margin-top:4px;font-size:12px">Spot and the bands start with readings from 15 Oct 2026 (earlier readings did not store them). Under ' + ((S[0] && S[0].min_n) || 10) + ' expiries a row is too few to judge; even at 10, a band hit rate is a warning light, not proof (it cannot tell 68% from 80%). Today\'s Europe/US weights were fitted on these same days, so their part of the replay is in-sample.</div>';
+    '</table></div>';
 }
 function expTrack(label, t){
   const acc = (t && t.accuracy) || [], M = (t && t.model) || {}, T = [['10', '10:00'], ['12', '12:00'], ['14', '14:00'], ['15', '15:00']];
@@ -1971,23 +1968,21 @@ function expTrack(label, t){
     const m = bp(x, a), won = f != null && Math.abs(x - a.close) < Math.abs(f - a.close);
     return fmt(x) + ' <span style="color:' + (Math.abs(m) <= 25 ? 'var(--up)' : 'var(--down)') + '">(' + sbp(m) + ')</span>' +
       (f == null ? '' : '<div class="muted" style="font-size:11px">fwd ' + sbp(bp(f, a)) + (won ? ' · <b style="color:var(--up)">meter closer</b>' : ' · fwd closer') + '</div>'); };
-  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>' + esc(label) + ' · track record</h3><span class="muted" style="font-size:12px">expected close vs actual close, beside the market\'s forward · learns after every expiry</span></div><div class="panel-b">' +
+  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>' + esc(label) + ' · track record</h3><span class="muted" style="font-size:12px">expected close vs actual close</span></div><div class="panel-b">' +
     (acc.length ? '<div style="margin-bottom:4px">Meter closer to the close than the forward: ' + T.map(([k, h]) => h + ' <b>' + beat(k) + '</b>').join(' · ') + '</div>' +
       '<div class="muted" style="margin-bottom:8px;font-size:12px">Within 25 bp: ' + T.map(([k, h]) => h + ' ' + within(k)).join(' · ') + '</div>' +
       '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th>Expiry</th><th>Close</th>' + T.map(([, h]) => '<th>' + h + '</th>').join('') + '</tr>' +
       acc.map(a => '<tr><td>' + esc(expDay(a.date)) + '</td><td><b>' + fmt(a.close) + '</b></td>' + T.map(([k]) => '<td>' + cell(a, k) + '</td>').join('') + '</tr>').join('') + '</table></div>' +
-      '<div class="muted" style="margin-top:6px;font-size:12px">Forward = strike + call − put at the ATM strike: the option market\'s own expected settlement. The meter earns its keep only where it is closer than that.</div>'
-      : '<div class="muted">No finished expiries recorded yet. Each close is recorded after 15:45 IST and the weights are re-fitted from it.</div>') +
+      '<div class="muted" style="margin-top:6px;font-size:12px">Forward: the option market\'s expected close.</div>'
+      : '<div class="muted">No finished expiries yet.</div>') +
     expScore(t) +
-    '<div class="muted" style="margin-top:8px;font-size:12px">Model: expected close = forward + ' + M.k + ' × (max pain − forward) + ' + M.m + ' × (wall midpoint − forward) + ' + (M.e || 0) + ' × Europe move + ' + (M.u || 0) + ' × US futures move + ' + (M.v || 0) + ' × (next expiry\'s wall midpoint − forward). ' +
-    (M.expiries ? 'Fitted on ' + M.expiries + ' expir' + (M.expiries > 1 ? 'ies' : 'y') + ' (' + M.samples + ' readings; late readings count more, by their straddle).' : 'Starting values from 3 years of expiries (NSE end-of-day files); re-fitted after each expiry.') +
-    ' Max pain and wall weights (k, m, v) are held at 0 since 14 Oct 2026: replayed minute by minute on 399 past expiries, they did no better than the forward from any time of day. Only the Europe/US terms still learn.</div></div></div>';
+    '</div></div>';
 }
 // How today's expiry settles, from the relay's EXP_SETTLE (13 Oct 2026): the closing auction since 3 Aug 2026, or the
 // settlement average with its share of the expected close once SEBI's change is applied.
 function expSettleNote(x){
   const s = x.settle; if (!s) return '';
-  if (s.method === 'auction') return 'Settles on the ' + esc(s.from) + '–' + esc(s.to) + ' IST closing auction of the index stocks (SEBI, since ' + esc(s.since || '3 Aug 2026') + '). Options trade through it, so the forward is the market\'s estimate of the auction.';
+  if (s.method === 'auction') return 'Settles on the ' + esc(s.from) + '–' + esc(s.to) + ' IST closing auction.';
   return 'Settles on the ' + esc(s.from) + '–' + esc(s.to) + ' IST average.' + (s.avg != null ? ' Average so far ' + fmt(s.avg, 2) + ' (' + s.minutes + ' min) carries ' + Math.round((s.weight || 0) * 100) + '% of the expected close; the model ' + fmt(x.model_close) + ' the rest.' : ' Blending starts at ' + esc(s.from) + ' IST.');
 }
 function expBlock(x, t, stale){
@@ -2002,19 +1997,19 @@ function expBlock(x, t, stale){
     ? '<div class="muted" style="font-size:12px">Closed at</div><div style="font-size:40px;font-weight:700;font-family:var(--mono)">' + fmt(x.closed, 2) + '</div>' +
       (F ? '<div class="muted">Meter\'s last reading (' + esc(F.hm) + ' IST): ' + fmt(F.prediction, 0) + ' (' + off(F.prediction) + ')' + (F.forward != null ? ' · forward ' + fmt(F.forward, 0) + ' (' + off(F.forward) + ')' : '') + '</div>' : '')
     : F ? '<div class="muted" style="font-size:12px">Final reading · ' + esc(F.hm) + ' IST</div><div style="font-size:40px;font-weight:700;font-family:var(--mono)">' + fmt(F.prediction, 0) + '</div>' +
-      '<div class="muted">The close is recorded after 15:45 IST.</div>'
+      '<div class="muted">Close shown after 15:45 IST.</div>'
     : null;
   const W = [['day', 'Day'], ['120', '2h'], ['60', '1h'], ['30', '30m']];
   const winSel = '<span style="display:flex;gap:4px">' + W.map(([k, l]) => '<button class="btn' + (EXP.win === k ? ' primary' : '') + '" style="padding:2px 8px;font-size:12px" onclick="EXP.win=\'' + k + '\';drawExpiry()">' + l + '</button>').join('') + '</span>';
   return '<div style="margin:18px 0 8px;font-weight:700;font-size:15px">' + esc(x.label) + ' · expires today</div>' +
-    '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>' + (x.closed != null ? 'Expiry close' : 'Expected close') + '</h3><span style="font-size:12px;color:' + (stale ? 'var(--warn)' : 'var(--muted)') + '">' + (stale ? 'Stale · last good reading ' + t + ' IST' + (EXP.err ? ' · ' + esc(EXP.err) : '') : (marketHoursIst() ? 'Live · ' + t + ' IST · refreshes every 10 s' : 'After the close · reading ' + t + ' IST')) + '</span></div><div class="panel-b" style="text-align:center">' +
+    '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>' + (x.closed != null ? 'Expiry close' : 'Expected close') + '</h3><span style="font-size:12px;color:' + (stale ? 'var(--warn)' : 'var(--muted)') + '">' + (stale ? 'Stale · last good reading ' + t + ' IST' + (EXP.err ? ' · ' + esc(EXP.err) : '') : (marketHoursIst() ? 'Live · ' + t + ' IST' : 'Last reading · ' + t + ' IST')) + '</span></div><div class="panel-b" style="text-align:center">' +
       (head != null ? head : '<div style="font-size:40px;font-weight:700;font-family:var(--mono)">' + fmt(x.prediction, 0) + '</div>' +
-      (x.likely ? '<div class="muted">likely ' + fmt(x.likely[0]) + ' – ' + fmt(x.likely[1]) + ' (±' + fmt(x.sd, 0) + ', about 2 in 3; ATM straddle ' + fmt(x.straddle, 1) + ' ÷ 0.8)</div>'
+      (x.likely ? '<div class="muted">likely ' + fmt(x.likely[0]) + ' – ' + fmt(x.likely[1]) + ' (±' + fmt(x.sd, 0) + ', about 2 in 3)</div>'
         : '<div class="muted">likely ' + fmt(x.range[0]) + ' – ' + fmt(x.range[1]) + ' (±' + fmt(x.straddle, 1) + ')</div>')) + (head != null ? '' : expGauge(x)) +
       (x.settle ? '<div class="muted" style="font-size:12px;margin-top:4px;text-align:left">' + expSettleNote(x) + '</div>' : '') + '</div></div>' +
     '<div class="panel"><div class="panel-h"><h3>How the expected close has moved today</h3>' + winSel + '</div><div class="panel-b"><div style="height:300px"><canvas id="expChart_' + esc(x.id) + '"></canvas></div></div></div></div>' +
     '<div class="grid g4" style="margin-top:14px">' +
-      kpi('Spot', fmt(x.spot, 2), esc(x.label)) + kpi('Forward (market)', fmt(x.forward, 0), 'ATM ' + fmt(x.atm) + ': strike + call − put') +
+      kpi('Spot', fmt(x.spot, 2), esc(x.label)) + kpi('Forward (market)', fmt(x.forward, 0), 'ATM ' + fmt(x.atm)) +
       kpi('Max pain', fmt(x.max_pain), 'buyers collect least here') + kpi('PCR', x.pcr == null ? '–' : x.pcr, 'put OI ÷ call OI, ±3%') + '</div>' +
     expSellers(x);
 }
@@ -2031,7 +2026,7 @@ function expSellers(x){
   const cr = v => v == null ? '–' : '₹' + fmt(Math.abs(v), v != null && Math.abs(v) < 100 ? 1 : 0) + ' cr';
   const nxHead = x.next ? 'Next expiry · ' + esc(expDay(x.next.expiry)) : 'Next expiry';
   const row = (k, a, b) => '<div class="wl">' + k + '</div><div>' + a + '</div><div>' + b + '</div>';
-  const since = o.since ? 'since ' + o.since + ' IST' + (o.since < '09:15' ? ' (previous close)' : o.since > '15:30' ? ' (taken after the close: no changes to show)' : '') : 'no baseline yet';
+  const since = o.since ? 'since ' + o.since + ' IST' + (o.since < '09:15' ? ' (previous close)' : o.since > '15:30' ? ' (after the close)' : '') : 'no baseline yet';
   const No = N ? N.oi || {} : {};
   const table = '<div class="panel"><div class="panel-h"><h3>Option sellers\' walls</h3><span class="muted" style="font-size:12px">open interest (lakh units) and change ' + esc(since) + '</span></div><div class="panel-b">' +
     '<div class="ws"><div class="wl wh"></div><div class="wh">Today\'s expiry</div><div class="wh">' + nxHead + '</div>' +
@@ -2048,7 +2043,7 @@ function expSellers(x){
     row('Most calls closed', adds(o.covering && o.covering.calls), '') +
     row('Most puts closed', adds(o.covering && o.covering.puts), '') + '</div>' +
     (x.next && x.next.error ? '<div class="muted" style="margin-top:6px;font-size:12px">' + esc(x.next.error) + '</div>' : '') +
-    (N ? '<div class="muted" style="margin-top:6px;font-size:12px">Next expiry read every minute (as of ' + esc(N.as_of || '') + ' IST). Its ATM ' + fmt(N.atm) + ' straddle ±' + fmt(N.straddle, 1) + '. Wall midpoint ' + fmt(N.wall_mid) + '.</div>' : '') +
+    (N ? '<div class="muted" style="margin-top:6px;font-size:12px">Next expiry (as of ' + esc(N.as_of || '') + ' IST). Its ATM ' + fmt(N.atm) + ' straddle ±' + fmt(N.straddle, 1) + '. Wall midpoint ' + fmt(N.wall_mid) + '.</div>' : '') +
     '</div></div>';
   const cw = x.call_walls[0], pw = x.put_walls[0];
   const bar = (label, v, col, max) => '<div style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="width:118px;font-size:12px">' + label + '</span><span style="flex:1;background:var(--line2);border-radius:3px;height:10px;position:relative"><span style="position:absolute;left:0;top:0;bottom:0;width:' + Math.min(100, Math.abs(v || 0) / (max || 1) * 100).toFixed(1) + '%;background:' + col + ';border-radius:3px"></span></span><b style="width:84px;text-align:right;font-size:12px">' + (v != null && v < 0 ? '−' : '') + cr(v) + '</b></div>';
@@ -2060,7 +2055,7 @@ function expSellers(x){
     bar(step + ' up', S.step_up, S.step_up > 0 ? 'var(--down)' : 'var(--up)', mx) + bar(step + ' down', S.step_down, S.step_down > 0 ? 'var(--down)' : 'var(--up)', mx) +
     '<div style="margin-top:10px">Each ' + step + ' points past the call wall costs its sellers <b>' + cr(cw ? cw[1] * step / 1e7 : null) + '</b>; past the put wall, <b>' + cr(pw ? pw[1] * step / 1e7 : null) + '</b>.</div>' +
     '<div style="height:150px;margin-top:10px"><canvas id="expCost_' + esc(x.id) + '"></canvas></div>' +
-    '<div class="muted" style="margin-top:6px;font-size:12px">Bars: red = sellers would pay more, green = less; the chart shows the same two figures through the day. Sellers as a group gain most at max pain; the side where a step costs them more is where their losses grow faster. Many sellers are hedged, so this is pressure, not a rule.</div></div></div>';
+    '<div class="muted" style="margin-top:6px;font-size:12px">Red = sellers pay more, green = less.</div></div></div>';
   const key = 'oi_' + x.id;
   return '<div class="grid g2" style="margin-top:14px">' + table + money + '</div>' +
     '<div class="grid g2" style="margin-top:14px">' +
@@ -2073,13 +2068,13 @@ function expSellers(x){
 function drawExpiry(){
   const d = EXP.data, v = $('view'), tracks = d.tracks || {};
   const ups = d.upcoming || [];
-  const upTable = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Next expiries</h3><span class="muted" style="font-size:12px">from Kite\'s contract lists (holiday moves included)</span></div><div class="panel-b"><div style="overflow-x:auto"><table class="t"><tr><th style="text-align:left">Index</th><th>Today</th><th>Next expiry</th></tr>' +
+  const upTable = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Next expiries</h3></div><div class="panel-b"><div style="overflow-x:auto"><table class="t"><tr><th style="text-align:left">Index</th><th>Today</th><th>Next expiry</th></tr>' +
     ups.map(u => '<tr><td style="text-align:left">' + esc(u.label) + '</td><td>' + (u.today ? '<b>expires today</b>' : u.today === false ? '–' : 'unknown') + '</td><td>' + esc(expDay(u.next)) + '</td></tr>').join('') + '</table></div></div></div>';
   const allTracks = ids => ids.map(id => { const u = ups.find(x => x.id === id) || { label: id }; return expTrack(u.label, tracks[id]); }).join('');
   // Errors first: a missing Kite login on an expiry day must not read as "no expiry" or stop the polling (review).
   if (d.error) { v.innerHTML = errBlock(d.error) + upTable + allTracks(ups.map(u => u.id)); return; }
   if (!d.expiry_today) {
-    v.innerHTML = '<div class="panel"><div class="panel-b">No index expires today. The meter opens by itself on an expiry day.' +
+    v.innerHTML = '<div class="panel"><div class="panel-b">No index expires today.' +
       (d.note ? '<div class="muted" style="margin-top:6px;font-size:12px">' + esc(d.note) + '</div>' : '') + '</div></div>' + upTable + allTracks(ups.map(u => u.id));
     if (d.source === 'list') stopExpiry();   // stop only when Kite's contract lists say so; a guess keeps checking
     return;
@@ -2092,7 +2087,7 @@ function drawExpiry(){
     d.indices.map(x => expBlock(x, t, stale)).join('') +
     ovPanel(d.overseas) + allTracks(today) +
     '<details style="margin-top:14px"><summary class="muted">Other indices: next expiries and track records</summary>' + upTable + allTracks(ups.map(u => u.id).filter(id => !today.includes(id))) + '</details>' +
-    '<div class="muted" style="margin-top:10px;font-size:12px">Not a guarantee. The range is the market\'s own estimate: one standard deviation of the move left, from the ATM straddle. Walls and max pain are where price often settles on expiry, not where it must.</div>';
+    '<div class="muted" style="margin-top:10px;font-size:12px">Not a guarantee. The range covers about 2 in 3 outcomes.</div>';
   Object.values(EXP.charts).forEach(c => { try { c.destroy(); } catch (e) {} }); EXP.charts = {};
   if (!marketHoursIst() && d.indices.length && d.indices.every(x => x.error || x.closed != null) && EXP.timer) { clearInterval(EXP.timer); EXP.timer = null; }
   if (typeof Chart === 'undefined') return;   // chart library did not load: the figures above still stand
@@ -2132,7 +2127,7 @@ function drawExpiry(){
   // A day with no market-hours rows (13 Oct 2026: the walls record went live at 17:15 IST, after the close) shows why
   // instead of empty axes.
   const empty = (id, what) => { const el = $(id); if (el) el.parentNode.innerHTML = '<div class="muted" style="padding:24px 8px;font-size:13px">No ' + what +
-    ' recorded during market hours today. The record runs every minute from 09:15 to 15:30 IST on expiry days, kept when nobody watches; it began on Tue 13 Oct 2026 after the close, so the first full day is Thu 15 Oct 2026.</div>'; };
+    ' recorded today.</div>'; };
   d.indices.forEach(x => {
     if (x.error) return;
     if (!((EXP.tapes[x.id] || {}).tape || []).length) ['expWalls_', 'expSize_', 'expCost_'].forEach(k => { const c = EXP.charts[k + x.id]; if (c) { c.destroy(); delete EXP.charts[k + x.id]; } empty(k + x.id, 'minute rows'); });
@@ -2192,8 +2187,8 @@ function pageSignals(){
   const withPrev = S.lib.stocks.filter(s => s.prev).length;
   const pg = pager(st, list.length, 60);
   const icon = { screen: '◆', ownership: '◐', results: '▲', action: '◷' };
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">What changed</h1><p class="sub">Changes since each company was last scored (screens entered or left, gates, big ownership moves, results turning), plus notable moves in the latest quarterly filings and upcoming corporate actions. Strongest first.</p></div></div>' +
-    (withPrev < 50 ? '<div class="notice" style="margin-bottom:12px">Change tracking started on 9 Oct 2026: ' + withPrev + ' companies have a previous scoring to compare with so far. It fills in as the weekly batch re-scores each company. Filing-based moves and corporate actions below are already complete.</div>' : '') +
+  v.innerHTML = '<div class="page-head"><div><h1 class="h1">What changed</h1><p class="sub">Screens entered or left, gates, big ownership moves, results turning, and coming corporate actions. Strongest first.</p></div></div>' +
+    (withPrev < 50 ? '<div class="notice" style="margin-bottom:12px">Only ' + withPrev + ' companies can be compared so far.</div>' : '') +
     '<div class="toolbar"><input id="sigq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'sig\',this)"><div class="seg">' +
     kinds.map(([k, l]) => '<button class="' + ((st.f.kind || '') === k ? 'on' : '') + '" onclick="setF(\'sig\',\'kind\',\'' + k + '\')">' + l + ' <span class="faint">' + (k ? ev.filter(e => e.kind === k).length : ev.length) + '</span></button>').join('') + '</div></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th><th class="l">What happened</th><th class="l">Type</th><th>As of</th><th>Composite</th></tr></thead><tbody>' +
@@ -2228,7 +2223,7 @@ function pageSectors(){
   const v = $('view');
   if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
   if (!S.lib) { v.innerHTML = loadingBlock('Loading the library…'); return; }
-  if (!S.industries) { v.innerHTML = loadingBlock('Loading NSE industry classifications…'); return; }
+  if (!S.industries) { v.innerHTML = loadingBlock('Loading…'); return; }
   destroyCharts();
   const rows = sectorStats();
   // Industries with fewer than 5 companies are too small for medians to mean much: ranked last, faded, kept out of the chart.
@@ -2267,7 +2262,7 @@ function peersOf(sym){
   if (!me || !me.cells || !mc) return { basis: null, list: [] };
   const pool = S.lib.stocks.filter(s => s.cells && s.symbol !== sym && val(s, 'market_value_bucket') > 0 && (ind ? industryOf(s.symbol) === ind : !industryOf(s.symbol)));
   pool.sort((a, b) => Math.abs(Math.log(val(a, 'market_value_bucket') / mc)) - Math.abs(Math.log(val(b, 'market_value_bucket') / mc)));
-  return { basis: ind ? 'same industry (' + ind + '), closest in size' : 'unclassified companies closest in size (no NSE industry for this company)', list: pool.slice(0, 6) };
+  return { basis: ind ? 'same industry (' + ind + '), closest in size' : 'closest in size', list: pool.slice(0, 6) };
 }
 function factorPanel(sym){
   const f = S.fac && S.fac[sym];

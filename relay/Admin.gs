@@ -111,8 +111,8 @@ function adminData(token) {
   const res = UrlFetchApp.fetch(
     'https://api.github.com/repos/' + ADMIN_REPO + '/contents/' + ADMIN_PATH,
     { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
-  if (res.getResponseCode() === 404) return { error: 'No data published yet. The next daily run will send it.' };
-  if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for the private data.' };
+  if (res.getResponseCode() === 404) return { error: 'No data yet.' };
+  if (res.getResponseCode() !== 200) return { error: 'Could not load the data (' + res.getResponseCode() + ').' };
   return JSON.parse(res.getContentText());
 }
 
@@ -206,7 +206,7 @@ function appData_(token, files) {
     const res = responses[i];
     const code = res.getResponseCode();
     if (code === 404) { out[n] = { error: 'not published yet' }; return; }
-    if (code !== 200) { out[n] = { error: 'GitHub returned ' + code }; return; }
+    if (code !== 200) { out[n] = { error: 'could not load (' + code + ')' }; return; }
     try { out[n] = JSON.parse(res.getContentText()); } catch (err) { out[n] = { error: 'not valid JSON' }; }
   });
   return { files: out };
@@ -226,8 +226,8 @@ function adminLibrary(token) {
   // gzipped for the trip to the browser (~0.7 MB); the page unpacks and rebuilds the full shape.
   let res = privateRaw_(readToken, 'library_compact.json');
   if (res.getResponseCode() === 404) res = privateRaw_(readToken, 'library.json');
-  if (res.getResponseCode() === 404) return { error: 'The stock library has not been published yet.' };
-  if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for the library.' };
+  if (res.getResponseCode() === 404) return { error: 'The stock library is not available yet.' };
+  if (res.getResponseCode() !== 200) return { error: 'Could not load the library (' + res.getResponseCode() + ').' };
   return gzipped_(res);
 }
 
@@ -251,7 +251,7 @@ function adminMultibagger(token) {
   const res = UrlFetchApp.fetch(
     'https://api.github.com/repos/' + ADMIN_REPO + '/contents/site/multibagger.json',
     { muteHttpExceptions: true, headers: { Authorization: 'Bearer ' + readToken, Accept: 'application/vnd.github.raw' } });
-  if (res.getResponseCode() === 404) return { error: 'Multi-bagger data has not been published yet.' };
-  if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for multi-bagger data.' };
+  if (res.getResponseCode() === 404) return { error: 'Multibagger data is not available yet.' };
+  if (res.getResponseCode() !== 200) return { error: 'Could not load multibagger data (' + res.getResponseCode() + ').' };
   return gzipped_(res);
 }

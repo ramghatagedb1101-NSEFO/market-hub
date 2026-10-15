@@ -144,9 +144,9 @@ function nseChart_(sym) {
   const key = /^[A-Z]/.test(sym) ? sym[0] : '0';
   const r = privateRaw_(readToken, 'px/' + key + '.json', 'prices');
   const code = r.getResponseCode();
-  if (code === 404) return { error: 'the daily run has not published the NSE closes yet (they are written at 06:15 IST)', reason: 'not_published' };
+  if (code === 404) return { error: 'prices are not available yet', reason: 'not_published' };
   if (code === 401 || code === 403) return { error: "GitHub refused the relay's read token (" + code + "); it may have expired", reason: 'config' };
-  if (code !== 200) return { error: 'GitHub returned ' + code + ' when reading the NSE closes', reason: 'github' };
+  if (code !== 200) return { error: 'prices could not be loaded (' + code + ')', reason: 'github' };
   const d = JSON.parse(r.getContentText()), row = (d.close || {})[sym];
   const last = (d.dates || [])[(d.dates || []).length - 1];
   const listed = (d.listed || {})[sym];
@@ -166,8 +166,8 @@ function chartDiagnosis_(sym, kite, nse, bs) {
   let fix;
   if (nse.reason === 'not_listed_yet') fix = 'Nothing to fix: ' + sym + ' has not started trading yet. The chart appears after its first day.';
   else if (nse.reason === 'no_trades' && bs.reason === 'no_trades') fix = sym + ' has no recent trading on NSE. Check that the symbol is still current (it may have been renamed, merged or suspended).';
-  else if (kite.reason === 'no_login' || /login/.test(kiteWhy)) fix = 'Log in through the Kite link: the chart then uses Kite straight away.';
-  else if (nse.reason === 'not_published') fix = 'The NSE closes appear after the next daily run at 06:15 IST.';
+  else if (kite.reason === 'no_login' || /login/.test(kiteWhy)) fix = 'Log in to Kite to see the chart.';
+  else if (nse.reason === 'not_published') fix = 'Prices appear after 06:15 IST.';
   else if (nse.reason === 'config' || bs.reason === 'config') fix = 'A relay setting needs attention: ' + (nse.reason === 'config' ? nse.error : bs.error) + '.';
   else fix = 'Try again in a few minutes.';
   return { error: 'The price chart is not available right now.', why: why, fix: fix };
@@ -182,9 +182,9 @@ function bsChart_(sym, days) {
     const r = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/prices?from=' + from + '&page_size=1000' + (page > 1 ? '&page=' + page : ''),
                                 { muteHttpExceptions: true, headers: { 'X-API-Key': bsKey } });
     bsCount_(1);
-    if (r.getResponseCode() === 429) return { error: "today's BharatStock allowance is used up (it resets at 05:30 IST)", reason: 'quota' };
-    if (r.getResponseCode() === 404) return { error: 'BharatStock has no prices for ' + sym, reason: 'no_trades' };
-    if (r.getResponseCode() !== 200) return { error: 'BharatStock returned ' + r.getResponseCode(), reason: 'other' };
+    if (r.getResponseCode() === 429) return { error: "today's data limit is used up (resets at 05:30 IST)", reason: 'quota' };
+    if (r.getResponseCode() === 404) return { error: 'no prices for ' + sym, reason: 'no_trades' };
+    if (r.getResponseCode() !== 200) return { error: 'prices could not be loaded (' + r.getResponseCode() + ')', reason: 'other' };
     body = JSON.parse(r.getContentText());
     rows = rows.concat(bsRows_(body));
     page++;
@@ -225,7 +225,7 @@ function docsData_(symbol) {
   const res = UrlFetchApp.fetchAll([get('site/docs.json'), get('site/summaries.json')]);
   const out = { symbol: sym, docs: null, summaries: null };
   if (res[0].getResponseCode() === 200) out.docs = (JSON.parse(res[0].getContentText()) || {})[sym] || null;
-  else out.docs_note = 'Documents are collected by the daily library run; none published yet.';
+  else out.docs_note = 'No documents yet.';
   if (res[1].getResponseCode() === 200) out.summaries = (JSON.parse(res[1].getContentText()) || {})[sym] || null;
   const started = CacheService.getScriptCache().get('sum_' + sym);
   if (started) out.summary_started = started;
@@ -247,7 +247,7 @@ function summariseStart_(symbol) {
     method: 'post', muteHttpExceptions: true, contentType: 'application/json',
     headers: { Authorization: 'Bearer ' + pat, Accept: 'application/vnd.github+json' },
     payload: JSON.stringify({ ref: 'main', inputs: { symbol: sym } }) });
-  if (r.getResponseCode() !== 204) return { error: 'GitHub refused to start the summary run (' + r.getResponseCode() + ').' };
+  if (r.getResponseCode() !== 204) return { error: 'Could not start the summary (' + r.getResponseCode() + ').' };
   const at = Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm");
   CacheService.getScriptCache().put('sum_' + sym, at, 1800);
   return { ok: true, started: at };
@@ -260,7 +260,7 @@ function adminShortlist(token) {
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
   if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
   const res = privateRaw_(readToken, 'site/shortlist.json');
-  if (res.getResponseCode() === 404) return { error: 'The shortlist is published by the daily library run; not yet available.' };
-  if (res.getResponseCode() !== 200) return { error: 'GitHub returned ' + res.getResponseCode() + ' for the shortlist.' };
+  if (res.getResponseCode() === 404) return { error: 'The shortlist is not available yet.' };
+  if (res.getResponseCode() !== 200) return { error: 'Could not load the shortlist (' + res.getResponseCode() + ').' };
   return JSON.parse(res.getContentText());
 }

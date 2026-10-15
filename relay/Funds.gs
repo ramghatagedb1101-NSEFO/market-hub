@@ -21,8 +21,8 @@ function adminFunds(token, symbol) {
     bsCount_(1);
     const code = r.getResponseCode();
     if (code === 404) break;
-    if (code === 429) return { error: 'BharatStock daily limit reached; try again after it resets (05:30 IST).' };
-    if (code !== 200) return { error: 'BharatStock answered ' + code + '.' };
+    if (code === 429) return { error: 'Daily data limit reached; try again after 05:30 IST.' };
+    if (code !== 200) return { error: 'Fund holdings could not be loaded (' + code + ').' };
     const body = JSON.parse(r.getContentText());
     const got = bsRows_(body);
     got.forEach(x => rows.push(x));

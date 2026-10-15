@@ -392,7 +392,7 @@ function expiryNow_() {
 
   // The platform's one Kite request (Market.gs): spots and today's options for every expiring index.
   const snap = marketSnapshot_();
-  if (snap.error === 'no_login') return Object.assign(base, { expiry_today: base.listed.length > 0, error: 'No Kite login for today: log in with the Kite link.' });
+  if (snap.error === 'no_login') return Object.assign(base, { expiry_today: base.listed.length > 0, error: 'Not logged in to Kite today.' });
   if (snap.error) return Object.assign(base, { expiry_today: true, error: kiteReason_(snap.error) });
   base.ts = snap.ts;
   const ov = overseasSnapshot_();
@@ -465,7 +465,7 @@ const EXP_TAPE_FIELDS = ['time', 'spot', 'forward', 'straddle', 'max_pain', 'cal
 // after 15:45, its close.
 function expiryIndex_(ix, snap, now, M, ov) {
   const q = snap.q, sx = q[ix.spot];
-  if (!sx) return { id: ix.id, label: ix.label, error: 'Kite did not return the ' + ix.label + ' level.' };
+  if (!sx) return { id: ix.id, label: ix.label, error: 'No ' + ix.label + ' price yet.' };
   const spot = sx[0];
   if (now.hm >= '15:45') expiryRecordClose_(ix.id, now.date, spot);   // needs only the index level, not the chain
   const rows = expiryChain_(snap.opts, q, ix, spot, EXP_RANGE_PCT);

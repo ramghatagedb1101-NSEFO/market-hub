@@ -139,7 +139,7 @@ function adminQuotes(token) {
 // 10-second Kite snapshot (Market.gs) instead of a Kite call of its own.
 function quoteData_() {
   const snap = marketSnapshot_();
-  if (snap.error === 'no_login') return { error: 'no token for today; log in with Kite first', kite_login: 'no_login', login_link: kiteLoginLink_() };
+  if (snap.error === 'no_login') return { error: 'Not logged in to Kite today.', kite_login: 'no_login', login_link: kiteLoginLink_() };
   if (snap.error) { const st = kiteStatus_(); return { error: 'Kite: ' + snap.error, kite_login: st.state, login_link: st.login_link || null }; }
   const d = snap.q, front = snap.front || {};
   const pick = (sym, name) => {

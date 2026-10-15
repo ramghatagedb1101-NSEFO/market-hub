@@ -41,9 +41,9 @@ function adminStock(token, symbol, companyName) {
     try {
       const r = res[idx.fin];
       const code = r.getResponseCode();
-      if (code === 404) out.errors.financials = 'BharatStock has no financials for ' + sym + '.';
-      else if (code === 429) out.errors.financials = 'BharatStock daily limit reached; try again later.';
-      else if (code !== 200) out.errors.financials = 'BharatStock returned ' + code + '.';
+      if (code === 404) out.errors.financials = 'No results available for ' + sym + '.';
+      else if (code === 429) out.errors.financials = 'Daily data limit reached; try again later.';
+      else if (code !== 200) out.errors.financials = 'Results could not be loaded (' + code + ').';
       else {
         let body = JSON.parse(r.getContentText());
         let rows = bsRows_(body);
@@ -65,7 +65,7 @@ function adminStock(token, symbol, companyName) {
                    operating_profit: pick_(x, ['operating_profit', 'ebitda', 'operating_income']),
                    eps: pick_(x, ['eps', 'basic_eps', 'diluted_eps']) };
         });
-        if (!out.quarters.length) out.errors.financials = 'No quarterly results on BharatStock.';
+        if (!out.quarters.length) out.errors.financials = 'No quarterly results available.';
       }
     } catch (e) { out.errors.financials = 'Could not read financials: ' + e.message; }
   }
@@ -82,7 +82,7 @@ function adminStock(token, symbol, companyName) {
                    eps: pick_(x, ['eps', 'basic_eps', 'diluted_eps']),
                    cfo: pick_(x, ['cash_flow_operating']) };
         });
-      } else if (r.getResponseCode() === 429) out.errors.annual = 'BharatStock daily limit reached; try again later.';
+      } else if (r.getResponseCode() === 429) out.errors.annual = 'Daily data limit reached; try again later.';
     } catch (e) { out.errors.annual = 'Could not read annual results: ' + e.message; }
   }
 

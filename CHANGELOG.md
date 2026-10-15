@@ -4,6 +4,20 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
+### Screen and wording audit: dashboard and phone (~16:45 IST)
+Owner: "looks like something is overlapping, do a thorough audit of all the screens ... check the wordings. i dont
+want any contextual wordings suggesting how the app is built or why is it that way. plain simple words minimal".
+- Overlap fixed: on the Overview, long corporate-action names (and Shortlist reasons) could not wrap, so the table grew
+  past its box and its header painted over "Data coverage", with a sideways scrollbar on the page. Those cells now
+  wrap, and panels in a grid clip anything wider.
+- Bug fixed: the multibagger screen has four gates (scores 0-4), but the dashboard counted score 5, so the menu and the
+  Overview showed 0 (174 qualify) and stock reports said "x/5". Overview's compounders card said "six rules": eight.
+- Wording, both screens and the relay's messages: every mention of how the app works or where data comes from was
+  removed or made plain (relay, batch, daily/library run, BharatStock, Yahoo, CoinGecko, ECB, the AI model's name,
+  UTC, "not stored", "live from ...", start dates and catch-up notes, the model formula, the phone's Method table).
+  Kept: units, dates, "Not advice", and the "Log in to Kite" action. Timestamps now read "07:58 IST · Thu 15 Oct 2026".
+  Phone cache v36.
+
 ### Research collector: the next expiry's chain at each expiry-day close (~14:45 IST)
 Owner, on the next-expiry chain the meter watches: "smart money is preparing for the next expiry after making money
 today", then "ok" to testing it properly. The expiry history only holds the next expiry's chain as of the evening

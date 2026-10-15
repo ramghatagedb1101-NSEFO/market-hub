@@ -219,7 +219,7 @@
     <div class="pb">
       <div class="logo"><img src="icon-512.png" alt=""><span id="gate-title">Market Hub</span></div>
       <div><b>Sign in</b></div>
-      <div class="mut" style="margin-top:4px">A six-digit code goes to the owner's email, the same one the admin dashboard uses. It lasts 10 minutes. You stay signed in for seven days.</div>
+      <div class="mut" style="margin-top:4px">A sign-in code will be emailed to you.</div>
       <button class="btn" id="gate-send" type="button">Email me a code</button>
       <form id="gate-form" autocomplete="off">
         <label for="gate-code" class="mut" style="display:block;margin-top:14px">Code</label>
@@ -236,9 +236,8 @@
     <div class="ph"><span>Settings</span><button class="btn" id="set-close">Close</button></div>
     <div class="pb">
       <div><b>Kite login for today</b></div>
-      <div class="mut" style="margin-top:4px">Once each morning, after 07:35 and before 09:05 IST. Zerodha opens in a new tab. Enter your login and 2FA code there, not here.</div>
+      <div class="mut" style="margin-top:4px">Once each morning, 07:35–09:05 IST. Kite opens in a new tab; enter your login there.</div>
       <a class="btn" id="kite-login-btn" href="https://kite.zerodha.com/connect/login?v=3&amp;api_key=t0kjzcu1vcl09fch" target="_blank" rel="noopener">Log in to Kite</a>
-      <div class="mut">After you log in, the page says "Logged in for [date]". If it says the daily run did not start, tell the owner.</div>
       <div style="margin-top:14px"><b>Notifications</b></div>
       <div class="mut" id="push-status" style="margin-top:4px">Checking…</div>
       <button class="btn" id="push-btn" type="button" style="margin-top:6px">Turn on notifications</button>
@@ -330,7 +329,7 @@
       try{
         const r = await fetch(RELAY_URL + "?mode=" + mode, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
                                                               body: JSON.stringify(body || {})});
-        if (!r.ok) throw new Error("relay returned " + r.status);
+        if (!r.ok) throw new Error("server returned " + r.status);
         return await r.json();
       }catch(e){
         lastErr = e;
@@ -376,9 +375,9 @@
     showGate("Sending…");
     try {
       const r = await relayPost("app_code");
-      if (r.sent) { showGate("Code sent. Check the owner's email."); $("#gate-code").focus(); }
+      if (r.sent) { showGate("Code sent. Check your email."); $("#gate-code").focus(); }
       else showGate(r.error || "Could not send a code.", true);
-    } catch(e) { showGate("Could not reach the relay. Check your connection.", true); }
+    } catch(e) { showGate("Could not connect. Check your connection.", true); }
     b.disabled = false;
   };
   $("#gate-form").onsubmit = async e => {
@@ -395,7 +394,7 @@
         $("#gate").classList.remove("on");
         start();
       } else showGate(r.error || "Code not recognised.", true);
-    } catch(e) { showGate("Could not reach the relay. Check your connection.", true); }
+    } catch(e) { showGate("Could not connect. Check your connection.", true); }
     b.disabled = false;
   };
 
@@ -458,14 +457,14 @@
       if (sub) {
         btn.textContent = "Turn off notifications";
         btn.onclick = () => togglePush(false, sub);
-        status.textContent = "Checking with the relay…";
+        status.textContent = "Checking…";
         // Re-sent on every open: the relay de-duplicates by endpoint, and this repairs a subscription
         // the phone has but the relay never received.
         try {
           await registerPushSub(sub);
           status.textContent = "On: you'll get a reminder to log in to Kite each morning.";
         } catch(e) {
-          if (e.message !== "signed out") status.textContent = "On this phone, but the relay did not confirm it (" + e.message + "). Tap Turn off, then Turn on.";
+          if (e.message !== "signed out") status.textContent = "On this phone, but not confirmed (" + e.message + "). Tap Turn off, then Turn on.";
         }
       } else {
         status.textContent = "Get a reminder to log in to Kite each morning.";
@@ -489,7 +488,7 @@
       const perm = await Notification.requestPermission();
       if (perm !== "granted") { status.textContent = "Notifications were not allowed."; btn.disabled = false; return; }
       const keyRes = await relayPost("app_push_key", {token: SESSION});
-      if (!keyRes.key) { status.textContent = keyRes.error || "Push is not set up on the relay yet."; btn.disabled = false; return; }
+      if (!keyRes.key) { status.textContent = keyRes.error || "Notifications are not available yet."; btn.disabled = false; return; }
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64ToUint8Array(keyRes.key)});
       try { await registerPushSub(sub); }
@@ -503,7 +502,7 @@
   async function registerPushSub(sub){
     const r = await relayPost("app_push_subscribe", {token: SESSION, subscription: sub.toJSON()});
     if (r && r.error === "session_expired") { signOut("Your session ended. Sign in again."); throw new Error("signed out"); }
-    if (!r || r.error || !r.ok) throw new Error((r && r.error) || "the relay did not confirm");
+    if (!r || r.error || !r.ok) throw new Error((r && r.error) || "not confirmed");
   }
 
   function ageMin(iso){ return (Date.now() - new Date(iso).getTime()) / 60000; }
@@ -661,13 +660,12 @@
         <div class="pb">${moves || '<div class="mut">No market data yet.</div>'}</div></div>
       <div class="sec">Institutional flows</div>
       <div class="panel"><div class="ph"><span>FII and DII</span><span class="flag">cash${fiiDate ? " · " + esc(asClose(fiiDate)) : ""}</span></div>
-        <div class="pb">${flows || '<div class="mut">Flow data not available today.</div>'}</div>
-        <div class="note" style="padding:0 12px 10px">NSE publishes this once a day for the previous session's settled trades, not live.</div></div>
+        <div class="pb">${flows || '<div class="mut">Flow data not available today.</div>'}</div></div>
       <div class="sec">Written brief</div>
       <div class="panel"><div class="pb">
-        ${failed ? `<div class="amb">Brief pending: the AI service did not respond. It updates on the next daily run.</div>` :
+        ${failed ? `<div class="amb">Brief not ready yet.</div>` :
           `<details><summary>Show full brief</summary><div class="brief">${esc(plain)}</div></details>`}
-        <div class="note">Written ${esc(asSnap(B.ts).replace(/^As of /, ""))} by ${esc(B.source || "")}, from this dashboard's numbers and headlines. Not advice.</div>
+        <div class="note">Written ${esc(asSnap(B.ts).replace(/^As of /, ""))}. Not advice.</div>
       </div></div>`;
   }
 
@@ -818,7 +816,7 @@
           <div class="row"><span class="l">Spot</span><span class="r">${f(X.spot, 2)}</span></div>
           ${X.prediction != null ? `<div class="row"><span class="l"><b>Expected close (meter)</b></span><span class="r"><b>${f(X.prediction)}</b></span></div>` : ""}
           <div class="row"><span class="l"><b>Likely close range</b></span><span class="r"><b>${f(X.likely_range[0])} – ${f(X.likely_range[1])}</b></span></div>
-          <div class="row"><span class="l">${X.sd != null ? `Market's expected range (±${f(X.sd)}, about 2 in 3; ATM ${f(X.atm)} straddle ${f(X.straddle, 1)} ÷ 0.8)` : `Market's range (ATM ${f(X.atm)} straddle ±${f(X.straddle, 1)}, about 3 in 5)`}</span><span class="r">${f(X.implied_range[0])} – ${f(X.implied_range[1])}</span></div>
+          <div class="row"><span class="l">${X.sd != null ? `Market's expected range (±${f(X.sd)}, about 2 in 3)` : `Market's range (about 3 in 5)`}</span><span class="r">${f(X.implied_range[0])} – ${f(X.implied_range[1])}</span></div>
           <div class="row"><span class="l">Max pain</span><span class="r">${f(X.max_pain)}</span></div>
           <div class="row"><span class="l">Heaviest strike near spot</span><span class="r">${f(X.pin)}</span></div>
           <div class="row"><span class="l">Call walls (resistance)</span><span class="r">${walls(X.call_walls)}</span></div>
@@ -827,11 +825,11 @@
           ${X.sellers ? `<div class="row"><span class="l">Sellers pay if it settles here · at max pain</span><span class="r">${cr(X.sellers.here)} · ${cr(X.sellers.at_max_pain)}</span></div>
           <div class="row"><span class="l">Extra they pay for ${X.step || 50} points up · down</span><span class="r">${cr(X.sellers.step_up)} · ${cr(X.sellers.step_down)}</span></div>` : ""}
           ${X.next ? `<div class="row"><span class="l">Next expiry (${dayTxt(parseDay(X.next.expiry))}): call wall · put wall · max pain</span><span class="r">${walls(X.next.call_walls.slice(0, 1))} · ${walls(X.next.put_walls.slice(0, 1))} · ${f(X.next.max_pain)}</span></div>` : ""}
-          ${X.oi_since ? `<div class="mut" style="margin-top:4px">OI changes since ${esc(X.oi_since)} IST${X.oi_since < "09:15" ? " (previous close)" : ""}. Full record through the day: dashboard, Expiry meter.</div>` : ""}
+          ${X.oi_since ? `<div class="mut" style="margin-top:4px">OI changes since ${esc(X.oi_since)} IST${X.oi_since < "09:15" ? " (previous close)" : ""}.</div>` : ""}
           <details><summary>Open interest by strike</summary>
             <table class="t"><tr><th>Strike</th><th>Calls OI</th><th>Puts OI</th></tr>${X.rows.map(r =>
               `<tr${r.strike === X.atm ? ' style="font-weight:600"' : ""}><td>${f(r.strike)}</td><td>${bar(r.ce_oi, "var(--neg, #d9534f)")}</td><td>${bar(r.pe_oi, "var(--pos, #2e9d5b)")}</td></tr>`).join("")}</table></details>
-          <div class="mut" style="margin-top:6px">Not a prediction. The range comes from the market's own estimate of the move left (the ATM straddle): one standard deviation is the straddle ÷ 0.8, and the close lands inside ±1 standard deviation about 2 times in 3. Walls and max pain are where price often sticks on expiry, not where it must end. Updates every few minutes.</div>
+          <div class="mut" style="margin-top:6px">Not a prediction. The range covers about 2 in 3 outcomes.</div>
         </div></div>`;
       }).join("");
     }catch(e){ return ""; }
@@ -853,7 +851,7 @@
             `<tr><td>${esc(s.at)}</td><td>${v(s.live_bp)}</td><td>${v(s.model_bp)}</td><td>${v(s.forward_bp)}</td><td>${s.n_band ? s.live_band_hits + "/" + s.n_band : "–"}</td></tr>`).join("")}</table></details>`;
       }).join("");
       return `<div class="sec">Expiry meter scoreboard</div><div class="panel"><div class="pb">
-        <div class="mut" style="margin-bottom:4px">Average distance from the close in bp, lower is better: the meter as shown live, today's model replayed, and the market's forward. "In range": close inside the ±1 sd band.</div>${body}</div></div>`;
+        <div class="mut" style="margin-bottom:4px">Average distance from the close in bp (lower is better). "In range": close inside the ±1 sd band.</div>${body}</div></div>`;
     }catch(e){ return ""; }
   }
 
@@ -875,9 +873,9 @@
       let S = null;
       try { S = await getFile("stocks"); } catch(e) { S = null; }
       el.innerHTML = exp + score + idx + stockScreen(S) +
-        `<div class="foot">${esc(D.disclaimer)} Model suggestions with no track record yet. Check margin and your own risk limits before placing anything.</div>`;
+        `<div class="foot">${esc(D.disclaimer)} No track record yet. Check margin and your own risk limits before placing anything.</div>`;
     }catch(e){
-      el.innerHTML = exp + score + `<div class="panel"><div class="pb mut">F&amp;O suggestions appear after the daily job runs.</div></div>`;
+      el.innerHTML = exp + score + `<div class="panel"><div class="pb mut">No F&amp;O suggestions yet.</div></div>`;
     }
   }
 
@@ -888,7 +886,7 @@
   async function renderIdeas(){
     const el = $("#mb-body");
     try { SL = await getFile("shortlist"); }
-    catch(e){ el.innerHTML = `<div class="panel"><div class="pb mut">The shortlist appears after the daily library run.</div></div>`; return; }
+    catch(e){ el.innerHTML = `<div class="panel"><div class="pb mut">Shortlist not available yet.</div></div>`; return; }
     drawIdeas();
   }
   function setIdeasTab(t){ IDEAS_TAB = t; drawIdeas(); }
@@ -937,14 +935,14 @@
         if (IDEAS_TAB !== "watch") return;
       }
       body = WATCH.error ? `<div class="panel"><div class="pb mut">${esc(WATCH.error)}</div></div>`
-        : (WATCH.items || []).length ? WATCH.items.map(watchCard).join("") + (WATCH.live ? "" : `<div class="note">Returns since starring need today's Kite login.</div>`)
-        : `<div class="panel"><div class="pb mut">Nothing starred yet. Open any company and tap ☆ Star; the watchlist also appears on the dashboard.</div></div>`;
+        : (WATCH.items || []).length ? WATCH.items.map(watchCard).join("") + (WATCH.live ? "" : `<div class="note">Returns appear after today's Kite login.</div>`)
+        : `<div class="panel"><div class="pb mut">Nothing starred yet. Open any company and tap ☆ Star.</div></div>`;
     } else {
       const X = L[IDEAS_TAB] || {};
       body = (X.top || []).map(ideaCard).join("") || `<div class="panel"><div class="pb mut">No companies qualify today.</div></div>`;
     }
     el.innerHTML = `<div class="sec">Track record · average vs NIFTY since joining</div>${tiles}${seg}${body}
-      <div class="foot">Ranked from your own screen rules, updated by the daily run (${esc(asSnap(SL.generated).replace(/^As of /, ""))}). Not advice: open a company and read its documents before acting.</div>`;
+      <div class="foot">Updated ${esc(asSnap(SL.generated).replace(/^As of /, ""))}. Not advice.</div>`;
   }
 
   // ---- What changed for your stocks (11 Oct 2026) ----
@@ -1100,11 +1098,11 @@
     const st = (docs.summaries || {})._status, started = docs.summary_started;
     const hhmm = s => String(s || "").slice(11, 16);
     if (started && (!st || String(st.at || "").slice(0, 16) < String(started).slice(0, 16)))
-      return { running: true, html: `Summary run started at ${esc(hhmm(started))} IST. A transcript takes about 3–5 minutes, an annual report up to 10.` };
+      return { running: true, html: `Summary started at ${esc(hhmm(started))} IST. Takes 3–10 minutes.` };
     if (st && st.state === "error") {
       const busy = /503|high demand|unavailable|disconnected|timed out|429/i.test(st.message || "");
-      const which = /annual report/i.test(st.message || "") ? "The annual-report summary" : /transcript/i.test(st.message || "") ? "The transcript summary" : "The last summary run";
-      return { html: `<span class="amb">${which} at ${esc(hhmm(st.at))} IST did not finish: ${busy ? "Google's free AI service was busy." : esc(st.message || "")}</span> Try again in a few minutes.` };
+      const which = /annual report/i.test(st.message || "") ? "The annual-report summary" : /transcript/i.test(st.message || "") ? "The transcript summary" : "The last summary";
+      return { html: `<span class="amb">${which} at ${esc(hhmm(st.at))} IST did not finish: ${busy ? "the AI service was busy." : esc(st.message || "")}</span> Try again in a few minutes.` };
     }
     if (st && st.state === "skipped") return { html: esc(st.message || "") };
     return null;
@@ -1147,7 +1145,7 @@
     const R = ST.results || {}, el = $("#sx-results"), nel = $("#sx-news");
     const cr = v => v == null ? "–" : f(v / 1e7, Math.abs(v) >= 1e10 ? 0 : 1);
     if (el) {
-      if (R.loading) el.innerHTML = `<div class="mut">Loading results from BharatStock…</div>`;
+      if (R.loading) el.innerHTML = `<div class="mut">Loading results…</div>`;
       else if (R.error) el.innerHTML = `<div class="amb">${esc(R.error)}</div>`;
       else {
         const rows = (RES_MODE === "a" ? (R.annual || []) : (R.quarters || [])).slice().reverse();
@@ -1155,7 +1153,7 @@
         el.innerHTML = `<div class="seg" style="margin-bottom:8px"><button class="${RES_MODE === "q" ? "on" : ""}" onclick="setResMode('q')">Quarterly (${(R.quarters || []).length})</button><button class="${RES_MODE === "a" ? "on" : ""}" onclick="setResMode('a')">Annual (${(R.annual || []).length} yrs)</button></div>` +
           (err && !rows.length ? `<div class="amb">${esc(err)}</div>` : `<div style="overflow-x:auto"><table class="t"><tr><th>${RES_MODE === "a" ? "Year to" : "Quarter to"}</th><th>Revenue</th><th>Profit</th><th>Margin</th><th>EPS</th></tr>` +
           rows.map(x => `<tr><td>${esc(monYr(x.period))}</td><td>${cr(x.revenue)}</td><td class="${cls(x.net_profit)}">${cr(x.net_profit)}</td><td>${x.revenue && x.net_profit != null ? f(x.net_profit / x.revenue * 100, 1) + "%" : "–"}</td><td>${x.eps == null ? "–" : f(x.eps, 2)}</td></tr>`).join("") +
-          `</table></div><div class="note">₹ crore, consolidated where filed · live from BharatStock, not stored</div>`);
+          `</table></div><div class="note">₹ crore, consolidated where filed</div>`);
       }
     }
     if (nel) {
@@ -1174,7 +1172,7 @@
   function fillFunds(){
     const X = ST.funds || {}, el = $("#sx-funds");
     if (!el) return;
-    if (X.loading) { el.innerHTML = `<div class="mut">Loading the latest fund portfolios from BharatStock…</div>`; return; }
+    if (X.loading) { el.innerHTML = `<div class="mut">Loading fund holdings…</div>`; return; }
     if (X.error) { el.innerHTML = `<div class="amb">${esc(X.error)}</div>`; return; }
     const items = X.items || [];
     if (!items.length) { el.innerHTML = `<div class="mut">No mutual fund scheme holds it in the latest monthly portfolios.</div>`; return; }
@@ -1188,7 +1186,7 @@
     el.innerHTML = `<div class="mut" style="margin-bottom:4px">${items.length} scheme${items.length > 1 ? "s" : ""}${total ? ` · together about ${f(total, 2)}% of the company` : ""}</div>` +
       items.map(i => `<div class="mrow"><div class="ml"><div>${esc(i.scheme)}</div><div>${[i.shares != null ? f(Number(i.shares)) + " shares" : "", chg(i), i.date ? "as of " + esc(dayTxt(parseDay(String(i.date))) || String(i.date)) : ""].filter(Boolean).join(" · ")}</div></div>
         <div class="mv">${pctOf(i) != null ? f(pctOf(i), 3) + "%" : "–"}</div></div>`).join("") +
-      `<div class="note">% of the company${items[0].pct_company == null ? " (estimated from market value and the latest close)" : ""}. "New this month" means first seen in the latest monthly portfolio; BharatStock does not give the date a fund first bought.${missing.length ? " Fields returned: " + esc((X.fields || []).join(", ")) + "." : ""}</div>`;
+      `<div class="note">% of the company${items[0].pct_company == null ? " (estimated)" : ""}. "New this month" = first seen in the latest monthly portfolio.</div>`;
   }
 
   function drawStock(){
@@ -1208,7 +1206,7 @@
     const chk = P.check || {};
     const tags = [x ? `<span class="tag g">${x.style === "compounders" ? "Compounders" : "Emerging"} list #${x.rank}</span>` : "",
       d.starred ? `<span class="tag a">★ Watchlist</span>` : "",
-      chk.status === "ok" ? `<span class="tag g">✓ Matches ${chk.source === "bse" ? "BSE results" : "NSE filing"}</span>` : chk.status === "mismatch" ? `<span class="tag r">NSE filing disagreed</span>` : chk.status === "period_differs" ? `<span class="tag a">BharatStock behind NSE</span>` : chk.status === "nse_only" ? `<span class="tag">Figures from NSE filing</span>` : chk.status === "bse_only" ? `<span class="tag">Figures from BSE results</span>` : "",
+      chk.status === "ok" ? `<span class="tag g">✓ Matches ${chk.source === "bse" ? "BSE results" : "NSE filing"}</span>` : chk.status === "mismatch" ? `<span class="tag r">NSE figures used</span>` : chk.status === "period_differs" ? `<span class="tag a">NSE figures used</span>` : chk.status === "nse_only" ? `<span class="tag">Figures from NSE filing</span>` : chk.status === "bse_only" ? `<span class="tag">Figures from BSE results</span>` : "",
       (P.flags || []).some(fl => fl.level === "severe") ? `<span class="tag r">Data check: suspect figure</span>` : "",
       ...(P.actions || []).filter(a => a.upcoming).slice(0, 1).map(a => `<span class="tag">${esc(a.subject)} · ex ${esc(dayTxt(parseDay(a.ex_date)))}</span>`)].filter(Boolean).join("");
     const head = `<div style="margin:2px 2px 10px">
@@ -1216,14 +1214,14 @@
         <span class="${cls(chg)}" style="font:600 13px var(--mono)">${chg == null ? "" : pct(chg)}</span><span class="mut" style="font-size:11px">${last ? esc(asClose(last[0])) : ""}</span></div>
       ${ctx.length ? `<div class="mut" style="margin:2px 0 6px">${esc(ctx.join(" · "))}</div>` : ""}
       ${tags ? `<div>${tags}</div>` : ""}
-      ${P.testable ? `<div class="mut" style="font-size:11.5px">Passes ${P.met} of ${P.testable} library checks · data ${f(P.data_quality_pct, 0)}% complete</div>` : ""}
+      ${P.testable ? `<div class="mut" style="font-size:11.5px">Passes ${P.met} of ${P.testable} checks · data ${f(P.data_quality_pct, 0)}% complete</div>` : ""}
       ${P.error ? `<div class="amb" style="font-size:11.5px">${esc(P.error)}</div>` : ""}</div>`;
 
     // 1 price
     const chartBody = `<div class="seg" style="margin-bottom:6px">${["1M", "6M", "1Y", "5Y"].map(r => `<button class="${ST_RANGE === r ? "on" : ""}" onclick="setStRange('${r}')">${r}</button>`).join("")}</div>` +
-      (d.error ? `<div class="amb">${esc(d.error)}</div>` : C.error ? `<div class="amb" style="font-weight:600">${esc(C.error)}</div>${C.why ? `<ul class="st-list mut">${C.why.map(w => `<li>${esc(w)}</li>`).join("")}</ul>` : ""}${C.fix ? `<div style="margin-top:4px"><b>What to do:</b> ${esc(C.fix)}</div>` : ""}`
+      (d.error ? `<div class="amb">${esc(d.error)}</div>` : C.error ? `<div class="amb" style="font-weight:600">${esc(C.error)}</div>${C.fix ? `<div style="margin-top:4px"><b>What to do:</b> ${esc(C.fix)}</div>` : ""}`
         : `<div id="st-chart" style="height:190px"></div>`) +
-      `<div class="note" style="margin-top:4px">${C.error ? "" : ({ kite: "Prices: Kite", nse: "Prices: NSE daily closes", bharatstock: "Prices: BharatStock daily" }[C.source] || "") + (C.note ? " (" + esc(C.note) + ")" : "") + " · "}chart: <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts</a></div>`;
+      `<div class="note" style="margin-top:4px">Chart: <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView Lightweight Charts</a></div>`;
     const retBits = [["1M", "ret_1m"], ["3M", "ret_3m"], ["12M", "ret_12m"]].filter(([, k]) => pv(k) != null).map(([l, k]) => l + " " + pct(pv(k), 1));
     let html = head + sect("chart", "Price", esc(retBits.join(" · ")), chartBody);
 
@@ -1245,7 +1243,7 @@
         return sect("g-" + g, esc(label), tested ? `passes ${met} of ${tested}` : `${ks.length} figures`,
           ks.map(k => `<div class="mrow"><div class="ml"><div>${esc((M[k] || [k])[0])}</div><div>${esc(P.rules[k] || "")}</div></div><div class="mv">${fmtM(k, V[k][0])} ${mark(V[k][1])}</div></div>`).join(""));
       }).join("");
-      html += sect("figures", "Key figures", esc(sumKeys.join(" · ")) || (CAT ? "" : "loading labels…"), body + `<div class="note">✓ meets the library rule shown under it · ✗ does not · · not testable. From the daily library run, ${esc(asSnap(P.generated))}.</div>`);
+      html += sect("figures", "Key figures", esc(sumKeys.join(" · ")) || (CAT ? "" : "loading labels…"), body + `<div class="note">✓ meets the rule shown under it · ✗ does not · · not testable. ${esc(asSnap(P.generated))}.</div>`);
     } else if (!P.error) html += sect("figures", "Key figures", "loading…", `<div class="mut">Loading…</div>`);
 
     // 4 ownership (and mutual funds, loaded on tap)
@@ -1257,8 +1255,8 @@
         hh.map(r => `<tr><td>${esc(monYr(r[0]))}</td><td>${r[1] == null ? "–" : f(r[1], 2)}</td><td>${r[3] == null ? "–" : f(r[3], 2)}</td><td>${r[4] == null ? "–" : f(r[4], 2)}</td><td>${r[2] == null ? "–" : f(r[2], 2)}</td></tr>`).join("") + `</table></div>` : `<div class="mut">No holding history yet.</div>`;
       const pledge = pv("pledge_pct") != null ? `<div class="mrow"><div class="ml"><div>Promoter shares pledged</div></div><div class="mv">${f(pv("pledge_pct"), 2)}%</div></div>` : "";
       html += sect("ownership", "Ownership", esc(own.join(" · ")),
-        `${pledge}<div class="mut" style="margin:6px 0 4px">Shareholding by quarter, % of the company (NSE filings)</div>${hist}` +
-        sect("funds", "Mutual funds holding it", "Tap to load the schemes, shares and % held (1 BharatStock request)", `<div class="mut">Loading…</div>`));
+        `${pledge}<div class="mut" style="margin:6px 0 4px">Shareholding by quarter, % of the company</div>${hist}` +
+        sect("funds", "Mutual funds holding it", "Tap to load the schemes, shares and % held", `<div class="mut">Loading…</div>`));
     }
 
     // 5 results (loaded on tap)
@@ -1298,7 +1296,7 @@
     const docItems = [...(docs.tr || []).map(i => docLink(i, "Earnings-call transcript")), ...(docs.pr || []).map(i => docLink(i, "Investor presentation")),
       ...(docs.ar || []).map(i => docLink(i, "Annual report " + (i.fy ? "FY" + i.fy : ""))), ...(docs.rec || []).map(i => docLink(i, "Call recording"))];
     html += sect("docs", "Documents", d.docs ? `${docItems.length} filings: transcripts, presentations, annual reports` : "loading…",
-      `<div class="docl">${docItems.join("") || `<div class="mut">No documents collected for this company yet.</div>`}</div>`);
+      `<div class="docl">${docItems.join("") || `<div class="mut">No documents yet.</div>`}</div>`);
 
     // 7 news (loaded with the results)
     html += sect("news", "News", "Tap for the latest headlines", `<div class="mut">Loading…</div>`);
@@ -1310,7 +1308,7 @@
 
     // 9 data checks
     if (P.values || P.check) {
-      const st = { ok: "Results match the company's NSE filing", mismatch: "BharatStock disagreed with the NSE filing; NSE figures used", period_differs: "BharatStock is behind NSE; growth and margin from the NSE filing", nse_only: "No BharatStock results; figures from the company's NSE filing", bse_only: "No BharatStock results; figures from the company's BSE results", basis_differs: "BSE shows standalone results, BharatStock consolidated: not comparable", unavailable: "Could not be checked against NSE" }[chk.status] || "Not checked against NSE yet";
+      const st = { ok: "Results match the company's NSE filing", mismatch: "Differed from the NSE filing; NSE figures used", period_differs: "Growth and margin from the latest NSE filing", nse_only: "Figures from the company's NSE filing", bse_only: "Figures from the company's BSE results", basis_differs: "Standalone and consolidated results differ: not compared", unavailable: "Could not be checked against NSE" }[chk.status] || "Not checked against NSE yet";
       html += sect("data", "Data checks", esc(st),
         `<div class="mrow"><div class="ml"><div>NSE cross-check</div><div>${esc(chk.why || (chk.diffs || []).join("; ") || "")}</div></div><div class="mv">${esc(chk.status || "–")}</div></div>` +
         (P.flags || []).map(fl => `<div class="mrow"><div class="ml"><div>${esc(fl.text)}</div></div><div class="mv ${fl.level === "severe" ? "dn" : "amb"}">${esc(fl.level)}</div></div>`).join("") +
@@ -1318,7 +1316,7 @@
         `<div class="mrow"><div class="ml"><div>Measures available</div></div><div class="mv">${f(P.data_quality_pct, 0)}%</div></div>`);
     }
 
-    html += `<div class="foot">Not advice. Figures from the daily library run; prices live from Kite when today's login exists. Results and fund holdings come live from BharatStock when you open those sections.</div>`;
+    html += `<div class="foot">Not advice.</div>`;
     $("#st-body").innerHTML = html;
     if (OPEN.chart) drawStockChart(C);
     if (ST.results && OPEN.results) fillResults(); else if (ST.results && OPEN.news) fillResults();
@@ -1369,15 +1367,7 @@
       </div></div>
       <div class="sec">NIFTY 50 · last 250 sessions</div>
       <div class="panel"><div class="pb"><div class="chart"><canvas id="cPrice"></canvas></div></div></div>
-      <div class="sec">Method</div>
-      <div class="panel"><div class="pb"><table class="t" style="font:11.5px var(--sans)">
-        <tr><td style="text-align:left;color:var(--mut)">Data</td><td style="text-align:left">Index closes: NSE bhavcopy; SENSEX from Kite</td></tr>
-        <tr><td style="text-align:left;color:var(--mut)">Tools</td><td style="text-align:left">Ten price tools scored −1 to +1</td></tr>
-        <tr><td style="text-align:left;color:var(--mut)">Blend</td><td style="text-align:left">Learned weights, reduced after misses</td></tr>
-        <tr><td style="text-align:left;color:var(--mut)">Band</td><td style="text-align:left">80% range from recent volatility, calibrated on outcomes</td></tr>
-        <tr><td style="text-align:left;color:var(--mut)">Score</td><td style="text-align:left">Against the actual close and the naive baseline</td></tr>
-      </table></div></div>
-      <div class="foot">Statistical estimates from published closes. Not investment advice. Past performance does not guarantee future results.</div>`;
+      <div class="foot">Not investment advice. Past performance does not guarantee future results.</div>`;
     if (chart !== null) drawChart();
   }
 
@@ -1445,7 +1435,7 @@
       const xb = $("#exp-box"); if (xb && xb.offsetParent) expiryPanel().then(h => { if (h) xb.innerHTML = h; });
     }catch(e){
       $("#dot").classList.add("stale");
-      $("#status").textContent = "quotes unavailable · estimates still update daily";
+      $("#status").textContent = "live prices unavailable";
     }
   }
 
@@ -1454,7 +1444,7 @@
   function kiteAlarm(L){
     KITE_ALARM = L;
     const s = $("#status");
-    s.textContent = L.kite_login === "rejected" ? "Kite login was replaced · tap to log in again" : "No Kite login yet today · tap to log in";
+    s.textContent = L.kite_login === "rejected" ? "Kite login ended · tap to log in" : "No Kite login yet today · tap to log in";
     s.style.cursor = "pointer"; s.style.color = "var(--amb)";
     s.onclick = () => { if (KITE_ALARM && KITE_ALARM.login_link) window.open(KITE_ALARM.login_link, "_blank", "noopener"); };
   }
