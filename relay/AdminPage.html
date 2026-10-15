@@ -160,7 +160,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--panel2);border-radi
 .ws{display:grid;grid-template-columns:150px 1fr 1fr;column-gap:12px;font-size:12.5px}
 .ws>div{padding:7px 0;border-bottom:1px solid var(--line2)} .ws .wh{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
 @media (max-width:600px){ .ws{grid-template-columns:1fr 1fr} .ws .wl{grid-column:1/-1;border-bottom:0;padding-bottom:0;font-weight:600;color:var(--text2)} .ws .wl:empty{display:none} }
-.glance{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.glance{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
 .glance .kpi{padding:12px 14px} .glance .kpi .v{font-size:20px} .glance .kpi .k{text-transform:uppercase;letter-spacing:.05em;font-size:11px}
 .brow{display:grid;grid-template-columns:110px 1fr 90px;align-items:center;gap:10px;margin:8px 0;font-size:12.5px}
 .brow .bl{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -169,7 +169,6 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--panel2);border-radi
 .bfill{position:absolute;top:0;bottom:0;border-radius:3px} .bfill.pos{background:var(--up);left:50%} .bfill.neg{background:var(--down);right:50%}
 .bzero{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
 .brief-text{white-space:pre-wrap;font-size:13.5px;line-height:1.65;margin-top:10px}
-@media (max-width:1100px){ .glance{grid-template-columns:repeat(3,minmax(0,1fr))} }
 @media (max-width:600px){ .glance{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:1100px){ .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .stats{grid-template-columns:repeat(3,minmax(0,1fr))} }
 @media (max-width:860px){
@@ -548,6 +547,7 @@ const TITLES = { overview:'Overview', shortlist:'Shortlist', multibagger:'Early 
                  screener:'Screener', factors:'Factor rankings', explore:'Scatter explorer', sectors:'Sectors', signals:'What changed', expiry:'Expiry meter' };
 function rerender(){
   $('crumb').textContent = TITLES[current.page] || '';
+  $('tape').style.display = current.page === 'overview' ? 'none' : '';   // the Overview shows the same quotes as tiles
   const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
               screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry }[current.page] || pageOverview;
@@ -655,6 +655,8 @@ function pageOverview(){
 // Market brief (15 Oct 2026, owner: "overview on admin panel and brief on mobile needs to be same"): the phone's
 // Brief tab, drawn from the same files (brief, context, stocks) and the same live quotes, with the same labels.
 // Only its box is redrawn on each 10-second quote, so the open written brief and the page scroll stay put.
+// The market strip's quotes (indices, DAX, FTSE, US futures) are tiles here too, and the strip is hidden on this page,
+// so nothing shows twice (owner, 15 Oct 2026: "remove duplicates and make it also tiled like market brief").
 const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], DOW3 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 function istOf(ts){
   if (!ts) return null;
@@ -710,13 +712,21 @@ function briefHtml(){
   const vixNow = LQ && LQ.india_vix ? LQ.india_vix : (C.india_vix || ST.india_vix), sp = glob['S&P 500'], btc = S.btc;
   const chg = x => x == null ? '–' : pct(x, 2);
   const tile = (k, v, sub, c) => '<div class="panel kpi"><div class="k">' + esc(k) + '</div><div class="v ' + (c || '') + '">' + v + '</div><div class="s ' + (c || '') + '">' + sub + '</div></div>';
+  const idxTile = (k, name) => { const q = LQ && LQ.indices && LQ.indices[k];
+    return tile(name, q ? fmt(q.last, 2) : '–', q ? chg(q.change_pct) + '<br>' + esc(bQuote(LQ.ts)) : 'no live quote', cls(q && q.change_pct)); };
+  const yr = new Date(Date.now() + 5.5 * 3600e3).getUTCFullYear();
+  const ovs = ((LQ && LQ.overseas && LQ.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym));
+  const ovsTiles = ovs.map(o => tile(o.name, fmt(o.last, 2), chg(o.change_pct) + '<br>' +
+    esc(o.at ? (o.today ? 'As of ' + o.at + ' IST' : 'Last quote · ' + o.at.slice(7) + ' IST · ' + o.at.slice(0, 6) + ' ' + yr) : ''), cls(o.change_pct))).join('');
   const tiles = [
+    idxTile('NIFTY', 'NIFTY 50'), idxTile('BANKNIFTY', 'Bank NIFTY'), idxTile('SENSEX', 'SENSEX'),
+    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct) + '<br>' + esc(LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(vixNow && vixNow.change_pct)),
     tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct) + '<br>' + esc(ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(goldRaw && goldRaw.change_pct)),
-    tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct) + '<br>' + esc(ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(crudeUsd && crudeUsd.change_pct)),
+    tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct) + ' · ₹' + fmt(crudeRaw.last, 0) + '/bbl<br>' + esc(ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(crudeUsd && crudeUsd.change_pct)),
     tile('USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'),
          usd ? chg(usd.change_pct) + '<br>' + esc(ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? 'ECB rate<br>' + esc(bClose(C.fx.date)) : 'no data'), cls(usd && usd.change_pct)),
-    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct) + '<br>' + esc(LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(vixNow && vixNow.change_pct)),
     tile('S&P 500', sp ? fmt(sp.last, 0) : '–', sp ? chg(sp.change_pct) + '<br>' + esc(bClose(sp.date)) : 'no data', cls(sp && sp.change_pct)),
+    ovsTiles,
     tile('Bitcoin US$', btc ? fmt(btc.usd, 0) : '–', btc ? chg(btc.chg) + '<br>24 h · ' + esc(bTime(istOf(btc.ts))) : 'no data', cls(btc && btc.chg))
   ].join('');
   const moves = briefBars([

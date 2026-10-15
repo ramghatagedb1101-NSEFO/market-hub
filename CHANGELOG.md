@@ -4,7 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
-### Dashboard Overview shows the phone's Brief (~09:45 IST; deploys after 15:30)
+### Overview: market strip folded into the brief tiles (~10:00 IST)
+Owner: "remove duplicates and make it also tiled like market brief". On the Overview the top strip repeated VIX, gold,
+crude and USD/INR from the new tiles. The strip's quotes are now tiles there too (NIFTY 50, Bank NIFTY, SENSEX, India
+VIX, gold, crude US$ with the ₹/bbl price beside it, USD/INR, S&P 500, DAX, FTSE 100, US futures when Yahoo has them,
+Bitcoin), and the strip is hidden on the Overview only; every other page keeps it. Tiles fill the width (about six
+across on a laptop, two on a phone). Owner allowed pushing in market hours (no expiry code touched).
+
+### Dashboard Overview shows the phone's Brief (~09:45 IST; pushed at once, owner's go-ahead)
 Owner: "overview on admin panel and brief on mobile needs to be same ... no changes on mobile needed, but add missing
 components to admin". The dashboard's Overview had only library figures; the phone's Brief tab (market tiles, moves,
 FII/DII flows, the AI-written brief) had no desktop equivalent.
