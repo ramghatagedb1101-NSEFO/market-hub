@@ -54,7 +54,7 @@ def predict_all(store: Store) -> list:
 
 def run_daily() -> dict:
     store = Store()
-    counts = store.refresh_prices()          # raises if Yahoo is unavailable: no partial writes
+    counts = store.refresh_prices()          # raises if NSE/Kite are unavailable: no partial writes
     settled = settle_due(store)
     made = predict_all(store)
     store.set_meta("last_run", datetime.now(config.IST).isoformat(timespec="seconds"))

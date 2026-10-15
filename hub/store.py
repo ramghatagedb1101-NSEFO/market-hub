@@ -1,7 +1,8 @@
 """
 JSON-backed state for the hub (free hosting: no database server, no binary files in git).
 
-  prices       fetched fresh from Yahoo on every run (kept in memory only)
+  prices       grown incrementally each run from NSE's free bhavcopy (NIFTY, BANKNIFTY) and Kite daily
+               candles (SENSEX) -- see hub/sources/prices.py
   predictions  every forecast ever made, plus its settlement once known
   weights      learned tool weights per (index, horizon)
   band         learned confidence-band multiplier per (index, horizon)

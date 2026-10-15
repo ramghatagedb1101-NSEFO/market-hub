@@ -1,6 +1,28 @@
 # Build status and to-do
 
-As of Wed 14 Oct 2026, ~14:10 IST. Read the HANDOVER below first, then `CHANGELOG.md` (newest first) and `CLAUDE.md`.
+As of Thu 15 Oct 2026. Read this HANDOVER first, then the 14 Oct one right below it, `CHANGELOG.md` (newest
+first) and `CLAUDE.md`.
+
+## HANDOVER -- Thu 15 Oct 2026
+
+**In progress right now: METHOD.md** (branch `method-doc`, not yet merged to `main`). Owner asked for one
+document explaining the whole prediction method, kept true as the code changes. A cloud session drafted 4 of
+9 sections and built the keep-it-true guard (`hub/method_check.py`, `.github/workflows/method-doc.yml`) before
+its credits ran out; this laptop session finished the other 5, assembled `METHOD.md` (1,779 lines, 189 settings
+rows, all passing `python -m hub.method_check --settings-only`), spot-checked several load-bearing claims
+directly against the code, and fixed five pieces of stale documentation they turned up (Yahoo-vs-NSE/Kite
+comments, a backwards source-precedence comment, a stale tool count, a stale "not switched on live" docstring).
+Full detail and exact remaining steps: `handover/METHOD_HANDOVER.md` (read this before doing anything else on
+that branch -- it is the single source of truth for what is and isn't done). Short version of what is left:
+a direct-against-code check of the 4 cloud-drafted sections (never independently verified) and the rest of the
+5 new ones, CHANGELOG/STATUS entries beyond today's, removing `handover/`, merging to `main`, confirming the
+`method-doc.yml` run on `main` is green.
+
+**Owner approved, 15 Oct 2026 (in chat): one line for CLAUDE.md "Making changes"** (added here since a session
+may not edit CLAUDE.md itself -- the owner should paste this in when convenient, or ask a session to read it
+back and do it once method-doc is merged):
+"- Update `METHOD.md` in the same push as any change to a prediction-engine file (its source map lists them);
+run `python -m hub.method_check --base origin/main` before pushing."
 
 ## HANDOVER -- Wed 14 Oct 2026, for a new Claude session (e.g. the owner's second laptop)
 

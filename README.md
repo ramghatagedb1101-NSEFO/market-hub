@@ -1,7 +1,7 @@
 # Market Hub
 
-Hosted, free-to-run index forecasts (NIFTY, SENSEX) for four horizons, with a public track record
-that scores every forecast against what actually happened and a naive baseline.
+Hosted, free-to-run index forecasts (NIFTY, BANK NIFTY, SENSEX) for four horizons, with a public track
+record that scores every forecast against what actually happened and a naive baseline.
 
 Runs with no PC: a scheduled GitHub Action does the daily work, GitHub Pages serves the phone app.
 
@@ -9,11 +9,11 @@ Runs with no PC: a scheduled GitHub Action does the daily work, GitHub Pages ser
 
 | Piece | Where | Cost |
 |---|---|---|
-| Daily job (prices → settle → forecast → feed) | GitHub Actions, weekdays 15:45 IST | free (public repo) |
+| Daily job (prices → settle → forecast → feed) | GitHub Actions, weekdays 18:00 IST | free (public repo) |
 | State (`state/`: forecasts, prices, bulk deals) | private repo `market-hub-private` (`state/`), synced by `hub/site_data.py` | free |
 | Phone app (`docs/`) | GitHub Pages; signs in with the admin dashboard's email code | free (public repo) |
 | Phone app data | private repo `market-hub-private` (`site/`), read through the relay after sign-in (`hub/site_data.py`) | free |
-| Index prices | Yahoo Finance public chart endpoint | free, no key |
+| Index prices | NSE's free daily bhavcopy (NIFTY, BANK NIFTY), checked first; Kite Connect daily candle (SENSEX) | free, no key for NSE |
 
 ## One-time setup (about 10 minutes)
 
@@ -77,10 +77,10 @@ fetch per company instead of two independent weekly pulls. Output goes to the pr
 
 ## Limits to know
 
-- Yahoo's chart endpoint is unofficial. If it changes or blocks GitHub's runners, the job fails
-  loudly and writes nothing, so the last good feed stays up.
+- If NSE blocks GitHub's runners or Kite is unreachable, the price job fails loudly and writes
+  nothing, so the last good feed stays up.
 - The scheduled run can be delayed by a few minutes at GitHub's discretion.
 - Exchange holidays are not modelled in the horizon calendar. Settlement absorbs them
   (the first close on or after the target), but the horizon length can be a day off around holidays.
-- Expiry weekdays in `hub/config.py` mirror the parent project's `expiry_config.py`. Verify
-  them against current NSE/BSE circulars.
+- Expiry dates come from Kite's own contract lists (`hub/expiries.py`, since 14 Oct 2026); a fixed
+  weekday rule in `hub/config.py` (`EXPIRY_RULE`) is only a fallback for when that lookup fails.

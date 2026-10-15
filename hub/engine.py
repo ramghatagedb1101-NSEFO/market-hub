@@ -68,9 +68,10 @@ def learn(fc: dict, actual: float, weights: dict, band_k: float, n: int | None =
     hub.band_step_test). A fixed step (n=None, the live default) never converges -- it keeps
     nudging the band by the same amount forever, so it oscillates around the target coverage
     indefinitely rather than settling near it. Passing n decays the step as eta0/sqrt(1+n), floored
-    at ETA_BAND_MIN so the band stays able to react to a real regime change. Not switched on live
-    until hub.band_step_test shows it actually improves (or at least doesn't worsen) calibration
-    walk-forward against the real history -- see STATUS.md Group F2."""
+    at ETA_BAND_MIN so the band stays able to react to a real regime change. Switched on live for the
+    year horizon only since 14 Oct 2026 (hub.tracker.settle_due): hub.band_step_test's walk-forward
+    comparison found the fixed step unstable there on all three indices; day/expiry/month were already
+    converged under the fixed step and stay on it -- see STATUS.md Group F2."""
     z_real = math.log(actual / fc["base"]) / fc["sig_h"]
     missed = not (fc["lo"] <= actual <= fc["hi"])
     eta = config.ETA_BAND if n is None else max(config.ETA_BAND_MIN, config.ETA_BAND / math.sqrt(1 + n))

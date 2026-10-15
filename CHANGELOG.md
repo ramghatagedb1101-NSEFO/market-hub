@@ -2,6 +2,48 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-15
+
+### METHOD.md: one document for the whole prediction method, drafted and assembled (branch `method-doc`, not yet merged)
+Owner asked for a single document explaining every technique the platform uses, that stays true as the code changes --
+there was nothing like it (README is setup notes and partly stale, STOCKS.md is port notes, CHANGELOG/STATUS are
+history/state, not method). A cloud session started this, drafted 4 of 9 sections (index, library, shortlist,
+fno_select, via one read-only agent per section against a shared prompt) and built the keep-it-true guard before its
+credits ran out; this session picked up its branch and finished the rest.
+
+- Drafted the remaining 5 sections the same way (fno_data, expiry, live, data, principles) -- one read-only subagent
+  per section, same prompt and schema as the cloud session's four, so the whole document reads as one piece.
+- Assembled `METHOD.md` (`handover/method_doc_assemble.py`): 1,779 lines, 9 sections, a settings table built from the
+  drafters' named constants with values read straight from the code (189 rows), and a source map of 86 files whose
+  change should update this document. Two drafting snags fixed before assembly would run: three sections returned
+  `constants` without the schema's required `file` key (resolved by searching the repo for each name's real
+  definition, not guessed -- two names turned out genuinely ambiguous between two files with different values for
+  different screens, e.g. `MIN_CREDIT_TO_WIDTH` is 0.10 in `hub/fno.py` and a stricter 0.15 for expiry-theta; checked
+  by hand, not assumed); two jointly-named tuple constants split into one row each.
+- `python -m hub.method_check --settings-only`: passes. The guard itself (`hub/method_check.py`,
+  `.github/workflows/method-doc.yml`) checks every settings-table value against the code on every push to `main`, and
+  fails the push if a file in the document's source map changes without the document, unless the commit says
+  `[method: no change]`.
+- Spot-checked several of the most load-bearing claims directly against the code (not just taken on a drafting
+  agent's word): confirmed `rg/config.py`'s `SETTLE_WITH_HISTORICAL` flag is genuinely dead (the stock screen's
+  settlement always reads a live spot quote, never the historical-close function the flag documents, which has no
+  caller anywhere); confirmed `rg/screen_history.py` is never imported by anything; confirmed the relay's expiry
+  weights (`k, m, v`) really are pinned to 0 as the 14 Oct entries said; found one more real piece of drift this way
+  (below).
+- Fixed five pieces of stale documentation the drafting agents surfaced, all comment/prose-only (no behaviour
+  change): `hub/engine.py`'s adaptive-band-step docstring said "not switched on live" when it has in fact been live
+  for the year horizon since 14 Oct 2026 (Group F2); `hub/config.py`'s index-price-source comment had the Kite/NSE
+  precedence backwards; `hub/store.py` and `hub/tracker.py` comments still said "Yahoo" (NIFTY/BANK NIFTY/SENSEX
+  prices have used NSE's free bhavcopy and Kite daily candles since well before today -- these two comments were just
+  never updated); the phone's Method table said "Six price tools" (ten run, counted directly: 6 in
+  `hub/tools/core_tools.py`, 4 in `hub/tools/more_tools.py`); `README.md` had several of the same stale claims
+  (Yahoo, NIFTY/SENSEX only, 15:45 IST close, a weekday-mirror expiry-calendar note superseded by Kite's own contract
+  lists since 14 Oct). Two other "Yahoo" mentions found in a repo-wide check (`relay/AdminPage.html`, `relay/
+  README.md`) are correctly describing the *overseas-markets* panel, which really does use Yahoo -- left alone.
+- **Not yet done** (see `handover/METHOD_HANDOVER.md` "Remaining steps"): the same direct-against-code check for the
+  4 cloud-drafted sections and the rest of the 5 new ones; CHANGELOG/STATUS entries beyond this one; removing
+  `handover/`; merging `method-doc` to `main`; the owner's one-line CLAUDE.md addition (approved today, see STATUS.md).
+
 ## 2026-10-14
 
 ### Expiry meter replay scoreboard: every recorded expiry re-scored with today's model (~23:00 IST, cache v34)

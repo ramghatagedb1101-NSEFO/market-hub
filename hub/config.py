@@ -14,9 +14,9 @@ IST = timezone(timedelta(hours=5, minutes=30))    # fixed offset: no tzdata need
 
 PRICES_FILE = REPO / "state" / "prices.json"      # daily closes, grown incrementally
 
-# Where each index's closes come from.
-#   kite:    (exchange, tradingsymbol) on Kite Connect (paid, primary)
-#   nse_csv: index name in NSE's free bhavcopy (fallback, NIFTY only)
+# Where each index's closes come from (hub/sources/prices.py decides the order):
+#   nse_csv: index name in NSE's free bhavcopy (checked first, NIFTY and BANKNIFTY)
+#   kite:    (exchange, tradingsymbol) on Kite Connect (paid, used when nse_csv is absent -- SENSEX)
 INDEX_SOURCES = {
     "NIFTY":     {"kite": ("NSE", "NIFTY 50"), "nse_csv": "Nifty 50"},
     "BANKNIFTY": {"kite": ("NSE", "NIFTY BANK"), "nse_csv": "Nifty Bank"},
