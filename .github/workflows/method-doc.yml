@@ -1,0 +1,31 @@
+name: method-doc
+
+# Keeps METHOD.md (how the platform forecasts, scores and screens) in step with the code (15 Oct 2026).
+# Fails, and GitHub emails the pusher, when a push changes a prediction-engine file listed in METHOD.md's source map
+# without changing METHOD.md, or when a value in its settings table no longer matches the code. A refactor that
+# leaves the method unchanged passes with "[method: no change]" in a commit message. Details: hub/method_check.py.
+on:
+  push:
+    branches: [main]
+    paths-ignore:                  # the batch's own data commits (every 5 minutes in market hours) never need it
+      - "docs/data/**"
+      - "diag_output/**"
+      - ".github/relay-deployed"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0           # the pushed range needs its history
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: METHOD.md in step with the code
+        run: python -m hub.method_check --base "${{ github.event.before }}"
