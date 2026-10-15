@@ -280,7 +280,7 @@ function logout(){
 // ======================================================================================
 // Data
 // ======================================================================================
-const S = { brief: null, quotes: null, btc: null, briefOpen: false, admin: null, lib: null, mb: null, sl: null, watch: null, kite: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {}, funds: {} };
+const S = { brief: null, quotes: null, btc: null, briefOpen: false, chgAbs: (() => { try { return localStorage.getItem('mh_chg_abs') === '1'; } catch (e) { return false; } })(), admin: null, lib: null, mb: null, sl: null, watch: null, kite: null, libErr: null, mbErr: null, bySym: {}, mbBySym: {}, names: {}, dist: {}, reports: {}, charts: {}, docs: {}, funds: {} };
 
 function start(){
   $('login').style.display = 'none'; $('app').style.display = 'block';
@@ -604,7 +604,7 @@ function pageOverview(){
   const turn = S.mb ? S.mb.turnarounds : null;
   const trk = (S.lib && S.lib.tracker) || null;
   const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
-  let html = '<div class="page-head"><div><h1 class="h1">Overview</h1><p class="sub">Daily run ' + esc(fmtTs(s.daily_ts)) +
+  let html = '<div class="page-head"><div><p class="sub" style="margin:0">Daily run ' + esc(fmtTs(s.daily_ts)) +
     (S.lib ? ' · library updated ' + esc(fmtTs(S.lib.generated)) : '') + '</p></div></div>';
   html += '<div id="briefBox">' + briefHtml() + '</div>';
   html += '<div class="grid g4" style="margin-bottom:14px">' +
@@ -686,6 +686,7 @@ function fetchBitcoin(){
     .then(r => r.json()).then(j => { S.btc = { usd: j.bitcoin.usd, chg: j.bitcoin.usd_24h_change, ts: new Date().toISOString() }; drawBriefBox(); })
     .catch(() => {});   // keep the last value
 }
+function setChgAbs(v){ S.chgAbs = v; try { localStorage.setItem('mh_chg_abs', v ? '1' : '0'); } catch (e) {} drawBriefBox(); }
 function drawBriefBox(){ const el = $('briefBox'); if (el && current.page === 'overview') el.innerHTML = briefHtml(); }
 function briefBars(items){
   const max = Math.max(...items.map(i => Math.abs(i.v) || 0), 0.01);
@@ -710,24 +711,28 @@ function briefHtml(){
   const usd = ex.usd_inr || C.usd_inr_live || null, usdRate = usd ? usd.last : (C.fx ? C.fx.usd_inr : null);
   const crudeUsd = crudeRaw && usdRate ? { last: crudeRaw.last / usdRate, change_pct: crudeRaw.change_pct } : null;
   const vixNow = LQ && LQ.india_vix ? LQ.india_vix : (C.india_vix || ST.india_vix), sp = glob['S&P 500'], btc = S.btc;
-  const chg = x => x == null ? '–' : pct(x, 2);
+  // % or absolute change (owner's switch, 15 Oct 2026). The absolute figure is the quote's own change when it has one,
+  // else worked back from the % and the last price (last × p / (100 + p)), in the tile's own unit.
+  const chg = (p, last, change, dp) => { if (p == null) return '–'; if (!S.chgAbs) return pct(p, 2);
+    const a = change != null ? change : (last != null ? last * p / (100 + p) : null);
+    return a == null ? pct(p, 2) : (a > 0 ? '+' : a < 0 ? '−' : '') + fmt(Math.abs(a), dp == null ? 2 : dp); };
   const tile = (k, v, sub, c) => '<div class="panel kpi"><div class="k">' + esc(k) + '</div><div class="v ' + (c || '') + '">' + v + '</div><div class="s ' + (c || '') + '">' + sub + '</div></div>';
   const idxTile = (k, name) => { const q = LQ && LQ.indices && LQ.indices[k];
-    return tile(name, q ? fmt(q.last, 2) : '–', q ? chg(q.change_pct) + '<br>' + esc(bQuote(LQ.ts)) : 'no live quote', cls(q && q.change_pct)); };
+    return tile(name, q ? fmt(q.last, 2) : '–', q ? chg(q.change_pct, q.last, q.change) + '<br>' + esc(bQuote(LQ.ts)) : 'no live quote', cls(q && q.change_pct)); };
   const yr = new Date(Date.now() + 5.5 * 3600e3).getUTCFullYear();
   const ovs = ((LQ && LQ.overseas && LQ.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym));
-  const ovsTiles = ovs.map(o => tile(o.name, fmt(o.last, 2), chg(o.change_pct) + '<br>' +
+  const ovsTiles = ovs.map(o => tile(o.name, fmt(o.last, 2), chg(o.change_pct, o.last) + '<br>' +
     esc(o.at ? (o.today ? 'As of ' + o.at + ' IST' : 'Last quote · ' + o.at.slice(7) + ' IST · ' + o.at.slice(0, 6) + ' ' + yr) : ''), cls(o.change_pct))).join('');
   const tiles = [
     idxTile('NIFTY', 'NIFTY 50'), idxTile('BANKNIFTY', 'Bank NIFTY'), idxTile('SENSEX', 'SENSEX'),
-    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct) + '<br>' + esc(LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(vixNow && vixNow.change_pct)),
-    tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct) + '<br>' + esc(ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(goldRaw && goldRaw.change_pct)),
-    tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct) + ' · ₹' + fmt(crudeRaw.last, 0) + '/bbl<br>' + esc(ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(crudeUsd && crudeUsd.change_pct)),
+    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct, vixNow.last, vixNow.change) + '<br>' + esc(LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(vixNow && vixNow.change_pct)),
+    tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct, goldRaw.last, goldRaw.change, 0) + '<br>' + esc(ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(goldRaw && goldRaw.change_pct)),
+    tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct, crudeUsd.last) + ' · ₹' + fmt(crudeRaw.last, 0) + '/bbl<br>' + esc(ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(crudeUsd && crudeUsd.change_pct)),
     tile('USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'),
-         usd ? chg(usd.change_pct) + '<br>' + esc(ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? 'ECB rate<br>' + esc(bClose(C.fx.date)) : 'no data'), cls(usd && usd.change_pct)),
-    tile('S&P 500', sp ? fmt(sp.last, 0) : '–', sp ? chg(sp.change_pct) + '<br>' + esc(bClose(sp.date)) : 'no data', cls(sp && sp.change_pct)),
+         usd ? chg(usd.change_pct, usd.last, usd.change, 3) + '<br>' + esc(ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? 'ECB rate<br>' + esc(bClose(C.fx.date)) : 'no data'), cls(usd && usd.change_pct)),
+    tile('S&P 500', sp ? fmt(sp.last, 0) : '–', sp ? chg(sp.change_pct, sp.last, sp.prev != null ? sp.last - sp.prev : null) + '<br>' + esc(bClose(sp.date)) : 'no data', cls(sp && sp.change_pct)),
     ovsTiles,
-    tile('Bitcoin US$', btc ? fmt(btc.usd, 0) : '–', btc ? chg(btc.chg) + '<br>24 h · ' + esc(bTime(istOf(btc.ts))) : 'no data', cls(btc && btc.chg))
+    tile('Bitcoin US$', btc ? fmt(btc.usd, 0) : '–', btc ? chg(btc.chg, btc.usd, null, 0) + '<br>24 h · ' + esc(bTime(istOf(btc.ts))) : 'no data', cls(btc && btc.chg))
   ].join('');
   const moves = briefBars([
     ...(goldRaw ? [{ label: 'Gold', v: goldRaw.change_pct, txt: chg(goldRaw.change_pct) }] : []),
@@ -737,7 +742,7 @@ function briefHtml(){
   const FII_LABELS = { 'FII/FPI': 'FII (cash)', 'DII': 'DII (cash)' };   // NSE's two known categories; any other shows its own name
   const flows = briefBars(Object.keys(fii).map(k => ({ label: FII_LABELS[k] || k, v: fii[k], txt: (fii[k] >= 0 ? '+' : '') + fmt(fii[k], 0) + ' cr' })));
   const when = LQ && LQ.ts ? bQuote(LQ.ts) : bSnap(B.ts);
-  return '<div class="panel-h" style="border:0;padding:0 0 8px"><h3>Market brief · ' + esc(when) + '</h3><span class="muted" style="font-size:12px">same as the phone\'s Brief tab</span></div>' +
+  return '<div class="panel-h" style="border:0;padding:0 0 8px"><h3>Market brief · ' + esc(when) + '</h3><span class="seg" title="Change in % or in points"><button class="' + (S.chgAbs ? '' : 'on') + '" onclick="setChgAbs(false)">%</button><button class="' + (S.chgAbs ? 'on' : '') + '" onclick="setChgAbs(true)">Points</button></span></div>' +
     '<div class="glance">' + tiles + '</div>' +
     '<div class="grid g2" style="margin-bottom:14px">' +
       '<div class="panel"><div class="panel-h"><h3>Moves</h3><span class="muted" style="font-size:12px">% · latest session of each</span></div><div class="panel-b">' +

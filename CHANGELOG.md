@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
+### Overview: % / Points switch, heading not repeated (~10:15 IST)
+Owner: "the word overview itself is repeating" and "a switch which shows absolute numbers for change or change in %
+for all". The Overview's own heading is gone (the top bar already says Overview). A "% | Points" switch sits where the
+"same as the phone's Brief tab" note was (owner's placement) and changes every tile at once; the dashboard remembers
+the choice in this browser. Points use the quote's own change where Kite gives one (indices, VIX, gold, crude,
+USD/INR) or the S&P's two closes, else work it back from the % and the price (overseas, Bitcoin). The Moves bars stay
+in %, since they compare things priced in different units.
+
 ### Overview: market strip folded into the brief tiles (~10:00 IST)
 Owner: "remove duplicates and make it also tiled like market brief". On the Overview the top strip repeated VIX, gold,
 crude and USD/INR from the new tiles. The strip's quotes are now tiles there too (NIFTY 50, Bank NIFTY, SENSEX, India
