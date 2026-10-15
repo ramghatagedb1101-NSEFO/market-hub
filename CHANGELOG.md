@@ -2,6 +2,11 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-15
+
+### Old Claude "Kite login reminder" routine switched off (06:50 IST)
+`trig_011gp21txucmWGZPKqpR2FEu` set to disabled from the laptop session (the cloud session could not see it), as the owner approved on 14 Oct once Market Hub's own push reached the iPhone (confirmed 14 Oct ~21:50 IST). From today the 07:36 / 08:33 IST reminders come only from Market Hub (`kite-reminder.yml`).
+
 ## 2026-10-14
 
 ### Expiry meter replay scoreboard: every recorded expiry re-scored with today's model (~23:00 IST, cache v34)
