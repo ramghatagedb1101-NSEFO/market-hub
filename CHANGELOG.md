@@ -17,6 +17,10 @@ want any contextual wordings suggesting how the app is built or why is it that w
   UTC, "not stored", "live from ...", start dates and catch-up notes, the model formula, the phone's Method table).
   Kept: units, dates, "Not advice", and the "Log in to Kite" action. Timestamps now read "07:58 IST · Thu 15 Oct 2026".
   Phone cache v36.
+- Second pass, page by page in the browser: the page name no longer repeats (top bar and heading); every date in the
+  "07:58 IST · Thu 15 Oct 2026" style; Parameters without the source column and code names (status words: available,
+  coming, planned, not available); Back-tests as tables instead of raw data dumps; a stock's fund list shows 10 with
+  "See all"; no sideways scrolling on any page; shorter intros on Factor rankings, Scatter explorer and Sectors.
 
 ### Research collector: the next expiry's chain at each expiry-day close (~14:45 IST)
 Owner, on the next-expiry chain the meter watches: "smart money is preparing for the next expiry after making money

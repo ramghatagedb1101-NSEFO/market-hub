@@ -82,7 +82,7 @@ button,input,select{font:inherit;color:inherit}
 
 /* ---------- building blocks ---------- */
 .h1{font-size:22px;font-weight:700;letter-spacing:-.02em;margin:0}
-.sub{color:var(--muted);margin:4px 0 0;font-size:13.5px}
+.sub{color:var(--muted);margin:0;font-size:13.5px}
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap}
 .grid{display:grid;gap:14px}
 .g4{grid-template-columns:repeat(4,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -118,6 +118,7 @@ table.t tr.click{cursor:pointer} table.t tr.click:hover td{background:var(--bran
 table.t tr:last-child td{border-bottom:0}
 table.t td.wrap,table.t th.wrap{white-space:normal;min-width:140px}
 .grid > .panel{overflow:hidden}
+.panel{overflow-x:auto}
 .co b{font-family:var(--mono);font-size:12.5px} .co span{display:block;font-size:12px;color:var(--muted);max-width:260px;overflow:hidden;text-overflow:ellipsis}
 .dots{display:inline-flex;gap:3px} .dots i{width:9px;height:9px;border-radius:50%;background:var(--line)} .dots i.on{background:var(--up)}
 .bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;overflow:hidden} .bar i{display:block;height:100%;background:var(--brand)}
@@ -401,7 +402,8 @@ function crore(v){ // v already in crore
   return '₹' + nf(v >= 1000 ? 0 : 1).format(v) + ' cr';
 }
 function rupeesToCr(v){ return v == null ? null : v / 1e7; }
-function fmtTs(ts){ if (!ts) return '–'; return String(ts).replace('T', ' ').slice(0, 16); }
+// "07:58 IST · Thu 15 Oct 2026" (owner's time labels), falling back to the raw value
+function fmtTs(ts){ if (!ts) return '–'; const t = bSnap(ts); return t ? t.replace(/^As of /, '') : String(ts).replace('T', ' ').slice(0, 16); }
 function fmtDate(d){ if (!d) return '–'; const x = new Date(d); return isNaN(x) ? String(d) : x.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
 
 // Measure catalogue: label, group, unit, better direction. The value shown is the library's.
@@ -612,7 +614,7 @@ function pageOverview(){
     kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed' + (trk ? ' · ' + num((trk.refreshed_this_run || {}).companies || 0, 0) + ' updated today' : '') : 'loading') +
     kpi('Proven compounders', comp == null ? '…' : comp.length, 'pass all eight rules') +
     kpi('Early multibaggers 4/4', mb4 == null ? '…' : mb4.length, S.mb ? num(S.mb.rated, 0) + ' rated · ' + (turn || 0) + ' turnarounds' : 'loading') +
-    kpi('Bulk deals', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' days', 'since ' + esc((S.admin && S.admin.bulk_deals || {}).first_day || '–')) +
+    kpi('Bulk deals', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' days', 'since ' + esc(bDay(dayOf((S.admin && S.admin.bulk_deals || {}).first_day)) || '–')) +
     '</div>';
   const mini = (title, href, rows, cols) => '<div class="panel"><div class="panel-h"><h3>' + title + '</h3><a href="#' + href + '">View all →</a></div>' +
     (rows == null ? '<div class="panel-b">' + '<div class="skel"></div>' + '</div>' : rows.length ? '<table class="t"><tr>' + cols.map(c => '<th class="' + (c[2] || '') + '">' + c[0] + '</th>').join('') + '</tr>' +
@@ -770,7 +772,7 @@ function kiteBanner(){
 // Email alerts (relay Alerts.gs): the daily digest and watchlist moves, on top of the Kite, discovery and weekly-health emails.
 function alertsPanel(){
   const g = S.alerts;
-  const head = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Email alerts</h3><span class="muted" style="font-size:12px">by email</span></div><div class="panel-b">';
+  const head = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Email alerts</h3></div><div class="panel-b">';
   if (!g) return head + '<div class="skel"></div></div></div>';
   if (g.error) return head + '<div class="notice">' + esc(g.error) + '</div></div></div>';
   const row = (k, on, label, note) => '<div style="display:flex;align-items:center;gap:12px;margin:6px 0"><div class="seg"><button class="' + (on ? 'on' : '') + '" onclick="alertToggle(\'' + k + '\')">' + (on ? 'On' : 'Off') + '</button></div>' +
@@ -859,7 +861,7 @@ function pageMultibagger(){
       '<td class="num">' + crore(val(S.bySym[r.symbol], 'market_value_bucket')) + '</td>' +
       '<td>' + (pr ? '<span class="chip ' + (pr === 'promoter buying' ? 'up' : pr === 'promoter selling' ? 'down' : '') + '">' + esc(pr.replace('promoter ', '')) + '</span>' : '<span class="faint">–</span>') + '</td></tr>';
   }).join('');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Early multibaggers</h1><p class="sub">Smaller, less-discovered companies with accelerating, cash-backed profit growth. Four gates: revenue growth &gt; 10%, profit growth &gt; 15%, profit up in 6 of 8 quarters, operating cash ≥ 0.8× profit. Fewer fund holders ranks higher.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Smaller, less-discovered companies with accelerating, cash-backed profit growth. Four gates: revenue growth &gt; 10%, profit growth &gt; 15%, profit up in 6 of 8 quarters, operating cash ≥ 0.8× profit. Fewer fund holders ranks higher.</p></div></div>' +
     '<div class="toolbar"><input id="mbq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'mb\',this)">' +
     '<div class="seg">' + [0, 2, 3, 4].map(n => '<button class="' + ((st.f.min || 0) === n ? 'on' : '') + '" onclick="setF(\'mb\',\'min\',' + n + ')">' + (n ? n + '+ gates' : 'All') + '</button>').join('') + '</div>' +
     '<div class="seg"><button class="' + (st.f.turn ? 'on' : '') + '" onclick="setF(\'mb\',\'turn\',' + !st.f.turn + ')">Turnarounds only</button></div>' +
@@ -887,7 +889,7 @@ function pageCompounders(){
       '<td class="num">' + (val(s,'profit_consistency_8q') == null ? '–' : val(s,'profit_consistency_8q') + '/8') + '</td><td class="num">' + num(val(s,'mf_schemes_holding'), 0) + '</td>' +
       '<td class="num">' + (val(s,'promoter_holding') == null ? '–' : num(val(s,'promoter_holding'), 1) + '%') + '</td>' +
       '<td>' + (st.f.near ? '<span class="chip warn" title="' + esc(x.failed.join(', ')) + '">misses: ' + esc(x.failed[0]) + '</span>' : dots(x.quality, 5)) + '</td></tr>'; }).join('');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Proven compounders</h1><p class="sub">Established, widely-held companies with a long record of profitable, cash-backed growth. Must pass all eight rules; ranked by five quality checks, then size.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Established, widely-held companies with a long record of profitable, cash-backed growth. Must pass all eight rules; ranked by five quality checks, then size.</p></div></div>' +
     '<div class="rules">' + COMPOUNDER_RULES.map(r => '<span class="chip">' + esc(r[0]) + '</span>').join('') + '</div>' +
     (S.lib.stocks.some(s => s.cells && !hasLongTerm(s)) ? '<div class="notice" style="margin-bottom:12px">' + num(S.lib.stocks.filter(s => s.cells && !hasLongTerm(s)).length, 0) + ' companies are not judged yet (no 10-year record).</div>' : '') +
     '<div class="toolbar"><input id="cpq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'cp\',this)">' +
@@ -939,7 +941,7 @@ function pageShortlist(){
     ((X.next || []).length ? '<details class="all" style="margin-top:12px"><summary>Next in line (' + X.next.length + ')</summary>' + slTable(X.next) + '</details>' : '') +
     ((X.industry_cap_held_back || []).length ? '<div class="muted" style="font-size:12.5px;margin-top:10px">Held back by the two-per-industry limit: ' + X.industry_cap_held_back.map(s => '<a href="#stock/' + esc(s) + '">' + esc(s) + '</a>').join(', ') + '</div>' : '') +
     ((X.left_out || []).length ? '<div class="muted" style="font-size:12.5px;margin-top:6px">Left out: ' + X.left_out.map(o => '<a href="#stock/' + esc(o.symbol) + '" title="' + esc(o.reason) + '">' + esc(o.symbol) + '</a>').join(', ') + ' (hover for the reason)</div>' : '');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Shortlist</h1><p class="sub"><b>Compounders</b>: proven compounders ranked for quality at a sensible price. ' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub"><b>Compounders</b>: proven compounders ranked for quality at a sensible price. ' +
     '<b>Emerging</b>: four-gate early multibaggers (not already compounders) ranked for growth the market is starting to see. Hard-to-trade, weakly cash-backed, pledged and thinly covered companies are left out; at most ' + S.sl.per_industry + ' per industry. ' +
     'Updated ' + esc(bSnap(S.sl.generated).replace(/^As of /, '')) + '. Not a recommendation.</p></div></div>' +
     '<div class="toolbar"><div class="seg"><button class="' + (tab === 'compounders' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'compounders\')">Compounders (' + L.compounders.ranked + ' ranked)</button>' +
@@ -969,7 +971,7 @@ function pageLibrary(){
       '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td><td><span class="num" style="margin-right:8px">' + (s.met || 0) + '/' + (s.testable || 0) + '</span><span class="bar"><i style="width:' + Math.round(r * 100) + '%"></i></span></td>' +
       '<td class="num ' + ((s.data_quality_pct || 0) >= 70 ? 'up' : (s.data_quality_pct || 0) >= 40 ? '' : 'faint') + '">' + num(s.data_quality_pct, 0) + '%</td></tr>';
   }).join('');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Stock library</h1><p class="sub">Every listed NSE company, on up to 124 measures. ' + num(S.lib.stocks.filter(s => s.cells).length, 0) + ' with data · updated ' + esc(bSnap(S.lib.generated).replace(/^As of /, '')) + (S.lib.partial ? ' (updating)' : '') + '.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Every listed NSE company, on up to 124 measures. ' + num(S.lib.stocks.filter(s => s.cells).length, 0) + ' with data · updated ' + esc(bSnap(S.lib.generated).replace(/^As of /, '')) + (S.lib.partial ? ' (updating)' : '') + '.</p></div></div>' +
     '<div class="toolbar"><input id="libq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'lib\',this)">' +
     '<select class="field" onchange="setF(\'lib\',\'p\',this.value)"><option value="">Any parameter</option>' + opts + '</select>' +
     '<select class="field" onchange="setF(\'lib\',\'ps\',this.value)">' + [['met','is met'],['not_met','is not met'],['not_testable','is not testable']].map(o => '<option value="' + o[0] + '" ' + (st.f.ps === o[0] ? 'selected' : '') + '>' + o[1] + '</option>').join('') + '</select>' +
@@ -984,7 +986,7 @@ function pageRegistry(){
   if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
   const statusBy = {}; (d.registry || []).forEach(r => { statusBy[r.name] = r.status; });
   const chipS = s => '<span class="chip ' + (s === 'confirmed' ? 'up' : 'warn') + '">' + esc(s || 'unconfirmed') + '</span>';
-  let html = '<div class="page-head"><div><h1 class="h1">Investor registry</h1><p class="sub">Well-known investors found in shareholding filings.</p></div></div>' +
+  let html = '<div class="page-head"><div><p class="sub">Well-known investors found in shareholding filings.</p></div></div>' +
     '<div class="tbl-wrap" style="margin-bottom:18px"><table class="t"><thead><tr><th class="l">Investor</th><th class="l">Type</th><th class="l">Status</th><th class="l">Aliases</th></tr></thead><tbody>' +
     (d.registry || []).map(r => '<tr><td class="l"><b>' + esc(r.name) + '</b></td><td class="l">' + esc(r.type) + '</td><td class="l">' + chipS(r.status) + '</td><td class="l muted" style="white-space:normal">' + esc((r.aliases || []).join(', ')) + '</td></tr>').join('') + '</tbody></table></div>';
   html += '<div class="panel"><div class="panel-h"><h3>Candidate matches to review</h3><span class="muted" style="font-size:12px">names that may match a listed investor</span></div>';
@@ -1005,7 +1007,7 @@ function pageBulk(){
   if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
   const days = (d.bulk_deals || {}).by_day || {};
   const keys = Object.keys(days).sort().reverse();
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Bulk deals</h1><p class="sub">Daily bulk deals since ' + esc((d.bulk_deals || {}).first_day || '–') + '. Registry buys: deals by listed investors.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Daily bulk deals since ' + esc(bDay(dayOf((d.bulk_deals || {}).first_day)) || '–') + '. Registry buys: deals by listed investors.</p></div></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Day</th><th>Deals</th><th>Buys</th><th>Sells</th><th>Registry buys</th></tr></thead><tbody>' +
     (keys.map(k => '<tr><td class="l num">' + esc(fmtDate(k)) + '</td><td class="num">' + days[k].deals + '</td><td class="num up">' + days[k].buys + '</td><td class="num down">' + days[k].sells + '</td><td class="num">' + days[k].registry_buys + '</td></tr>').join('') || '<tr><td colspan="5" class="empty">No days stored yet.</td></tr>') + '</tbody></table></div>';
 }
@@ -1018,11 +1020,12 @@ function pageParams(){
   const all = d.parameters || [];
   const byStatus = {}; all.forEach(p => { byStatus[p.status] = (byStatus[p.status] || 0) + 1; });
   const rows = all.filter(p => !st.q || (p.id + ' ' + p.definition + ' ' + p.family).toUpperCase().includes(st.q));
-  const chip = s => '<span class="chip ' + ({ available: 'up', collecting: 'warn', to_build: 'warn', gap: 'down' }[s] || '') + '">' + esc(String(s).replace(/_/g, ' ')) + '</span>';
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Parameters</h1><p class="sub">All measures. ' + all.length + ' in total · ' + Object.keys(byStatus).map(k => byStatus[k] + ' ' + k.replace(/_/g, ' ')).join(' · ') + '.</p></div></div>' +
+  const SW = { available: 'available', collecting: 'coming', to_build: 'planned', gap: 'not available' };
+  const chip = s => '<span class="chip ' + ({ available: 'up', collecting: 'warn', to_build: 'warn', gap: 'down' }[s] || '') + '">' + esc(SW[s] || String(s).replace(/_/g, ' ')) + '</span>';
+  v.innerHTML = '<div class="page-head"><div><p class="sub">All measures. ' + all.length + ' in total · ' + Object.keys(byStatus).map(k => byStatus[k] + ' ' + (SW[k] || k.replace(/_/g, ' '))).join(' · ') + '.</p></div></div>' +
     '<div class="toolbar"><input id="parq" class="field" placeholder="Filter parameters" value="' + esc(st.q) + '" oninput="setQ(\'par\',this)"></div>' +
-    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Parameter</th><th class="l">Family</th><th class="l">Status</th><th class="l">Definition</th><th class="l">Source</th></tr></thead><tbody>' +
-    rows.map(p => '<tr><td class="l"><b>' + esc((M[p.id] || [p.id])[0]) + '</b><div class="faint num" style="font-size:11.5px">' + esc(p.id) + '</div></td><td class="l">' + esc(p.family) + '</td><td class="l">' + chip(p.status) + '</td><td class="l" style="white-space:normal;min-width:260px">' + esc(p.definition) + '</td><td class="l muted" style="white-space:normal;font-size:12px">' + esc(p.source) + '</td></tr>').join('') + '</tbody></table></div>';
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Parameter</th><th class="l">Family</th><th class="l">Status</th><th class="l">Definition</th></tr></thead><tbody>' +
+    rows.map(p => '<tr><td class="l"><b>' + esc((M[p.id] || [p.id])[0]) + '</b></td><td class="l">' + esc(p.family) + '</td><td class="l">' + chip(p.status) + '</td><td class="l" style="white-space:normal;min-width:260px">' + esc(p.definition) + '</td></tr>').join('') + '</tbody></table></div>';
 }
 
 // ---- Back-tests ----
@@ -1032,8 +1035,8 @@ function pageTests(){
   const t = d.tests || {};
   const kv = obj => '<table class="t">' + Object.keys(obj).map(k => { const x = obj[k];
     return '<tr><td class="l" style="white-space:normal">' + esc(k.replace(/_/g, ' ')) + '</td><td class="l" style="white-space:normal">' +
-      (x && typeof x === 'object' ? '<pre class="raw">' + esc(JSON.stringify(x, null, 1)) + '</pre>' : '<span class="num">' + esc(x) + '</span>') + '</td></tr>'; }).join('') + '</table>';
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Back-tests</h1><p class="sub">Survivorship bias applies where the universe is today\'s index members.</p></div></div>' +
+      (Array.isArray(x) && x.every(y => y == null || typeof y !== 'object') ? '<span class="num">' + esc(x.join(', ')) + '</span>' : x && typeof x === 'object' ? kv(x) : '<span class="num">' + esc(x) + '</span>') + '</td></tr>'; }).join('') + '</table>';
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Survivorship bias applies where the universe is today\'s index members.</p></div></div>' +
     (Object.keys(t).map(k => '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>' + esc(k.replace(/_/g, ' ')) + '</h3></div>' + kv(t[k]) + '</div>').join('') || '<div class="panel"><div class="empty">No back-test results yet.</div></div>');
 }
 
@@ -1084,14 +1087,16 @@ function fundsPanel(sym, s){
   const missing = ['shares', 'date'].filter(k => items.every(i => i[k] == null));
   return head + '<div class="muted" style="font-size:12.5px;margin-bottom:8px">' + items.length + ' scheme' + (items.length > 1 ? 's' : '') +
     (total ? ' · together about ' + num(total, 2) + '% of the company' : '') + '</div>' +
-    '<div style="overflow-x:auto"><table class="t"><tr><th class="l">Scheme</th><th>Shares</th><th>% of company</th><th>Last month</th><th>% of the scheme</th><th class="l">Portfolio date</th></tr>' +
-    items.map(i => '<tr><td class="l">' + esc(i.scheme) + (i.amc ? '<div class="muted" style="font-size:11.5px">' + esc(i.amc) + '</div>' : '') + '</td>' +
-      '<td class="num">' + (i.shares != null ? num(Number(i.shares), 0) : '–') + '</td><td class="num">' + (pctOf(i) != null ? num(pctOf(i), 3) + '%' : '–') + '</td>' +
-      '<td class="num">' + (chg(i) || '–') + '</td><td class="num">' + (i.pct_scheme != null ? num(Number(i.pct_scheme), 2) + '%' : '–') + '</td>' +
-      '<td class="l">' + esc(i.date ? fmtDate(String(i.date).slice(0, 10)) : '–') + '</td></tr>').join('') + '</table></div>' +
+    fundRows(items.slice(0, 10)) +
+    (items.length > 10 ? '<details class="all" style="margin-top:8px"><summary>See all ' + items.length + '</summary>' + fundRows(items.slice(10)) + '</details>' : '') +
     '<div class="muted" style="font-size:11.5px;margin-top:6px">"New" = first seen in the latest monthly portfolio.' +
     (pctOf(items[0]) != null && items[0].pct_company == null ? ' % of company is estimated.' : '') +
     '</div></div></div>';
+  function fundRows(list){ return '<div style="overflow-x:auto"><table class="t"><tr><th class="l">Scheme</th><th>Shares</th><th>% of company</th><th>Last month</th><th>% of the scheme</th><th class="l">Portfolio date</th></tr>' +
+    list.map(i => '<tr><td class="l">' + esc(i.scheme) + (i.amc ? '<div class="muted" style="font-size:11.5px">' + esc(i.amc) + '</div>' : '') + '</td>' +
+      '<td class="num">' + (i.shares != null ? num(Number(i.shares), 0) : '–') + '</td><td class="num">' + (pctOf(i) != null ? num(pctOf(i), 3) + '%' : '–') + '</td>' +
+      '<td class="num">' + (chg(i) || '–') + '</td><td class="num">' + (i.pct_scheme != null ? num(Number(i.pct_scheme), 2) + '%' : '–') + '</td>' +
+      '<td class="l">' + esc(i.date ? fmtDate(String(i.date).slice(0, 10)) : '–') + '</td></tr>').join('') + '</table></div>'; }
 }
 function loadDocs(sym, force){
   if (S.docs[sym] && !force) return;
@@ -1638,7 +1643,7 @@ function pageFactors(){
   const body = rows.slice(pg.from, pg.from + 50).map((s, i) => '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l num faint">' + (pg.from + i + 1) + '</td><td class="l">' + companyCell(s.symbol) + '</td>' +
     '<td class="l muted" style="font-size:12px">' + esc(industryOf(s.symbol) || '–') + '</td><td class="num">' + crore(val(s, 'market_value_bucket')) + '</td>' +
     '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td>' + FACTORS.map(([k]) => '<td>' + scoreChip(fac(s.symbol, k)) + '</td>').join('') + '</tr>').join('');
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Factor rankings</h1><p class="sub">Every company scored 0–100 on five factors — the average of its percentile on each input against all ' + num(Object.keys(S.fac).length, 0) + ' scored companies (100 = best). Composite = average of the five (needs at least four). Hover a column for its inputs.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Each company rated 0–100 on five factors against ' + num(Object.keys(S.fac).length, 0) + ' companies (100 = best). Composite = their average. Hover a column for its inputs.</p></div></div>' +
     '<div class="toolbar"><input id="facq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'fac\',this)">' +
     '<select class="field" onchange="setF(\'fac\',\'ind\',this.value)"><option value="">All industries</option>' + inds.map(x => '<option ' + (st.f.ind === x ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
     '<div class="seg">' + [[0, 'Any size'], [1000, '₹1,000 cr+'], [5000, '₹5,000 cr+'], [20000, '₹20,000 cr+']].map(([n, l]) => '<button class="' + ((st.f.minmc || 0) === n ? 'on' : '') + '" onclick="setF(\'fac\',\'minmc\',' + n + ')">' + l + '</button>').join('') + '</div></div>' +
@@ -1716,7 +1721,7 @@ function pageScreener(){
     '<span class="muted" style="font-size:12px">' + esc(unitHint(c.field)) + '</span>' +
     '<button class="btn ghost" title="Remove" onclick="scrDel(' + i + ')">✕</button></div>').join('');
   const saved = SCR.saved == null ? '<div class="skel"></div>' : SCR.saved.length ? SCR.saved.map((x, i) => '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed var(--line2)"><a href="javascript:void 0" onclick="scrLoadSaved(' + i + ')" style="flex:1">' + esc(x.name) + '</a><span class="faint num" style="font-size:12px">' + runScreen(x.conditions).length + '</span><button class="btn ghost" style="padding:2px 6px" title="Delete" onclick="scrDelete(' + i + ')">✕</button></div>').join('') : '<div class="muted" style="font-size:12.5px">No saved screens yet.</div>';
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Screener</h1><p class="sub">Combine any measures or factor scores. A company must have a value for every condition to pass. Saved screens appear on every device.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Combine any measures or factor scores. A company must have a value for every condition to pass. Saved screens appear on every device.</p></div></div>' +
     '<div class="grid" style="grid-template-columns:minmax(0,1fr) 280px;align-items:start;margin-bottom:14px">' +
     '<div class="panel"><div class="panel-h"><h3>Conditions</h3><span class="muted" style="font-size:12.5px"><b class="num" style="color:var(--text);font-size:15px">' + num(syms.length, 0) + '</b> companies match</span></div><div class="panel-b">' + condRows +
     '<button class="btn" onclick="scrAdd()">+ Add condition</button>' +
@@ -1746,7 +1751,7 @@ function pageExplore(){
   const fields = fieldList();
   const opt = (sel, list) => list.map(([k, l]) => '<option value="' + k + '"' + (k === sel ? ' selected' : '') + '>' + esc(l) + '</option>').join('');
   const sets = [['all', 'All companies'], ['compounders', 'Proven compounders'], ['mb3', 'Multibaggers 3+ gates'], ...(SCR.saved || []).map((x, i) => ['saved:' + i, 'Screen: ' + x.name])];
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">Scatter explorer</h1><p class="sub">Plot any two measures against each other. Dashed lines are the medians, so the four corners read at a glance — e.g. low P/E and high growth bottom-right. Click a dot to open the company.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Any two measures against each other. Dashed lines are the medians. Click a dot to open the company.</p></div></div>' +
     '<div class="toolbar">' +
     '<label class="muted" style="font-size:12px">X <select class="field" onchange="sxSet(\'x\',this.value)">' + opt(SX.x, fields) + '</select></label>' +
     '<label class="muted" style="font-size:12px">Y <select class="field" onchange="sxSet(\'y\',this.value)">' + opt(SX.y, fields) + '</select></label>' +
@@ -2187,7 +2192,7 @@ function pageSignals(){
   const withPrev = S.lib.stocks.filter(s => s.prev).length;
   const pg = pager(st, list.length, 60);
   const icon = { screen: '◆', ownership: '◐', results: '▲', action: '◷' };
-  v.innerHTML = '<div class="page-head"><div><h1 class="h1">What changed</h1><p class="sub">Screens entered or left, gates, big ownership moves, results turning, and coming corporate actions. Strongest first.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Screens entered or left, gates, big ownership moves, results turning, and coming corporate actions. Strongest first.</p></div></div>' +
     (withPrev < 50 ? '<div class="notice" style="margin-bottom:12px">Only ' + withPrev + ' companies can be compared so far.</div>' : '') +
     '<div class="toolbar"><input id="sigq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'sig\',this)"><div class="seg">' +
     kinds.map(([k, l]) => '<button class="' + ((st.f.kind || '') === k ? 'on' : '') + '" onclick="setF(\'sig\',\'kind\',\'' + k + '\')">' + l + ' <span class="faint">' + (k ? ev.filter(e => e.kind === k).length : ev.length) + '</span></button>').join('') + '</div></div>' +
@@ -2233,7 +2238,7 @@ function pageSectors(){
   const cols = [['n', 'Companies', 0, v => num(v, 0)], ['mcap', 'Total mkt cap', 0, v => crore(v)], ['rev', 'Revenue gr.', 1, v => pct(v)], ['profit', 'Profit gr.', 1, v => pct(v)], ['margin', 'Net margin', 1, v => v == null ? '–' : num(v, 1) + '%'],
                 ['roe', 'ROE', 1, v => v == null ? '–' : num(v, 1) + '%'], ['pe', 'P/E', -1, v => v == null ? '–' : num(v, 1) + '×'], ['r12', '12M return', 1, v => pct(v)], ['composite', 'Composite', 1, v => v == null ? '–' : String(v)], ['comp', 'Compounders', 0, v => v || '–'], ['mb', 'Multibaggers 3+', 0, v => v || '–']];
   const covered = rows.reduce((a, r) => a + r.n, 0);
-  let html = '<div class="page-head"><div><h1 class="h1">Sectors</h1><p class="sub">Medians by NSE industry for the ' + num(covered, 0) + ' companies in the NIFTY Total Market index (NSE classifies these; smaller companies are not covered). Green/red shading compares industries with each other; industries with fewer than 5 companies are faded and left out of the chart. Click an industry for its companies.</p></div></div>' +
+  let html = '<div class="page-head"><div><p class="sub">Medians by industry for ' + num(covered, 0) + ' NIFTY Total Market companies. Industries with fewer than 5 companies are faded. Click an industry for its companies.</p></div></div>' +
     '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Median 12-month return by industry</h3></div><div class="panel-b"><div style="position:relative;height:' + Math.max(260, rows.length * 22 + 40) + 'px"><canvas id="cSec"></canvas></div></div></div>' +
     '<div class="tbl-wrap" style="max-height:none;margin-bottom:14px"><table class="t"><thead><tr><th class="l sortable" onclick="secSort(\'ind\')">Industry</th>' + cols.map(([k, l]) => '<th class="sortable" onclick="secSort(\'' + k + '\')">' + l + (SEC.sort === k ? (SEC.dir < 0 ? ' ↓' : ' ↑') : '') + '</th>').join('') + '</tr></thead><tbody>' +
     rows.map(r => '<tr class="click"' + (r.n < SMALL ? ' title="Fewer than ' + SMALL + ' companies: medians are not reliable" style="opacity:.55"' : '') + ' onclick="secPick(\'' + esc(r.ind).replace(/'/g, '\\\'') + '\')"' + (SEC.sel === r.ind ? ' style="outline:2px solid var(--brand);outline-offset:-2px"' : '') + '><td class="l"><b>' + esc(r.ind) + '</b></td>' +
