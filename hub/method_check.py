@@ -12,6 +12,12 @@ METHOD.md is the one document that explains how the platform forecasts, scores a
 Run by .github/workflows/method-doc.yml on every push to main (a failure emails the pusher), and locally before a push:
     python -m hub.method_check --base origin/main      # both checks against what is not pushed yet
     python -m hub.method_check --write                 # sync the settings table's values from the code
+
+Where METHOD.md lives (15 Oct 2026, owner: keep the method out of the public repo): in the PRIVATE repo
+market-hub-private. The workflow checks it out into ./market-hub-private/; locally it is the sparse clone next to this
+repo (C:/nse_fo_analyser/market-hub-private). `--doc` or the METHOD_DOC environment variable overrides both. When the
+document is in another repository, "updated with the push" means: that repository has a commit touching METHOD.md
+newer than the pushed range's base commit (update and push METHOD.md first, then the code).
 """
 from __future__ import annotations
 
@@ -167,7 +173,19 @@ def _git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True).stdout
 
 
-def check_coverage(text: str, base: str | None, head: str = "HEAD") -> tuple[list[str], list[str]]:
+def _doc_updated_since(doc: Path, base: str) -> bool | None:
+    """METHOD.md in another repository: True if its newest commit touching METHOD.md is not older than `base`'s commit
+    time. None if that cannot be told (no history in the clone)."""
+    try:
+        base_t = int(_git("show", "-s", "--format=%ct", base).strip())
+        out = subprocess.run(["git", "log", "-1", "--format=%ct", "--", doc.name], cwd=doc.parent, check=True,
+                             capture_output=True, text=True).stdout.strip()
+    except (subprocess.CalledProcessError, ValueError, OSError):
+        return None
+    return bool(out) and int(out) >= base_t
+
+
+def check_coverage(text: str, base: str | None, head: str = "HEAD", doc: Path | None = None) -> tuple[list[str], list[str]]:
     """Returns (problems, notes)."""
     if not base or set(base) == {"0"}:
         base = f"{head}~1"
@@ -182,11 +200,28 @@ def check_coverage(text: str, base: str | None, head: str = "HEAD") -> tuple[lis
         return [], [f"no prediction-engine file changed in {base[:12]}..{head}"]
     if DOC in changed:
         return [], [f"engine files changed and {DOC} updated with them: {', '.join(hit)}"]
+    if doc is not None and ROOT not in doc.resolve().parents:
+        upd = _doc_updated_since(doc, base)
+        if upd:
+            return [], [f"engine files changed and {DOC} updated in the private repo since {base[:12]}: {', '.join(hit)}"]
+        if upd is None:
+            return [], [f"engine files changed ({', '.join(hit)}); the private repo's history for {DOC} was not readable, "
+                        f"so coverage was not checked"]
     if ESCAPE in _git("log", "--format=%B", f"{base}..{head}"):
         return [], [f"engine files changed, marked {ESCAPE}: {', '.join(hit)}"]
     return [f"prediction-engine files changed but {DOC} did not: {', '.join(hit)}. Update the section(s) that "
             f"describe them and add a line to its change history, or, if the method is unchanged, put "
             f"\"{ESCAPE}\" in the commit message."], []
+
+
+def find_doc(given: str | None = None) -> Path:
+    import os
+    for c in [given, os.environ.get("METHOD_DOC"), ROOT / "market-hub-private" / DOC,
+              ROOT.parent / "market-hub-private" / DOC, ROOT / DOC]:
+        if c and Path(c).is_file():
+            return Path(c)
+    raise SystemExit(f"{DOC} not found: it lives in the private repo market-hub-private. Locally, clone it next to "
+                     f"this repo (see CLAUDE.md), or pass --doc / set METHOD_DOC.")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -195,8 +230,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--head", default="HEAD")
     ap.add_argument("--write", action="store_true", help="rewrite the settings table's values from the code")
     ap.add_argument("--settings-only", action="store_true")
+    ap.add_argument("--doc", help="path to METHOD.md (default: METHOD_DOC, then the private repo's copy)")
     a = ap.parse_args(argv)
-    doc = ROOT / DOC
+    doc = find_doc(a.doc)
     text = doc.read_text(encoding="utf-8")
     problems, new = check_settings(text, write=a.write)
     if a.write and new != text:
@@ -205,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
         problems = [p for p in problems if "not found" in p or "no rows" in p]
     notes = []
     if not a.settings_only:
-        p2, notes = check_coverage(text, a.base, a.head)
+        p2, notes = check_coverage(text, a.base, a.head, doc)
         problems += p2
     for n in notes:
         print(n)

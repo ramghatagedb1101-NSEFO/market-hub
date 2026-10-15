@@ -24,3 +24,6 @@ state/
 
 # NSE daily price files, carried between library runs by actions/cache (hub/bhav.py)
 .cache/
+
+# The private repo's METHOD.md copy that the method-doc workflow checks out (never commit it here)
+market-hub-private/

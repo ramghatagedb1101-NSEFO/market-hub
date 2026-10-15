@@ -4,6 +4,20 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-15
 
+### METHOD.md moved to the private repo (~08:10 IST)
+Owner: "move method to private". This repo is public (anyone can read it without signing in; checked), so the full
+method document is now kept in the private repo `market-hub-private` only, and removed from here.
+- Local copy for editing: `C:\nse_fo_analyser\market-hub-private`, a sparse clone that holds only METHOD.md (no
+  data is downloaded), set to push as ramghatagedb1101-NSEFO.
+- The push guard (`.github/workflows/method-doc.yml`, `hub/method_check.py`) checks the private copy out with the
+  existing `PRIVATE_REPO_TOKEN` and prints only pass/fail. Settings check unchanged. Coverage rule: an engine change
+  passes when METHOD.md was updated in the private repo after the pushed range's base commit (so: push METHOD.md
+  first, then the code), or with `[method: no change]`. Tested both ways with scratch repos; the guard's 12 tests and
+  the settings check pass. `.gitignore` keeps a checked-out copy from ever being committed here.
+- **Not removed: history.** Earlier versions of METHOD.md (committed here this morning) and all the code remain
+  readable in this public repo's history. Only making the repo private, or rewriting its history, removes them --
+  owner's decision, pending (cost of Actions minutes for a private repo; see STATUS).
+
 ### METHOD.md merged to `main`, with its push guard (~07:40 IST)
 Owner: "finish the METHOD.md merge to main". The laptop session (second Claude subscription) had finished all 9
 sections on the `method-doc` branch and committed them (`69f61a0`), but its session limit hit during the push, so the

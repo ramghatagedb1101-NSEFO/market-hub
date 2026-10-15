@@ -4,7 +4,13 @@ As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct 
 first) and `CLAUDE.md`.
 
 ## Thu 15 Oct 2026, morning -- read this first
-- **METHOD.md is on `main`** (one document for the whole prediction method, 9 sections, settings table checked by
+- **METHOD.md now lives in the PRIVATE repo** `market-hub-private` (moved ~08:10 IST; local copy
+  `C:\nse_fo_analyser\market-hub-private`; CLAUDE.md says how to update it). Its earlier copies stay in this public
+  repo's history. **Pending owner decision:** make this repo private (Actions minutes: ~2,100 in the last 7 days vs
+  2,000 a month free for private repos; options compared in chat 15 Oct: split repo, free Oracle runner, move jobs to
+  the relay, or pay). If it goes private: move the iPhone install and notifications to `market-hub-4dq.pages.dev`
+  first (GitHub Pages stops for private repos on a free account), and let Cloudflare Pages see private repos.
+- **METHOD.md** (one document for the whole prediction method, 9 sections, settings table checked by
   code). Every push that changes a prediction-engine file must update it in the same push (guard:
   `.github/workflows/method-doc.yml`; run `python -m hub.method_check --base origin/main` before pushing;
   `[method: no change]` in the commit message when the method does not change). CHANGELOG 15 Oct.

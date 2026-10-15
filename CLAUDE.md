@@ -50,9 +50,14 @@ ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
   (pull with rebase the same way first; the batch commits too).
 - Market days: no push to `relay/*` between 09:15 and 15:30 IST (it deploys at once).
 - Update `CHANGELOG.md` (newest first, IST dates, the why) and `STATUS.md` for every change.
-- Update `METHOD.md` in the same push as any change to a prediction-engine file (its source map lists them);
-  run `python -m hub.method_check --base origin/main` before pushing (owner-approved, 15 Oct 2026). A change that
-  does not alter the method says `[method: no change]` in its commit message.
+- `METHOD.md` (the full method) lives in the PRIVATE repo `market-hub-private`, not here (owner, 15 Oct 2026: this
+  repo is public). Local copy: `C:\nse_fo_analyser\market-hub-private` (a sparse clone holding only METHOD.md;
+  if missing: `git clone --filter=blob:none --sparse <private repo URL>` then
+  `MSYS_NO_PATHCONV=1 git sparse-checkout set --no-cone /METHOD.md`). Never copy it into this repo or quote it in
+  public files (CHANGELOG/STATUS here are public too). Update it with any change to a prediction-engine file (its
+  source map lists them): push METHOD.md to the private repo FIRST, then the code here; run
+  `python -m hub.method_check --base origin/main` before pushing (owner-approved, 15 Oct 2026). A change that does
+  not alter the method says `[method: no change]` in its commit message.
 - One working folder: `C:\nse_fo_analyser\forecast_hub` (15 Oct 2026). Extras that must stay out of this public
   repo (showcase PDF, dashboard/phone preview with private sample data, test tools) are in
   `C:\nse_fo_analyser\extras\`.
