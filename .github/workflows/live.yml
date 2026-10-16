@@ -62,7 +62,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No change"
           else
-            git commit -m "live quotes $(date -u +%FT%TZ)"
+            git commit -m "live quotes $(TZ=Asia/Kolkata date +'%F %H:%M IST')"
             git pull -q --rebase origin main
             git push -q origin main
           fi

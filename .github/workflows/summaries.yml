@@ -49,4 +49,4 @@ jobs:
         if: always() && steps.pull.outcome == 'success'
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: python -m hub.site_data push "AI summaries $(date -u +%F)"
+        run: python -m hub.site_data push "AI summaries $(TZ=Asia/Kolkata date +%F)"

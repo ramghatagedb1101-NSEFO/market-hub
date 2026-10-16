@@ -407,7 +407,7 @@ function crore(v){ // v already in crore
 function rupeesToCr(v){ return v == null ? null : v / 1e7; }
 // "07:58 IST · Thu 15 Oct 2026" (owner's time labels), falling back to the raw value
 function fmtTs(ts){ if (!ts) return '–'; const t = bSnap(ts); return t ? t.replace(/^As of /, '') : String(ts).replace('T', ' ').slice(0, 16); }
-function fmtDate(d){ if (!d) return '–'; const x = new Date(d); return isNaN(x) ? String(d) : x.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); }
+function fmtDate(d){ if (!d) return '–'; const x = new Date(d); return isNaN(x) ? String(d) : x.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' }); }
 
 // Measure catalogue: label, group, unit, better direction. The value shown is the library's.
 const M = {
@@ -922,6 +922,7 @@ function pageCalendar(){
 }
 
 // ---- Filings feed ----
+function filTime(t){ const m = String(t || '').match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})\s+(\d{2}):(\d{2})/); if (!m) return t || '–'; const d = dayOf(m[1] + '-' + m[2] + '-' + m[3]); return (d ? bDay(d) : m[1] + ' ' + m[2] + ' ' + m[3]) + ' · ' + m[4] + ':' + m[5] + ' IST'; }
 let FIL_F = 'mine';
 function pageFilings(){
   const v = $('view'); if (insWait(v)) return;
@@ -929,7 +930,7 @@ function pageFilings(){
   let rows = (I.filings || []); if (FIL_F === 'mine') rows = rows.filter(r => mine.has(r.s));
   v.innerHTML = '<div class="toolbar">' + seg2('FIL_F', FIL_F, [['mine', 'Yours'], ['all', 'All companies']]) + '<span class="muted" style="margin-left:auto;font-size:12px">last 3 days · ' + num(rows.length, 0) + '</span></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">When</th><th class="l">Company</th><th class="l">Filing</th></tr></thead><tbody>' +
-    (rows.slice(0, 300).map(r => '<tr><td class="l num" style="font-size:12px">' + esc(r.t) + '</td><td class="l click" onclick="openStock(\'' + esc(r.s) + '\')">' + companyCell(r.s) + '</td><td class="l wrap"><b>' + esc(r.h) + '</b>' +
+    (rows.slice(0, 300).map(r => '<tr><td class="l num" style="font-size:12px">' + esc(filTime(r.t)) + '</td><td class="l click" onclick="openStock(\'' + esc(r.s) + '\')">' + companyCell(r.s) + '</td><td class="l wrap"><b>' + esc(r.h) + '</b>' +
       (r.x ? '<div class="muted" style="font-size:12px">' + esc(r.x) + '</div>' : '') + (r.u ? ' <a href="' + esc(r.u) + '" target="_blank" rel="noopener noreferrer">PDF</a>' : '') + '</td></tr>').join('') ||
       '<tr><td colspan="3" class="empty">No filings.</td></tr>') + '</tbody></table></div>';
 }
@@ -1147,7 +1148,7 @@ function freshnessPanel(trk){
   const row = (label, value, note) => '<tr><td class="l">' + label + '</td><td class="num">' + value + '</td><td class="l muted">' + (note || '') + '</td></tr>';
   const feed = (f) => !f ? '–' : f.error ? '<span style="color:var(--down)">not available</span>' : (f.companies_filed != null ? num(f.companies_filed, 0) + ' filed, ' + num(f.newer_than_stored, 0) + ' new' : num(f.companies || 0, 0) + ' companies');
   return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Data updates</h3><span class="muted" style="font-size:12px">' + esc(bSnap(S.lib.generated)) + '</span></div><div class="panel-b">' +
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="width:230px;font-size:13px">Data requests today</span>' + bar +
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="width:230px;font-size:13px">Data requests today <span class="muted" style="font-size:11.5px">(resets 05:30 IST)</span></span>' + bar +
     '<span class="num" style="width:150px;text-align:right">' + num(used, 0) + ' of ' + num(budget, 0) + (bs.allowance_used_up ? ' · used up' : '') + '</span></div>' +
     '<table class="t"><tr><th class="l">Still needed</th><th>Companies</th><th class="l"></th></tr>' +
     row('Quarterly results', num(pend.fin || 0, 0), '') +
@@ -1866,7 +1867,7 @@ function drawStockCharts(R, s){
   const q = qMode === 'a' ? (R.annual || []) : (R.quarters || []);
   const qel = $('cQ');
   if (qel && q.length) {
-    const lab = q.map(x => { const d = new Date(x.period); return isNaN(d) ? x.period : qMode === 'a' ? 'FY' + String(d.getFullYear()).slice(2) : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); });
+    const lab = q.map(x => { const d = new Date(x.period); return isNaN(d) ? x.period : qMode === 'a' ? 'FY' + String(d.getFullYear()).slice(2) : d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', year: '2-digit' }); });
     const margin = q.map(x => x.revenue ? x.net_profit / x.revenue * 100 : null);
     charts.push(new Chart(qel, { data: { labels: lab, datasets: [
       { type: 'bar', label: 'Revenue', data: q.map(x => rupeesToCr(x.revenue)), backgroundColor: brand + 'cc', borderRadius: 3, yAxisID: 'y' },
@@ -1893,7 +1894,7 @@ function drawStockCharts(R, s){
   const tel = $('cOwnTrend');
   const hist = (s && s.holding_history) || [];
   if (tel && hist.length >= 3) {
-    const lab = hist.map(h => { const d = new Date(h.quarter); return isNaN(d) ? h.quarter : d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }); });
+    const lab = hist.map(h => { const d = new Date(h.quarter); return isNaN(d) ? h.quarter : d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', month: 'short', year: '2-digit' }); });
     const line = (label, key, color, dash, style) => ({ label, data: hist.map(h => h[key] == null ? null : h[key]), borderColor: color, backgroundColor: color, borderDash: dash, borderWidth: 2, pointRadius: 3, pointStyle: style, spanGaps: true, tension: 0 });
     const ds = [line('Promoter', 'promoter', brand, [], 'circle')];
     if (hist.some(h => h.fii != null)) ds.push(line('FII', 'fii', warn, [6, 4], 'rect'));

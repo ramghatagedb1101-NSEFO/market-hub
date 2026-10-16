@@ -104,7 +104,7 @@ jobs:
         if: always() && steps.pull.outcome == 'success'
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: python -m hub.site_data push "daily data $(date -u +%F)"
+        run: python -m hub.site_data push "daily data $(TZ=Asia/Kolkata date +%F)"
 
       - name: Commit index membership and sector lists
         run: |
@@ -114,7 +114,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "daily index lists $(date -u +%F)"
+            git commit -m "daily index lists $(TZ=Asia/Kolkata date +%F)"
             # Another push may have landed during this run: rebase onto it and retry.
             # --autostash keeps any other rewritten tracked file from blocking the rebase.
             for i in 1 2 3; do

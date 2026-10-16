@@ -48,4 +48,4 @@ jobs:
         if: always() && steps.pull.outcome == 'success'
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: python -m hub.site_data push "multi-bagger $(date -u +%F)"
+        run: python -m hub.site_data push "multi-bagger $(TZ=Asia/Kolkata date +%F)"

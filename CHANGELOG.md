@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-16
 
+### All dates in IST (16 Oct 2026, evening)
+Owner: "all dates in this app need to be in IST". Dashboard dates are now drawn in IST whatever the viewer's own clock
+says; filing times read "Fri 16 Oct 2026 · 14:58 IST" instead of NSE's raw "16-Oct-2026 14:58:23"; the data-requests
+counter says it resets at 05:30 IST (the provider's day starts at midnight UTC); the stock list's stamp is written in IST;
+job labels in the commit history use IST instead of UTC. The phone already showed everything in IST.
+
 ### Public history cleaned (16 Oct 2026, 19:20 IST, owner-approved)
 Owner: "yes, do the clean-up after close". The repo is public, and its history still held files that are now private.
 Removed from every commit and branch (`git filter-repo --invert-paths`): METHOD.md, the old handover method files,
@@ -11,8 +17,7 @@ the old phone data files (feed, brief, context, F&O, stocks, multibagger lists a
 old state files (prices, state, bulk deals). Today's code is byte-identical; 645 -> 607 commits, so every commit id
 changed (`.github/relay-deployed` mapped to the new id). Done after live quotes stopped (17:25 IST), because that job
 rebases onto main and could have brought the old history back. Full backup of the old history on the laptop:
-`C:
-se_fo_analyser\extrasepo-backup-2026-10-16.git` (not public). Copies made before today cannot be recalled.
+`C:\nse_fo_analyser\extras\repo-backup-2026-10-16.git` (not public). Copies made before today cannot be recalled.
 
 ### First real run of the new features (16 Oct 2026, after the close)
 - Relay Version 78 live (portfolio, paper trades, insights). Insights run: 452 s, 457 NSE calls, 450 followed companies,

@@ -83,7 +83,7 @@ jobs:
         if: always() && steps.pull.outcome == 'success'
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: python -m hub.site_data push "multi-bagger (via library batch) $(date -u +%F)"
+        run: python -m hub.site_data push "multi-bagger (via library batch) $(TZ=Asia/Kolkata date +%F)"
       # more_work: companies still need something this run could not finish in its time budget AND
       # this run made progress. Work that only BharatStock can do, once the day's allowance is used,
       # is not "more work" -- it waits for tomorrow's scheduled run instead of re-dispatching every

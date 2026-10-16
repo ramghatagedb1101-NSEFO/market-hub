@@ -90,7 +90,7 @@ def _track_record() -> dict:
     from rg import tracker
     s = tracker.summary()
     out = {
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": datetime.now(config.IST).isoformat(timespec="seconds"),
         "basis": "Every qualifying recommendation tracked as if traded, from entry to settlement. "
                  "Not the owner's actual trading P&L -- nothing here knows which suggestions were "
                  "really taken.",
@@ -181,7 +181,7 @@ def main() -> dict:
         print(f"[STOCKS] wrote {TRACK_RECORD_FILE}")
 
     payload = {
-        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "generated_at": datetime.now(config.IST).isoformat(timespec="seconds"),
         "universe": rc.UNIVERSE_LABEL,
         "mode": "replay" if replaying else "live",
         "replay_date": str(day) if replaying else None,
