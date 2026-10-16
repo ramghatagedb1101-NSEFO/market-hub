@@ -156,6 +156,7 @@
   .mrow .mv{font:600 12.5px var(--mono);white-space:nowrap;text-align:right}
   @media (prefers-reduced-motion: reduce){ .sx>summary::after{transition:none} }
   #home-today{margin-top:6px}
+  .pq select,.pq input,.pq button{width:100%;min-width:0;box-sizing:border-box}
   .stock-bg{display:none;position:fixed;inset:0;background:var(--bg);z-index:25;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .stock-bg.on{display:block}
   .stock-top{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 10px 8px;background:var(--pnl);border-bottom:1px solid var(--ln)}
@@ -199,11 +200,11 @@
   <div class="t"><span class="k">SENSEX</span><div class="v">–</div></div></div>
 
 <main>
-  <section class="pane on" id="home"><div class="grid" id="home-body"></div><div id="home-today"></div></section>
+  <section class="pane on" id="home"><div class="grid" id="home-body"></div><div id="home-ins"></div><div id="home-today"></div></section>
   <section class="pane" id="brief"><div id="brief-body"></div></section>
-  <section class="pane" id="fno"><div id="fno-body"></div></section>
+  <section class="pane" id="fno"><div id="fno-body"></div><div id="fno-ins"></div></section>
   <section class="pane" id="mb"><div id="mb-body"></div></section>
-  <section class="pane" id="desk"><div id="desk-body"></div></section>
+  <section class="pane" id="desk"><div id="desk-body"></div><div id="desk-ins"></div></section>
 </main>
 
 <nav class="tabs" id="tabs">
@@ -338,7 +339,7 @@
     }
     throw lastErr;
   }
-  const APP_FILES = ["feed", "brief", "context", "stocks", "fno", "shortlist", "digest"];
+  const APP_FILES = ["feed", "brief", "context", "stocks", "fno", "shortlist", "digest", "insights"];
   let BUNDLE = null;
   function loadBundle(){
     if (!BUNDLE) {
@@ -364,7 +365,7 @@
   }
   function signOut(msg){
     SESSION = null; BUNDLE = null; FEED = null; store.clear();
-    ["#home-today", "#home-body", "#brief-body", "#fno-body", "#mb-body", "#desk-body"].forEach(s => $(s).innerHTML = "");
+    ["#home-today", "#home-body", "#home-ins", "#brief-body", "#fno-body", "#fno-ins", "#mb-body", "#desk-body", "#desk-ins"].forEach(s => $(s).innerHTML = "");
     $("#settings").classList.remove("on");
     showGate(msg || "Signed out.");
   }
@@ -989,6 +990,153 @@
   }
   function closeDigest(){ $("#dgsheet").classList.remove("on"); }
 
+  // ---- New features (16 Oct 2026): alerts, portfolio, coming up, positions, option prices, paper trades, heatmap,
+  // volume spikes, insider buying; on a company: surveillance flags, grades, valuation band, insider trades ----
+  let INSD = null, PORT = null, PAPER = null, PP_MSG = "";
+  async function insGet(){ if (INSD) return INSD; try { INSD = await getFile("insights"); } catch(e){ INSD = null; } return INSD; }
+  function mineP(){
+    const m = new Set();
+    ((WATCH && WATCH.items) || []).forEach(w => m.add(w.symbol));
+    if (SL && SL.lists) Object.values(SL.lists).forEach(L => (L.top || []).concat(L.next || []).forEach(i => m.add(i.symbol)));
+    ((PORT && PORT.holdings) || []).forEach(h => m.add(h.s));
+    return m;
+  }
+  const gTag = g => g ? `<span class="tag ${g[0] === "A" ? "g" : g[0] === "B" ? "" : g[0] === "C" ? "a" : "r"}">${esc(g)}</span>` : "";
+  const crP = v => v == null ? "–" : "₹" + f(Math.abs(v) / 1e7, Math.abs(v) / 1e7 < 10 ? 2 : 0) + " cr";
+  const rupee = v => (v < 0 ? "−" : "+") + "₹" + f(Math.abs(v), 0);
+  const todayP = () => new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
+
+  async function renderIns(){
+    if (!SESSION) return;
+    const I = await insGet();
+    if (!WATCH) { try { WATCH = await relayPost("app_watch", { token: SESSION }); } catch(e){} }
+    if (!SL) { try { SL = await getFile("shortlist"); } catch(e){} }
+    try { PORT = await relayPost("app_portfolio", { token: SESSION }); } catch(e){ PORT = { error: "unavailable" }; }
+    homeIns(I); fnoIns(I); deskIns(I);
+  }
+
+  function homeIns(I){
+    const el = $("#home-ins"); if (!el) return;
+    let html = "";
+    const A = ((I && I.alerts) || []).slice().sort((a, b) => b.mine - a.mine);
+    if (A.length) html += `<div class="sec" id="alerts">Alerts · ${esc(asSnap(I.generated))}</div><div class="panel"><div class="pb">` +
+      A.slice(0, 5).map(a => `<div class="row" onclick="openStock('${esc(a.s)}')"><span class="l"><b>${esc(a.s)}</b> ${esc(a.t)}</span><span class="r">${a.mine ? '<span class="tag a">yours</span>' : ""}</span></div>`).join("") +
+      (A.length > 5 ? `<details><summary>See all ${A.length}</summary>${A.slice(5).map(a => `<div class="row" onclick="openStock('${esc(a.s)}')"><span class="l"><b>${esc(a.s)}</b> ${esc(a.t)}</span></div>`).join("")}</details>` : "") + `</div></div>`;
+    const P = PORT;
+    if (P && !P.error && (P.holdings || []).length) {
+      const H = P.holdings.slice().sort((a, b) => b.value - a.value), tot = H.reduce((t, h) => t + h.value, 0), cost = H.reduce((t, h) => t + h.cost, 0), day = H.reduce((t, h) => t + h.day, 0);
+      const dayPct = tot - day ? day / (tot - day) * 100 : null, nifty = P.nifty ? P.nifty.change_pct : null;
+      const ind = s => (I && I.industries && I.industries[s]) || "Other", bySec = {};
+      H.forEach(h => bySec[ind(h.s)] = (bySec[ind(h.s)] || 0) + h.value);
+      const warn = H.filter(h => h.value / tot > 0.5).map(h => h.s).concat(Object.keys(bySec).filter(k => bySec[k] / tot > 0.5));
+      html += `<div class="sec">My portfolio · ${esc(asQuote(P.ts))}</div><div class="panel"><div class="pb">
+        ${warn.length ? `<div class="amb" style="margin-bottom:6px">Over half your portfolio is in ${esc(warn.join(", "))}.</div>` : ""}
+        <div class="row"><span class="l">Value</span><span class="r">₹${f(tot, 0)}</span></div>
+        <div class="row"><span class="l">Gain on cost</span><span class="r ${cls(tot - cost)}">${rupee(tot - cost)} · ${pct((tot / cost - 1) * 100, 1)}</span></div>
+        <div class="row"><span class="l">Today · NIFTY</span><span class="r"><span class="${cls(day)}">${pct(dayPct, 2)}</span> · <span class="${cls(nifty)}">${pct(nifty, 2)}</span></span></div>
+        <details><summary>Holdings (${H.length})</summary>${H.map(h => `<div class="row" onclick="openStock('${esc(h.s)}')"><span class="l"><b>${esc(h.s)}</b> · ${f(h.value / tot * 100, 1)}%</span><span class="r ${cls(h.pnl)}">${pct((h.ltp / h.avg - 1) * 100, 1)}</span></div>`).join("")}</details>
+      </div></div>`;
+    } else if (P && P.error) html += `<div class="sec">My portfolio</div><div class="panel"><div class="pb mut">${esc(P.error)}</div></div>`;
+    const mine = mineP(), t0 = todayP(), t14 = new Date(Date.now() + (5.5 * 3600 + 14 * 86400) * 1e3).toISOString().slice(0, 10);
+    const up = ((I && I.calendar) || []).filter(c => mine.has(c.s) && c.d >= t0 && c.d <= t14);
+    if (up.length) html += `<div class="sec">Coming up · next 14 days</div><div class="panel"><div class="pb">` +
+      up.map(c => `<div class="row" onclick="openStock('${esc(c.s)}')"><span class="l"><b>${esc(c.s)}</b> ${esc(c.p)}</span><span class="r">${esc(dayTxt(parseDay(c.d)))}</span></div>`).join("") + `</div></div>`;
+    el.innerHTML = html;
+    if (location.hash === "#alerts") { const a = $("#alerts"); if (a) a.scrollIntoView(); }
+  }
+
+  function fnoIns(I){
+    const el = $("#fno-ins"); if (!el) return;
+    let html = "";
+    const Pz = (I && I.positions) || {}, days = Object.keys(Pz).sort();
+    if (days.length) {
+      const r = (d, w) => { const x = (Pz[d] || {})[w] || {}; return x.fil && x.fis ? x.fil / (x.fil + x.fis) * 100 : null; };
+      const lastD = days[days.length - 1], wk = days.length > 5 ? days[days.length - 6] : null;
+      html += `<div class="sec">Index futures held long · ${esc(asClose(lastD))}</div><div class="panel"><div class="pb">` +
+        ["FII", "DII", "Pro", "Client"].map(w => { const a = r(lastD, w), b = wk ? r(wk, w) : null;
+          return `<div class="row"><span class="l">${w}</span><span class="r">${a == null ? "–" : f(a, 0) + "%"} <span class="${cls(a != null && b != null ? a - b : null)}">${a != null && b != null ? (a - b >= 0 ? "+" : "") + f(a - b, 1) + " in a week" : ""}</span></span></div>`; }).join("") + `</div></div>`;
+    }
+    const iv = (I && I.iv) || {};
+    if (Object.keys(iv).length) html += `<div class="sec">Index option prices</div><div class="panel"><div class="pb">` +
+      Object.keys(iv).map(k => `<div class="row"><span class="l">${esc(k)} · straddle ${f(iv[k].last[1], 2)}% of index</span><span class="r">rank ${iv[k].rank == null ? "–" : iv[k].rank} · ${iv[k].rank >= 70 ? "dear" : iv[k].rank <= 30 ? "cheap" : "middle"}</span></div>`).join("") +
+      `<div class="note">Day-before at-the-money straddle on the latest expiry; rank 0–100 against 3 years.</div></div></div>`;
+    html += `<div class="sec">Paper trades</div><div class="panel"><div class="pb" id="pp-box">${paperHtml()}</div></div>`;
+    el.innerHTML = html;
+    if (!PAPER) loadPaper();
+  }
+  async function loadPaper(){ try { PAPER = await relayPost("app_paper", { token: SESSION }); } catch(e){ PAPER = { error: e.message }; } const b = $("#pp-box"); if (b) b.innerHTML = paperHtml(); }
+  function paperHtml(){
+    if (!PAPER) return `<div class="mut">Loading…</div>`;
+    if (PAPER.error) return `<div class="mut">${esc(PAPER.error)}</div>`;
+    const T = PAPER.trades || [], closed = T.filter(t => t.status === "closed"), won = closed.filter(t => t.pnl > 0).length, tot = closed.reduce((a, t) => a + (t.pnl || 0), 0);
+    const what = t => t.kind === "stock" ? `${esc(t.sym)} · ${t.qty} sh` : `${esc(t.idx)} ${f(t.strike)} ${esc(t.type)} · ${esc(dayTxt(parseDay(t.expiry)))}`;
+    return `<div class="row"><span class="l">Closed ${closed.length} · won ${won}</span><span class="r ${cls(tot)}">${closed.length ? rupee(tot) : "–"}</span></div>` +
+      T.slice(0, 8).map(t => `<div class="row"><span class="l">${t.side === "sell" ? "Sell" : "Buy"} ${what(t)}<br><span class="mut" style="font-size:11px">@ ${f(t.entry, 2)}${t.status === "open" ? " · open" : " → " + f(t.exit, 2)}</span></span><span class="r ${cls(t.pnl)}">${t.pnl == null ? "–" : rupee(t.pnl)}${t.status === "open" ? ` <button class="btn" style="padding:2px 8px" onclick="paperCloseP('${t.id}')">Close</button>` : ""}</span></div>`).join("") +
+      `<details style="margin-top:6px"><summary>New paper trade</summary><div class="pq" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:6px">
+        <select id="pq-side"><option value="buy">Buy</option><option value="sell">Sell</option></select>
+        <select id="pq-idx"><option>NIFTY</option><option>BANKNIFTY</option><option>SENSEX</option></select>
+        <input id="pq-exp" type="date" value="${todayP()}"><input id="pq-strike" inputmode="numeric" placeholder="Strike">
+        <select id="pq-type"><option value="CE">Call</option><option value="PE">Put</option></select><input id="pq-lots" inputmode="numeric" value="1" placeholder="Lots">
+        <input id="pq-price" inputmode="decimal" placeholder="Price (blank = live)"><button class="btn" type="button" onclick="paperAddP()">Add</button></div>
+        ${PP_MSG ? `<div class="mut" style="margin-top:4px">${esc(PP_MSG)}</div>` : ""}<div class="note">Index options. Nothing is sent to Kite.</div></details>`;
+  }
+  async function paperAddP(){
+    const g = id => ($(id) || {}).value || "";
+    const t = { kind: "option", side: g("#pq-side"), idx: g("#pq-idx"), expiry: g("#pq-exp"), strike: g("#pq-strike"), type: g("#pq-type"), lots: g("#pq-lots"), price: g("#pq-price") };
+    PP_MSG = "Saving…"; $("#pp-box").innerHTML = paperHtml();
+    try { const d = await relayPost("app_paper_add", { token: SESSION, trade: t }); if (d.error) PP_MSG = d.error; else { PAPER = d; PP_MSG = ""; } } catch(e){ PP_MSG = e.message; }
+    $("#pp-box").innerHTML = paperHtml();
+  }
+  async function paperCloseP(id){
+    try { const d = await relayPost("app_paper_close", { token: SESSION, id }); if (!d.error) PAPER = d; else alert(d.error); } catch(e){}
+    $("#pp-box").innerHTML = paperHtml();
+  }
+
+  function deskIns(I){
+    const el = $("#desk-ins"); if (!el || !I) return;
+    let html = "";
+    const H = I.heatmap || [];
+    if (H.length) {
+      const by = {}; H.forEach(r => { if (r.d1 == null) return; const b = by[r.i] || (by[r.i] = { m: 0, w: 0 }); b.m += r.m; b.w += r.m * r.d1; });
+      const rows = Object.keys(by).map(k => ({ k, v: by[k].w / by[k].m })).sort((a, b) => b.v - a.v);
+      html += `<div class="sec">Industries today · ${esc(asSnap(I.generated))}</div><div class="panel"><div class="pb">${barRows(rows.map(r => ({ label: r.k, v: r.v, txt: pct(r.v, 2) })))}</div></div>`;
+    }
+    const buy = Object.keys(I.insider || {}).map(s => Object.assign({ s }, I.insider[s])).filter(r => r.promoter_net > 0).sort((a, b) => b.promoter_net - a.promoter_net).slice(0, 8);
+    if (buy.length) html += `<div class="sec">Promoters buying · 180 days</div><div class="panel"><div class="pb">` +
+      buy.map(r => `<div class="row" onclick="openStock('${esc(r.s)}')"><span class="l"><b>${esc(r.s)}</b></span><span class="r up">+${crP(r.promoter_net)}</span></div>`).join("") + `</div></div>`;
+    const sp = (I.spikes || []).slice(0, 8);
+    if (sp.length) html += `<div class="sec">Volume spikes</div><div class="panel"><div class="pb">` +
+      sp.map(r => `<div class="row" onclick="openStock('${esc(r.s)}')"><span class="l"><b>${esc(r.s)}</b> · ${f(r.x, 1)}× volume · ${f(r.dl, 0)}% delivery</span><span class="r ${cls(r.d1)}">${pct(r.d1, 2)}</span></div>`).join("") + `</div></div>`;
+    el.innerHTML = html;
+  }
+
+  // Company page additions
+  function insTags(sym){
+    const I = INSD; if (!I) return [];
+    const t = ((I.risk || {})[sym] || []).map(x => `<span class="tag r">${esc(x)}</span>`);
+    const p = (I.pledge || {})[sym]; if (p && p.rising) t.push(`<span class="tag r">Pledge rising · ${f(p.pct, 1)}%</span>`);
+    const c = (I.calendar || []).find(x => x.s === sym); if (c) t.push(`<span class="tag">Board meeting · ${esc(dayTxt(parseDay(c.d)))}</span>`);
+    return t;
+  }
+  function insSections(sym){
+    const I = INSD; if (!I) return "";
+    const g = (I.grades || {})[sym], v = (I.valuation || {})[sym], ins = (I.insider || {})[sym];
+    let html = "";
+    if (g) html += sect("grades", "Grades in its industry", "Overall " + (g.c || "–"),
+      `<div style="display:flex;gap:10px;flex-wrap:wrap">${[["c", "Overall"], ["q", "Quality"], ["g", "Growth"], ["v", "Value"], ["m", "Momentum"], ["o", "Ownership"]].map(([k, l]) => `<div style="text-align:center"><div class="mut" style="font-size:11px">${l}</div>${gTag(g[k]) || "–"}</div>`).join("")}</div>`);
+    if (v) {
+      const line = (lab, a) => `<div class="row"><span class="l">${lab}</span><span class="r">${f(a[0], 1)} · <b>${f(a[1], 1)}</b> · ${f(a[2], 1)}</span></div>`;
+      const where = v.ind ? (v.pe < v.ind[0] ? "cheaper than most peers" : v.pe > v.ind[2] ? "dearer than most peers" : "in line with peers") : "";
+      html += sect("valuation", "Valuation band", `P/E ${f(v.pe, 1)}×${where ? " · " + where : ""}`,
+        (v.ind ? line("Industry: low quarter · median · high quarter", v.ind) : `<div class="mut">Too few industry peers.</div>`) +
+        (v.own ? line(`Its own history (${v.own[3]} weeks): low · median · high`, v.own) : `<div class="note">Its own range appears after 8 weekly readings.</div>`));
+    }
+    if (ins) html += sect("insider", "Insider trades", `promoters net ${ins.promoter_net ? (ins.promoter_net > 0 ? "+" : "−") + crP(ins.promoter_net) : "–"} · 180 days`,
+      `<div class="row"><span class="l">Bought · sold</span><span class="r"><span class="up">${crP(ins.buy)}</span> · <span class="dn">${crP(ins.sell)}</span></span></div>` +
+      (ins.rows || []).map(r => `<div class="mrow"><div class="ml"><div>${esc(r.who)}</div><div>${esc(r.cat)} · ${esc(dayTxt(parseDay(r.d)))}</div></div><div class="mv ${r.k === "Buy" ? "up" : "dn"}">${r.k === "Buy" ? "bought" : "sold"} ${crP(r.v)}</div></div>`).join(""));
+    return html;
+  }
+
   // ---- Company search and company page (11 Oct 2026) ----
   // Search any of the library's companies; a company opens as a summary card that is always visible,
   // then sections that open on tap (a one-line summary on each, so the closed page still reads as an
@@ -1204,7 +1352,7 @@
     const ctx = [P.industry, pv("market_value_bucket") != null ? crore(pv("market_value_bucket")) : "", pv("pe") != null ? "P/E " + f(pv("pe"), 1) + "×" : "",
                  pv("from_52w_high") != null ? f(pv("from_52w_high"), 0) + "% from 52-wk high" : ""].filter(Boolean);
     const chk = P.check || {};
-    const tags = [x ? `<span class="tag g">${x.style === "compounders" ? "Compounders" : "Emerging"} list #${x.rank}</span>` : "",
+    const tags = [...insTags(ST.symbol), x ? `<span class="tag g">${x.style === "compounders" ? "Compounders" : "Emerging"} list #${x.rank}</span>` : "",
       d.starred ? `<span class="tag a">★ Watchlist</span>` : "",
       chk.status === "ok" ? `<span class="tag g">✓ Matches ${chk.source === "bse" ? "BSE results" : "NSE filing"}</span>` : chk.status === "mismatch" ? `<span class="tag r">NSE figures used</span>` : chk.status === "period_differs" ? `<span class="tag a">NSE figures used</span>` : chk.status === "nse_only" ? `<span class="tag">Figures from NSE filing</span>` : chk.status === "bse_only" ? `<span class="tag">Figures from BSE results</span>` : "",
       (P.flags || []).some(fl => fl.level === "severe") ? `<span class="tag r">Data check: suspect figure</span>` : "",
@@ -1245,6 +1393,7 @@
       }).join("");
       html += sect("figures", "Key figures", esc(sumKeys.join(" · ")) || (CAT ? "" : "loading labels…"), body + `<div class="note">✓ meets the rule shown under it · ✗ does not · · not testable. ${esc(asSnap(P.generated))}.</div>`);
     } else if (!P.error) html += sect("figures", "Key figures", "loading…", `<div class="mut">Loading…</div>`);
+    html += insSections(ST.symbol);
 
     // 4 ownership (and mutual funds, loaded on tap)
     if (P.values) {
@@ -1454,6 +1603,7 @@
     await init(); await renderFno(); await renderBrief(); await liveTick();
     if ($("#mb").classList.contains("on")) renderIdeas();
     renderToday();
+    INSD = null; PAPER = null; renderIns();
   }
 
   // Pull to refresh (drag down from the top of the main pane)
@@ -1471,14 +1621,14 @@
   // Quotes are public (the relay's mode=quote), so the ticker runs whether or not anyone is signed in.
   let ticking = false;
   function start(){
-    init().then(renderBrief); renderFno(); renderToday();
+    init().then(renderBrief); renderFno(); renderToday(); renderIns();
     if (!ticking) { ticking = true; liveTick(); setInterval(politeTick, 60000); }
     else liveTick();
   }
   if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(politeTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
-  Object.assign(window, { openStock, closeStock, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
+  Object.assign(window, { openStock, closeStock, paperAddP, paperCloseP, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
                           openSearch, closeSearch, drawSearch, sxToggle, setResMode, refreshSummary });
 })();
 </script>

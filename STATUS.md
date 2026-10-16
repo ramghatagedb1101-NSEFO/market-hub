@@ -3,6 +3,11 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Fri 16 Oct 2026 -- read this first
+- **15 new features built** (see CHANGELOG 16 Oct): data from `hub/insights.py` (workflow `insights.yml`, 08:05 IST),
+  new dashboard pages, phone sections, portfolio and paper trades on the relay. First real run decides whether the NSE
+  parts work; check the run's notice line.
+
 ## Thu 15 Oct 2026, morning -- read this first
 - **Screen and wording audit done (evening)**: overlap and sideways scrolling fixed, multibagger count fixed (4 gates),
   plain wording on dashboard, phone and relay messages (no provider or build terms). See CHANGELOG.

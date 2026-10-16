@@ -2,6 +2,35 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-16
+
+### Fifteen new features from the world's best investing apps (built 16 Oct 2026)
+Owner, on the research report: "That can be done for free. Build all of them." All run on data already collected or
+free NSE lists; no new paid service.
+- **Data** (`hub/insights.py`, new workflow `insights.yml`, Mon-Sat 08:05 IST, after the library run, same queue): ASM/GSM
+  surveillance and F&O ban, promoter pledge disclosures (rising flag), board meetings for 45 days, 3 days of filings,
+  insider market buys/sells over 180 days for the ~450 followed companies (NSE answers this per company only; probed from
+  GitHub, `hub/diag_insights_probe.py`), FII/DII/Pro/Client index futures and options positions (60 days), volume spikes
+  (3x volume, 50%+ delivery), heatmap rows, grades A+ to F within the industry (the dashboard's own factor rules,
+  ported), P/E against industry quartiles and the company's own weekly history (starts today, shows after 8 weeks),
+  investor portfolios from the registry matches, 3 years of index option prices (day-before straddle) with today's rank,
+  and alerts. Written to the private repo `site/insights.json`; state in `state/insights_state.json`.
+- **Alerts**: 52-week highs/lows, 200-day crossings, results filed, promoter buys/sells, new surveillance flags, rising
+  pledges, and companies entering or leaving your saved screens. New alerts for your companies and screens are pushed to
+  the phone once (same push keys as the Kite reminder).
+- **Relay**: `Portfolio.gs` (Kite holdings, read-only; last-seen symbols kept for the morning job), `Paper.gs` (paper-trade
+  journal in one Drive file; live Kite prices or a typed price; index options settle at the recorded index close),
+  `adminInsights`, `batch_context` for the morning job, and per-strike option prices in the expiry meter's data.
+- **Dashboard**: My portfolio, Heatmap, Insider trades, Results calendar, Filings, Volume spikes, Positions and option
+  prices, Paper trades; Alerts on the Overview; investor portfolios on Investor registry; on each stock: surveillance
+  and pledge badges, next board meeting, grades, valuation band, insider trades; Ask on the Screener (plain words to
+  conditions, no AI needed); payoff builder on the Expiry meter (live prices, breakevens, chance of profit).
+- **Phone** (cache v38): alerts, portfolio and coming-up on Home; positions, option prices and paper trades on F&O;
+  industries today, promoters buying and volume spikes on Desk; badges, grades, valuation band and insider trades on
+  each company. Ask stays on the dashboard (the phone does not hold the library).
+- Tested in the local preview with sample data at laptop and 375 px widths (no script errors, nothing wider than the
+  screen); the NSE parts are tested only by the first GitHub run.
+
 ## 2026-10-15
 
 ### Screen and wording audit: dashboard and phone (~16:45 IST)

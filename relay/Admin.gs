@@ -23,7 +23,7 @@ const ADMIN_CODE_SECONDS = 600;        // ten minutes
 const ADMIN_MAX_TRIES = 5;
 // Phone app data: the files the daily jobs keep in the private repo's site/ folder (hub/site_data.py).
 const APP_DIR = 'site';
-const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest'];
+const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest', 'insights'];
 
 /**
  * Sessions live in the script properties, not CacheService: CacheService caps any entry at six hours,
@@ -187,6 +187,11 @@ function appApi_(mode, body) {
   if (mode === 'app_push_key') return appPushKey_(p.token);
   if (mode === 'app_push_subscribe') return appPushSubscribe_(p.token, p.subscription);
   if (mode === 'app_push_unsubscribe') return appPushUnsubscribe_(p.token, p.endpoint);
+  if (mode === 'app_portfolio') return adminPortfolio(p.token);
+  if (mode === 'app_paper') return adminPaper(p.token);
+  if (mode === 'app_paper_add') return adminPaperAdd(p.token, p.trade);
+  if (mode === 'app_paper_close') return adminPaperClose(p.token, p.id, p.price);
+  if (mode === 'app_paper_delete') return adminPaperDelete(p.token, p.id);
   return { error: 'unknown mode' };
 }
 
@@ -210,6 +215,11 @@ function appData_(token, files) {
     try { out[n] = JSON.parse(res.getContentText()); } catch (err) { out[n] = { error: 'not valid JSON' }; }
   });
   return { files: out };
+}
+
+/** Insights (16 Oct 2026, hub/insights.py): risk flags, calendar, filings, insider trades, positions, grades, alerts and more. */
+function adminInsights(token) {
+  return appData_(token, ['insights']);
 }
 
 /** Dashboard Overview (15 Oct 2026): the phone's Brief tab files, so both show the same brief. */

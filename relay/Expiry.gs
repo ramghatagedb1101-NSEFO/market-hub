@@ -506,6 +506,7 @@ function expiryIndex_(ix, snap, now, M, ov) {
     sd: r2(sd), likely: [r2(pred - sd), r2(pred + sd)], model_close: r2(model), settle: ST,
     pcr: C.ceAll ? Math.round(C.peAll / C.ceAll * 100) / 100 : null, model: M, strikes: rows.length,
     rows: near(rows).map(r => [r.strike, r.ce_oi, r.pe_oi, chg(Bc, r, 0), chg(Bc, r, 1)]),
+    px: near(rows).map(r => [r.strike, r.ce, r.pe]),   // per-strike prices for the payoff builder (16 Oct 2026)
     oi: { calls: C.ceAll, puts: C.peAll, calls_chg: sumChg(rows, Bc, 0), puts_chg: sumChg(rows, Bc, 1), since: B ? B.hm : null,
           writing: { calls: top(rows, Bc, 0, 1), puts: top(rows, Bc, 1, 1) }, covering: { calls: top(rows, Bc, 0, -1), puts: top(rows, Bc, 1, -1) } },
     // What option sellers pay at settlement (within +-3% of spot): here, at max pain, and the extra for one step up or down.

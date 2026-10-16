@@ -1,0 +1,56 @@
+name: insights
+
+# Insights (16 Oct 2026, hub/insights.py): risk flags, results calendar, filings, insider trades, F&O positions, volume
+# spikes, heatmap, grades, valuation band, investor portfolios, option-price history and alerts, built after the
+# morning library run into the private repo's site/insights.json (read by the dashboard and the phone after sign-in).
+# New alerts for your companies and saved screens are pushed to the phone once.
+on:
+  schedule:
+    - cron: "35 2 * * 1-6"       # 02:35 UTC = 08:05 IST, Mon-Sat: after the library run, before the market opens
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: library                 # never alongside the library run: both write the private site/ and state/ folders
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Restore the daily price files
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/bhav
+          key: bhav-${{ github.run_id }}
+          restore-keys: bhav-
+      - name: Bring the private data (site/, state/) from the private repo
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
+      - name: Build insights
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: |
+          set -o pipefail
+          python -m hub.insights | tee /tmp/insights.json
+          python -c "import json; r=json.load(open('/tmp/insights.json')); print('::notice title=insights::' + json.dumps({k: r[k] for k in ('seconds','nse_calls','followed','alerts','new_alerts','push','bytes')}))"
+      - name: Save the private data (site/, state/) to the private repo
+        if: always() && steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "insights $(date -u +%F)"
