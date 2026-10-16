@@ -24,7 +24,7 @@ out = {}
 for label, extra in (("no_dates", ""), ("dates_180d", f"&from_date={d(today - timedelta(days=180))}&to_date={d(today)}")):
     none = empty = 0
     raw = recent = market_recent = 0
-    modes, oldest = Counter(), []
+    modes, oldest, newest = Counter(), [], []
     for sym in SYMS:
         body = n.json(NSE + f"corporates-pit?index=equities&symbol={sym.replace('&', '%26')}{extra}")
         time.sleep(0.4)
@@ -47,9 +47,10 @@ for label, extra in (("no_dates", ""), ("dates_180d", f"&from_date={d(today - ti
                     market_recent += 1
         if days:
             oldest.append(min(days))
+            newest.append(max(days))
     out[label] = {"asked": len(SYMS), "no_answer": none, "empty": empty, "rows": raw, "rows_180d": recent,
                   "market_rows_180d": market_recent, "modes_180d": dict(modes.most_common(12)),
-                  "oldest_row_seen": min(oldest) if oldest else None, "median_oldest": sorted(oldest)[len(oldest) // 2] if oldest else None}
+                  "oldest_row_seen": min(oldest) if oldest else None, "newest_row_seen": max(newest) if newest else None, "median_oldest": sorted(oldest)[len(oldest) // 2] if oldest else None}
 out["calls"] = n.calls
 print(json.dumps(out, indent=1))
 config.REPO.joinpath("diag_output").mkdir(exist_ok=True)
