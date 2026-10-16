@@ -1,5 +1,5 @@
 {
- "run": "2026-10-16T10:15+05:30",
+ "run": "2026-10-16T10:16+05:30",
  "pit_nodates": {
   "status": 200,
   "type": "dict",
@@ -67,6 +67,30 @@
     "xbrl",
     "xbrlFileSize"
    ]
+  }
+ },
+ "pit_plain_dates": {
+  "status": 200,
+  "type": "dict",
+  "keys": [
+   "acqNameList",
+   "data"
+  ],
+  "data": {
+   "rows": 0,
+   "keys": null
+  }
+ },
+ "pit_7d_equities_r": {
+  "status": 200,
+  "type": "dict",
+  "keys": [
+   "acqNameList",
+   "data"
+  ],
+  "data": {
+   "rows": 0,
+   "keys": null
   }
  },
  "insider_pit": {
