@@ -48,7 +48,7 @@ jobs:
         run: |
           set -o pipefail
           python -m hub.insights | tee /tmp/insights.json
-          python -c "import json; r=json.load(open('/tmp/insights.json')); print('::notice title=insights::' + json.dumps({k: r[k] for k in ('seconds','nse_calls','followed','alerts','new_alerts','push','bytes')}))"
+          python -c "import json; s=open('/tmp/insights.json').read(); r=json.loads(s[s.find('{'):]); print('::notice title=insights::' + json.dumps({k: r[k] for k in ('seconds','nse_calls','followed','alerts','new_alerts','push','bytes')}))"
       - name: Save the private data (site/, state/) to the private repo
         if: always() && steps.pull.outcome == 'success'
         env:

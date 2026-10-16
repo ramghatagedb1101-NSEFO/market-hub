@@ -224,7 +224,7 @@ def _participant(text: str) -> dict | None:
 
 def positions(n: Nse, today: date, prior: dict) -> dict:
     hist = dict(prior)
-    d, tried = today, 0
+    d, tried, start = today, 0, n.calls          # its own allowance: the insider step has used ~450 calls by now
     while tried < 90 and len([k for k in hist if k >= (today - timedelta(days=POSITION_DAYS * 1.6)).isoformat()]) < POSITION_DAYS:
         d -= timedelta(days=1)
         tried += 1
@@ -234,7 +234,7 @@ def positions(n: Nse, today: date, prior: dict) -> dict:
         rec = _participant(txt) if txt else None
         if rec:
             hist[d.isoformat()] = rec
-        if n.calls > 400:
+        if n.calls - start > 90:
             break
     keep = sorted(hist)[-POSITION_DAYS:]
     return {k: hist[k] for k in keep}
