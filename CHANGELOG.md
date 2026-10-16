@@ -4,6 +4,18 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-16
 
+### First real run of the new features (16 Oct 2026, after the close)
+- Relay Version 78 live (portfolio, paper trades, insights). Insights run: 452 s, 457 NSE calls, 450 followed companies,
+  35 alerts, one phone notification. Every source answered: 298 companies on surveillance or F&O ban lists, 399 pledge
+  disclosures, 876 board meetings, 1,864 filings, 13 volume spikes, 706 heatmap rows, 3 years of option prices.
+- **Insider trades are nearly empty, and not because of a bug**: NSE's per-company insider list has no entries after
+  Tue 28 Apr 2026 (checked on 30 large companies, `hub/diag_insider_check.py`). The feature stays, but it needs a new
+  free source (BSE's insider list is the next to test).
+- Fixes: positions stopped after one day because the shared NSE call cap was used up by the insider step; they now have
+  their own allowance (60 days collected). The run's summary line failed on the hidden key-mask line; it now skips it.
+  The results calendar listed each company twice (meeting notice plus results); now one row per company and day.
+  Positions chart axis labels rounded.
+
 ### Fifteen new features from the world's best investing apps (built 16 Oct 2026)
 Owner, on the research report: "That can be done for free. Build all of them." All run on data already collected or
 free NSE lists; no new paid service.

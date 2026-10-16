@@ -962,10 +962,10 @@ function pagePositions(){
     (ivRows ? '<table class="t"><tr><th class="l">Index</th><th>Straddle</th><th>Expiry</th><th>Rank</th><th class="l"></th></tr>' + ivRows + '</table><div class="panel-b"><div class="chart" style="height:220px"><canvas id="cIv"></canvas></div></div>' : '<div class="empty">Not available yet.</div>') + '</div>';
   const tick = cssVar('--muted') || '#888';
   const el = $('cPos'); if (el && days.length) charts.push(new Chart(el, { type: 'line', data: { labels: days.map(d => bDay(dayOf(d)).slice(4)), datasets: [{ label: POS_WHO + ' % long', data: days.map(d => ratio(d, POS_WHO)), borderColor: cssVar('--brand') || '#2563eb', pointRadius: 0, borderWidth: 2 }] },
-    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tick, maxTicksLimit: 8 } }, y: { ticks: { color: tick, callback: x => x + '%' } } } } }));
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: tick, maxTicksLimit: 8 } }, y: { ticks: { color: tick, callback: x => num(x, 1) + '%' } } } } }));
   const ec = $('cIv'); if (ec && Object.keys(iv).length) { const cols = ['--brand', '--warn', '--up'];
     charts.push(new Chart(ec, { type: 'line', data: { datasets: Object.keys(iv).map((k, i) => ({ label: k, data: iv[k].rows.map(r => ({ x: r[0], y: r[1] })), borderColor: cssVar(cols[i % 3]) || '#888', pointRadius: 0, borderWidth: 1.5 })) },
-      options: { maintainAspectRatio: false, parsing: false, scales: { x: { type: 'category', labels: [...new Set(Object.values(iv).flatMap(o => o.rows.map(r => r[0])))].sort(), ticks: { color: tick, maxTicksLimit: 8 } }, y: { ticks: { color: tick, callback: x => x + '%' } } } } })); }
+      options: { maintainAspectRatio: false, parsing: false, scales: { x: { type: 'category', labels: [...new Set(Object.values(iv).flatMap(o => o.rows.map(r => r[0])))].sort(), ticks: { color: tick, maxTicksLimit: 8 } }, y: { ticks: { color: tick, callback: x => num(x, 1) + '%' } } } } })); }
 }
 
 // ---- Paper trades ----

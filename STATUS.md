@@ -5,8 +5,9 @@ first) and `CLAUDE.md`.
 
 ## Fri 16 Oct 2026 -- read this first
 - **15 new features built** (see CHANGELOG 16 Oct): data from `hub/insights.py` (workflow `insights.yml`, 08:05 IST),
-  new dashboard pages, phone sections, portfolio and paper trades on the relay. First real run decides whether the NSE
-  parts work; check the run's notice line.
+  new dashboard pages, phone sections, portfolio and paper trades on the relay. Live since 16 Oct close (relay Version
+  78); first real run worked for every source. Open: insider trades need a new source (NSE's list stops at 28 Apr 2026);
+  My portfolio shows no holdings (owner to confirm the Kite account really holds none).
 
 ## Thu 15 Oct 2026, morning -- read this first
 - **Screen and wording audit done (evening)**: overlap and sideways scrolling fixed, multibagger count fixed (4 gates),

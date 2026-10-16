@@ -147,12 +147,16 @@ def pledges(n: Nse, today: date, names: dict, prior: dict) -> dict:
 
 def calendar(n: Nse, today: date) -> list:
     rows = n.json(NSE + f"corporate-board-meetings?index=equities&from_date={_d(today)}&to_date={_d(today + timedelta(days=45))}") or []
-    out = []
+    by = {}                                     # one row per company and day: NSE lists the intimation and the results separately
     for r in rows if isinstance(rows, list) else []:
         d = _day(r.get("bm_date"))
         sym = (r.get("bm_symbol") or "").strip()
+        p = (r.get("bm_purpose") or "").strip()
         if sym and d:
-            out.append({"s": sym, "d": d.isoformat(), "p": (r.get("bm_purpose") or "").strip()[:80]})
+            ps = by.setdefault((d.isoformat(), sym), [])
+            if p and "intimation" not in p.lower() and p not in ps:
+                ps.append(p)
+    out = [{"s": s, "d": d, "p": (", ".join(ps) or "Board meeting")[:80]} for (d, s), ps in by.items()]
     out.sort(key=lambda x: (x["d"], x["s"]))
     return out
 
