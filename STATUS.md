@@ -4,6 +4,8 @@ As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct 
 first) and `CLAUDE.md`.
 
 ## Fri 16 Oct 2026 -- read this first
+- **Public history cleaned** (19:20 IST): private files removed from every old commit; all commit ids changed. Any other
+  clone (cloud session, other PC) must re-clone or `git fetch && git reset --hard origin/main`, never pull/merge.
 - **15 new features built** (see CHANGELOG 16 Oct): data from `hub/insights.py` (workflow `insights.yml`, 08:05 IST),
   new dashboard pages, phone sections, portfolio and paper trades on the relay. Live since 16 Oct close (relay Version
   78); first real run worked for every source. Open: insider trades need a new source (NSE's list stops at 28 Apr 2026);

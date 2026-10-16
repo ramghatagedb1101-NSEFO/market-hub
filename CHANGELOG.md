@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-16
 
+### Public history cleaned (16 Oct 2026, 19:20 IST, owner-approved)
+Owner: "yes, do the clean-up after close". The repo is public, and its history still held files that are now private.
+Removed from every commit and branch (`git filter-repo --invert-paths`): METHOD.md, the old handover method files,
+the old phone data files (feed, brief, context, F&O, stocks, multibagger lists and their back-tests, bulk deals) and the
+old state files (prices, state, bulk deals). Today's code is byte-identical; 645 -> 607 commits, so every commit id
+changed (`.github/relay-deployed` mapped to the new id). Done after live quotes stopped (17:25 IST), because that job
+rebases onto main and could have brought the old history back. Full backup of the old history on the laptop:
+`C:
+se_fo_analyser\extrasepo-backup-2026-10-16.git` (not public). Copies made before today cannot be recalled.
+
 ### First real run of the new features (16 Oct 2026, after the close)
 - Relay Version 78 live (portfolio, paper trades, insights). Insights run: 452 s, 457 NSE calls, 450 followed companies,
   35 alerts, one phone notification. Every source answered: 298 companies on surveillance or F&O ban lists, 399 pledge
