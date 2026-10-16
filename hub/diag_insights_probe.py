@@ -20,6 +20,8 @@ API = {
     "pit_nodates": "https://www.nseindia.com/api/corporates-pit?index=equities",
     "pit_30d": f"https://www.nseindia.com/api/corporates-pit?index=equities&from_date={d(today - timedelta(days=30))}&to_date={b}",
     "pit_symbol": "https://www.nseindia.com/api/corporates-pit?index=equities&symbol=RELIANCE",
+    "pit_plain_dates": f"https://www.nseindia.com/api/corporates-pit?from_date={a}&to_date={b}",
+    "pit_7d_equities_r": f"https://www.nseindia.com/api/corporates-pit?index=equities&from_date={a}&to_date={b}&reqFrom=",
     "insider_pit": f"https://www.nseindia.com/api/corporates-pit?index=equities&from_date={a}&to_date={b}",
     "board_meetings": f"https://www.nseindia.com/api/corporate-board-meetings?index=equities&from_date={d(today)}&to_date={d(today + timedelta(days=30))}",
     "announcements": f"https://www.nseindia.com/api/corporate-announcements?index=equities&from_date={d(today - timedelta(days=2))}&to_date={b}",
@@ -53,6 +55,10 @@ def shape(body):
 
 def main():
     s = shp.session()
+    try:
+        s.get("https://www.nseindia.com/companies-listing/corporate-filings-insider-trading", headers=shp.HEADERS, timeout=30)
+    except Exception:
+        pass
     res = {"run": datetime.now(config.IST).isoformat(timespec="minutes")}
     for k, url in API.items():
         try:
