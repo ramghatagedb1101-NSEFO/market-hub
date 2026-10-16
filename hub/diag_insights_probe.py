@@ -17,6 +17,9 @@ while prev.weekday() >= 5:
     prev -= timedelta(days=1)
 
 API = {
+    "pit_nodates": "https://www.nseindia.com/api/corporates-pit?index=equities",
+    "pit_30d": f"https://www.nseindia.com/api/corporates-pit?index=equities&from_date={d(today - timedelta(days=30))}&to_date={b}",
+    "pit_symbol": "https://www.nseindia.com/api/corporates-pit?index=equities&symbol=RELIANCE",
     "insider_pit": f"https://www.nseindia.com/api/corporates-pit?index=equities&from_date={a}&to_date={b}",
     "board_meetings": f"https://www.nseindia.com/api/corporate-board-meetings?index=equities&from_date={d(today)}&to_date={d(today + timedelta(days=30))}",
     "announcements": f"https://www.nseindia.com/api/corporate-announcements?index=equities&from_date={d(today - timedelta(days=2))}&to_date={b}",
@@ -25,6 +28,8 @@ API = {
     "pledge": f"https://www.nseindia.com/api/corporate-pledgedata?index=equities&from_date={a}&to_date={b}",
 }
 FILES = {
+    "fo_secban_current": "https://nsearchives.nseindia.com/content/fo/fo_secban.csv",
+    "reg_ind_alt": f"https://nsearchives.nseindia.com/content/equities/REG_IND{prev:%d%m%y}.csv".replace("/equities/", "/"),
     "fo_secban": f"https://nsearchives.nseindia.com/content/fo/fo_secban_{prev:%d%m%Y}.csv",
     "reg_ind": f"https://nsearchives.nseindia.com/content/equities/REG_IND{prev:%d%m%y}.csv",
     "participant_oi": f"https://nsearchives.nseindia.com/content/nsccl/fao_participant_oi_{prev:%d%m%Y}.csv",
@@ -38,6 +43,8 @@ def shape(body):
         out = {"type": "dict", "keys": sorted(body.keys())[:40]}
         for k in ("data", "rows", "longterm", "shortterm"):
             v = body.get(k)
+            if isinstance(v, dict) and isinstance(v.get("data"), list):
+                v = v["data"]
             if isinstance(v, list):
                 out[k] = {"rows": len(v), "keys": sorted(v[0].keys())[:40] if v and isinstance(v[0], dict) else None}
         return out
