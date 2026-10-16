@@ -207,7 +207,7 @@ def _participant(text: str) -> dict | None:
     lines = [l for l in csv.reader(io.StringIO(text)) if l]
     if len(lines) < 3:
         return None
-    head = [h.strip().strip('"').lower() for h in lines[1]]
+    head = [h.strip().strip('"').strip().lower() for h in lines[1]]
 
     def col(name):
         return head.index(name) if name in head else None
