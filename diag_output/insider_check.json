@@ -11,6 +11,7 @@
    "Market Sale": 2
   },
   "oldest_row_seen": "2016-02-23",
+  "newest_row_seen": "2026-04-28",
   "median_oldest": "2022-12-02"
  },
  "dates_180d": {
@@ -25,6 +26,7 @@
    "Market Sale": 2
   },
   "oldest_row_seen": "2026-04-10",
+  "newest_row_seen": "2026-04-28",
   "median_oldest": "2026-04-21"
  },
  "calls": 60
