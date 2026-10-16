@@ -1,0 +1,31 @@
+{
+ "no_dates": {
+  "asked": 30,
+  "no_answer": 0,
+  "empty": 3,
+  "rows": 511,
+  "rows_180d": 9,
+  "market_rows_180d": 2,
+  "modes_180d": {
+   "ESOP": 7,
+   "Market Sale": 2
+  },
+  "oldest_row_seen": "2016-02-23",
+  "median_oldest": "2022-12-02"
+ },
+ "dates_180d": {
+  "asked": 30,
+  "no_answer": 0,
+  "empty": 28,
+  "rows": 10,
+  "rows_180d": 9,
+  "market_rows_180d": 2,
+  "modes_180d": {
+   "ESOP": 7,
+   "Market Sale": 2
+  },
+  "oldest_row_seen": "2026-04-10",
+  "median_oldest": "2026-04-21"
+ },
+ "calls": 60
+}
