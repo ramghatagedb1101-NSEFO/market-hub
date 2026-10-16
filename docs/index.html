@@ -1072,20 +1072,52 @@
     const what = t => t.kind === "stock" ? `${esc(t.sym)} · ${t.qty} sh` : `${esc(t.idx)} ${f(t.strike)} ${esc(t.type)} · ${esc(dayTxt(parseDay(t.expiry)))}`;
     return `<div class="row"><span class="l">Closed ${closed.length} · won ${won}</span><span class="r ${cls(tot)}">${closed.length ? rupee(tot) : "–"}</span></div>` +
       T.slice(0, 8).map(t => `<div class="row"><span class="l">${t.side === "sell" ? "Sell" : "Buy"} ${what(t)}<br><span class="mut" style="font-size:11px">@ ${f(t.entry, 2)}${t.status === "open" ? " · open" : " → " + f(t.exit, 2)}</span></span><span class="r ${cls(t.pnl)}">${t.pnl == null ? "–" : rupee(t.pnl)}${t.status === "open" ? ` <button class="btn" style="padding:2px 8px" onclick="paperCloseP('${t.id}')">Close</button>` : ""}</span></div>`).join("") +
-      `<details style="margin-top:6px"><summary>New paper trade</summary><div class="pq" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:6px">
-        <select id="pq-side"><option value="buy">Buy</option><option value="sell">Sell</option></select>
-        <select id="pq-idx"><option>NIFTY</option><option>BANKNIFTY</option><option>SENSEX</option></select>
-        <input id="pq-exp" type="date" value="${todayP()}"><input id="pq-strike" inputmode="numeric" placeholder="Strike">
-        <select id="pq-type"><option value="CE">Call</option><option value="PE">Put</option></select><input id="pq-lots" inputmode="numeric" value="1" placeholder="Lots">
-        <input id="pq-price" inputmode="decimal" placeholder="Price (blank = live)"><button class="btn" type="button" onclick="paperAddP()">Add</button></div>
+      `<details style="margin-top:6px"${PQ.open ? " open" : ""} ontoggle="pqToggle(this.open)"><summary>New paper trade</summary>${pqForm()}
         ${PP_MSG ? `<div class="mut" style="margin-top:4px">${esc(PP_MSG)}</div>` : ""}<div class="note">Index options. Nothing is sent to Kite.</div></details>`;
   }
+  // The form's choices survive redraws; strikes and their latest prices come from the relay (app_paper_chain).
+  const PQ = { open: false, side: "buy", idx: "NIFTY", exp: "", strike: null, type: "CE", lots: "", price: "" };
+  let PCH = null;
+  async function loadChainP(){
+    PCH = { loading: true }; drawPaperP();
+    try { PCH = await relayPost("app_paper_chain", { token: SESSION, idx: PQ.idx, expiry: PQ.exp }); } catch(e){ PCH = { error: e.message }; }
+    if (PCH && PCH.strikes) { PQ.exp = PCH.expiry; if (PQ.strike == null || !PCH.strikes.some(r => r[0] === Number(PQ.strike))) PQ.strike = PCH.atm; }
+    drawPaperP();
+  }
+  function pqToggle(o){ if (o === PQ.open) return; PQ.open = o; if (o && (!PCH || PCH.error)) loadChainP(); }   // a redraw re-opens the section: not a new open
+  function drawPaperP(){ const b = $("#pp-box"); if (b) b.innerHTML = paperHtml(); }
+  function pqSet(k, v){
+    PQ[k] = v;
+    if (k === "idx") { PQ.exp = ""; PQ.strike = null; loadChainP(); }
+    else if (k === "exp") loadChainP();
+    else drawPaperP();
+  }
+  function pqForm(){
+    const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
+    const sel = (k, opts) => `<select onchange="pqSet('${k}', this.value)">${opts}</select>`;
+    const px = v => v == null ? "–" : f(v, 2);
+    const c = PCH || {};
+    let html = sel("side", opt("buy", "Buy", PQ.side) + opt("sell", "Sell", PQ.side)) + sel("idx", ["NIFTY", "BANKNIFTY", "SENSEX"].map(x => opt(x, x === "BANKNIFTY" ? "BANK NIFTY" : x, PQ.idx)).join(""));
+    let info = "", live = null;
+    if (c.loading) info = "Loading strikes and prices…";
+    else if (c.error) info = esc(c.error);
+    else if (c.strikes) {
+      html += sel("exp", c.expiries.map(e => opt(e, dayTxt(parseDay(e)), PQ.exp)).join("")) + sel("type", opt("CE", "Call", PQ.type) + opt("PE", "Put", PQ.type)) +
+        `<select style="grid-column:1/-1" onchange="pqSet('strike', this.value)">${c.strikes.map(r => opt(r[0], f(r[0]) + (r[0] === c.atm ? " (ATM)" : "") + " · C " + px(r[1]) + " · P " + px(r[2]), PQ.strike)).join("")}</select>`;
+      const row = c.strikes.find(r => r[0] === Number(PQ.strike));
+      live = row ? (PQ.type === "PE" ? row[2] : row[1]) : null;
+      info = `<b>${esc(PQ.idx)} ${f(Number(PQ.strike))} ${PQ.type === "PE" ? "Put" : "Call"}</b> latest traded <b>${live == null ? "–" : "₹" + px(live)}</b>${live != null ? ` · lot ₹${f(live * c.lot)}` : ""}<br><span class="mut" style="font-size:11px">index ${c.spot ? f(c.spot, 2) : "–"} · ${esc(c.at)}${c.kite ? "" : " · log in to Kite to see prices"}</span>`;
+    }
+    html += `<input inputmode="numeric" value="${esc(PQ.lots)}" placeholder="Lots (blank = 1)" oninput="PQ.lots=this.value">` +
+      `<input inputmode="decimal" value="${esc(PQ.price)}" placeholder="${live != null ? "Price (blank = " + px(live) + ")" : "Price"}" oninput="PQ.price=this.value">` +
+      `<button class="btn" type="button" onclick="loadChainP()">Refresh prices</button><button class="btn" type="button" onclick="paperAddP()">Add</button>`;
+    return `<div class="pq" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:6px">${html}</div>` + (info ? `<div style="margin-top:6px;font-size:13px">${info}</div>` : "");
+  }
   async function paperAddP(){
-    const g = id => ($(id) || {}).value || "";
-    const t = { kind: "option", side: g("#pq-side"), idx: g("#pq-idx"), expiry: g("#pq-exp"), strike: g("#pq-strike"), type: g("#pq-type"), lots: g("#pq-lots"), price: g("#pq-price") };
-    PP_MSG = "Saving…"; $("#pp-box").innerHTML = paperHtml();
-    try { const d = await relayPost("app_paper_add", { token: SESSION, trade: t }); if (d.error) PP_MSG = d.error; else { PAPER = d; PP_MSG = ""; } } catch(e){ PP_MSG = e.message; }
-    $("#pp-box").innerHTML = paperHtml();
+    const t = { kind: "option", side: PQ.side, idx: PQ.idx, expiry: PQ.exp, strike: PQ.strike, type: PQ.type, lots: PQ.lots, price: PQ.price };
+    PP_MSG = "Saving…"; drawPaperP();
+    try { const d = await relayPost("app_paper_add", { token: SESSION, trade: t }); if (d.error) PP_MSG = d.error; else { PAPER = d; PP_MSG = ""; PQ.price = ""; } } catch(e){ PP_MSG = e.message; }
+    drawPaperP();
   }
   async function paperCloseP(id){
     try { const d = await relayPost("app_paper_close", { token: SESSION, id }); if (!d.error) PAPER = d; else alert(d.error); } catch(e){}
@@ -1628,7 +1660,7 @@
   if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(politeTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
-  Object.assign(window, { openStock, closeStock, paperAddP, paperCloseP, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
+  Object.assign(window, { openStock, closeStock, paperAddP, paperCloseP, pqSet, pqToggle, loadChainP, PQ, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
                           openSearch, closeSearch, drawSearch, sxToggle, setResMode, refreshSummary });
 })();
 </script>

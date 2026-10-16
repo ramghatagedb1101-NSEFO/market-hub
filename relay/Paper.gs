@@ -26,8 +26,12 @@ function paperInstrument_(t) {
   if (t.kind === 'stock') return 'NSE:' + t.sym;
   const ix = EXP_IDX.find(i => i.id === t.idx);
   if (!ix) return null;
-  const lists = expiryLists_(todayIst_()), L = lists[ix.id] || {};
-  const pool = t.expiry === todayIst_() ? (L.today || []) : (L.next === t.expiry ? (L.nextList || []) : []);
+  const C = paperContracts_(ix.id);                         // the next four expiries; else the meter's today/next lists
+  let pool = C && C.c[t.expiry] ? C.c[t.expiry] : null;
+  if (!pool) {
+    const lists = expiryLists_(todayIst_()), L = lists[ix.id] || {};
+    pool = t.expiry === todayIst_() ? (L.today || []) : (L.next === t.expiry ? (L.nextList || []) : []);
+  }
   const hit = pool.find(o => o[1] === Number(t.strike) && o[2] === t.type);
   return hit ? ix.exch + ':' + hit[0] : null;
 }
@@ -126,3 +130,91 @@ function adminPaper(token) { return sessionValid_(token) ? paperView_() : { erro
 function adminPaperAdd(token, t) { return sessionValid_(token) ? paperAdd_(t) : { error: 'session_expired' }; }
 function adminPaperClose(token, id, price) { return sessionValid_(token) ? paperClose_(id, price) : { error: 'session_expired' }; }
 function adminPaperDelete(token, id) { return sessionValid_(token) ? paperDelete_(id) : { error: 'session_expired' }; }
+
+// ---- Contract lists and live prices for the trade form (16 Oct 2026, owner: "paper trade needs to give the drop down
+// list and latest traded value") ----
+// The next four expiries of an index with their strikes, from Kite's public contract file (cached for the day; one key
+// per index keeps each under the cache's size limit).
+const PAPER_EXPIRIES = 4;
+function paperContracts_(idx) {
+  const ix = EXP_IDX.find(i => i.id === idx);
+  if (!ix) return null;
+  const today = todayIst_(), cache = CacheService.getScriptCache(), key = 'ppc1_' + idx + '_' + today;
+  const hit = cache.get(key);
+  if (hit) return paperUnpackC_(JSON.parse(hit));
+  let text = '';
+  try {
+    const res = UrlFetchApp.fetch('https://api.kite.trade/instruments/' + ix.exch, { muteHttpExceptions: true, headers: kiteHeaders_() || {} });
+    const blob = res.getBlob(), bytes = blob.getBytes();
+    text = (bytes.length > 1 && (bytes[0] & 255) === 0x1f && (bytes[1] & 255) === 0x8b)
+      ? Utilities.ungzip(blob.setContentType('application/x-gzip')).getDataAsString() : res.getContentText();
+  } catch (e) { return null; }
+  const lines = text.split('\n'), head = (lines[0] || '').split(',');
+  const iSym = head.indexOf('tradingsymbol'), iName = head.indexOf('name'), iExp = head.indexOf('expiry'), iStrike = head.indexOf('strike'), iType = head.indexOf('instrument_type');
+  if (iSym < 0 || iExp < 0) return null;
+  const out = {};                                          // every index on this exchange, so one download serves them all
+  EXP_IDX.filter(i => i.exch === ix.exch).forEach(i => out[i.id] = {});
+  for (let n = 1; n < lines.length; n++) {
+    const c = lines[n].split(','), id = (c[iName] || '').replace(/"/g, '');
+    if (!out[id] || (c[iType] !== 'CE' && c[iType] !== 'PE') || !(c[iExp] >= today)) continue;
+    (out[id][c[iExp]] = out[id][c[iExp]] || []).push([c[iSym], Number(c[iStrike]), c[iType]]);
+  }
+  let mine = null;
+  Object.keys(out).forEach(id => {
+    const exps = Object.keys(out[id]).sort().slice(0, PAPER_EXPIRIES), v = { exps: exps, c: {} };
+    exps.forEach(e => v.c[e] = out[id][e]);
+    try { cache.put('ppc1_' + id + '_' + today, JSON.stringify(paperPackC_(v)), 6 * 3600); } catch (e) {}
+    if (id === idx) mine = v;
+  });
+  return mine;
+}
+
+// Cache form: per expiry the shared name prefix plus [strike, type] (NIFTY24O2123150CE = prefix + 23150 + CE); a list
+// whose names do not follow that pattern is kept whole.
+function paperPackC_(v) {
+  const c = {};
+  v.exps.forEach(e => {
+    const rows = v.c[e], s0 = rows.length ? rows[0] : null, p = s0 ? s0[0].slice(0, s0[0].length - String(s0[1]).length - 2) : '';
+    c[e] = rows.every(r => r[0] === p + r[1] + r[2]) ? { p: p, r: rows.map(r => [r[1], r[2]]) } : rows;
+  });
+  return { exps: v.exps, c: c };
+}
+function paperUnpackC_(v) {
+  const c = {};
+  v.exps.forEach(e => { const x = v.c[e]; c[e] = Array.isArray(x) ? x : x.r.map(r => [x.p + r[0] + r[1], r[0], r[1]]); });
+  return { exps: v.exps, c: c };
+}
+
+// "Live · 14:58 IST" in market hours, otherwise "Last traded · Fri 16 Oct 2026 · 19:40 IST".
+function paperAt_() {
+  const d = new Date(), hm = Utilities.formatDate(d, 'Asia/Kolkata', 'HH:mm'), wd = Number(Utilities.formatDate(d, 'Asia/Kolkata', 'u'));
+  return (wd <= 5 && hm >= '09:15' && hm <= '15:30') ? 'Live · ' + hm + ' IST'
+    : 'Last traded · as of ' + Utilities.formatDate(d, 'Asia/Kolkata', 'EEE d MMM yyyy') + ' · ' + hm + ' IST';
+}
+
+// Strikes around the index level for one expiry, each with the latest Call and Put price.
+function paperChain_(idx, expiry) {
+  const ix = EXP_IDX.find(i => i.id === idx), C = paperContracts_(idx);
+  if (!ix || !C || !C.exps.length) return { error: 'Contract list not available right now.' };
+  const exp = C.exps.indexOf(expiry) >= 0 ? expiry : C.exps[0], rows = C.c[exp] || [];
+  const spotQ = paperLtp_([ix.spot]), spot = spotQ[ix.spot] || null;
+  const all = [...new Set(rows.map(r => r[1]))].sort((a, b) => a - b);
+  let atm = all.length ? all[Math.floor(all.length / 2)] : null;
+  if (spot) atm = all.reduce((b, k) => Math.abs(k - spot) < Math.abs(b - spot) ? k : b, all[0]);
+  const at = all.indexOf(atm), pick = all.slice(Math.max(0, at - 15), at + 16);
+  const sym = {}; rows.forEach(r => { if (pick.indexOf(r[1]) >= 0) sym[r[1] + r[2]] = ix.exch + ':' + r[0]; });
+  const ltp = paperLtp_(Object.values(sym));
+  return { idx: idx, expiries: C.exps, expiry: exp, spot: spot, atm: atm, lot: PAPER_LOT[idx],
+           strikes: pick.map(k => [k, sym[k + 'CE'] ? (ltp[sym[k + 'CE']] ?? null) : null, sym[k + 'PE'] ? (ltp[sym[k + 'PE']] ?? null) : null]),
+           at: paperAt_(), kite: !!kiteHeaders_() };
+}
+
+function paperQuote_(sym) {
+  sym = String(sym || '').toUpperCase().replace(/[^A-Z0-9&_-]/g, '').slice(0, 20);
+  if (!sym) return { error: 'Enter a symbol.' };
+  const k = 'NSE:' + sym, q = paperLtp_([k]);
+  return { sym: sym, ltp: q[k] ?? null, at: paperAt_(), kite: !!kiteHeaders_() };
+}
+
+function adminPaperChain(token, idx, expiry) { return sessionValid_(token) ? paperChain_(idx, expiry) : { error: 'session_expired' }; }
+function adminPaperQuote(token, sym) { return sessionValid_(token) ? paperQuote_(sym) : { error: 'session_expired' }; }

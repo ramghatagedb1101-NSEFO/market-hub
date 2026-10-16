@@ -971,12 +971,67 @@ function pagePositions(){
 
 // ---- Paper trades ----
 function paperLoad(){ S.paperLoading = true; call('adminPaper', token).then(d => { S.paper = d; S.paperLoading = false; rerender(); }).catch(e => { S.paper = { error: e.message }; S.paperLoading = false; rerender(); }); }
+// The form's choices live here so a redraw keeps them; strikes and prices come from the relay (adminPaperChain).
+const PPS = { side: 'buy', idx: 'NIFTY', exp: '', strike: null, type: 'CE', lots: '', price: '', note: '', sym: '', qty: '' };
+function ppLoadChain(){
+  S.ppChain = { loading: true }; rerender();
+  call('adminPaperChain', token, PPS.idx, PPS.exp).then(d => { S.ppChain = d; if (!d.error) { PPS.exp = d.expiry; if (PPS.strike == null || !d.strikes.some(r => r[0] === Number(PPS.strike))) PPS.strike = d.atm; } rerender(); })
+    .catch(e => { S.ppChain = { error: e.message }; rerender(); });
+}
+function ppLoadQuote(){
+  if (!PPS.sym) { S.ppQuote = null; rerender(); return; }
+  S.ppQuote = { loading: true }; rerender();
+  call('adminPaperQuote', token, PPS.sym).then(d => { S.ppQuote = d; rerender(); }).catch(e => { S.ppQuote = { error: e.message }; rerender(); });
+}
+function ppSet(k, v){
+  PPS[k] = v;
+  if (k === 'idx') { PPS.exp = ''; PPS.strike = null; ppLoadChain(); }
+  else if (k === 'exp') ppLoadChain();
+  else if (k === 'sym') { PPS.sym = String(v || '').trim().toUpperCase(); ppLoadQuote(); }
+  else rerender();
+}
 function paperAdd(){
-  const g = id => ($(id) || {}).value || '';
-  const kind = g('ppKind'), t = kind === 'stock' ? { kind, sym: g('ppSym'), qty: g('ppQty'), side: g('ppSide'), price: g('ppPrice'), note: g('ppNote') }
-    : { kind, idx: g('ppIdx'), expiry: g('ppExp'), strike: g('ppStrike'), type: g('ppType'), lots: g('ppLots'), side: g('ppSide'), price: g('ppPrice'), note: g('ppNote') };
+  const t = PP_KIND === 'stock' ? { kind: 'stock', sym: PPS.sym, qty: PPS.qty, side: PPS.side, price: PPS.price, note: PPS.note }
+    : { kind: 'option', idx: PPS.idx, expiry: PPS.exp, strike: PPS.strike, type: PPS.type, lots: PPS.lots, side: PPS.side, price: PPS.price, note: PPS.note };
   S.paperMsg = 'Saving…'; rerender();
-  call('adminPaperAdd', token, t).then(d => { if (d.error) S.paperMsg = d.error; else { S.paper = d; S.paperMsg = ''; } rerender(); }).catch(e => { S.paperMsg = e.message; rerender(); });
+  call('adminPaperAdd', token, t).then(d => { if (d.error) S.paperMsg = d.error; else { S.paper = d; S.paperMsg = ''; PPS.price = ''; PPS.note = ''; } rerender(); }).catch(e => { S.paperMsg = e.message; rerender(); });
+}
+function ppForm(){
+  const opt = (v, l, cur) => '<option value="' + esc(v) + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + esc(l) + '</option>';
+  const sel = (k, opts, w) => '<select class="field" style="max-width:100%;width:' + (w || 'auto') + '" onchange="ppSet(\'' + k + '\', this.value)">' + opts + '</select>';
+  const box = (k, ph, w, cl) => '<input class="field' + (cl ? ' ' + cl : '') + '" style="max-width:100%;width:' + w + '" placeholder="' + ph + '" value="' + esc(PPS[k]) + '" oninput="PPS.' + k + '=this.value">';
+  const px = v => v == null ? '–' : num(v, 2);
+  let fields = sel('side', opt('buy', 'Buy', PPS.side) + opt('sell', 'Sell', PPS.side)), info = '', live = null;
+  if (PP_KIND === 'stock') {
+    const names = Object.keys(S.names || {}).sort();
+    fields += '<input class="field" style="max-width:100%;width:220px" list="ppNames" placeholder="Company or symbol" value="' + esc(PPS.sym) + '" onchange="ppSet(\'sym\', this.value)">' +
+      '<datalist id="ppNames">' + names.map(k => '<option value="' + esc(k) + '">' + esc(nameOf(k)) + '</option>').join('') + '</datalist>' + box('qty', 'Shares (blank = 1)', '140px', 'num');
+    const q = S.ppQuote;
+    if (q && q.loading) info = 'Getting the price…';
+    else if (q && q.error) info = esc(q.error);
+    else if (q) { live = q.ltp; info = q.ltp == null ? (q.kite ? 'No price for ' + esc(q.sym) + '.' : 'Log in to Kite to see prices.') : '<b>' + esc(q.sym) + (nameOf(q.sym) ? ' · ' + esc(nameOf(q.sym)) : '') + '</b> latest traded <b class="num">₹' + px(q.ltp) + '</b> <span class="muted">' + esc(q.at) + '</span>'; }
+  } else {
+    const c = S.ppChain || {};
+    fields += sel('idx', ['NIFTY', 'BANKNIFTY', 'SENSEX'].map(x => opt(x, x === 'BANKNIFTY' ? 'BANK NIFTY' : x, PPS.idx)).join(''));
+    if (c.loading) info = 'Loading strikes and prices…';
+    else if (c.error) info = esc(c.error);
+    else if (c.strikes) {
+      fields += sel('exp', c.expiries.map(e => opt(e, bDay(dayOf(e)), PPS.exp)).join(''), '150px') +
+        sel('strike', c.strikes.map(r => opt(r[0], num(r[0], 0) + (r[0] === c.atm ? ' (at the money)' : '') + ' · Call ' + px(r[1]) + ' · Put ' + px(r[2]), PPS.strike)).join(''), '330px') +
+        sel('type', opt('CE', 'Call', PPS.type) + opt('PE', 'Put', PPS.type)) + box('lots', 'Lots (blank = 1)', '130px', 'num');
+      const row = c.strikes.find(r => r[0] === Number(PPS.strike));
+      live = row ? (PPS.type === 'PE' ? row[2] : row[1]) : null;
+      info = '<b>' + esc(PPS.idx) + ' ' + num(PPS.strike, 0) + ' ' + (PPS.type === 'PE' ? 'Put' : 'Call') + '</b> · ' + esc(bDay(dayOf(c.expiry))) + ' · latest traded <b class="num">' + (live == null ? '–' : '₹' + px(live)) + '</b>' +
+        (live != null ? ' · 1 lot = ' + c.lot + ' = ₹' + num(live * c.lot, 0) : '') + ' <span class="muted">· index ' + (c.spot ? num(c.spot, 2) : '–') + ' · ' + esc(c.at) + '</span>' +
+        (c.kite ? '' : ' <span class="muted">· log in to Kite to see prices</span>');
+    }
+  }
+  fields += box('price', live != null ? 'Price (blank = ' + px(live) + ')' : 'Price', '150px', 'num') + box('note', 'Why (optional)', '200px') +
+    '<button class="btn primary" onclick="paperAdd()">Add</button>' + (PP_KIND === 'option' ? '<button class="btn ghost" title="Refresh prices" onclick="ppLoadChain()">↻</button>' : (PPS.sym ? '<button class="btn ghost" title="Refresh price" onclick="ppLoadQuote()">↻</button>' : ''));
+  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>New paper trade</h3>' + seg2('PP_KIND', PP_KIND, [['option', 'Index option'], ['stock', 'Stock']]) + '</div><div class="panel-b">' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' + fields + '</div>' +
+    (info ? '<div style="margin-top:10px;font-size:13px">' + info + '</div>' : '') +
+    (S.paperMsg ? '<div class="muted" style="margin-top:8px">' + esc(S.paperMsg) + '</div>' : '') + '</div></div>';
 }
 function paperClose(id){ const p = prompt('Exit price (leave empty for the live price):', ''); if (p === null) return; call('adminPaperClose', token, id, p).then(d => { if (d.error) alert(d.error); else S.paper = d; rerender(); }); }
 function paperDel(id){ if (!confirm('Remove this paper trade?')) return; call('adminPaperDelete', token, id).then(d => { S.paper = d; rerender(); }); }
@@ -989,12 +1044,8 @@ function pagePaper(){
   const won = closed.filter(t => t.pnl > 0).length, tot = closed.reduce((a, t) => a + (t.pnl || 0), 0), openP = open.reduce((a, t) => a + (t.pnl || 0), 0);
   const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
   const what = t => t.kind === 'stock' ? '<b>' + esc(t.sym) + '</b> · ' + t.qty + ' shares' : '<b>' + esc(t.idx) + ' ' + num(t.strike, 0) + ' ' + esc(t.type) + '</b> · ' + esc(bDay(dayOf(t.expiry))) + ' · ' + t.lots + ' lot' + (t.lots > 1 ? 's' : '');
-  const form = '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>New paper trade</h3>' + seg2('PP_KIND', PP_KIND, [['option', 'Index option'], ['stock', 'Stock']]) + '</div><div class="panel-b"><input type="hidden" id="ppKind" value="' + PP_KIND + '"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
-    '<select id="ppSide" class="field" style="width:auto"><option value="buy">Buy</option><option value="sell">Sell</option></select>' +
-    (PP_KIND === 'stock' ? '<input id="ppSym" class="field" style="width:140px" placeholder="Symbol"><input id="ppQty" class="field num" style="width:90px" placeholder="Shares" value="1">'
-      : '<select id="ppIdx" class="field" style="width:auto"><option>NIFTY</option><option>BANKNIFTY</option><option>SENSEX</option></select><input id="ppExp" class="field num" style="width:130px" type="date" value="' + today + '"><input id="ppStrike" class="field num" style="width:110px" placeholder="Strike"><select id="ppType" class="field" style="width:auto"><option value="CE">Call</option><option value="PE">Put</option></select><input id="ppLots" class="field num" style="width:70px" value="1" title="Lots">') +
-    '<input id="ppPrice" class="field num" style="width:110px" placeholder="Price (blank = live)"><input id="ppNote" class="field" style="width:220px" placeholder="Why (optional)"><button class="btn primary" onclick="paperAdd()">Add</button></div>' +
-    (S.paperMsg ? '<div class="muted" style="margin-top:8px">' + esc(S.paperMsg) + '</div>' : '') + (S.paper.kite ? '' : '<div class="muted" style="font-size:12px;margin-top:8px">Not logged in to Kite: type the price.</div>') + '</div></div>';
+  if (PP_KIND === 'option' && !S.ppChain) setTimeout(ppLoadChain, 0);
+  const form = ppForm();
   const k = (l, val, sub, c) => '<div class="panel kpi"><div class="k">' + l + '</div><div class="v ' + (c || '') + '">' + val + '</div><div class="s">' + sub + '</div></div>';
   const row = t => '<tr><td class="l num" style="font-size:12px">' + esc(fmtTs(t.created)) + '</td><td class="l">' + (t.side === 'sell' ? 'Sell ' : 'Buy ') + what(t) + (t.note ? '<div class="muted" style="font-size:12px">' + esc(t.note) + '</div>' : '') + '</td>' +
     '<td class="num">' + num(t.entry, 2) + '</td><td class="num">' + (t.status === 'open' ? (t.ltp == null ? '–' : num(t.ltp, 2)) : num(t.exit, 2)) + '</td><td class="num ' + cls(t.pnl) + '">' + (t.pnl == null ? '–' : (t.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(t.pnl), 0)) + '</td>' +

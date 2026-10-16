@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-16
 
+### Paper trades: pick from lists, see the latest price (16 Oct 2026, evening)
+Owner: "paper trade needs to give the drop down list and latest traded value". Index options: choose the index, then one
+of the next four expiries, then a strike from the 31 around the index level (at the money chosen first), each listed
+with its latest Call and Put price; the chosen contract's latest traded price, the cost of one lot and the index level
+show under the form, and a blank price box uses that price. Stocks (dashboard): pick from the company list; its latest
+traded price shows. Times read "Live · HH:MM IST" in market hours, otherwise "Last traded · as of <day> · HH:MM IST".
+Relay: `paperContracts_` (next four expiries from Kite's public contract file, cached for the day), `paperChain_`,
+`paperQuote_`; trades on any of those expiries now price live. Phone cache v39.
+
 ### All dates in IST (16 Oct 2026, evening)
 Owner: "all dates in this app need to be in IST". Dashboard dates are now drawn in IST whatever the viewer's own clock
 says; filing times read "Fri 16 Oct 2026 · 14:58 IST" instead of NSE's raw "16-Oct-2026 14:58:23"; the data-requests
