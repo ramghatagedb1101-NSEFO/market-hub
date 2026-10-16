@@ -1,0 +1,138 @@
+{
+ "run": "2026-10-16T10:14+05:30",
+ "insider_pit": {
+  "status": 200,
+  "type": "dict",
+  "keys": [
+   "acqNameList",
+   "data"
+  ],
+  "data": {
+   "rows": 0,
+   "keys": null
+  }
+ },
+ "board_meetings": {
+  "status": 200,
+  "type": "list",
+  "rows": 832,
+  "keys": [
+   "attFileSize",
+   "attachment",
+   "bm_date",
+   "bm_desc",
+   "bm_purpose",
+   "bm_symbol",
+   "bm_timestamp",
+   "diff",
+   "intimationType",
+   "ixbrl",
+   "ixbrlFileSize",
+   "meetingType",
+   "oriiginalMeetingDate",
+   "proposedMeetingDate",
+   "sm_indusrty",
+   "sm_isin",
+   "sm_name",
+   "sysTime"
+  ]
+ },
+ "announcements": {
+  "status": 200,
+  "type": "list",
+  "rows": 1138,
+  "keys": [
+   "an_dt",
+   "attFileSize",
+   "attchmntFile",
+   "attchmntText",
+   "bflag",
+   "csvName",
+   "desc",
+   "difference",
+   "dt",
+   "exchdisstime",
+   "fileSize",
+   "hasXbrl",
+   "old_new",
+   "orgid",
+   "seq_id",
+   "smIndustry",
+   "sm_isin",
+   "sm_name",
+   "sort_date",
+   "symbol"
+  ]
+ },
+ "asm_report": {
+  "status": 200,
+  "type": "dict",
+  "keys": [
+   "longterm",
+   "shortterm"
+  ]
+ },
+ "gsm_report": {
+  "status": 200,
+  "type": "list",
+  "rows": 77,
+  "keys": [
+   "companyName",
+   "gsmStage",
+   "gsmTime",
+   "isin",
+   "srno",
+   "survCode",
+   "survDesc",
+   "symbol"
+  ]
+ },
+ "pledge": {
+  "status": 200,
+  "type": "dict",
+  "keys": [
+   "comNameList",
+   "data"
+  ],
+  "data": {
+   "rows": 1700,
+   "keys": [
+    "broadcastDt",
+    "comName",
+    "compBroadcastDate",
+    "disclosureFromDate",
+    "disclosureToDate",
+    "nbfcNonPromoShare",
+    "nbfcPromoShare",
+    "noOfPledgeShare",
+    "noOfSecPledgeShare",
+    "numSharesPledged",
+    "percPromoterHolding",
+    "percPromoterShares",
+    "percSharesPledged",
+    "percTotShares",
+    "sharesCollateral",
+    "shp",
+    "totDematShares",
+    "totIssuedShares",
+    "totPromoterHolding",
+    "totPromoterShares",
+    "totPublicHolding"
+   ]
+  }
+ },
+ "fo_secban": {
+  "status": 404,
+  "bytes": 3928
+ },
+ "reg_ind": {
+  "status": 404,
+  "bytes": 3928
+ },
+ "participant_oi": {
+  "status": 200,
+  "bytes": 979,
+  "lines": 7,
+  "header": "\"\"Participant wise Open Interest (no. of contracts) in Equity Derivatives as on Oct 15, 2026\"\",,,,,,,,,,,,,,"
+ }
+}
