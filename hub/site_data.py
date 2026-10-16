@@ -44,17 +44,11 @@ BRANCH = "main"
 PUBLIC_REPO = "ramghatagedb1101-NSEFO/market-hub"
 MANIFEST = config.REPO / ".private_pulled.json"     # git blob sha of each file as pulled; gitignored
 
-# Local folder, folder in the private repo, file patterns, files that stay public, and a one-time
-# seed: the commit of this public repo that last held the folder. The seed is used only when the
-# private copy of a file does not exist yet, so the first run after a move starts from real history.
+# Local folder, folder in the private repo, file patterns, and files that stay public. (Until 16 Oct 2026 a one-time
+# seed from the public repo's history filled a missing private file; that history no longer holds them.)
 FOLDERS = [
-    {"local": config.SITE_DIR / "data", "remote": "site", "patterns": ["*.json"], "public": {"live.json"},
-     "seed_commit": "13e3a8354080e1645d701011edcf8108288c7a73", "seed_path": "docs/data",
-     "seed_files": ["backtest_multibagger.json", "brief.json", "bulk_deals.json", "context.json", "feed.json",
-                    "fno.json", "indicator_test.json", "multibagger.json", "stocks.json", "threshold_test.json"]},
-    {"local": config.REPO / "state", "remote": "state", "patterns": ["*.json", "*.csv"], "public": set(),
-     "seed_commit": "2e10d3f341ec1371ab93e026312744d3e6420021", "seed_path": "state",
-     "seed_files": ["state.json", "prices.json", "bulk_deals.csv"]},
+    {"local": config.SITE_DIR / "data", "remote": "site", "patterns": ["*.json"], "public": {"live.json"}},
+    {"local": config.REPO / "state", "remote": "state", "patterns": ["*.json", "*.csv"], "public": set()},
 ]
 
 API = "https://api.github.com"
@@ -112,7 +106,7 @@ def pull() -> dict:
             listing.raise_for_status()
             names = [x["name"] for x in listing.json() if x.get("type") == "file"]
 
-        got, seeded = [], []
+        got = []
         for name in names:
             # The raw media type serves files of any size (the JSON form inlines content only below 1 MB).
             r = _request("GET", f"{API}/repos/{PRIVATE_REPO}/contents/{remote}/{name}?ref={BRANCH}",
@@ -122,16 +116,7 @@ def pull() -> dict:
             manifest[f"{remote}/{name}"] = blob_sha(r.content)
             got.append(name)
 
-        for name in folder["seed_files"]:
-            if name in names:
-                continue
-            r = _request("GET", f"https://raw.githubusercontent.com/{PUBLIC_REPO}/{folder['seed_commit']}/"
-                                f"{folder['seed_path']}/{name}")
-            if r.status_code == 200:
-                (local / name).write_bytes(r.content)
-                manifest["seed:" + f"{remote}/{name}"] = blob_sha(r.content)
-                seeded.append(name)
-        report[remote] = {"pulled": got, "seeded_from_public_history": seeded}
+        report[remote] = {"pulled": got}
 
     MANIFEST.write_text(json.dumps(manifest, indent=1), encoding="utf-8")
     return report
@@ -148,12 +133,6 @@ def push(message=None) -> dict:
             sha = blob_sha(data)
             if pulled.get(key) == sha:
                 continue
-            if pulled.get("seed:" + key) == sha:
-                # Seeded and not changed by this job: send it only if no other job has saved the file
-                # since, or a slow job would replace a newer copy with the old public one.
-                exists = _request("GET", f"{API}/repos/{PRIVATE_REPO}/contents/{key}?ref={BRANCH}", headers=h)
-                if exists.status_code != 404:
-                    continue
             changed.append((key, data))
     if not changed:
         return {"pushed": [], "note": "no changes"}

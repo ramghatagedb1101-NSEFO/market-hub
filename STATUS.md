@@ -3,6 +3,11 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Sat 17 Oct 2026 -- read this first
+- **Daily source check** (`source-health.yml`, 09:10 IST Mon-Sat): emails when a data file stops changing, an insights
+  section goes empty or old, or a scheduled job fails. Known open problem it reports: insider trades (NSE list stopped
+  28 Apr 2026; BSE's list to be tested).
+
 ## Fri 16 Oct 2026 -- read this first
 - **Public history cleaned** (19:20 IST): private files removed from every old commit; all commit ids changed. Any other
   clone (cloud session, other PC) must re-clone or `git fetch && git reset --hard origin/main`, never pull/merge.

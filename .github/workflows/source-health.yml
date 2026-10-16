@@ -1,0 +1,35 @@
+name: source-health
+
+# Daily source check (17 Oct 2026, hub/source_health.py): data files that stopped changing, insights sections that are
+# empty or old, and scheduled jobs whose last run failed. Emails only when the problems change, or every 3 days while
+# one lasts.
+on:
+  schedule:
+    - cron: "40 3 * * 1-6"       # 03:40 UTC = 09:10 IST, Mon-Sat: after the library (06:15) and insights (08:05) runs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read                  # to see the scheduled jobs' latest runs
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Check the data sources
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          python -m hub.source_health | tee /tmp/health.json
+          python -c "import json; s=open('/tmp/health.json').read(); r=json.loads(s[s.find('{'):]); print('::notice title=source health::' + json.dumps({k: r[k] for k in ('problems','new','fixed','mailed')}))"

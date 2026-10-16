@@ -78,3 +78,25 @@ function sendHealth_(key, body) {
   MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Market Hub: weekly data health (' + (d.week || '') + ')', lines.join(String.fromCharCode(10)));
   return { ok: true };
 }
+
+// Daily source check (hub/source_health.py, 17 Oct 2026): mails only when the list of problems changes, or every 3
+// days while one lasts (the job decides; this only writes the email).
+function sendSourceHealth_(key, body) {
+  const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
+  if (!relayKey || key !== relayKey) return { error: 'forbidden' };
+  let d;
+  try { d = JSON.parse(body); } catch (e) { return { error: 'bad JSON body' }; }
+  const P = d.problems || [], isNew = {}, nl = String.fromCharCode(10);
+  (d.new || []).forEach(id => isNew[id] = true);
+  const line = p => '  ' + p.what + ': ' + p.text;
+  const fresh = P.filter(p => isNew[p.id]), old = P.filter(p => !isNew[p.id]), lines = [];
+  if (fresh.length) lines.push('New:', ...fresh.map(line), '');
+  if (old.length) lines.push('Still open:', ...old.map(line), '');
+  if ((d.fixed || []).length) lines.push('Working again: ' + d.fixed.join(', '), '');
+  if (!P.length) lines.push('Every data source is up to date again.', '');
+  lines.push('Checked ' + (d.day || '') + ' at 09:10 IST.');
+  const subject = P.length ? 'Market Hub: ' + P.length + ' data problem' + (P.length > 1 ? 's' : '') + (fresh.length ? ' (' + fresh.length + ' new)' : '')
+    : 'Market Hub: data sources all working again';
+  MailApp.sendEmail(Session.getEffectiveUser().getEmail(), subject, lines.join(nl));
+  return { ok: true };
+}

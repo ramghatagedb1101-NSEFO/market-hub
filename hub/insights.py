@@ -191,8 +191,8 @@ def insider(n: Nse, syms: list, today: date, prior: dict) -> dict:
             if "market" not in mode.lower():
                 continue                       # pledges, ESOPs, gifts, inter-se transfers: not a trade
             d = _day(r.get("acqfromDt") or r.get("date"))
-            if not d or d.isoformat() < cut:
-                continue
+            if not d or d.isoformat() < cut or d > today + timedelta(days=1):
+                continue                       # outside the window, or a typo'd future date (one row says 2924)
             before, after = _num(r.get("befAcqSharesNo")), _num(r.get("afterAcqSharesNo"))
             kind = str(r.get("tdpTransactionType") or "").title() or ("Buy" if (after or 0) >= (before or 0) else "Sell")
             rows.append({"d": d.isoformat(), "who": str(r.get("acqName") or "")[:60], "cat": str(r.get("personCategory") or "")[:30],

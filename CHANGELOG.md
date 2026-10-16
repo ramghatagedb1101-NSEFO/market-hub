@@ -2,6 +2,21 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-17
+
+### Daily source check, emailed when something stops (Sat 17 Oct 2026)
+Owner said yes to a check that would have caught NSE's insider list stopping six months before anyone noticed. New
+`hub/source_health.py` (workflow `source-health.yml`, Mon-Sat 09:10 IST, after the library and insights runs) looks at:
+whether each data file changed within its expected time (weekends allowed for weekday jobs); whether the insights
+sections are filled and their newest entries recent (filings, insider trades, positions, option prices, surveillance
+lists, heatmap, grades) and every insights source said ok; whether any scheduled job's latest run failed. Email (relay
+mode `source_health`) only when the list of problems changes, or every 3 days while one lasts; "working again" when it
+clears. First dry run on real data: one problem, insider trades (newest entry Tue 28 Apr 2026).
+- Found on the way: one NSE insider row is dated 26 Nov 2924 (a typo) and made the section look current. Future dates
+  are now ignored by the check and dropped by the insights job.
+- `hub/site_data.py`: the one-time seed from the public repo's history is removed (that history no longer holds those
+  files since the 16 Oct clean-up; every file exists in the private repo).
+
 ## 2026-10-16
 
 ### Paper trades could not be saved (16 Oct 2026, evening)
