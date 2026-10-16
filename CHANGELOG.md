@@ -4,6 +4,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-16
 
+### Paper trades could not be saved (16 Oct 2026, evening)
+Owner's first trade (MARUTI) failed: the relay is not allowed to create Drive files ("You do not have permission to call
+DriveApp.createFile"). Trades are now kept in the relay's own script properties, split into parts (400 trades use about
+70 KB of the 500 KB allowed), so no new permission or token is needed.
+
 ### Paper trades: pick from lists, see the latest price (16 Oct 2026, evening)
 Owner: "paper trade needs to give the drop down list and latest traded value". Index options: choose the index, then one
 of the next four expiries, then a strike from the 31 around the index level (at the money chosen first), each listed

@@ -2,22 +2,33 @@
  * Paper-trade journal (16 Oct 2026, owner: "build all of them"; the "watch, not participate" stage). An idea or a
  * trade is logged at the live Kite price (or a price typed in when there is no login), marked to market while open,
  * and an index option still open after its expiry settles itself at the index close (the recorder's day file in the
- * private repo, else the live index level after the close). Kept in one Drive file; no order ever reaches Kite.
+ * private repo, else the live index level after the close). Kept in the relay's own script properties (no Drive
+ * permission needed: the first version used a Drive file and the relay is not allowed to create one); no order ever
+ * reaches Kite.
  */
-const PAPER_FILE = 'market_hub_paper_trades.json';
 const PAPER_LOT = { NIFTY: 65, BANKNIFTY: 30, SENSEX: 20 };
 const PAPER_MAX = 400;
+const PAPER_CHUNK = 8000;                                   // a property holds at most 9 KB: the list is split into parts
 
 function paperLoad_() {
-  const f = DriveApp.getFilesByName(PAPER_FILE);
-  if (!f.hasNext()) return [];
-  try { const v = JSON.parse(f.next().getBlob().getDataAsString()); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+  const all = PropertiesService.getScriptProperties().getProperties(), n = Number(all.PAPER_N) || 0;
+  let body = '';
+  for (let i = 0; i < n; i++) body += all['PAPER_' + i] || '';
+  try { const v = JSON.parse(body || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; }
 }
 
 function paperSave_(list) {
-  const body = JSON.stringify(list.slice(-PAPER_MAX));
-  const f = DriveApp.getFilesByName(PAPER_FILE);
-  if (f.hasNext()) f.next().setContent(body); else DriveApp.createFile(PAPER_FILE, body, MimeType.PLAIN_TEXT);
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const props = PropertiesService.getScriptProperties(), old = Number(props.getProperty('PAPER_N')) || 0;
+    const keep = list.slice(-PAPER_MAX).map(t => { const c = Object.assign({}, t); delete c.ltp; delete c.pnl; return c; });
+    const body = JSON.stringify(keep), parts = {};
+    let n = 0;
+    for (let i = 0; i < body.length; i += PAPER_CHUNK) parts['PAPER_' + (n++)] = body.slice(i, i + PAPER_CHUNK);
+    parts.PAPER_N = String(n);
+    props.setProperties(parts);
+    for (let i = n; i < old; i++) props.deleteProperty('PAPER_' + i);
+  } finally { lock.releaseLock(); }
 }
 
 // The Kite instrument for a trade: NSE:SYMBOL for a stock, NFO:/BFO: tradingsymbol for an index option (today's or the
