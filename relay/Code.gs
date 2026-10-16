@@ -141,8 +141,14 @@ function adminQuotes(token) {
 // 10-second Kite snapshot (Market.gs) instead of a Kite call of its own.
 function quoteData_() {
   const snap = marketSnapshot_();
-  if (snap.error === 'no_login') return { error: 'Not logged in to Kite today.', kite_login: 'no_login', login_link: kiteLoginLink_() };
-  if (snap.error) { const st = kiteStatus_(); return { error: 'Kite: ' + snap.error, kite_login: st.state, login_link: st.login_link || null }; }
+  if (snap.error) {
+    const st = snap.error === 'no_login' ? { state: 'no_login', login_link: kiteLoginLink_() } : kiteStatus_();
+    // Outside market hours (overnight, weekends: Kite clears the login early each morning) show the last prices seen,
+    // labelled by their own time; in market hours the error stays, so a missing login is noticed (17 Oct 2026).
+    const last = quoteLast_();
+    if (last && !marketHoursIst_()) return Object.assign(last, { stale: true, kite_login: st.state, login_link: st.login_link || null });
+    return { error: snap.error === 'no_login' ? 'Not logged in to Kite today.' : 'Kite: ' + snap.error, kite_login: st.state, login_link: st.login_link || null };
+  }
   const d = snap.q, front = snap.front || {};
   const pick = (sym, name) => {
     const x = d[sym]; if (!x || x[1] == null) return null;
@@ -161,7 +167,27 @@ function quoteData_() {
   if (front.gold && d['MCX:' + front.gold]) out.extra.gold = Object.assign(pick('MCX:' + front.gold, 'GOLD'), { contract: front.gold });
   if (front.crude && d['MCX:' + front.crude]) out.extra.crude = Object.assign(pick('MCX:' + front.crude, 'CRUDE'), { contract: front.crude });
   if (front.usd && d['CDS:' + front.usd]) out.extra.usd_inr = Object.assign(pick('CDS:' + front.usd, 'USDINR'), { contract: front.usd });
+  quoteKeep_(out);
   return out;
+}
+
+// The last good strip, kept in a script property (written at most every 5 minutes) for quoteData_'s fallback.
+function quoteKeep_(out) {
+  const cache = CacheService.getScriptCache();
+  if (cache.get('quote_kept') || !out.indices || !out.indices.NIFTY) return;
+  try { PropertiesService.getScriptProperties().setProperty('LAST_QUOTES', JSON.stringify(out)); cache.put('quote_kept', '1', 300); } catch (e) {}
+}
+function quoteLast_() {
+  try { const v = JSON.parse(PropertiesService.getScriptProperties().getProperty('LAST_QUOTES') || 'null'); if (v) return v; } catch (e) {}
+  try {                                                     // not kept yet: the live job's last public copy (same shape)
+    const r = UrlFetchApp.fetch('https://raw.githubusercontent.com/ramghatagedb1101-NSEFO/market-hub/main/docs/data/live.json', { muteHttpExceptions: true });
+    if (r.getResponseCode() === 200) { const v = JSON.parse(r.getContentText()); if (v && v.indices) return v; }
+  } catch (e) {}
+  return null;
+}
+function marketHoursIst_() {
+  const d = new Date(), wd = Number(Utilities.formatDate(d, 'Asia/Kolkata', 'u')), hm = Utilities.formatDate(d, 'Asia/Kolkata', 'HH:mm');
+  return wd <= 5 && hm >= '09:15' && hm <= '15:30';
 }
 
 

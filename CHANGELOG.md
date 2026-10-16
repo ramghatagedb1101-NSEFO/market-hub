@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-17
 
+### Price strip shows the last prices outside market hours (Sat 17 Oct 2026)
+Owner saw "Quotes unavailable: Kite: Insufficient permission for that call." on Saturday at 05:07 IST: Friday's Kite login
+had been cleared overnight. Outside market hours the strip (dashboard and phone) now shows the last prices seen,
+labelled by their own time ("Last quote · 15:53 IST · Fri 16 Oct 2026"); the relay keeps them (at most one write per 5
+minutes), falling back to the live job's public copy. In market hours the error still shows, so a missing login is seen.
+
 ### Daily source check, emailed when something stops (Sat 17 Oct 2026)
 Owner said yes to a check that would have caught NSE's insider list stopping six months before anyone noticed. New
 `hub/source_health.py` (workflow `source-health.yml`, Mon-Sat 09:10 IST, after the library and insights runs) looks at:
