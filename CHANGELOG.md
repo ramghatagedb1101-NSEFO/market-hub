@@ -4,6 +4,23 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-17
 
+### Research dashboard redesign, phase 1: new look and menu (Sat 17 Oct 2026)
+Owner asked for a product-design review ("lacks a good design and overall look and feel") and approved its plan: the
+14-item menu, a light menu, phase 1 first; Bitcoin tile dropped. Review and mockups stay outside this repo
+(`extras/design-review/`).
+- One design system: Inter with aligned figures (no typewriter numbers), one colour set for light and dark, flat panels
+  with fine borders, 40 px table rows, one-line company cells, calmer chips and buttons. The old colour names now point
+  at the new values, so every page and inline style changed at once.
+- Menu: Today, Portfolio; Ideas (Shortlist, Screens, Rankings); Explore (Companies, Sectors, Compare measures); Market
+  (What's new, Calendar); Trading (Expiry meter, Positioning, Paper trading); Data and settings at the bottom. Pages
+  that belong together are tabs under one heading (Screens: Early multibaggers, Proven compounders, Build a screen;
+  Sectors: Table, Heatmap; What's new: Changes, Filings, Insider trades, Volume spikes, Bulk deals; Data and settings:
+  Measures, Back-tests, Investor registry). Every old address (#multibagger, #heatmap, ...) still opens its page.
+- Theme switch (Auto / Light / Dark) in the menu footer, remembered on the computer; charts follow it.
+- Narrow windows (960 px and below): the menu becomes icons.
+- Page by page work (Today on one screen, the stock report with section tabs, merged feeds, paper trading v2) follows
+  in phase 2 and 3.
+
 ### Price strip shows the last prices outside market hours (Sat 17 Oct 2026)
 Owner saw "Quotes unavailable: Kite: Insufficient permission for that call." on Saturday at 05:07 IST: Friday's Kite login
 had been cleared overnight. Outside market hours the strip (dashboard and phone) now shows the last prices seen,
