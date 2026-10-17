@@ -4,6 +4,19 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-17
 
+### Dashboard redesign, phase 2 (first part): Today and the stock report (Sat 17 Oct 2026)
+- **Today** (was Overview) fits about one screen (1,100 px instead of 2,500): a joined strip of market tiles with the
+  % / Points switch; left: Needs your attention (your alerts first, labelled Holding / Watchlist / Screen / Risk, 5
+  shown, See all), Your money (holdings value, today, total gain, watchlist movers), Shortlist (one line each); right:
+  market brief (first section, the rest on a tap), FII and DII, global moves, next 7 days for your companies; one
+  footer line with data and Kite state. A Kite banner shows on weekdays only.
+- Moved off Today: the data counts, data coverage and data updates (Data and settings > Data health), email alert
+  settings (Data and settings > Email alerts), the full watchlist (Portfolio > Watchlist), the multibagger top 6 (it is
+  in Screens).
+- **Stock report**: section tabs that stay on screen (Overview, Ownership, Scorecard, Peers, AI summary), so the page
+  shows one part at a time (Overview 2,900 px instead of 6,800); price reads "Close · Fri 14 Aug 2026"; a Paper trade
+  button opens Paper trading with the company and its latest price filled in.
+
 ### Research dashboard redesign, phase 1: new look and menu (Sat 17 Oct 2026)
 Owner asked for a product-design review ("lacks a good design and overall look and feel") and approved its plan: the
 14-item menu, a light menu, phase 1 first; Bitcoin tile dropped. Review and mockups stay outside this repo

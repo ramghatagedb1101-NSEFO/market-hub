@@ -144,11 +144,20 @@ textarea.field{padding:8px 10px}
 .tabs{display:flex;gap:20px;border-bottom:1px solid var(--border);margin:-4px 0 16px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
 .tabs a{padding:8px 0 10px;font-size:13px;font-weight:500;color:var(--text-3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .tabs a:hover{color:var(--text);text-decoration:none} .tabs a.on{color:var(--text);border-bottom-color:var(--accent)}
+.stk-tabs{position:sticky;top:var(--top-h);z-index:4;background:var(--bg);margin:0 0 16px;padding-top:4px}
 .h1{font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0}
 .sub{color:var(--text-3);margin:0;font-size:13px;max-width:90ch}
 .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:16px;flex-wrap:wrap}
 
 /* ---------- panels ---------- */
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.g-main{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(132px,1fr);overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-1)}
+.strip > div{padding:10px 12px;border-right:1px solid var(--border-subtle)} .strip > div:last-child{border-right:0}
+.strip .k{font-size:11px;color:var(--text-3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.strip .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
+.strip .c{white-space:nowrap;font-size:12px;font-variant-numeric:tabular-nums;font-weight:500}
+.strip .w{font-size:11px;color:var(--text-4);margin-top:2px;white-space:nowrap}
 .grid{display:grid;gap:16px}
 .g4{grid-template-columns:repeat(4,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-1);min-width:0;overflow-x:auto}
@@ -237,7 +246,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
 
 /* ---------- narrow windows: icon menu ---------- */
 @media (max-width:600px){ .glance{grid-template-columns:repeat(2,minmax(0,1fr))} }
-@media (max-width:1180px){ .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .stats{grid-template-columns:repeat(3,minmax(0,1fr))} .tape{display:none} }
+@media (max-width:1180px){ .g-main{grid-template-columns:1fr} .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .stats{grid-template-columns:repeat(3,minmax(0,1fr))} .tape{display:none} }
 @media (max-width:960px){
   .shell{grid-template-columns:56px minmax(0,1fr)} .side{padding:12px 6px}
   .side .nav-h,.side .nav a span,.side .nav a .count,.side .brand span,.side-foot{display:none}
@@ -276,7 +285,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
       </div>
       <nav class="nav" id="nav"></nav>
       <div class="side-foot">
-        <a href="#settings" id="navSettings">Data and settings</a>
+        <a href="#health" id="navSettings">Data and settings</a>
         <div id="sidefoot">Signed in</div>
         <div class="seg" id="themeSeg" title="Theme"></div>
         <button class="out" onclick="logout()">Sign out</button>
@@ -594,7 +603,7 @@ const ICON = {
 // Menu (design review, 17 Oct 2026): 14 items; an item with several pages shows them as tabs. Page keys and addresses
 // are unchanged, so old links (#multibagger, #heatmap, ...) open the same page under its new item.
 const NAV = [
-  ['', [['today', 'Today', [['overview', 'Today']]], ['portfolio', 'Portfolio', [['portfolio', 'Holdings']]]]],
+  ['', [['today', 'Today', [['overview', 'Today']]], ['portfolio', 'Portfolio', [['portfolio', 'Holdings'], ['watch', 'Watchlist']]]]],
   ['Ideas', [['shortlist', 'Shortlist', [['shortlist', 'Shortlist']]],
              ['screens', 'Screens', [['multibagger', 'Early multibaggers'], ['compounders', 'Proven compounders'], ['screener', 'Build a screen']]],
              ['rankings', 'Rankings', [['factors', 'Factor rankings']]]]],
@@ -607,7 +616,7 @@ const NAV = [
                ['positioning', 'Positioning', [['positions', 'Futures and option prices']]],
                ['paperg', 'Paper trading', [['paper', 'Paper trading']]]]]
 ];
-const SETTINGS = ['settings', 'Data and settings', [['params', 'Measures'], ['tests', 'Back-tests'], ['registry', 'Investor registry']]];
+const SETTINGS = ['settings', 'Data and settings', [['health', 'Data health'], ['emails', 'Email alerts'], ['params', 'Measures'], ['tests', 'Back-tests'], ['registry', 'Investor registry']]];
 const NAV_ICON = { today: 'overview', portfolio: 'portfolio', shortlist: 'shortlist', screens: 'screener', rankings: 'factors', companies: 'library',
                    sectorsg: 'sectors', compare: 'explore', news: 'signals', calendarg: 'calendar', expiryg: 'expiry', positioning: 'positions', paperg: 'paper' };
 const NAV_ITEMS = NAV.flatMap(g => g[1]).concat([SETTINGS]);
@@ -624,8 +633,8 @@ function renderNav(){
   $('nav').innerHTML = NAV.map(([h, items]) => (h ? '<div class="nav-h">' + h + '</div>' : '') + items.map(([k, label, tabs]) =>
     '<a href="#' + (NAV_LAST[k] || tabs[0][0]) + '" class="' + (on && on[0] === k ? 'on' : '') + '" title="' + esc(label) + '">' + ICON[NAV_ICON[k]] + '<span>' + label + '</span>' +
     (counts[k] ? '<span class="count">' + counts[k] + '</span>' : '') + '</a>').join('')).join('') +
-    '<a href="#' + (NAV_LAST.settings || 'params') + '" class="rail' + (on && on[0] === 'settings' ? ' on' : '') + '" title="Data and settings">' + ICON.params + '<span>Data and settings</span></a>';
-  if ($('navSettings')) { $('navSettings').className = on && on[0] === 'settings' ? 'on' : ''; $('navSettings').href = '#' + (NAV_LAST.settings || 'params'); }
+    '<a href="#' + (NAV_LAST.settings || 'health') + '" class="rail' + (on && on[0] === 'settings' ? ' on' : '') + '" title="Data and settings">' + ICON.params + '<span>Data and settings</span></a>';
+  if ($('navSettings')) { $('navSettings').className = on && on[0] === 'settings' ? 'on' : ''; $('navSettings').href = '#' + (NAV_LAST.settings || 'health'); }
 }
 // Page header: the item's name and, for an item with several pages, its tabs. The stock report draws its own header.
 function renderHead(){
@@ -637,7 +646,7 @@ function renderHead(){
     (it[2].length > 1 ? '<div class="tabs">' + it[2].map(([k, l]) => '<a href="#' + k + '" class="' + (k === current.page ? 'on' : '') + '">' + esc(l) + '</a>').join('') + '</div>' : '');
 }
 // Short addresses for the new items.
-const NAV_ALIAS = { today: 'overview', screens: 'multibagger', rankings: 'factors', companies: 'library', compare: 'explore', news: 'signals', positioning: 'positions', settings: 'params' };
+const NAV_ALIAS = { today: 'overview', screens: 'multibagger', rankings: 'factors', companies: 'library', compare: 'explore', news: 'signals', positioning: 'positions', settings: 'health' };
 function route(){
   const h = decodeURIComponent((location.hash || '#overview').slice(1));
   let [page, arg] = h.split('/');
@@ -668,7 +677,7 @@ function chartTheme(){
 function go(h){ location.hash = h; }
 function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 
-const TITLES = { portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', paper:'Paper trades', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
+const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', paper:'Paper trades', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
                  registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report',
                  screener:'Build a screen', factors:'Rankings', explore:'Compare measures', sectors:'Sectors', signals:"What's new", expiry:'Expiry meter' };
 function rerender(){
@@ -677,7 +686,7 @@ function rerender(){
   $('tape').style.display = current.page === 'overview' ? 'none' : '';   // the Overview shows the same quotes as tiles
   const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
-              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, paper: pagePaper }[current.page] || pageOverview;
+              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, paper: pagePaper, health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
   if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
   if (current.page !== 'expiry') stopExpiry();
   f(current.arg);
@@ -722,63 +731,172 @@ function companyCell(sym){ return '<div class="co"><b>' + esc(sym) + '</b><span>
 function dots(n, of){ let h = '<span class="dots" title="' + n + ' of ' + of + '">'; for (let i = 0; i < of; i++) h += '<i class="' + (i < n ? 'on' : '') + '"></i>'; return h + '</span>'; }
 
 // ---- Overview ----
+// ---- Today (design review phase 2, 17 Oct 2026): one screen. Market strip; left: alerts, your money, Shortlist;
+// right: brief, FII/DII, global moves, next 7 days. Data health and email settings moved to Data and settings.
+function briefParts(){
+  const F = S.brief;
+  if (!F) return { loading: true };
+  if (F.error || !F.brief || F.brief.error) return { err: 'Brief not available' + (F.error ? ': ' + F.error : '') + '.' };
+  const B = F.brief, C = (F.context && !F.context.error) ? F.context : {}, ST = (F.stocks && !F.stocks.error) ? F.stocks : {};
+  const LQ = S.quotes, ex = (LQ && LQ.extra) || {};
+  const failed = /could not be written/.test(B.text || ''), plain = failed ? '' : (B.text || '').replace(/\*\*/g, '');
+  const com = C.commodities || {}, glob = C.global || {};
+  const fii = (C.fii_dii || []).reduce((a, r) => { a[r.category] = r.net; return a; }, {});
+  const fiiDate = (C.fii_dii && C.fii_dii[0]) ? C.fii_dii[0].date : null;
+  const goldRaw = ex.gold || com['Gold (MCX, ₹/10g)'], crudeRaw = ex.crude || com['Crude oil (MCX, ₹/bbl)'];
+  const usd = ex.usd_inr || C.usd_inr_live || null, usdRate = usd ? usd.last : (C.fx ? C.fx.usd_inr : null);
+  const crudeUsd = crudeRaw && usdRate ? { last: crudeRaw.last / usdRate, change_pct: crudeRaw.change_pct } : null;
+  const vixNow = LQ && LQ.india_vix ? LQ.india_vix : (C.india_vix || ST.india_vix), sp = glob['S&P 500'];
+  // % or absolute change (owner's switch, 15 Oct 2026): the quote's own change when it has one, else worked back from the %.
+  const chg = (p, last, change, dp) => { if (p == null) return '–'; if (!S.chgAbs) return pct(p, 2);
+    const a = change != null ? change : (last != null ? last * p / (100 + p) : null);
+    return a == null ? pct(p, 2) : (a > 0 ? '+' : a < 0 ? '−' : '') + fmt(Math.abs(a), dp == null ? 2 : dp); };
+  const tile = (k, v, c, when, p) => '<div><div class="k">' + esc(k) + '</div><div class="v">' + v + '</div><div class="c ' + cls(p) + '">' + c + '</div><div class="w">' + esc(when || '') + '</div></div>';
+  const idxTile = (k, name) => { const q = LQ && LQ.indices && LQ.indices[k];
+    return tile(name, q ? fmt(q.last, 2) : '–', q ? chg(q.change_pct, q.last, q.change) : 'no quote', q ? bQuote(LQ.ts) : '', q && q.change_pct); };
+  const yr = new Date(Date.now() + 5.5 * 3600e3).getUTCFullYear();
+  const ovs = ((LQ && LQ.overseas && LQ.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym));
+  const tiles = [
+    idxTile('NIFTY', 'NIFTY 50'), idxTile('SENSEX', 'SENSEX'), idxTile('BANKNIFTY', 'Bank NIFTY'),
+    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct, vixNow.last, vixNow.change) : '–', vixNow ? (LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : '', vixNow && vixNow.change_pct),
+    tile('USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'), usd ? chg(usd.change_pct, usd.last, usd.change, 3) : (C.fx ? 'ECB rate' : '–'),
+         usd ? (ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? bClose(C.fx.date) : ''), usd && usd.change_pct),
+    tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct, goldRaw.last, goldRaw.change, 0) : '–', goldRaw ? (ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : '', goldRaw && goldRaw.change_pct),
+    tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct, crudeUsd.last) : '–', crudeUsd ? (ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : '', crudeUsd && crudeUsd.change_pct),
+    tile('S&P 500', sp ? fmt(sp.last, 0) : '–', sp ? chg(sp.change_pct, sp.last, sp.prev != null ? sp.last - sp.prev : null) : '–', sp ? bClose(sp.date) : '', sp && sp.change_pct),
+    ...ovs.map(o => tile(o.name, fmt(o.last, 2), chg(o.change_pct, o.last), o.at ? (o.today ? 'As of ' + o.at + ' IST' : 'Last quote · ' + o.at.slice(7) + ' IST · ' + o.at.slice(0, 6) + ' ' + yr) : '', o.change_pct))
+  ].join('');
+  const moves = briefBars([
+    ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(' Composite', ''), v: glob[k].change_pct, txt: chg(glob[k].change_pct) })),
+    ...(goldRaw ? [{ label: 'Gold', v: goldRaw.change_pct, txt: chg(goldRaw.change_pct) }] : []),
+    ...(crudeUsd ? [{ label: 'Crude US$', v: crudeUsd.change_pct, txt: chg(crudeUsd.change_pct) }] : [])
+  ]);
+  const FII_LABELS = { 'FII/FPI': 'FII', 'DII': 'DII' };
+  const flows = briefBars(Object.keys(fii).map(k => ({ label: FII_LABELS[k] || k, v: fii[k], txt: (fii[k] >= 0 ? '+' : '−') + '₹' + fmt(Math.abs(fii[k]), 0) + ' cr' })));
+  return { B, failed, plain, tiles, moves, flows, fiiDate, when: LQ && LQ.ts ? bQuote(LQ.ts) : bSnap(B.ts) };
+}
+
+// What kind of alert it is for you: holding, watchlist, screen, risk.
+function alertTag(x){
+  const held = new Set(((S.port && S.port.holdings) || []).map(h => h.s)), watched = new Set(((S.watch && S.watch.items) || []).map(w => w.symbol));
+  if (/^(risk|pledge|asm|gsm|ban)/i.test(x.k || '')) return '<span class="chip warn">Risk</span>';
+  if (held.has(x.s)) return '<span class="chip brand">Holding</span>';
+  if (watched.has(x.s)) return '<span class="chip brand">Watchlist</span>';
+  if (/screen/i.test(x.k || '')) return '<span class="chip">Screen</span>';
+  return x.mine ? '<span class="chip brand">Yours</span>' : '';
+}
+function todayAlerts(){
+  const I = INS();
+  const head = t => '<div class="panel"><div class="panel-h"><h3>Needs your attention</h3><span class="muted" style="font-size:12px">' + t + '</span></div>';
+  if (!I) return head(S.ins && S.ins.error ? '' : '') + (S.ins && S.ins.error ? '<div class="empty">Alerts not available.</div>' : '<div class="panel-b"><div class="skel"></div></div>') + '</div>';
+  const a = (I.alerts || []).slice().sort((x, y) => (y.mine - x.mine));
+  if (!a.length) return head(esc(fmtTs(I.generated))) + '<div class="empty"><b>Nothing new today.</b>New highs, results, promoter trades and screen changes show here.</div></div>';
+  const row = x => '<tr class="click" onclick="openStock(\'' + esc(x.s) + '\')"><td class="l" style="width:84px">' + alertTag(x) + '</td><td class="l" style="width:260px">' + companyCell(x.s) + '</td><td class="l">' + esc(x.t) + '</td></tr>';
+  return head(num(a.length, 0) + ' alerts · ' + esc(fmtTs(I.generated))) + '<table class="t">' + a.slice(0, 5).map(row).join('') + '</table>' +
+    (a.length > 5 ? '<details class="all" style="padding:4px 16px 10px"><summary>See all ' + a.length + '</summary><table class="t">' + a.slice(5).map(row).join('') + '</table></details>' : '') + '</div>';
+}
+function todayMoney(){
+  const P = S.port, W = S.watch;
+  if (!P && !S.portLoading) portLoad();
+  const H = P && !P.error ? (P.holdings || []) : [];
+  let top = '';
+  if (H.length) {
+    const tot = H.reduce((t, h) => t + h.value, 0), cost = H.reduce((t, h) => t + h.cost, 0), day = H.reduce((t, h) => t + h.day, 0);
+    const dayPct = tot - day ? day / (tot - day) * 100 : null, nifty = P.nifty ? P.nifty.change_pct : null;
+    const st = (k, v, s, c) => '<div class="kpi" style="border-right:1px solid var(--border-subtle)"><div class="k">' + k + '</div><div class="v ' + (c || '') + '">' + v + '</div><div class="s">' + s + '</div></div>';
+    top = '<div class="grid g3" style="gap:0;border-bottom:1px solid var(--border-subtle)">' +
+      st('Holdings value', '₹' + num(tot, 0), H.length + ' holdings · cost ₹' + num(cost, 0)) +
+      st('Today', (day >= 0 ? '+' : '−') + '₹' + num(Math.abs(day), 0), pct(dayPct, 2) + (nifty != null ? ' · NIFTY ' + pct(nifty, 2) : ''), cls(day)) +
+      st('Total gain', (tot - cost >= 0 ? '+' : '−') + '₹' + num(Math.abs(tot - cost), 0), pct((tot / cost - 1) * 100, 1) + ' on cost', cls(tot - cost)) + '</div>';
+  } else if (P && !P.error) top = '<div class="panel-b muted" style="font-size:13px;border-bottom:1px solid var(--border-subtle)">No holdings in your Kite account.</div>';
+  else if (P && P.error) top = '<div class="panel-b muted" style="font-size:13px;border-bottom:1px solid var(--border-subtle)">' + esc(P.error) + '</div>';
+  const items = W && !W.error ? (W.items || []).slice().sort((a, b) => Math.abs(b.excess || 0) - Math.abs(a.excess || 0)) : [];
+  const watch = !W ? '<div class="panel-b"><div class="skel"></div></div>' : !items.length ? '<div class="empty">Nothing starred yet. Use ☆ Star on any company.</div>' :
+    '<table class="t"><tr><th class="l">Watchlist</th><th>Since starred</th><th>vs NIFTY</th><th>12M</th></tr>' + items.slice(0, 5).map(w => { const g = w.figures || {};
+      return '<tr class="click" onclick="openStock(\'' + esc(w.symbol) + '\')"><td class="l">' + companyCell(w.symbol) + '</td><td class="' + cls(w.ret) + '">' + pct(w.ret) + '</td><td class="' + cls(w.excess) + '">' +
+        (w.excess == null ? '–' : (w.excess > 0 ? '+' : '−') + num(Math.abs(w.excess), 1) + ' pts') + '</td><td class="' + cls(g.ret_12m) + '">' + pct(g.ret_12m) + '</td></tr>'; }).join('') + '</table>' +
+    (items.length > 5 || !W.live ? '<div class="muted" style="font-size:12px;padding:8px 16px">' + (items.length > 5 ? '<a href="#portfolio">All ' + items.length + ' starred</a>' : '') + (W.live ? '' : (items.length > 5 ? ' · ' : '') + 'Returns update after the Kite login.') + '</div>' : '');
+  return '<div class="panel"><div class="panel-h"><h3>Your money</h3><span class="muted" style="font-size:12px">' + (P && P.ts ? esc(fmtTs(P.ts)) + ' · ' : '') + '<a href="#portfolio">Open portfolio</a></span></div>' + top + watch + '</div>';
+}
+function todayShortlist(){
+  const L = S.sl && S.sl.lists;
+  const head = '<div class="panel"><div class="panel-h"><h3>Shortlist</h3><span class="muted" style="font-size:12px"><a href="#shortlist">Open shortlist</a></span></div>';
+  if (!L) return head + (S.sl && S.sl.error ? '<div class="empty">' + esc(S.sl.error) + '</div>' : '<div class="panel-b"><div class="skel"></div></div>') + '</div>';
+  const rows = [].concat((L.compounders.top || []).slice(0, 3).map(x => Object.assign({ style: 'compounders' }, x)), (L.emerging.top || []).slice(0, 3).map(x => Object.assign({ style: 'emerging' }, x)));
+  return head + '<table class="t"><tr><th class="l">Company</th><th class="l">List</th><th>Score</th><th class="l">Top reason</th></tr>' + rows.map(r =>
+    '<tr class="click" onclick="openStock(\'' + esc(r.symbol) + '\')"><td class="l">' + companyCell(r.symbol) + '</td><td class="l">' + slStyle(r.style) + '</td><td>' + scoreChip(r.score) + '</td>' +
+    '<td class="l muted" style="font-size:12px;max-width:320px;overflow:hidden;text-overflow:ellipsis">' + esc(((r.why || [])[0] || '').replace(/ - better than.*$/, '')) + '</td></tr>').join('') + '</table></div>';
+}
+function todayBrief(P){
+  const head = '<div class="panel"><div class="panel-h"><h3>Market brief</h3><span class="muted" style="font-size:12px">' + (P.B ? 'Written ' + esc(bSnap(P.B.ts).replace(/^As of /, '')) : '') + '</span></div>';
+  if (P.loading) return head + '<div class="panel-b"><div class="skel"></div><div class="skel" style="width:80%;margin-top:8px"></div></div></div>';
+  if (P.err) return head + '<div class="panel-b muted">' + esc(P.err) + '</div></div>';
+  if (P.failed) return head + '<div class="panel-b muted">Brief not ready yet.</div></div>';
+  // A short first line ("Where the markets stand") is the section's heading.
+  const para = x => { const L = x.split('\n'), h = L.length > 1 && L[0].length < 60 && !/[.:]$/.test(L[0]) ? L.shift() : null;
+    return (h ? '<div style="font-weight:600;margin-bottom:2px">' + esc(h) + '</div>' : '') + esc(L.join(' ')); };
+  const paras = P.plain.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+  return head + '<div class="panel-b" style="font-size:13px;line-height:1.6">' +
+    (S.briefOpen ? paras.map(x => '<p style="margin:0 0 10px">' + para(x) + '</p>').join('')
+                 : '<div style="display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden">' + para(paras[0] || '') + '</div>') +
+    (paras.length > 1 || (paras[0] || '').length > 400 ? '<button class="btn ghost sm" style="padding:0;margin-top:6px;color:var(--accent-text)" onclick="S.briefOpen=!S.briefOpen;rerender()">' + (S.briefOpen ? 'Show less' : 'Read the full brief') + '</button>' : '') +
+    '<div class="faint" style="font-size:12px;margin-top:8px">Not advice.</div></div></div>';
+}
+function todayNext(){
+  const I = INS(), mine = mineSet(), held = new Set(((S.port && S.port.holdings) || []).map(h => h.s));
+  const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10), end = isoShift(today, 7);
+  const ev = [];
+  ((I && I.calendar) || []).forEach(c => { if (mine.has(c.s) && c.d >= today && c.d <= end) ev.push({ d: c.d, s: c.s, t: /result/i.test(c.p) ? 'Results' : 'Board meeting', k: held.has(c.s) ? 'Holding' : 'Yours' }); });
+  mine.forEach(sym => ((S.bySym[sym] || {}).actions || []).forEach(a => { if (a.upcoming && a.ex_date >= today && a.ex_date <= end) ev.push({ d: a.ex_date, s: sym, t: a.subject, k: held.has(sym) ? 'Holding' : 'Yours' }); }));
+  ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+  return '<div class="panel"><div class="panel-h"><h3>Next 7 days</h3><span class="muted" style="font-size:12px"><a href="#calendar">Calendar</a></span></div>' +
+    (!ev.length ? '<div class="empty">Nothing for your companies in the next 7 days.</div>' :
+      '<table class="t">' + ev.slice(0, 8).map(e => '<tr class="click" onclick="openStock(\'' + esc(e.s) + '\')"><td class="l muted" style="font-size:12px;width:120px">' + esc(bDay(dayOf(e.d))) + '</td><td class="l"><b>' + esc(e.s) + '</b> <span class="muted">' + esc(e.t) + '</span></td><td><span class="chip brand">' + e.k + '</span></td></tr>').join('') + '</table>') + '</div>';
+}
 function pageOverview(){
+  const v = $('view'), P = briefParts(), s = (S.admin && S.admin.status) || {};
+  if (!S.ins) insLoad();
+  const wd = Number(new Date(Date.now() + 5.5 * 3600e3).getUTCDay());
+  let html = (wd >= 1 && wd <= 5 ? kiteBanner() : '');
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:-8px 0 10px"><span class="muted" style="font-size:13px">' +
+    esc(bDay(dayOf(new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10)))) + ' · ' + (marketHoursIst() ? 'market open' : 'market closed') + (P.when ? ' · ' + esc(P.when) : '') + '</span>' +
+    '<span style="display:flex;align-items:center;gap:8px"><span class="muted" style="font-size:12px">Change in</span><span class="seg"><button class="' + (S.chgAbs ? '' : 'on') + '" onclick="setChgAbs(false)">%</button><button class="' + (S.chgAbs ? 'on' : '') + '" onclick="setChgAbs(true)">Points</button></span></span></div>';
+  html += P.tiles ? '<div class="strip" style="margin-bottom:16px">' + P.tiles + '</div>' : '';
+  const side = (title, aside, body) => '<div class="panel"><div class="panel-h"><h3>' + title + '</h3><span class="muted" style="font-size:12px">' + aside + '</span></div><div class="panel-b">' + body + '</div></div>';
+  html += '<div class="grid g-main" style="align-items:start"><div class="stack">' + todayAlerts() + todayMoney() + todayShortlist() + '</div>' +
+    '<div class="stack">' + todayBrief(P) +
+      (P.flows !== undefined ? side('FII and DII, cash', P.fiiDate ? 'Close · ' + esc(bClose(P.fiiDate).replace(/^Close · /, '')) : '', P.flows || '<div class="muted">Not available today.</div>') : '') +
+      (P.moves !== undefined ? side('Global moves', 'latest session of each', P.moves || '<div class="muted">No market data yet.</div>') : '') +
+      todayNext() + '</div></div>';
+  html += '<div class="muted" style="font-size:12px;margin-top:20px;display:flex;gap:16px;flex-wrap:wrap">' +
+    (S.lib ? '<span>' + num(S.lib.stocks.filter(x => x.cells).length, 0) + ' companies scored' + (s.daily_ts ? ' · updated ' + esc(bSnap(s.daily_ts).replace(/^As of /, '')) : '') + '</span>' : '') +
+    '<span>Kite: ' + (S.kite && S.kite.state === 'ok' ? 'logged in' : 'not logged in') + '</span><a href="#health">Data and settings</a></div>';
+  if (S.libErr) html = errBlock('Library: ' + S.libErr) + html;
+  v.innerHTML = html;
+}
+// ---- Data and settings: Data health and Email alerts (moved from the Overview) ----
+function pageHealth(){
   const v = $('view');
-  const s = (S.admin && S.admin.status) || {};
-  const libN = S.lib ? S.lib.stocks.filter(x => x.cells).length : null;
-  const comp = S.lib ? compounders().filter(x => x.fails === 0) : null;
-  const mb4 = S.mb ? (S.mb.ranked || []).filter(r => r.score === 4) : null;
-  const turn = S.mb ? S.mb.turnarounds : null;
-  const trk = (S.lib && S.lib.tracker) || null;
+  const libN = S.lib ? S.lib.stocks.filter(x => x.cells).length : null, comp = S.lib ? compounders().filter(x => x.fails === 0) : null;
+  const mb4 = S.mb ? (S.mb.ranked || []).filter(r => r.score === 4) : null, turn = S.mb ? S.mb.turnarounds : null, trk = (S.lib && S.lib.tracker) || null;
   const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
-  let html = '<div class="page-head"><div><p class="sub" style="margin:0">Updated ' + esc(bSnap(s.daily_ts).replace(/^As of /, '')) + '</p></div></div>';
-  html += '<div id="briefBox">' + briefHtml() + '</div>';
-  html += insAlertsPanel();
-  html += '<div class="grid g4" style="margin-bottom:14px">' +
+  let html = '<div class="grid g4" style="margin-bottom:16px">' +
     kpi('Companies with data', libN == null ? '…' : num(libN, 0), S.lib ? 'of ' + num(S.lib.universe, 0) + ' listed' + (trk ? ' · ' + num((trk.refreshed_this_run || {}).companies || 0, 0) + ' updated today' : '') : 'loading') +
     kpi('Proven compounders', comp == null ? '…' : comp.length, 'pass all eight rules') +
     kpi('Early multibaggers 4/4', mb4 == null ? '…' : mb4.length, S.mb ? num(S.mb.rated, 0) + ' rated · ' + (turn || 0) + ' turnarounds' : 'loading') +
-    kpi('Bulk deals', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' days', 'since ' + esc(bDay(dayOf((S.admin && S.admin.bulk_deals || {}).first_day)) || '–')) +
-    '</div>';
-  const mini = (title, href, rows, cols) => '<div class="panel"><div class="panel-h"><h3>' + title + '</h3><a href="#' + href + '">View all →</a></div>' +
-    (rows == null ? '<div class="panel-b">' + '<div class="skel"></div>' + '</div>' : rows.length ? '<table class="t"><tr>' + cols.map(c => '<th class="' + (c[2] || '') + '">' + c[0] + '</th>').join('') + '</tr>' +
-      rows.map(r => '<tr class="click" onclick="openStock(\'' + esc(r.sym) + '\')">' + cols.map(c => '<td class="' + (c[2] || '') + '">' + c[1](r) + '</td>').join('') + '</tr>').join('') + '</table>'
-      : '<div class="empty">None yet.</div>') + '</div>';
-  const L = S.sl && S.sl.lists;
-  const topSl = L ? [].concat((L.compounders.top || []).slice(0, 3).map(x => Object.assign({ style: 'compounders' }, x)),
-                              (L.emerging.top || []).slice(0, 3).map(x => Object.assign({ style: 'emerging' }, x))).map(x => Object.assign({ sym: x.symbol }, x)) : (S.sl && S.sl.error ? [] : null);
-  const topMb = mb4 ? mb4.slice().sort((a, b) => (a.rank || 1e9) - (b.rank || 1e9)).slice(0, 6).map(r => ({ sym: r.symbol, r, s: S.bySym[r.symbol] })) : null;
-  html += '<div class="grid g2" style="margin-bottom:14px">' +
-    mini('Shortlist — top 3 of each list', 'shortlist', topSl, [['Company', r => companyCell(r.sym), 'l'], ['List', r => slStyle(r.style), 'l'], ['Score', r => scoreChip(r.score)], ['Top reason', r => '<span class="muted" style="font-size:12px">' + esc((r.why[0] || '').replace(/ - better than.*$/, '')) + '</span>', 'l wrap']]) +
-    mini('Early multibaggers (all four gates)', 'multibagger', topMb, [['Company', r => companyCell(r.sym), 'l'], ['Profit gr.', r => '<span class="num ' + cls((r.r.measures||{}).profit_growth_yoy_pct) + '">' + pct((r.r.measures||{}).profit_growth_yoy_pct) + '</span>'], ['Funds', r => '<span class="num">' + num(((r.r.mutual_funds||{}).schemes_holding), 0) + '</span>'], ['Score', r => dots(r.r.score || 0, 4)]]) +
-    '</div>';
-  // Upcoming corporate actions across the library
-  let ups = null;
-  if (S.lib) {
-    ups = [];
-    S.lib.stocks.forEach(st => (st.actions || []).forEach(a => { if (a.upcoming) ups.push({ sym: st.symbol, a }); }));
-    ups.sort((x, y) => x.a.ex_date < y.a.ex_date ? -1 : 1);
-  }
-  html += '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>Upcoming corporate actions</h3></div>' +
-    (ups == null ? '<div class="panel-b"><div class="skel"></div></div>' : ups.length ? '<table class="t"><tr><th class="l">Ex-date</th><th class="l">Company</th><th class="l">Action</th></tr>' +
-      ups.slice(0, 10).map(u => '<tr class="click" onclick="openStock(\'' + esc(u.sym) + '\')"><td class="l num">' + esc(fmtDate(u.a.ex_date)) + '</td><td class="l">' + companyCell(u.sym) + '</td><td class="l wrap">' + esc(u.a.subject) + '</td></tr>').join('') + '</table>'
-      : '<div class="empty">None coming up.</div>') + '</div>';
-  // Data health
+    kpi('Bulk deals', num((S.admin && S.admin.bulk_deals || {}).days_stored || 0, 0) + ' days', 'since ' + esc(bDay(dayOf((S.admin && S.admin.bulk_deals || {}).first_day)) || '–')) + '</div>';
   let dq = null;
   if (S.lib) { dq = [0, 0, 0, 0]; S.lib.stocks.forEach(st => { if (!st.cells) { dq[3]++; return; } const p = st.data_quality_pct || 0; dq[p >= 70 ? 0 : p >= 40 ? 1 : 2]++; }); }
-  html += '<div class="panel"><div class="panel-h"><h3>Data coverage</h3><a href="#library">Open library →</a></div><div class="panel-b">' +
-    (dq == null ? '<div class="skel"></div>' : [['70%+ of measures', dq[0], 'var(--up)'], ['40–70%', dq[1], 'var(--warn)'], ['Under 40%', dq[2], 'var(--faint)'], ['No data yet', dq[3], 'var(--down)']].map(([l, n, c]) => {
+  html += '<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>Data coverage</h3><a href="#library" style="font-size:12px">Companies</a></div><div class="panel-b">' +
+    (dq == null ? '<div class="skel"></div>' : [['70%+ of measures', dq[0], 'var(--accent)'], ['40–70%', dq[1], 'var(--score-3)'], ['Under 40%', dq[2], 'var(--text-4)'], ['No data yet', dq[3], 'var(--warn)']].map(([l, n, c]) => {
       const tot = dq.reduce((a, b) => a + b, 0) || 1;
-      return '<div style="display:flex;align-items:center;gap:10px;margin:8px 0"><span style="width:170px;font-size:13px">' + l + '</span><span style="flex:1;height:8px;border-radius:4px;background:var(--line2);overflow:hidden"><i style="display:block;height:100%;width:' + (n / tot * 100) + '%;background:' + c + '"></i></span><span class="num" style="width:56px;text-align:right">' + num(n, 0) + '</span></div>';
-    }).join('')) + '</div></div></div>';
-  html += watchPanel();
-  html += alertsPanel();
+      return '<div style="display:flex;align-items:center;gap:12px;margin:8px 0"><span style="width:170px;font-size:13px">' + l + '</span><span style="flex:1;height:8px;border-radius:4px;background:var(--surface-3);overflow:hidden"><i style="display:block;height:100%;width:' + (n / tot * 100) + '%;background:' + c + '"></i></span><span class="num" style="width:56px;text-align:right">' + num(n, 0) + '</span></div>';
+    }).join('')) + '</div></div>';
   html += freshnessPanel(trk);
-  if (S.libErr) html = errBlock('Library: ' + S.libErr) + html;
   if (S.mbErr) html = errBlock('Multi-bagger data: ' + S.mbErr) + html;
-  html = kiteBanner() + html;
   v.innerHTML = html;
 }
+function pageEmails(){ $('view').innerHTML = alertsPanel(); }
 // Market brief (15 Oct 2026, owner: "overview on admin panel and brief on mobile needs to be same"): the phone's
 // Brief tab, drawn from the same files (brief, context, stocks) and the same live quotes, with the same labels.
 // Only its box is redrawn on each 10-second quote, so the open written brief and the page scroll stay put.
@@ -809,7 +927,7 @@ function bQuote(ts){
   return open && bDay(d) === bDay(now) ? 'Live · ' + bTime(d) : 'Last quote · ' + bTime(d) + ' · ' + bDay(d);
 }
 function setChgAbs(v){ S.chgAbs = v; try { localStorage.setItem('mh_chg_abs', v ? '1' : '0'); } catch (e) {} drawBriefBox(); }
-function drawBriefBox(){ const el = $('briefBox'); if (el && current.page === 'overview') el.innerHTML = briefHtml(); }
+function drawBriefBox(){ if (current.page === 'overview') rerender(); }
 function briefBars(items){
   const max = Math.max(...items.map(i => Math.abs(i.v) || 0), 0.01);
   return items.map(i => {
@@ -817,64 +935,6 @@ function briefBars(items){
     return '<div class="brow"><span class="bl">' + esc(i.label) + '</span><div class="btrack"><div class="bfill ' + (pos ? 'pos' : 'neg') + '" style="width:' + w + '%"></div><div class="bzero"></div></div>' +
       '<span class="bv ' + (pos ? 'up' : 'down') + '">' + esc(i.txt) + '</span></div>';
   }).join('');
-}
-function briefHtml(){
-  const F = S.brief;
-  if (!F) return '<div class="panel" style="margin-bottom:14px"><div class="panel-b"><div class="skel"></div></div></div>';
-  if (F.error || !F.brief || F.brief.error) return '<div class="panel" style="margin-bottom:14px"><div class="panel-b muted">Brief not available' + (F.error ? ': ' + esc(F.error) : '') + '.</div></div>';
-  const B = F.brief, C = (F.context && !F.context.error) ? F.context : {}, ST = (F.stocks && !F.stocks.error) ? F.stocks : {};
-  const LQ = S.quotes, ex = (LQ && LQ.extra) || {};
-  const failed = /could not be written/.test(B.text || ''), plain = failed ? '' : (B.text || '').replace(/\*\*/g, '');
-  const com = C.commodities || {}, glob = C.global || {};
-  const fii = (C.fii_dii || []).reduce((a, r) => { a[r.category] = r.net; return a; }, {});
-  const fiiDate = (C.fii_dii && C.fii_dii[0]) ? C.fii_dii[0].date : null;
-  // Gold and crude in rupees: live if the relay has them, else the daily snapshot (as the phone)
-  const goldRaw = ex.gold || com['Gold (MCX, ₹/10g)'], crudeRaw = ex.crude || com['Crude oil (MCX, ₹/bbl)'];
-  const usd = ex.usd_inr || C.usd_inr_live || null, usdRate = usd ? usd.last : (C.fx ? C.fx.usd_inr : null);
-  const crudeUsd = crudeRaw && usdRate ? { last: crudeRaw.last / usdRate, change_pct: crudeRaw.change_pct } : null;
-  const vixNow = LQ && LQ.india_vix ? LQ.india_vix : (C.india_vix || ST.india_vix), sp = glob['S&P 500'];
-  // % or absolute change (owner's switch, 15 Oct 2026). The absolute figure is the quote's own change when it has one,
-  // else worked back from the % and the last price (last × p / (100 + p)), in the tile's own unit.
-  const chg = (p, last, change, dp) => { if (p == null) return '–'; if (!S.chgAbs) return pct(p, 2);
-    const a = change != null ? change : (last != null ? last * p / (100 + p) : null);
-    return a == null ? pct(p, 2) : (a > 0 ? '+' : a < 0 ? '−' : '') + fmt(Math.abs(a), dp == null ? 2 : dp); };
-  const tile = (k, v, sub, c) => '<div class="panel kpi"><div class="k">' + esc(k) + '</div><div class="v ' + (c || '') + '">' + v + '</div><div class="s ' + (c || '') + '">' + sub + '</div></div>';
-  const idxTile = (k, name) => { const q = LQ && LQ.indices && LQ.indices[k];
-    return tile(name, q ? fmt(q.last, 2) : '–', q ? chg(q.change_pct, q.last, q.change) + '<br>' + esc(bQuote(LQ.ts)) : 'no live quote', cls(q && q.change_pct)); };
-  const yr = new Date(Date.now() + 5.5 * 3600e3).getUTCFullYear();
-  const ovs = ((LQ && LQ.overseas && LQ.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym));
-  const ovsTiles = ovs.map(o => tile(o.name, fmt(o.last, 2), chg(o.change_pct, o.last) + '<br>' +
-    esc(o.at ? (o.today ? 'As of ' + o.at + ' IST' : 'Last quote · ' + o.at.slice(7) + ' IST · ' + o.at.slice(0, 6) + ' ' + yr) : ''), cls(o.change_pct))).join('');
-  const tiles = [
-    idxTile('NIFTY', 'NIFTY 50'), idxTile('BANKNIFTY', 'Bank NIFTY'), idxTile('SENSEX', 'SENSEX'),
-    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct, vixNow.last, vixNow.change) + '<br>' + esc(LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(vixNow && vixNow.change_pct)),
-    tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct, goldRaw.last, goldRaw.change, 0) + '<br>' + esc(ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(goldRaw && goldRaw.change_pct)),
-    tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct, crudeUsd.last) + ' · ₹' + fmt(crudeRaw.last, 0) + '/bbl<br>' + esc(ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : 'no data', cls(crudeUsd && crudeUsd.change_pct)),
-    tile('USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'),
-         usd ? chg(usd.change_pct, usd.last, usd.change, 3) + '<br>' + esc(ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? 'ECB rate<br>' + esc(bClose(C.fx.date)) : 'no data'), cls(usd && usd.change_pct)),
-    tile('S&P 500', sp ? fmt(sp.last, 0) : '–', sp ? chg(sp.change_pct, sp.last, sp.prev != null ? sp.last - sp.prev : null) + '<br>' + esc(bClose(sp.date)) : 'no data', cls(sp && sp.change_pct)),
-    ovsTiles
-  ].join('');
-  const moves = briefBars([
-    ...(goldRaw ? [{ label: 'Gold', v: goldRaw.change_pct, txt: chg(goldRaw.change_pct) }] : []),
-    ...(crudeUsd ? [{ label: 'Crude US$', v: crudeUsd.change_pct, txt: chg(crudeUsd.change_pct) }] : []),
-    ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(' Composite', ''), v: glob[k].change_pct, txt: chg(glob[k].change_pct) }))
-  ]);
-  const FII_LABELS = { 'FII/FPI': 'FII (cash)', 'DII': 'DII (cash)' };   // NSE's two known categories; any other shows its own name
-  const flows = briefBars(Object.keys(fii).map(k => ({ label: FII_LABELS[k] || k, v: fii[k], txt: (fii[k] >= 0 ? '+' : '') + fmt(fii[k], 0) + ' cr' })));
-  const when = LQ && LQ.ts ? bQuote(LQ.ts) : bSnap(B.ts);
-  return '<div class="panel-h" style="border:0;padding:0 0 8px"><h3>Market brief · ' + esc(when) + '</h3><span class="seg" title="Change in % or in points"><button class="' + (S.chgAbs ? '' : 'on') + '" onclick="setChgAbs(false)">%</button><button class="' + (S.chgAbs ? 'on' : '') + '" onclick="setChgAbs(true)">Points</button></span></div>' +
-    '<div class="glance">' + tiles + '</div>' +
-    '<div class="grid g2" style="margin-bottom:14px">' +
-      '<div class="panel"><div class="panel-h"><h3>Moves</h3><span class="muted" style="font-size:12px">% · latest session of each</span></div><div class="panel-b">' +
-        (moves || '<div class="muted">No market data yet.</div>') + '</div></div>' +
-      '<div class="panel"><div class="panel-h"><h3>Institutional flows: FII and DII</h3><span class="muted" style="font-size:12px">cash' + (fiiDate ? ' · ' + esc(bClose(fiiDate)) : '') + '</span></div><div class="panel-b">' +
-        (flows || '<div class="muted">Flow data not available today.</div>') + '</div></div>' +
-    '</div>' +
-    '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Written brief</h3><span class="muted" style="font-size:12px">Written ' + esc(bSnap(B.ts).replace(/^As of /, '')) + '</span></div><div class="panel-b">' +
-      (failed ? '<div class="notice">Brief not ready yet.</div>'
-              : '<details' + (S.briefOpen ? ' open' : '') + ' ontoggle="S.briefOpen = this.open"><summary style="cursor:pointer;font-weight:600">Show full brief</summary><div class="brief-text">' + esc(plain) + '</div></details>') +
-      '<div class="muted" style="font-size:12px;margin-top:8px">Not advice.</div></div></div>';
 }
 
 // ======================================================================================
@@ -1619,10 +1679,17 @@ function destroyCharts(){ charts.forEach(c => { try { c.destroy(); } catch (e) {
   lwcCharts.forEach(c => { try { c.remove(); } catch (e) {} }); lwcCharts = []; }
 function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 
+// Stock report sections (design review phase 2, 17 Oct 2026): one section at a time instead of one 6,800 px page.
+const STK_TABS = [['overview', 'Overview'], ['owners', 'Ownership'], ['score', 'Scorecard'], ['peers', 'Peers'], ['ai', 'AI summary']];
+let STK = { sym: null, tab: 'overview' };
+function stkTab(t){ STK.tab = t; rerender(); window.scrollTo(0, 0); }
+function paperFrom(sym){ PP_KIND = 'stock'; PPS.sym = sym; S.ppQuote = null; go('paper'); setTimeout(ppLoadQuote, 0); }
 function pageStock(sym){
   destroyCharts();
   const v = $('view');
   sym = String(sym || '').toUpperCase();
+  if (STK.sym !== sym) STK = { sym, tab: 'overview' };
+  const T = STK.tab;
   if (!S.lib && !S.libErr) { v.innerHTML = loadingBlock('Loading the library…'); return; }
   const s = S.bySym[sym], r = S.mbBySym[sym];
   if (!s && !r) { v.innerHTML = '<button class="back" onclick="history.back()">← Back</button>' + errBlock(sym + ' is not in the library yet.'); return; }
@@ -1668,7 +1735,7 @@ function pageStock(sym){
   let html = '<button class="back" onclick="history.length > 1 ? history.back() : go(\'overview\')">← Back</button>' +
     '<div class="rep-head"><div><h1 class="rep-title">' + esc(name || sym) + '</h1><div class="rep-meta"><span class="chip num">NSE: ' + esc(sym) + '</span>' +
     (sectorOf(sym) ? '<span class="chip">' + esc(sectorOf(sym)) + '</span>' : '') + (s && s.latest_period ? '<span class="chip">Results to ' + esc(fmtDate(s.latest_period)) + '</span>' : '') + badges.join('') + '</div></div>' +
-    '<div class="price"><button class="btn" style="margin-bottom:6px" onclick="toggleStar(\'' + esc(sym) + '\')">' + (isStarred(sym) ? '★ Starred' : '☆ Star') + '</button>' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:500">· ' + esc(fmtDate(last[0])) + '</span></div>'
+    '<div class="price"><div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px"><button class="btn sm" onclick="paperFrom(\'' + esc(sym) + '\')">Paper trade</button><button class="btn sm" onclick="toggleStar(\'' + esc(sym) + '\')">' + (isStarred(sym) ? '★ Starred' : '☆ Star') + '</button></div>' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:400">· Close · ' + esc(bDay(dayOf(last[0]))) + '</span></div>'
                             : D5.loading ? '<div class="skel" style="width:140px;height:26px"></div>' : '') + '</div></div>';
 
   html += '<div class="stats">' + [
@@ -1677,6 +1744,8 @@ function pageStock(sym){
     ['52W range', hi52 ? '₹' + num(lo52, 0) + '–' + num(hi52, 0) : (val(s,'from_52w_high') != null ? pct(val(s,'from_52w_high')) + ' from high' : '–')],
     ['Dividend yield', val(s,'dividend_yield') == null ? '–' : num(val(s,'dividend_yield'), 2) + '%']
   ].map(([k, x]) => '<div><div class="k">' + k + '</div><div class="v">' + x + '</div></div>').join('') + '</div>';
+  html += '<div class="tabs stk-tabs">' + STK_TABS.map(([k, l]) => '<a href="javascript:void 0" class="' + (T === k ? 'on' : '') + '" onclick="stkTab(\'' + k + '\')">' + l + '</a>').join('') + '</div>';
+  if (T === 'overview') {
 
   // Interactive price chart (full width), then results and documents
   const DK = S.charts[sym + '|' + pxKey(pxRange)] || { loading: true };
@@ -1701,13 +1770,17 @@ function pageStock(sym){
       : qMode === 'a' && !aN ? '<div class="notice">' + esc((R.errors || {}).annual || 'No annual results available.') + '</div>' : '<div class="chart"><canvas id="cQ"></canvas></div>') +
     '<div class="muted" style="font-size:11.5px;margin-top:6px">₹ crore</div></div></div>' +
     documentsPanel(sym) + '</div>';
-  html += aiPanel(sym);
-  html += fundsPanel(sym, S.bySym[sym]);
-
   html += insStockPanels(sym);
   html += factorPanel(sym);
+  html += '<div class="grid g2" style="margin-bottom:14px">' +
+    '<div class="panel"><div class="panel-h"><h3>Corporate actions</h3><span class="muted" style="font-size:12px">upcoming first</span></div><div class="panel-b timeline">' + actionsHtml(s) + '</div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Recent news</h3></div><div class="panel-b news">' + newsHtml(R) + '</div></div></div>';
+  }
+  if (T === 'ai') html += aiPanel(sym);
+  if (T === 'owners') { html += shareholdingPanel(s); html += fundsPanel(sym, S.bySym[sym]); }
+  if (T === 'peers') html += peersPanel(sym);
   // Scorecard
-  if (s && s.cells) {
+  if (T === 'score' && s && s.cells) {
     const testable = s.testable || 0, met = s.met || 0, p = testable ? Math.round(met / testable * 100) : 0;
     html += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Scorecard</h3><span class="muted" style="font-size:12px">bar = rank among ' + num(S.lib.stocks.filter(x => x.cells).length, 0) + ' companies</span></div><div class="panel-b" style="display:flex;gap:16px;align-items:center;border-bottom:1px solid var(--line2)">' +
       '<div class="ring" style="--p:' + p + '"><span>' + p + '%</span></div><div><div style="font-weight:700">' + met + ' of ' + testable + ' rules met</div><div class="muted" style="font-size:12.5px">' + (s.not_testable || 0) + ' not testable · data quality ' + num(s.data_quality_pct, 0) + '%</div></div></div>' +
@@ -1718,21 +1791,14 @@ function pageStock(sym){
       }).join('') + '</div></div>';
   }
 
-  // Ownership, corporate actions, news
-  html += peersPanel(sym);
-  html += shareholdingPanel(s);
-  html += '<div class="grid g2" style="margin-bottom:14px">' +
-    '<div class="panel"><div class="panel-h"><h3>Corporate actions</h3><span class="muted" style="font-size:12px">upcoming first</span></div><div class="panel-b timeline">' + actionsHtml(s) + '</div></div>' +
-    '<div class="panel"><div class="panel-h"><h3>Recent news</h3></div><div class="panel-b news">' + newsHtml(R) + '</div></div></div>';
-
-  // Multibagger gates + full table
-  if (r) {
+  // Multibagger gates (Ownership: funds and promoters) and the full parameter table (Scorecard)
+  if (T === 'owners' && r) {
     html += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Multi-bagger screen</h3><span class="muted" style="font-size:12px">rank ' + esc(r.rank || '–') + ' of ' + num((S.mb.ranked || []).length, 0) + '</span></div><div class="panel-b" style="display:flex;gap:8px;flex-wrap:wrap">' +
       Object.keys(r.gates || {}).map(k => '<span class="chip ' + (r.gates[k] === true ? 'up' : r.gates[k] === false ? 'down' : '') + '">' + (r.gates[k] === true ? '✓ ' : r.gates[k] === false ? '✗ ' : '? ') + esc(k.replace(/_/g, ' ')) + '</span>').join('') +
       ((r.mutual_funds || {}).schemes_holding != null ? '<span class="chip">Funds: ' + r.mutual_funds.schemes_holding + ' holding · +' + (r.mutual_funds.schemes_added || 0) + ' / −' + (r.mutual_funds.schemes_reduced || 0) + '</span>' : '') +
       ((r.promoter || {}).flag ? '<span class="chip">' + esc(r.promoter.flag) + ' (6M)</span>' : '') + '</div></div>';
   }
-  if (s && s.cells) {
+  if (T === 'score' && s && s.cells) {
     html += '<div class="panel"><div class="panel-b"><details class="all"><summary>All ' + Object.keys(s.cells).length + ' parameters with their rules</summary><div class="tbl-wrap" style="margin-top:10px;max-height:none"><table class="t"><tr><th class="l">Parameter</th><th>Value</th><th class="l">Result</th><th class="l">Rule</th></tr>' +
       Object.keys(s.cells).map(k => { const c = s.cells[k];
         return '<tr><td class="l">' + esc(labelOf(k)) + '</td><td class="num">' + fmtMeasure(k, c.value) + '</td><td class="l">' + statusChip(c.status) + '</td><td class="l muted" style="white-space:normal">' + esc(c.rule) + '</td></tr>'; }).join('') + '</table></div></details></div></div>';
