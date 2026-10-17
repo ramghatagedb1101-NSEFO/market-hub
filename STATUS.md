@@ -4,8 +4,7 @@ As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct 
 first) and `CLAUDE.md`.
 
 ## Sat 17 Oct 2026 -- read this first
-- **Dashboard redesign** (plan: `C:
-se_fo_analyser\extras\design-review\REVIEW.md`, owner-approved): phase 1 live
+- **Dashboard redesign** (plan: `extras/design-review/REVIEW.md` on the laptop, outside this repo; owner-approved): phase 1 live
   (design system, 14-item menu with tabs, theme switch). Next: phase 2 page by page, then paper trading v2 (must items;
   owner keeps typed prices and trade deletion).
 - **Daily source check** (`source-health.yml`, 09:10 IST Mon-Sat): emails when a data file stops changing, an insights
