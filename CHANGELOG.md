@@ -4,6 +4,21 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-17
 
+### Dashboard redesign, phase 2 (second part): colour rules, lists, feeds, charts (Sat 17 Oct 2026)
+- Colour means one thing: green/red only for the direction of a number. Scores and grades are one blue scale (darker =
+  higher; a 29 is pale, not red); a rule met shows a tick and the word, in neutral ink; Compounder and Turnaround are
+  plain labels; What's new sentences are no longer coloured.
+- Shortlist: track record first as four figures; one line per company (first reason with "+n", watch notes as a count),
+  the arrow opens every reason and watch note; tabs Compounders, Emerging, Next in line, Track record; rows 41 px instead
+  of 200+, and the table fits at 1,440 px (the Watch column was cut off).
+- Proven compounders: the eight rules behind "The eight rules"; when none pass, the page says so and offers the near
+  misses. Build a screen: market cap no longer shows twice.
+- Insider trades: a plain notice that NSE's list has had no new entries since 28 Apr 2026. Filters read Yours / All on
+  every feed. Calendar grouped by day.
+- Charts: the stock's revenue chart is split into revenue and profit bars plus a separate net-margin chart (no second
+  axis); Positioning shows one index's option prices at a time, with month labels and full days in the tooltip; the
+  Expiry meter shows one index at a time when two expire together, and the Spot and Max pain labels no longer overlap.
+
 ### Dashboard redesign, phase 2 (first part): Today and the stock report (Sat 17 Oct 2026)
 - **Today** (was Overview) fits about one screen (1,100 px instead of 2,500): a joined strip of market tiles with the
   % / Points switch; left: Needs your attention (your alerts first, labelled Holding / Watchlist / Screen / Risk, 5
