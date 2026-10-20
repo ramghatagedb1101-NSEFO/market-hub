@@ -1146,10 +1146,11 @@ function pagePositions(){
                   y: { grid: { color: cssVar('--grid') }, border: { display: false }, ticks: { callback: x => num(x, 1) + '%' } } } } })); }
 }
 
-// ---- Paper trades ----
+// ---- Paper trading v2 (17 Oct 2026, design review section 7): account bar, option chain, order ticket with a preview
+// of charges and margin, then Positions, Orders, Trades and Performance. Server: relay/Paper.gs.
 function paperLoad(){ S.paperLoading = true; call('adminPaper', token).then(d => { S.paper = d; S.paperLoading = false; rerender(); }).catch(e => { S.paper = { error: e.message }; S.paperLoading = false; rerender(); }); }
-// The form's choices live here so a redraw keeps them; strikes and prices come from the relay (adminPaperChain).
-const PPS = { side: 'buy', idx: 'NIFTY', exp: '', strike: null, type: 'CE', lots: '', price: '', note: '', sym: '', qty: '' };
+const PPS = { side: 'buy', idx: 'NIFTY', exp: '', strike: null, type: 'CE', lots: '', price: '', trigger: '', note: '', sym: '', qty: '', otype: 'MARKET', product: '' };
+let PP_KIND = 'option', PP_TAB = 'positions', PP_OF = 'working';
 function ppLoadChain(){
   S.ppChain = { loading: true }; rerender();
   call('adminPaperChain', token, PPS.idx, PPS.exp).then(d => { S.ppChain = d; if (!d.error) { PPS.exp = d.expiry; if (PPS.strike == null || !d.strikes.some(r => r[0] === Number(PPS.strike))) PPS.strike = d.atm; } rerender(); })
@@ -1161,78 +1162,160 @@ function ppLoadQuote(){
   call('adminPaperQuote', token, PPS.sym).then(d => { S.ppQuote = d; rerender(); }).catch(e => { S.ppQuote = { error: e.message }; rerender(); });
 }
 function ppSet(k, v){
-  PPS[k] = v;
+  PPS[k] = v; S.ppPrev = null;
   if (k === 'idx') { PPS.exp = ''; PPS.strike = null; ppLoadChain(); }
   else if (k === 'exp') ppLoadChain();
   else if (k === 'sym') { PPS.sym = String(v || '').trim().toUpperCase(); ppLoadQuote(); }
   else rerender();
 }
-function paperAdd(){
-  const t = PP_KIND === 'stock' ? { kind: 'stock', sym: PPS.sym, qty: PPS.qty, side: PPS.side, price: PPS.price, note: PPS.note }
-    : { kind: 'option', idx: PPS.idx, expiry: PPS.exp, strike: PPS.strike, type: PPS.type, lots: PPS.lots, side: PPS.side, price: PPS.price, note: PPS.note };
-  S.paperMsg = 'Saving…'; rerender();
-  call('adminPaperAdd', token, t).then(d => { if (d.error) S.paperMsg = d.error; else { S.paper = d; S.paperMsg = ''; PPS.price = ''; PPS.note = ''; } rerender(); }).catch(e => { S.paperMsg = e.message; rerender(); });
+function ppPick(strike, type){ PPS.strike = strike; PPS.type = type; S.ppPrev = null; rerender(); }
+function ppReq(){
+  return PP_KIND === 'stock' ? { kind: 'stock', sym: PPS.sym, qty: PPS.qty, side: PPS.side, price: PPS.price, trigger: PPS.trigger, note: PPS.note, otype: PPS.otype, product: PPS.product || 'CNC' }
+    : { kind: 'option', idx: PPS.idx, expiry: PPS.exp, strike: PPS.strike, type: PPS.type, lots: PPS.lots, side: PPS.side, price: PPS.price, trigger: PPS.trigger, note: PPS.note, otype: PPS.otype, product: PPS.product || 'NRML' };
 }
-function ppForm(){
-  const opt = (v, l, cur) => '<option value="' + esc(v) + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + esc(l) + '</option>';
-  const sel = (k, opts, w) => '<select class="field" style="max-width:100%;width:' + (w || 'auto') + '" onchange="ppSet(\'' + k + '\', this.value)">' + opts + '</select>';
-  const box = (k, ph, w, cl) => '<input class="field' + (cl ? ' ' + cl : '') + '" style="max-width:100%;width:' + w + '" placeholder="' + ph + '" value="' + esc(PPS[k]) + '" oninput="PPS.' + k + '=this.value">';
+function ppPreview(){ S.ppPrev = { loading: true }; rerender(); call('adminPaperPreview', token, ppReq()).then(d => { S.ppPrev = d; rerender(); }).catch(e => { S.ppPrev = { error: e.message }; rerender(); }); }
+function ppPlace(){
+  const P = S.ppPrev; if (!P || !P.ok) return;
+  if (!confirm((PPS.side === 'sell' ? 'Sell ' : 'Buy ') + ppName() + ' · ' + P.qty + ' qty · ' + (PPS.otype === 'MARKET' ? 'market' : PPS.otype.toLowerCase()) + '\nValue ₹' + num(P.value, 2) + ' · charges ₹' + num(P.charges.total, 2) + (P.margin ? ' · margin ₹' + num(P.margin, 0) : '') + '\n\nPlace this paper order?')) return;
+  S.paperMsg = 'Placing…'; S.ppPrev = null; rerender();
+  call('adminPaperOrder', token, ppReq()).then(d => { if (d.error) S.paperMsg = d.error; else { S.paper = d; S.paperMsg = (d.orders[0] && d.orders[0].status === 'working') ? 'Order placed: waiting for the price.' : 'Order filled.'; PPS.price = ''; PPS.trigger = ''; PPS.note = ''; PP_TAB = d.orders[0] && d.orders[0].status === 'working' ? 'orders' : 'positions'; } rerender(); })
+    .catch(e => { S.paperMsg = e.message; rerender(); });
+}
+function paperClose(id){ const p = prompt('Exit at the live price, or type a price:', ''); if (p === null) return; call('adminPaperClose', token, id, p, true).then(d => { if (d.error) alert(d.error); else S.paper = d; rerender(); }); }
+function paperCancel(id){ call('adminPaperCancel', token, id).then(d => { if (d.error) alert(d.error); else S.paper = d; rerender(); }); }
+function paperDel(id){ if (!confirm('Remove this paper trade from the record?')) return; call('adminPaperDelete', token, id).then(d => { S.paper = d; rerender(); }); }
+function paperCapital(){ const a = (S.paper && S.paper.account) || {}; const p = prompt('Starting capital (₹):', a.capital || 1000000); if (p === null) return; call('adminPaperCapital', token, String(p).replace(/[^0-9.]/g, '')).then(d => { if (d.error) alert(d.error); else S.paper = d; rerender(); }); }
+function ppName(){ return PP_KIND === 'stock' ? (PPS.sym || 'stock') : PPS.idx + ' ' + bDay(dayOf(PPS.exp)).slice(4) + ' ' + num(PPS.strike, 0) + ' ' + (PPS.type === 'PE' ? 'Put' : 'Call'); }
+function ppWhat(t){ return t.kind === 'stock' ? '<b>' + esc(t.sym) + '</b>' : '<b>' + esc(t.idx) + ' ' + num(t.strike, 0) + ' ' + (t.type === 'PE' ? 'Put' : 'Call') + '</b> <span class="muted">' + esc(bDay(dayOf(t.expiry)).slice(4)) + '</span>'; }
+const ppSideTag = s => '<span style="font-weight:600;color:' + (s === 'sell' ? 'var(--sell)' : 'var(--buy)') + '">' + (s === 'sell' ? 'S' : 'B') + '</span> ';
+const ppMoney = (v, dp) => v == null ? '–' : (v < 0 ? '−' : '') + '₹' + num(Math.abs(v), dp || 0);
+const ppSigned = v => v == null ? '–' : '<span class="' + cls(v) + '">' + (v > 0 ? '+' : v < 0 ? '−' : '') + '₹' + num(Math.abs(v), 0) + '</span>';
+
+function ppChainPanel(){
+  const c = S.ppChain || {};
   const px = v => v == null ? '–' : num(v, 2);
-  let fields = sel('side', opt('buy', 'Buy', PPS.side) + opt('sell', 'Sell', PPS.side)), info = '', live = null;
-  if (PP_KIND === 'stock') {
-    const names = Object.keys(S.names || {}).sort();
-    fields += '<input class="field" style="max-width:100%;width:220px" list="ppNames" placeholder="Company or symbol" value="' + esc(PPS.sym) + '" onchange="ppSet(\'sym\', this.value)">' +
-      '<datalist id="ppNames">' + names.map(k => '<option value="' + esc(k) + '">' + esc(nameOf(k)) + '</option>').join('') + '</datalist>' + box('qty', 'Shares (blank = 1)', '140px', 'num');
-    const q = S.ppQuote;
-    if (q && q.loading) info = 'Getting the price…';
-    else if (q && q.error) info = esc(q.error);
-    else if (q) { live = q.ltp; info = q.ltp == null ? (q.kite ? 'No price for ' + esc(q.sym) + '.' : 'Log in to Kite to see prices.') : '<b>' + esc(q.sym) + (nameOf(q.sym) ? ' · ' + esc(nameOf(q.sym)) : '') + '</b> latest traded <b class="num">₹' + px(q.ltp) + '</b> <span class="muted">' + esc(q.at) + '</span>'; }
-  } else {
-    const c = S.ppChain || {};
-    fields += sel('idx', ['NIFTY', 'BANKNIFTY', 'SENSEX'].map(x => opt(x, x === 'BANKNIFTY' ? 'BANK NIFTY' : x, PPS.idx)).join(''));
-    if (c.loading) info = 'Loading strikes and prices…';
-    else if (c.error) info = esc(c.error);
-    else if (c.strikes) {
-      fields += sel('exp', c.expiries.map(e => opt(e, bDay(dayOf(e)), PPS.exp)).join(''), '150px') +
-        sel('strike', c.strikes.map(r => opt(r[0], num(r[0], 0) + (r[0] === c.atm ? ' (at the money)' : '') + ' · Call ' + px(r[1]) + ' · Put ' + px(r[2]), PPS.strike)).join(''), '330px') +
-        sel('type', opt('CE', 'Call', PPS.type) + opt('PE', 'Put', PPS.type)) + box('lots', 'Lots (blank = 1)', '130px', 'num');
-      const row = c.strikes.find(r => r[0] === Number(PPS.strike));
-      live = row ? (PPS.type === 'PE' ? row[2] : row[1]) : null;
-      info = '<b>' + esc(PPS.idx) + ' ' + num(PPS.strike, 0) + ' ' + (PPS.type === 'PE' ? 'Put' : 'Call') + '</b> · ' + esc(bDay(dayOf(c.expiry))) + ' · latest traded <b class="num">' + (live == null ? '–' : '₹' + px(live)) + '</b>' +
-        (live != null ? ' · 1 lot = ' + c.lot + ' = ₹' + num(live * c.lot, 0) : '') + ' <span class="muted">· index ' + (c.spot ? num(c.spot, 2) : '–') + ' · ' + esc(c.at) + '</span>' +
-        (c.kite ? '' : ' <span class="muted">· log in to Kite to see prices</span>');
-    }
-  }
-  fields += box('price', live != null ? 'Price (blank = ' + px(live) + ')' : 'Price', '150px', 'num') + box('note', 'Why (optional)', '200px') +
-    '<button class="btn primary" onclick="paperAdd()">Add</button>' + (PP_KIND === 'option' ? '<button class="btn ghost" title="Refresh prices" onclick="ppLoadChain()">↻</button>' : (PPS.sym ? '<button class="btn ghost" title="Refresh price" onclick="ppLoadQuote()">↻</button>' : ''));
-  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>New paper trade</h3>' + seg2('PP_KIND', PP_KIND, [['option', 'Index option'], ['stock', 'Stock']]) + '</div><div class="panel-b">' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' + fields + '</div>' +
-    (info ? '<div style="margin-top:10px;font-size:13px">' + info + '</div>' : '') +
-    (S.paperMsg ? '<div class="muted" style="margin-top:8px">' + esc(S.paperMsg) + '</div>' : '') + '</div></div>';
+  const cell = (r, t) => { const on = Number(PPS.strike) === r[0] && PPS.type === t;
+    return '<td class="' + (on ? '' : 'click') + '" style="cursor:pointer;' + (on ? 'background:var(--accent-soft);font-weight:600' : '') + '" onclick="ppPick(' + r[0] + ',\'' + t + '\')">' + px(t === 'CE' ? r[1] : r[2]) + '</td>'; };
+  return '<div class="panel"><div class="panel-h"><h3>Option chain</h3><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+    '<div class="seg">' + ['NIFTY', 'BANKNIFTY', 'SENSEX'].map(x => '<button class="' + (PPS.idx === x ? 'on' : '') + '" onclick="ppSet(\'idx\',\'' + x + '\')">' + (x === 'BANKNIFTY' ? 'BANK NIFTY' : x) + '</button>').join('') + '</div>' +
+    (c.expiries ? '<select class="field" style="width:auto" onchange="ppSet(\'exp\', this.value)">' + c.expiries.map(e => '<option value="' + e + '"' + (e === PPS.exp ? ' selected' : '') + '>' + esc(bDay(dayOf(e))) + '</option>').join('') + '</select>' : '') + '</div></div>' +
+    (c.loading ? '<div class="panel-b"><div class="skel"></div><div class="skel" style="margin-top:8px;width:80%"></div></div>' : c.error ? '<div class="empty">' + esc(c.error) + '</div>' : !c.strikes ? '' :
+      '<div class="muted" style="font-size:12px;padding:8px 16px;border-bottom:1px solid var(--border-subtle)">Index ' + (c.spot ? num(c.spot, 2) : '–') + ' · lot ' + c.lot + ' · ' + esc(c.at) + (c.kite ? '' : ' · log in to Kite for prices') + ' · click a price to trade it</div>' +
+      '<div style="max-height:430px;overflow:auto"><table class="t"><thead><tr><th>Call</th><th style="text-align:center">Strike</th><th>Put</th></tr></thead><tbody>' +
+      c.strikes.map(r => '<tr>' + cell(r, 'CE') + '<td style="text-align:center;font-weight:' + (r[0] === c.atm ? '600' : '500') + ';background:var(--surface-2)">' + num(r[0], 0) + (r[0] === c.atm ? ' <span class="faint" style="font-weight:400;font-size:11px">ATM</span>' : '') + '</td>' + cell(r, 'PE') + '</tr>').join('') + '</tbody></table></div>') + '</div>';
 }
-function paperClose(id){ const p = prompt('Exit price (leave empty for the live price):', ''); if (p === null) return; call('adminPaperClose', token, id, p).then(d => { if (d.error) alert(d.error); else S.paper = d; rerender(); }); }
-function paperDel(id){ if (!confirm('Remove this paper trade?')) return; call('adminPaperDelete', token, id).then(d => { S.paper = d; rerender(); }); }
-let PP_KIND = 'option';
+function ppTicket(){
+  const c = S.ppChain || {}, q = S.ppQuote, P = S.ppPrev;
+  const box = (k, ph, dis) => '<input class="field num" ' + (dis ? 'disabled style="opacity:.55" ' : '') + 'placeholder="' + ph + '" value="' + esc(PPS[k]) + '" oninput="PPS.' + k + '=this.value;S.ppPrev=null" onchange="rerender()">';
+  const lbl = t => '<div class="muted" style="font-size:12px;font-weight:500;margin:10px 0 4px">' + t + '</div>';
+  let live = null, head = '';
+  if (PP_KIND === 'stock') { live = q && q.ltp; head = '<input class="field" list="ppNames" placeholder="Company or symbol" value="' + esc(PPS.sym) + '" onchange="ppSet(\'sym\', this.value)"><datalist id="ppNames">' + Object.keys(S.names || {}).sort().map(k => '<option value="' + esc(k) + '">' + esc(nameOf(k)) + '</option>').join('') + '</datalist>'; }
+  else { const row = (c.strikes || []).find(r => r[0] === Number(PPS.strike)); live = row ? (PPS.type === 'PE' ? row[2] : row[1]) : null; }
+  const isOpt = PP_KIND === 'option', products = isOpt ? [['NRML', 'Carry forward (NRML)'], ['MIS', 'Intraday (MIS)']] : [['CNC', 'Delivery (CNC)'], ['MIS', 'Intraday (MIS)']];
+  const prod = PPS.product && products.some(p => p[0] === PPS.product) ? PPS.product : products[0][0];
+  const needP = PPS.otype === 'LIMIT' || PPS.otype === 'SL', needT = PPS.otype === 'SL' || PPS.otype === 'SL-M';
+  const sideBtn = (k, l, col) => '<button style="flex:1;height:36px;border:0;border-radius:6px;font-weight:600;cursor:pointer;' + (PPS.side === k ? 'background:' + col + ';color:#fff' : 'background:transparent;color:var(--text-3)') + '" onclick="ppSet(\'side\',\'' + k + '\')">' + l + '</button>';
+  const lots = Math.max(1, Math.round(Number(PPS.lots) || 1)), qty = isOpt ? lots * (c.lot || 1) : Math.max(1, Math.round(Number(PPS.qty) || 1));
+  let html = '<div class="panel"><div class="panel-h"><h3>Order</h3>' + seg2('PP_KIND', PP_KIND, [['option', 'Index option'], ['stock', 'Stock']]) + '</div><div class="panel-b">' +
+    '<div style="display:flex;gap:4px;padding:3px;background:var(--surface-3);border-radius:8px">' + sideBtn('buy', 'Buy', 'var(--buy)') + sideBtn('sell', 'Sell', 'var(--sell)') + '</div>' +
+    (head ? lbl('Company') + head : '') +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:12px"><b>' + esc(ppName()) + '</b><span class="muted" style="font-size:12px">LTP <b style="color:var(--text)">' + (live == null ? '–' : num(live, 2)) + '</b></span></div>' +
+    lbl('Order type') + '<div class="seg" style="display:flex">' + [['MARKET', 'Market'], ['LIMIT', 'Limit'], ['SL', 'Stop-loss'], ['SL-M', 'SL-M']].map(([k, l]) => '<button style="flex:1" class="' + (PPS.otype === k ? 'on' : '') + '" onclick="ppSet(\'otype\',\'' + k + '\')">' + l + '</button>').join('') + '</div>' +
+    '<div class="grid g2" style="gap:10px">' +
+      '<div>' + lbl(isOpt ? 'Lots (' + (c.lot || '–') + ' each)' : 'Shares') + box(isOpt ? 'lots' : 'qty', '1') + '</div>' +
+      '<div>' + lbl('Product') + '<select class="field" onchange="ppSet(\'product\', this.value)">' + products.map(([k, l]) => '<option value="' + k + '"' + (k === prod ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div>' +
+      '<div>' + lbl('Price') + box('price', PPS.otype === 'MARKET' ? 'Market' + (live != null ? ' (' + num(live, 2) + ')' : '') : 'Limit price', PPS.otype === 'SL-M') + '</div>' +
+      '<div>' + lbl('Trigger') + box('trigger', needT ? 'Trigger price' : '–', !needT) + '</div></div>' +
+    lbl('Why (journal note)') + '<input class="field" placeholder="Optional" value="' + esc(PPS.note) + '" oninput="PPS.note=this.value">';
+  if (P && P.loading) html += '<div class="muted" style="margin-top:12px">Working out charges and margin…</div>';
+  else if (P && P.error) html += '<div class="notice" style="margin-top:12px">' + esc(P.error) + '</div>';
+  else if (P) {
+    const it = P.charges.items, names = { brokerage: 'Brokerage', stt: 'STT', exchange: 'Exchange fee', sebi: 'SEBI fee', gst: 'GST', stamp: 'Stamp duty', dp: 'DP charge' };
+    const row = (k, v, b) => '<div style="display:flex;justify-content:space-between;padding:4px 0' + (b ? ';font-weight:600;border-top:1px solid var(--border-subtle);margin-top:4px;padding-top:8px' : '') + '"><span class="muted">' + k + '</span><span class="num">' + v + '</span></div>';
+    html += '<div style="margin-top:12px;background:var(--surface-2);border:1px solid var(--border-subtle);border-radius:8px;padding:8px 12px;font-size:13px">' +
+      row('Price', num(P.price, 2) + ' × ' + P.qty) + row('Value', ppMoney(P.value, 2)) +
+      '<details><summary style="cursor:pointer;display:flex;justify-content:space-between;padding:4px 0"><span class="muted">Charges ▸</span><span class="num">' + ppMoney(P.charges.total, 2) + '</span></summary>' +
+        Object.keys(it).filter(k => it[k]).map(k => row('&nbsp;&nbsp;' + names[k], ppMoney(it[k], 2))).join('') + '<div class="faint" style="font-size:11px">' + (P.charges.source === 'Kite' ? 'From Kite' : 'Zerodha ' + esc(P.charges.source)) + '</div></details>' +
+      (P.margin ? row('Margin blocked', ppMoney(P.margin, 0)) : '') + row('Cash free after', ppMoney(P.cash_after, 0), true) + '</div>' +
+      '<div style="margin-top:8px;font-size:12.5px;color:' + (P.ok ? 'var(--ok)' : 'var(--bad)') + '">' + (P.ok ? '● ' : '✕ ') + esc(P.msg) + ' <span class="muted">' + esc(P.fills) + '</span></div>';
+  }
+  html += '<button class="btn" style="width:100%;margin-top:12px;height:40px;font-weight:600;color:#fff;border:0;background:' + (PPS.side === 'sell' ? 'var(--sell)' : 'var(--buy)') + '" onclick="' + (P && P.ok ? 'ppPlace()' : 'ppPreview()') + '">' +
+    (P && P.ok ? 'Place ' + (PPS.side === 'sell' ? 'sell' : 'buy') + ' order' : 'Preview ' + (PPS.side === 'sell' ? 'sell' : 'buy') + ' · ' + (isOpt ? lots + ' lot' + (lots > 1 ? 's' : '') : qty + ' share' + (qty > 1 ? 's' : ''))) + '</button>' +
+    (S.paperMsg ? '<div class="muted" style="margin-top:8px;font-size:12.5px">' + esc(S.paperMsg) + '</div>' : '') + '</div></div>';
+  return html;
+}
+function ppPositions(T){
+  const open = T.filter(t => t.status === 'open'), g = {};
+  open.forEach(t => { const k = [t.kind, t.side, t.sym, t.idx, t.expiry, t.strike, t.type].join('|'); (g[k] = g[k] || []).push(t); });
+  const rows = Object.values(g).map(ts => { const t = ts[0], qty = ts.reduce((a, x) => a + x.qty, 0), avg = ts.reduce((a, x) => a + x.entry * x.qty, 0) / qty;
+    const pnl = ts.every(x => x.pnl != null) ? ts.reduce((a, x) => a + x.pnl, 0) : null, margin = ts.reduce((a, x) => a + (x.margin || 0), 0);
+    return '<tr><td class="l">' + ppSideTag(t.side) + ppWhat(t) + '</td><td class="l muted">' + esc(t.product || (t.kind === 'option' ? 'NRML' : 'CNC')) + '</td><td>' + (t.side === 'sell' ? '−' : '') + num(qty, 0) + '</td><td>' + num(avg, 2) + '</td><td>' + (t.ltp == null ? '–' : num(t.ltp, 2)) + '</td>' +
+      '<td>' + ppSigned(pnl) + '</td><td>' + (margin ? ppMoney(margin) : '<span class="faint">–</span>') + '</td><td class="l muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">' + esc(t.note || '') + '</td>' +
+      '<td><button class="btn sm" onclick="paperClose(\'' + t.id + '\')">Exit</button></td></tr>'; });
+  const tot = open.every(x => x.pnl != null) ? open.reduce((a, x) => a + x.pnl, 0) : null;
+  return '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Instrument</th><th class="l">Product</th><th>Qty</th><th>Avg price</th><th>LTP</th><th>Open P&amp;L</th><th>Margin</th><th class="l">Note</th><th></th></tr></thead><tbody>' +
+    (rows.join('') || '<tr><td colspan="9" class="empty"><b>No open positions.</b>Place an order above, or click a price in the option chain.</td></tr>') + '</tbody></table></div>' +
+    (rows.length ? '<div class="muted" style="font-size:12px;margin-top:8px;display:flex;justify-content:space-between"><span>Open P&amp;L is after charges. Index options still open at expiry settle at the index close.</span><span>Total ' + ppSigned(tot) + '</span></div>' : '');
+}
+function ppOrders(O){
+  const list = O.filter(o => PP_OF === 'working' ? o.status === 'working' : o.status === PP_OF);
+  const n = s => O.filter(o => o.status === s).length;
+  const st = o => o.status === 'working' ? '<span class="chip brand">Working' + (o.triggered ? ' · triggered' : '') + '</span>' : o.status === 'filled' ? '<span class="chip">Filled at ' + num(o.fill_price, 2) + '</span>' : '<span class="chip faint">' + esc(o.status === 'cancelled' ? 'Cancelled · ' + (o.reason || '') : o.status) + '</span>';
+  return '<div class="toolbar"><div class="seg">' + [['working', 'Working'], ['filled', 'Filled'], ['cancelled', 'Cancelled']].map(([k, l]) => '<button class="' + (PP_OF === k ? 'on' : '') + '" onclick="PP_OF=\'' + k + '\';rerender()">' + l + ' · ' + n(k) + '</button>').join('') + '</div></div>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Placed</th><th class="l">Instrument</th><th class="l">Type</th><th>Qty</th><th>Price</th><th>Trigger</th><th>LTP</th><th class="l">Status</th><th></th></tr></thead><tbody>' +
+    (list.map(o => '<tr><td class="l muted" style="font-size:12px">' + esc(fmtTs(o.created)) + '</td><td class="l">' + ppSideTag(o.side) + ppWhat(o) + '</td><td class="l">' + esc({ MARKET: 'Market', LIMIT: 'Limit', SL: 'Stop-loss', 'SL-M': 'SL-M' }[o.otype] || o.otype) + '</td>' +
+      '<td>' + num(o.qty, 0) + '</td><td>' + (o.price ? num(o.price, 2) : '–') + '</td><td>' + (o.trigger ? num(o.trigger, 2) : '–') + '</td><td>' + (o.ltp == null ? '–' : num(o.ltp, 2)) + '</td><td class="l">' + st(o) + '</td>' +
+      '<td>' + (o.status === 'working' ? '<button class="btn sm" onclick="paperCancel(\'' + o.id + '\')">Cancel</button>' : '') + '</td></tr>').join('') ||
+      '<tr><td colspan="9" class="empty">' + (PP_OF === 'working' ? 'No working orders. Limit and stop-loss orders wait here until the price is reached; they are cancelled at the close.' : 'None.') + '</td></tr>') + '</tbody></table></div>' +
+    (PP_OF === 'working' && n('working') ? '<div class="muted" style="font-size:12px;margin-top:8px">Checked against the live price when this page opens and every 5 minutes in market hours; a fill uses the price seen at that check.</div>' : '');
+}
+function ppTrades(T){
+  const fills = [];
+  T.forEach(t => { fills.push({ at: t.created, t, side: t.side, price: t.entry, qty: t.qty, ch: t.charges, how: t.entryHow }); if (t.status === 'closed') fills.push({ at: t.exitAt, t, side: t.side === 'sell' ? 'buy' : 'sell', price: t.exit, qty: t.qty, ch: t.exitCharges, how: t.exitHow, exit: true }); });
+  fills.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+  return '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Time</th><th class="l">Instrument</th><th>Qty</th><th>Price</th><th>Charges</th><th>Result</th><th class="l"></th><th></th></tr></thead><tbody>' +
+    (fills.slice(0, 200).map(f => '<tr><td class="l muted" style="font-size:12px">' + esc(fmtTs(f.at)) + '</td><td class="l">' + ppSideTag(f.side) + ppWhat(f.t) + (f.exit ? ' <span class="faint">exit</span>' : '') + '</td><td>' + num(f.qty, 0) + '</td><td>' + num(f.price, 2) + '</td>' +
+      '<td>' + (f.ch ? ppMoney(f.ch.total, 2) : '<span class="faint">–</span>') + '</td><td>' + (f.exit ? ppSigned(f.t.pnl) : '') + '</td><td class="l muted" style="font-size:12px">' + esc(f.how || '') + '</td>' +
+      '<td>' + (f.exit || f.t.status === 'open' ? '' : '') + (!f.exit ? '<button class="btn ghost sm" title="Remove from the record" onclick="paperDel(\'' + f.t.id + '\')">✕</button>' : '') + '</td></tr>').join('') ||
+      '<tr><td colspan="8" class="empty">No trades yet.</td></tr>') + '</tbody></table></div>';
+}
+function ppPerformance(T, A){
+  const closed = T.filter(t => t.status === 'closed' && t.pnl != null).sort((a, b) => String(a.exitAt).localeCompare(String(b.exitAt)));
+  if (!closed.length) return '<div class="panel"><div class="empty"><b>No closed trades yet.</b>Win rate, average win and loss, drawdown and the account curve appear after the first exit.</div></div>';
+  const wins = closed.filter(t => t.pnl > 0), losses = closed.filter(t => t.pnl <= 0);
+  const sum = a => a.reduce((x, t) => x + t.pnl, 0), gross = closed.reduce((x, t) => x + Math.abs(t.gross || 0), 0), ch = closed.reduce((x, t) => x + (t.charges ? t.charges.total : 0) + (t.exitCharges ? t.exitCharges.total : 0), 0);
+  let eq = A.capital, peak = eq, dd = 0; const pts = closed.map(t => { eq += t.pnl; peak = Math.max(peak, eq); dd = Math.min(dd, eq - peak); return [t.exitAt, eq]; });
+  const row = (k, v) => '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border-subtle)"><span class="muted">' + k + '</span><b class="num">' + v + '</b></div>';
+  setTimeout(() => { const el = $('ppEq'); if (!el || typeof Chart === 'undefined') return;
+    charts.push(new Chart(el, { type: 'line', data: { labels: [A.started || ''].concat(pts.map(p => p[0])), datasets: [{ data: [A.capital].concat(pts.map(p => p[1])), borderColor: cssVar('--c1'), stepped: true }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { title: c => c[0].label ? fmtTs(c[0].label) : 'Start', label: c => '₹' + num(c.parsed.y, 0) } } },
+        scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6, callback: function(v){ const l = this.getLabelForValue(v); const d = dayOf(l); return d ? d.getUTCDate() + ' ' + MON3[d.getUTCMonth()] : ''; } } }, y: { grid: { color: cssVar('--grid') }, border: { display: false }, ticks: { callback: v => '₹' + num(v / 1e5, 2) + ' L' } } } } })); }, 0);
+  return '<div class="grid g-main" style="align-items:start"><div class="panel"><div class="panel-h"><h3>Account value from booked trades</h3><span class="muted" style="font-size:12px">starting ' + ppMoney(A.capital) + '</span></div><div class="panel-b"><div class="chart" style="height:240px"><canvas id="ppEq"></canvas></div></div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Performance</h3><span class="muted" style="font-size:12px">closed trades, after charges</span></div><div class="panel-b" style="padding-top:6px">' +
+    row('Closed trades', closed.length) + row('Win rate', num(wins.length / closed.length * 100, 0) + '% (' + wins.length + ' of ' + closed.length + ')') +
+    row('Average win', wins.length ? ppSigned(sum(wins) / wins.length) : '–') + row('Average loss', losses.length ? ppSigned(sum(losses) / losses.length) : '–') +
+    row('Profit factor', losses.length && sum(losses) ? num(sum(wins) / Math.abs(sum(losses)), 2) : '–') + row('Largest drawdown', ppSigned(dd)) +
+    row('Charges as % of gross', gross ? num(ch / gross * 100, 1) + '%' : '–') + '</div></div></div>';
+}
 function pagePaper(){
   const v = $('view');
   if (!S.paper) { if (!S.paperLoading) paperLoad(); v.innerHTML = loadingBlock('Loading…'); return; }
   if (S.paper.error) { v.innerHTML = errBlock(S.paper.error); return; }
-  const T = S.paper.trades || [], closed = T.filter(t => t.status === 'closed'), open = T.filter(t => t.status === 'open');
-  const won = closed.filter(t => t.pnl > 0).length, tot = closed.reduce((a, t) => a + (t.pnl || 0), 0), openP = open.reduce((a, t) => a + (t.pnl || 0), 0);
-  const today = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
-  const what = t => t.kind === 'stock' ? '<b>' + esc(t.sym) + '</b> · ' + t.qty + ' shares' : '<b>' + esc(t.idx) + ' ' + num(t.strike, 0) + ' ' + esc(t.type) + '</b> · ' + esc(bDay(dayOf(t.expiry))) + ' · ' + t.lots + ' lot' + (t.lots > 1 ? 's' : '');
   if (PP_KIND === 'option' && !S.ppChain) setTimeout(ppLoadChain, 0);
-  const form = ppForm();
-  const k = (l, val, sub, c) => '<div class="panel kpi"><div class="k">' + l + '</div><div class="v ' + (c || '') + '">' + val + '</div><div class="s">' + sub + '</div></div>';
-  const row = t => '<tr><td class="l num" style="font-size:12px">' + esc(fmtTs(t.created)) + '</td><td class="l">' + (t.side === 'sell' ? 'Sell ' : 'Buy ') + what(t) + (t.note ? '<div class="muted" style="font-size:12px">' + esc(t.note) + '</div>' : '') + '</td>' +
-    '<td class="num">' + num(t.entry, 2) + '</td><td class="num">' + (t.status === 'open' ? (t.ltp == null ? '–' : num(t.ltp, 2)) : num(t.exit, 2)) + '</td><td class="num ' + cls(t.pnl) + '">' + (t.pnl == null ? '–' : (t.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(t.pnl), 0)) + '</td>' +
-    '<td class="l" style="font-size:12px">' + (t.status === 'open' ? '<button class="btn" onclick="paperClose(\'' + t.id + '\')">Close</button>' : esc(t.exitHow || '')) + ' <button class="btn ghost" title="Remove" onclick="paperDel(\'' + t.id + '\')">✕</button></td></tr>';
-  v.innerHTML = '<div class="page-head"><div><p class="sub">Practice trades at real prices. Nothing is sent to Kite. Index options still open after expiry settle at the index close.</p></div></div>' + form +
-    '<div class="grid g4" style="margin-bottom:14px">' + k('Closed', closed.length, won + ' won') + k('Closed result', (tot >= 0 ? '+' : '−') + '₹' + num(Math.abs(tot), 0), closed.length ? 'win rate ' + num(won / closed.length * 100, 0) + '%' : '', cls(tot)) +
-    k('Open', open.length, '') + k('Open now', (openP >= 0 ? '+' : '−') + '₹' + num(Math.abs(openP), 0), 'at live prices', cls(openP)) + '</div>' +
-    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Logged</th><th class="l">Trade</th><th>Entry</th><th>Now / exit</th><th>Result</th><th class="l"></th></tr></thead><tbody>' +
-    (T.map(row).join('') || '<tr><td colspan="6" class="empty">No paper trades yet.</td></tr>') + '</tbody></table></div>' +
-    '<div style="margin-top:10px"><button class="btn" onclick="S.paper=null;rerender()">Refresh</button></div>';
+  const T = S.paper.trades || [], O = S.paper.orders || [], A = S.paper.account || {};
+  const stat = (k, val, sub) => '<div><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="w">' + sub + '</div></div>';
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-8px 0 12px"><span class="muted" style="font-size:13px">Practice account at live Kite prices, with real charges and margin. No order reaches Kite.</span>' +
+    '<span class="muted" style="font-size:12px">' + (A.started ? 'Started ' + esc(bDay(dayOf(A.started))) + ' with ' : 'Capital ') + ppMoney(A.capital) + ' · <a href="javascript:void 0" onclick="paperCapital()">Change</a> · <a href="javascript:void 0" onclick="S.paper=null;rerender()">Refresh</a></span></div>';
+  html += '<div class="strip" style="margin-bottom:16px">' + stat('Account value', ppMoney(A.value), A.capital ? '<span class="' + cls(A.value - A.capital) + '">' + pct((A.value / A.capital - 1) * 100, 2) + '</span> since start' : '') +
+    stat('Cash free', ppMoney(A.cash), 'after margin and open buys') + stat('Tied up', ppMoney(A.tied), 'open buys and margin') +
+    stat('Open P&amp;L', ppSigned(A.open_pnl), T.filter(t => t.status === 'open').length + ' open') + stat('Booked P&amp;L', ppSigned(A.booked), 'after charges') +
+    stat('Charges paid', ppMoney(A.charges), T.length + ' trade' + (T.length === 1 ? '' : 's')) + '</div>';
+  html += '<div class="grid" style="grid-template-columns:' + (PP_KIND === 'option' ? 'minmax(0,1.35fr) minmax(320px,1fr)' : 'minmax(320px,560px)') + ';align-items:start;margin-bottom:16px">' + (PP_KIND === 'option' ? ppChainPanel() : '') + ppTicket() + '</div>';
+  const n = { positions: Object.keys(T.filter(t => t.status === 'open').reduce((a, t) => (a[[t.kind, t.side, t.sym, t.idx, t.expiry, t.strike, t.type].join('|')] = 1, a), {})).length, orders: O.filter(o => o.status === 'working').length, trades: T.length };
+  html += '<div class="tabs">' + [['positions', 'Positions'], ['orders', 'Orders'], ['trades', 'Trades'], ['perf', 'Performance']].map(([k, l]) => '<a href="javascript:void 0" class="' + (PP_TAB === k ? 'on' : '') + '" onclick="PP_TAB=\'' + k + '\';rerender()">' + l + (n[k] ? ' <span class="faint">' + n[k] + '</span>' : '') + '</a>').join('') + '</div>';
+  html += PP_TAB === 'orders' ? ppOrders(O) : PP_TAB === 'trades' ? ppTrades(T) : PP_TAB === 'perf' ? ppPerformance(T, A) : ppPositions(T);
+  html += '<div class="faint" style="font-size:11px;margin-top:12px">Charges from Kite when logged in, else Zerodha\'s published rates (' + esc(S.paper.rates || '') + ').</div>';
+  v.innerHTML = html;
 }
 
 // ---- Superstar portfolios (Investor registry page) ----

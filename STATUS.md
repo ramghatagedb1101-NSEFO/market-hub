@@ -3,6 +3,10 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Tue 20 Oct 2026 -- read this first
+- **Paper trading v2** built (account, orders, charges, margin, positions/orders/trades/performance); see CHANGELOG.
+  Dashboard redesign phases 1 and 2 are live; phase 4 (polish) optional.
+
 ## Sat 17 Oct 2026 -- read this first
 - **Dashboard redesign** (plan: `extras/design-review/REVIEW.md` on the laptop, outside this repo; owner-approved): phase 1 live
   (design system, 14-item menu with tabs, theme switch). Next: phase 2 page by page, then paper trading v2 (must items;

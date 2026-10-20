@@ -190,7 +190,7 @@ function appApi_(mode, body) {
   if (mode === 'app_portfolio') return adminPortfolio(p.token);
   if (mode === 'app_paper') return adminPaper(p.token);
   if (mode === 'app_paper_add') return adminPaperAdd(p.token, p.trade);
-  if (mode === 'app_paper_close') return adminPaperClose(p.token, p.id, p.price);
+  if (mode === 'app_paper_close') return adminPaperClose(p.token, p.id, p.price, p.all);
   if (mode === 'app_paper_delete') return adminPaperDelete(p.token, p.id);
   if (mode === 'app_paper_chain') return adminPaperChain(p.token, p.idx, p.expiry);
   if (mode === 'app_paper_quote') return adminPaperQuote(p.token, p.sym);

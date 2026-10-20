@@ -2,6 +2,32 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-20
+
+### Paper trading v2: a practice account that behaves like a real one (Tue 20 Oct 2026)
+Owner: "the paper trade needs to be more realistic to show that i am actually trading"; design review section 7
+(Interactive Brokers layout, Kite's words), must items approved; typed prices and deleting a trade stay (owner's choice).
+- **Account**: starting capital ₹10,00,000 (changeable); account value, cash free, tied up (open buys and margin), open
+  and booked P&L after charges, charges paid, all worked out from the fills.
+- **Orders**: Buy/Sell, Market, Limit, Stop-loss and SL-M; lots or shares; product NRML/MIS (options) or CNC/MIS
+  (stocks). A preview shows price, value, every charge, margin blocked and cash after, then a confirm step. Limit and
+  stop orders wait and fill when the price is reached (checked when the page opens and every 5 minutes in market hours
+  by the live job, relay mode `paper_check`); like Kite day orders they are cancelled at the close.
+- **Charges on every fill**: Kite's own figures from its order-margin call when logged in, else Zerodha's published rates
+  (checked on zerodha.com/charges, Sat 17 Oct 2026: options ₹20 an order, STT 0.15% of premium on the sell side, NSE
+  0.03553% / BSE 0.0325%, stamp 0.003% on buys; delivery STT 0.1%, stamp 0.015%, DP ₹15.34 on sells; GST 18%). In-the-money
+  options settled at expiry pay STT on the intrinsic value.
+- **Margin**: selling an option blocks Kite's margin figure and is refused if cash is short or Kite cannot be asked; a
+  delivery sell needs the shares.
+- **Screens**: option chain beside the order window (click a price to trade it); Positions (netted per contract, Exit),
+  Orders (working / filled / cancelled, Cancel), Trades (every fill with its charges), Performance (account value from
+  booked trades, win rate, average win and loss, profit factor, drawdown, charges as % of gross). Stock report: Paper trade
+  button. Partial exits split the trade.
+- Old trades keep working; the phone's paper section reads the same list (P&L now after charges).
+- Tested: 19 server checks on the laptop (charges ₹26.31 on a one-lot NIFTY option buy by the rates, margin refusals,
+  limit and stop fills, end-of-day cancel, partial exits, delivery rules), and the page in the preview running the real
+  server code with simulated prices.
+
 ## 2026-10-17
 
 ### Dashboard redesign, phase 2 (second part): colour rules, lists, feeds, charts (Sat 17 Oct 2026)

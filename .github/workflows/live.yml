@@ -38,6 +38,13 @@ jobs:
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
         run: curl -s -L -G --max-time 40 "$RELAY_URL" --data-urlencode "mode=watch_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
 
+      # Paper trading (17 Oct 2026): working limit and stop-loss orders fill when the price is reached (relay Paper.gs).
+      - name: Check working paper orders
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: curl -s -L -G --max-time 40 "$RELAY_URL" --data-urlencode "mode=paper_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
+
       # live.json from the relay's ?mode=quote. Also the Kite login alarm (11 Oct 2026): a login another Kite login
       # replaced is caught on this call and emailed (relay KiteWatch.gs).
       - name: Write live quotes

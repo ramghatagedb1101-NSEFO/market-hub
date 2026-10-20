@@ -26,6 +26,7 @@ function doGet(e) {
   if (p.mode === 'watchlist') return json_(watchlistForBatch_(p.key || ''));
   if (p.mode === 'batch_context') return json_(batchContext_(p.key || ''));
   if (p.mode === 'watch_check') return json_(watchCheck_(p.key || ''));
+  if (p.mode === 'paper_check') return json_(paperCheck_(p.key || ''));
   if (p.mode === 'expiry_close') return json_(expiryCloseHook_(p.key || ''));
   if (p.mode === 'expiry_tape') return json_(expiryTapeHook_(p.key || ''));
   if (p.mode === 'bs_usage') return json_(bsUsage_(p));
