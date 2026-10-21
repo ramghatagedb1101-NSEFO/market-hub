@@ -1151,7 +1151,7 @@ function pagePositions(){
 // ---- Paper trading v2 (17 Oct 2026, design review section 7): account bar, option chain, order ticket with a preview
 // of charges and margin, then Positions, Orders, Trades and Performance. Server: relay/Paper.gs.
 function paperLoad(){ S.paperLoading = true; call('adminPaper', token).then(d => { S.paper = d; S.paperLoading = false; rerender(); }).catch(e => { S.paper = { error: e.message }; S.paperLoading = false; rerender(); }); }
-const PPS = { side: 'buy', idx: 'NIFTY', exp: '', strike: null, type: 'CE', lots: '', price: '', trigger: '', note: '', sym: '', qty: '', otype: 'MARKET', product: '' };
+const PPS = { side: 'buy', idx: 'NIFTY', exp: '', strike: null, type: 'CE', lots: '', price: '', trigger: '', note: '', sym: '', qty: '', otype: 'MARKET', product: '', trail: '', trail_unit: 'pts' };
 let PP_KIND = 'option', PP_TAB = 'positions', PP_OF = 'working';
 function ppLoadChain(){
   S.ppChain = { loading: true }; rerender();
@@ -1172,18 +1172,27 @@ function ppSet(k, v){
 }
 function ppPick(strike, type){ PPS.strike = strike; PPS.type = type; S.ppPrev = null; rerender(); }
 function ppReq(){
-  return PP_KIND === 'stock' ? { kind: 'stock', sym: PPS.sym, qty: PPS.qty, side: PPS.side, price: PPS.price, trigger: PPS.trigger, note: PPS.note, otype: PPS.otype, product: PPS.product || 'CNC' }
-    : { kind: 'option', idx: PPS.idx, expiry: PPS.exp, strike: PPS.strike, type: PPS.type, lots: PPS.lots, side: PPS.side, price: PPS.price, trigger: PPS.trigger, note: PPS.note, otype: PPS.otype, product: PPS.product || 'NRML' };
+  const tr = { trail: PPS.trail, trail_unit: PPS.trail_unit };
+  return PP_KIND === 'stock' ? Object.assign({ kind: 'stock', sym: PPS.sym, qty: PPS.qty, side: PPS.side, price: PPS.price, trigger: PPS.trigger, note: PPS.note, otype: PPS.otype, product: PPS.product || 'CNC' }, tr)
+    : Object.assign({ kind: 'option', idx: PPS.idx, expiry: PPS.exp, strike: PPS.strike, type: PPS.type, lots: PPS.lots, side: PPS.side, price: PPS.price, trigger: PPS.trigger, note: PPS.note, otype: PPS.otype, product: PPS.product || 'NRML' }, tr);
 }
 function ppPreview(){ S.ppPrev = { loading: true }; rerender(); call('adminPaperPreview', token, ppReq()).then(d => { S.ppPrev = d; rerender(); }).catch(e => { S.ppPrev = { error: e.message }; rerender(); }); }
 function ppPlace(){
   const P = S.ppPrev; if (!P || !P.ok) return;
-  if (!confirm((PPS.side === 'sell' ? 'Sell ' : 'Buy ') + ppName() + ' · ' + P.qty + ' qty · ' + (PPS.otype === 'MARKET' ? 'market' : PPS.otype.toLowerCase()) + '\nValue ₹' + num(P.value, 2) + ' · charges ₹' + num(P.charges.total, 2) + (P.margin ? ' · margin ₹' + num(P.margin, 0) : '') + '\n\nPlace this paper order?')) return;
+  if (!confirm((PPS.side === 'sell' ? 'Sell ' : 'Buy ') + ppName() + ' · ' + P.qty + ' qty · ' + (PPS.otype === 'MARKET' ? 'market' : PPS.otype === 'TSL' ? 'trailing stop ' + PPS.trail + (PPS.trail_unit === '%' ? '%' : ' pts') : PPS.otype.toLowerCase()) + '\nValue ₹' + num(P.value, 2) + ' · charges ₹' + num(P.charges.total, 2) + (P.margin ? ' · margin ₹' + num(P.margin, 0) : '') + '\n\nPlace this paper order?')) return;
   S.paperMsg = 'Placing…'; S.ppPrev = null; rerender();
   call('adminPaperOrder', token, ppReq()).then(d => { if (d.error) S.paperMsg = d.error; else { S.paper = d; S.paperMsg = (d.orders[0] && d.orders[0].status === 'working') ? 'Order placed: waiting for the price.' : 'Order filled.'; PPS.price = ''; PPS.trigger = ''; PPS.note = ''; PP_TAB = d.orders[0] && d.orders[0].status === 'working' ? 'orders' : 'positions'; } rerender(); })
     .catch(e => { S.paperMsg = e.message; rerender(); });
 }
 function paperClose(id){ const p = prompt('Exit at the live price, or type a price:', ''); if (p === null) return; call('adminPaperClose', token, id, p, true).then(d => { if (d.error) alert(d.error); else S.paper = d; rerender(); }); }
+function ppTrailFrom(id){
+  const t = ((S.paper && S.paper.trades) || []).find(x => x.id === id); if (!t) return;
+  const qty = S.paper.trades.filter(x => x.status === 'open' && x.side === t.side && x.kind === t.kind && (t.kind === 'stock' ? x.sym === t.sym : x.idx === t.idx && x.expiry === t.expiry && Number(x.strike) === Number(t.strike) && x.type === t.type)).reduce((a, x) => a + x.qty, 0);
+  PP_KIND = t.kind; PPS.side = t.side === 'buy' ? 'sell' : 'buy'; PPS.otype = 'TSL'; PPS.price = ''; PPS.trigger = ''; S.ppPrev = null;
+  if (t.kind === 'stock') { PPS.sym = t.sym; PPS.qty = String(qty); ppLoadQuote(); }
+  else { PPS.lots = String(qty / (S.paper.lots[t.idx] || 1)); PPS.strike = t.strike; PPS.type = t.type; if (PPS.idx !== t.idx || PPS.exp !== t.expiry) { PPS.idx = t.idx; PPS.exp = t.expiry; ppLoadChain(); } }
+  rerender(); window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 function paperCancel(id){ call('adminPaperCancel', token, id).then(d => { if (d.error) alert(d.error); else S.paper = d; rerender(); }); }
 function paperDel(id){ if (!confirm('Remove this paper trade from the record?')) return; call('adminPaperDelete', token, id).then(d => { S.paper = d; rerender(); }); }
 function paperCapital(){ const a = (S.paper && S.paper.account) || {}; const p = prompt('Starting capital (₹):', a.capital || 1000000); if (p === null) return; call('adminPaperCapital', token, String(p).replace(/[^0-9.]/g, '')).then(d => { if (d.error) alert(d.error); else S.paper = d; rerender(); }); }
@@ -1222,12 +1231,15 @@ function ppTicket(){
     '<div style="display:flex;gap:4px;padding:3px;background:var(--surface-3);border-radius:8px">' + sideBtn('buy', 'Buy', 'var(--buy)') + sideBtn('sell', 'Sell', 'var(--sell)') + '</div>' +
     (head ? lbl('Company') + head : '') +
     '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:12px"><b>' + esc(ppName()) + '</b><span class="muted" style="font-size:12px">LTP <b style="color:var(--text)">' + (live == null ? '–' : num(live, 2)) + '</b></span></div>' +
-    lbl('Order type') + '<div class="seg" style="display:flex">' + [['MARKET', 'Market'], ['LIMIT', 'Limit'], ['SL', 'Stop-loss'], ['SL-M', 'SL-M']].map(([k, l]) => '<button style="flex:1" class="' + (PPS.otype === k ? 'on' : '') + '" onclick="ppSet(\'otype\',\'' + k + '\')">' + l + '</button>').join('') + '</div>' +
+    lbl('Order type') + '<div class="seg" style="display:flex">' + [['MARKET', 'Market'], ['LIMIT', 'Limit'], ['SL', 'Stop-loss'], ['SL-M', 'SL-M'], ['TSL', 'Trailing SL']].map(([k, l]) => '<button style="flex:1" class="' + (PPS.otype === k ? 'on' : '') + '" onclick="ppSet(\'otype\',\'' + k + '\')">' + l + '</button>').join('') + '</div>' +
     '<div class="grid g2" style="gap:10px">' +
       '<div>' + lbl(isOpt ? 'Lots (' + (c.lot || '–') + ' each)' : 'Shares') + box(isOpt ? 'lots' : 'qty', '1') + '</div>' +
       '<div>' + lbl('Product') + '<select class="field" onchange="ppSet(\'product\', this.value)">' + products.map(([k, l]) => '<option value="' + k + '"' + (k === prod ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div>' +
-      '<div>' + lbl('Price') + box('price', PPS.otype === 'MARKET' ? 'Market' + (live != null ? ' (' + num(live, 2) + ')' : '') : 'Limit price', PPS.otype === 'SL-M') + '</div>' +
-      '<div>' + lbl('Trigger') + box('trigger', needT ? 'Trigger price' : '–', !needT) + '</div></div>' +
+      '<div>' + lbl('Price') + box('price', PPS.otype === 'MARKET' ? 'Market' + (live != null ? ' (' + num(live, 2) + ')' : '') : PPS.otype === 'TSL' ? 'Live price when hit' : 'Limit price', PPS.otype === 'SL-M' || PPS.otype === 'TSL') + '</div>' +
+      (PPS.otype === 'TSL'
+        ? '<div>' + lbl('Trail by') + '<div style="display:flex;gap:6px">' + box('trail', PPS.trail_unit === '%' ? 'e.g. 10' : 'e.g. 20') + '<div class="seg" style="flex-wrap:nowrap;flex:none"><button class="' + (PPS.trail_unit !== '%' ? 'on' : '') + '" onclick="ppSet(\'trail_unit\',\'pts\')">pts</button><button class="' + (PPS.trail_unit === '%' ? 'on' : '') + '" onclick="ppSet(\'trail_unit\',\'%\')">%</button></div></div></div></div>' +
+          '<div class="muted" style="font-size:12px;margin-top:6px">Exits an open position. The stop follows the best price at each check (every 5 minutes in market hours, and whenever this page opens) and never moves back.</div>'
+        : '<div>' + lbl('Trigger') + box('trigger', needT ? 'Trigger price' : '–', !needT) + '</div></div>') +
     lbl('Why (journal note)') + '<input class="field" placeholder="Optional" value="' + esc(PPS.note) + '" oninput="PPS.note=this.value">';
   if (P && P.loading) html += '<div class="muted" style="margin-top:12px">Working out charges and margin…</div>';
   else if (P && P.error) html += '<div class="notice" style="margin-top:12px">' + esc(P.error) + '</div>';
@@ -1235,7 +1247,7 @@ function ppTicket(){
     const it = P.charges.items, names = { brokerage: 'Brokerage', stt: 'STT', exchange: 'Exchange fee', sebi: 'SEBI fee', gst: 'GST', stamp: 'Stamp duty', dp: 'DP charge' };
     const row = (k, v, b) => '<div style="display:flex;justify-content:space-between;padding:4px 0' + (b ? ';font-weight:600;border-top:1px solid var(--border-subtle);margin-top:4px;padding-top:8px' : '') + '"><span class="muted">' + k + '</span><span class="num">' + v + '</span></div>';
     html += '<div style="margin-top:12px;background:var(--surface-2);border:1px solid var(--border-subtle);border-radius:8px;padding:8px 12px;font-size:13px">' +
-      row('Price', num(P.price, 2) + ' × ' + P.qty) + row('Value', ppMoney(P.value, 2)) +
+      (P.stop != null ? row('Starting stop', num(P.stop, 2) + ' <span class="faint">(now ' + num(P.ltp, 2) + ')</span>') + row('Quantity', P.qty) : row('Price', num(P.price, 2) + ' × ' + P.qty) + row('Value', ppMoney(P.value, 2))) +
       '<details><summary style="cursor:pointer;display:flex;justify-content:space-between;padding:4px 0"><span class="muted">Charges ▸</span><span class="num">' + ppMoney(P.charges.total, 2) + '</span></summary>' +
         Object.keys(it).filter(k => it[k]).map(k => row('&nbsp;&nbsp;' + names[k], ppMoney(it[k], 2))).join('') + '<div class="faint" style="font-size:11px">' + (P.charges.source === 'Kite' ? 'From Kite' : 'Zerodha ' + esc(P.charges.source)) + '</div></details>' +
       (P.margin ? row(PPS.side === 'sell' ? 'Margin blocked' : 'Cash needed', ppMoney(P.margin, 0)) : '') + row('Cash free after', ppMoney(P.cash_after, 0), true) + '</div>' +
@@ -1253,7 +1265,7 @@ function ppPositions(T){
     const pnl = ts.every(x => x.pnl != null) ? ts.reduce((a, x) => a + x.pnl, 0) : null, margin = ts.reduce((a, x) => a + (x.margin || 0), 0);
     return '<tr><td class="l">' + ppSideTag(t.side) + ppWhat(t) + '</td><td class="l muted">' + esc(t.product || (t.kind === 'option' ? 'NRML' : 'CNC')) + '</td><td>' + (t.side === 'sell' ? '−' : '') + num(qty, 0) + '</td><td>' + num(avg, 2) + '</td><td>' + (t.ltp == null ? '–' : num(t.ltp, 2)) + '</td>' +
       '<td>' + ppSigned(pnl) + '</td><td>' + (margin ? ppMoney(margin) : '<span class="faint">–</span>') + '</td><td class="l muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis">' + esc(t.note || '') + '</td>' +
-      '<td><button class="btn sm" onclick="paperClose(\'' + t.id + '\')">Exit</button></td></tr>'; });
+      '<td style="white-space:nowrap"><button class="btn sm" title="Add a trailing stop-loss" onclick="ppTrailFrom(\'' + t.id + '\')">Trail</button> <button class="btn sm" onclick="paperClose(\'' + t.id + '\')">Exit</button></td></tr>'; });
   const tot = open.every(x => x.pnl != null) ? open.reduce((a, x) => a + x.pnl, 0) : null;
   return '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Instrument</th><th class="l">Product</th><th>Qty</th><th>Avg price</th><th>LTP</th><th>Open P&amp;L</th><th>Margin</th><th class="l">Note</th><th></th></tr></thead><tbody>' +
     (rows.join('') || '<tr><td colspan="9" class="empty"><b>No open positions.</b>Place an order above, or click a price in the option chain.</td></tr>') + '</tbody></table></div>' +
@@ -1262,13 +1274,13 @@ function ppPositions(T){
 function ppOrders(O){
   const list = O.filter(o => PP_OF === 'working' ? o.status === 'working' : o.status === PP_OF);
   const n = s => O.filter(o => o.status === s).length;
-  const st = o => o.status === 'working' ? '<span class="chip brand">Working' + (o.triggered ? ' · triggered' : '') + '</span>' : o.status === 'filled' ? '<span class="chip">Filled at ' + num(o.fill_price, 2) + '</span>' : '<span class="chip faint">' + esc(o.status === 'cancelled' ? 'Cancelled · ' + (o.reason || '') : o.status) + '</span>';
+  const st = o => o.status === 'working' ? '<span class="chip brand">' + (o.otype === 'TSL' ? 'Trailing · best ' + num(o.best, 2) : 'Working' + (o.triggered ? ' · triggered' : '')) + '</span>' : o.status === 'filled' ? '<span class="chip">Filled at ' + num(o.fill_price, 2) + '</span>' : '<span class="chip faint">' + esc(o.status === 'cancelled' ? 'Cancelled · ' + (o.reason || '') : o.status) + '</span>';
   return '<div class="toolbar"><div class="seg">' + [['working', 'Working'], ['filled', 'Filled'], ['cancelled', 'Cancelled']].map(([k, l]) => '<button class="' + (PP_OF === k ? 'on' : '') + '" onclick="PP_OF=\'' + k + '\';rerender()">' + l + ' · ' + n(k) + '</button>').join('') + '</div></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Placed</th><th class="l">Instrument</th><th class="l">Type</th><th>Qty</th><th>Price</th><th>Trigger</th><th>LTP</th><th class="l">Status</th><th></th></tr></thead><tbody>' +
-    (list.map(o => '<tr><td class="l muted" style="font-size:12px">' + esc(fmtTs(o.created)) + '</td><td class="l">' + ppSideTag(o.side) + ppWhat(o) + '</td><td class="l">' + esc({ MARKET: 'Market', LIMIT: 'Limit', SL: 'Stop-loss', 'SL-M': 'SL-M' }[o.otype] || o.otype) + '</td>' +
+    (list.map(o => '<tr><td class="l muted" style="font-size:12px">' + esc(fmtTs(o.created)) + '</td><td class="l">' + ppSideTag(o.side) + ppWhat(o) + '</td><td class="l">' + esc({ MARKET: 'Market', LIMIT: 'Limit', SL: 'Stop-loss', 'SL-M': 'SL-M', TSL: 'Trailing stop · ' + o.trail + (o.trail_unit === '%' ? '%' : ' pts') }[o.otype] || o.otype) + '</td>' +
       '<td>' + num(o.qty, 0) + '</td><td>' + (o.price ? num(o.price, 2) : '–') + '</td><td>' + (o.trigger ? num(o.trigger, 2) : '–') + '</td><td>' + (o.ltp == null ? '–' : num(o.ltp, 2)) + '</td><td class="l">' + st(o) + '</td>' +
       '<td>' + (o.status === 'working' ? '<button class="btn sm" onclick="paperCancel(\'' + o.id + '\')">Cancel</button>' : '') + '</td></tr>').join('') ||
-      '<tr><td colspan="9" class="empty">' + (PP_OF === 'working' ? 'No working orders. Limit and stop-loss orders wait here until the price is reached; they are cancelled at the close.' : 'None.') + '</td></tr>') + '</tbody></table></div>' +
+      '<tr><td colspan="9" class="empty">' + (PP_OF === 'working' ? 'No working orders. Limit and stop-loss orders wait here until the price is reached and are cancelled at the close; trailing stops stay until they exit or you cancel them.' : 'None.') + '</td></tr>') + '</tbody></table></div>' +
     (PP_OF === 'working' && n('working') ? '<div class="muted" style="font-size:12px;margin-top:8px">Checked against the live price when this page opens and every 5 minutes in market hours; a fill uses the price seen at that check.</div>' : '');
 }
 function ppTrades(T){

@@ -4,6 +4,9 @@
  *  - Account: starting capital (₹10,00,000 unless set), cash, margin blocked, booked and open P&L, all derived from fills.
  *  - Orders: market (fills now at the live price), limit, stop-loss (SL) and SL-M (wait; checked when the page opens and
  *    every 5 minutes in market hours by the live job, mode=paper_check). Day orders: cancelled at the session's close.
+ *  - Trailing stop-loss (21 Oct 2026, owner: "yes add it"; Kite has none): exits an open position. It keeps the best price
+ *    seen at the checks and its stop a fixed distance (points or %) behind, moving only in the position's favour; exits at
+ *    the live price when the stop is hit. Stays working until filled, cancelled, the position is gone or the option expires.
  *  - Charges on every fill: Kite's own figures (order-margin call) when logged in, else Zerodha's published rates
  *    (PAPER_RATES, checked on zerodha.com/charges on Sat 17 Oct 2026).
  *  - Margin: selling an option blocks Kite's margin figure; refused when cash is short or Kite cannot be asked.
@@ -145,6 +148,10 @@ function paperMoney_(list) {
   return { capital: A.capital, started: A.started, booked: Math.round(booked), tied: Math.round(tied), cash: Math.round(A.capital + booked - tied - openCh), charges: Math.round(chargesPaid) };
 }
 
+function paperOppositeQty_(list, o) {
+  return list.filter(x => x.status === 'open' && x.kind === o.kind && x.side !== o.side && (o.kind === 'stock' ? x.sym === o.sym : x.idx === o.idx && x.expiry === o.expiry && Number(x.strike) === Number(o.strike) && x.type === o.type)).reduce((a, x) => a + x.qty, 0);
+}
+function paperTrailAt_(o, p) { return o.trail_unit === '%' ? p * o.trail / 100 : o.trail; }
 function paperMarketHours_() {
   const d = new Date(), wd = Number(Utilities.formatDate(d, 'Asia/Kolkata', 'u')), hm = Utilities.formatDate(d, 'Asia/Kolkata', 'HH:mm');
   return wd <= 5 && hm >= '09:15' && hm <= '15:30';
@@ -213,7 +220,13 @@ function paperHousekeep_(list, orders) {
     live.forEach(o => {
       const p = keys[o.id] ? ltp[keys[o.id]] : null; if (p == null) return;
       const buy = o.side === 'buy';
-      if (o.otype === 'SL' || o.otype === 'SL-M') {
+      if (o.otype === 'TSL') {
+        const open = paperOppositeQty_(list, o);
+        if (!open) { o.status = 'cancelled'; o.reason = 'position closed'; ochanged = true; return; }
+        // A sell stop trails the highest price seen; a buy stop (protecting a short) trails the lowest.
+        if (buy ? p < o.best : p > o.best) { o.best = p; o.trigger = Math.round((buy ? p + paperTrailAt_(o, p) : p - paperTrailAt_(o, p)) * 100) / 100; ochanged = true; }
+        if (buy ? p >= o.trigger : p <= o.trigger) { o.qty = Math.min(o.qty, open); if (o.lots) o.lots = o.qty / (PAPER_LOT[o.idx] || 1); paperFill_(o, p, list, 'trailing stop at ' + o.trigger + ' (best ' + o.best + ')'); changed = ochanged = true; }
+      } else if (o.otype === 'SL' || o.otype === 'SL-M') {
         if (!o.triggered && (buy ? p >= o.trigger : p <= o.trigger)) { o.triggered = paperNow_(); ochanged = true; }
         if (!o.triggered) return;
         if (o.otype === 'SL-M' || (buy ? p <= o.price : p >= o.price)) { paperFill_(o, p, list, 'stop at ' + o.trigger); changed = ochanged = true; }
@@ -248,7 +261,7 @@ function paperView_() {
 function paperOrderOf_(t) {
   if (!t || (t.kind !== 'stock' && t.kind !== 'option')) return { error: 'Choose a stock or an index option.' };
   const o = { id: Utilities.getUuid().slice(0, 8), created: paperNow_(), kind: t.kind, side: t.side === 'sell' ? 'sell' : 'buy', note: String(t.note || '').slice(0, 140),
-              otype: ['LIMIT', 'SL', 'SL-M'].includes(t.otype) ? t.otype : 'MARKET' };
+              otype: ['LIMIT', 'SL', 'SL-M', 'TSL'].includes(t.otype) ? t.otype : 'MARKET' };
   if (t.kind === 'stock') {
     o.sym = String(t.sym || '').toUpperCase().replace(/[^A-Z0-9&_-]/g, '').slice(0, 20);
     if (!o.sym) return { error: 'Enter a symbol.' };
@@ -264,6 +277,10 @@ function paperOrderOf_(t) {
   if (o.otype === 'LIMIT' && !o.price) return { error: 'Enter the limit price.' };
   if ((o.otype === 'SL' || o.otype === 'SL-M') && !o.trigger) return { error: 'Enter the trigger price.' };
   if (o.otype === 'SL' && !o.price) return { error: 'Enter the limit price for the stop-loss.' };
+  if (o.otype === 'TSL') {
+    o.trail_unit = t.trail_unit === '%' ? '%' : 'pts'; o.trail = Number(t.trail); o.price = null;
+    if (!(o.trail > 0) || (o.trail_unit === '%' && o.trail >= 50)) return { error: o.trail_unit === '%' ? 'Enter a trail between 0 and 50%.' : 'Enter the trail in points.' };
+  }
   return o;
 }
 
@@ -273,9 +290,16 @@ function paperPreview_(t) {
   const key = paperInstrument_(o);
   if (!key) return { error: 'Contract not found for that expiry and strike.' };
   const ltp = paperLtp_([key])[key] ?? null;
-  const price = o.otype === 'MARKET' ? (o.price || ltp) : (o.otype === 'SL-M' ? o.trigger : o.price);
+  let stop = null;
+  if (o.otype === 'TSL') {
+    if (ltp == null) return { error: 'No live price: a trailing stop needs the Kite login.' };
+    stop = Math.round((o.side === 'buy' ? ltp + paperTrailAt_(o, ltp) : ltp - paperTrailAt_(o, ltp)) * 100) / 100;
+    if (stop <= 0) return { error: 'The trail is larger than the price.' };
+  }
+  const price = o.otype === 'MARKET' ? (o.price || ltp) : o.otype === 'TSL' ? stop : (o.otype === 'SL-M' ? o.trigger : o.price);
   if (price == null) return { error: 'No live price (log in to Kite), or type a price.' };
   const list = paperLoad_(), M = paperMoney_(list);
+  if (o.otype === 'TSL' && !paperOppositeQty_(list, o)) return { error: 'A trailing stop exits an open position: ' + (o.side === 'sell' ? 'buy' : 'sell') + ' first, or use Trail on the position.' };
   const opposite = list.filter(x => x.status === 'open' && x.kind === o.kind && x.side !== o.side && (o.kind === 'stock' ? x.sym === o.sym : x.idx === o.idx && x.expiry === o.expiry && Number(x.strike) === Number(o.strike) && x.type === o.type)).reduce((a, x) => a + x.qty, 0);
   const exiting = Math.min(opposite, o.qty), fresh = o.qty - exiting;
   const k = paperKiteMargin_(o, o.side, price, o.qty, o.otype, o.trigger);
@@ -291,8 +315,11 @@ function paperPreview_(t) {
   const after = M.cash - need - charges.total + (exiting ? 0 : 0);
   if (ok && after < 0) { ok = false; msg = 'Not enough cash: short by ₹' + Math.round(-after).toLocaleString('en-IN') + '.'; }
   if (ok) msg = exiting ? (fresh ? 'Exits ' + exiting + ' and opens ' + fresh + '.' : 'Exits your open position.') : 'Enough cash.';
-  return { ok, msg, key, ltp, price, qty: o.qty, value: Math.round(price * o.qty * 100) / 100, charges, margin: Math.round(need), cash: M.cash, cash_after: Math.round(after),
-           exiting, fills: o.otype === 'MARKET' ? (paperMarketHours_() ? 'Fills now at the live price.' : 'Market closed: fills at the last price.') : 'Waits until the price is reached; cancelled at the close.', at: paperAt_() };
+  if (o.otype === 'TSL' && exiting < o.qty) { o.qty = exiting; }
+  return { ok, msg, key, ltp, price, stop, qty: o.otype === 'TSL' ? exiting : o.qty, value: Math.round(price * o.qty * 100) / 100, charges, margin: Math.round(need), cash: M.cash, cash_after: Math.round(after),
+           exiting, fills: o.otype === 'MARKET' ? (paperMarketHours_() ? 'Fills now at the live price.' : 'Market closed: fills at the last price.')
+             : o.otype === 'TSL' ? 'Starts with the stop at ' + stop + ' and moves it ' + (o.side === 'sell' ? 'up' : 'down') + ' with the price; exits at the live price when hit. Stays until filled or cancelled.'
+             : 'Waits until the price is reached; cancelled at the close.', at: paperAt_() };
 }
 
 function paperOrder_(t) {
@@ -301,6 +328,8 @@ function paperOrder_(t) {
   const o = paperOrderOf_(t), list = paperLoad_(), orders = paperOrders_();
   if (o.side === 'sell' && pv.margin) o.margin = pv.margin;
   o.valid_till = paperValidTill_(o.created);
+  if (o.otype === 'TSL') { o.best = pv.ltp; o.trigger = pv.stop; o.qty = pv.qty; if (o.lots) o.lots = o.qty / (PAPER_LOT[o.idx] || 1);
+    o.valid_till = o.kind === 'option' ? o.expiry : Utilities.formatDate(new Date(Date.now() + 365 * 86400000), 'Asia/Kolkata', 'yyyy-MM-dd'); }
   if (o.otype === 'MARKET') paperFill_(o, pv.price, list, o.price ? 'typed' : 'live');
   else o.status = 'working';
   orders.push(o); paperOrdersSave_(orders); paperSave_(list);

@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-21
 
+### Paper trading: trailing stop-loss (Wed 21 Oct 2026)
+Owner: "Is there a trailing sl option in paper trade?" then "yes add it" (Kite itself has none since 2020). New order type
+Trailing SL, set in points or %: it exits an open position, keeps the best price seen and holds the stop that distance
+behind, moving only in the position's favour, and exits at the live price when hit. It stays working until it exits, is
+cancelled, the position is closed another way (then it cancels itself) or the option expires. A Trail button on each
+position fills it in. Checked every 5 minutes in market hours and whenever the page opens, so a spike between checks is
+not seen. Tested: 8 new server checks (27 in all) and the page in the preview running the real server code.
+
 ### Fixes from the live check (Wed 21 Oct 2026)
 Checked the live dashboard in Chrome with screenshots (Today, Shortlist, stock report, What's new, Calendar, Expiry
 meter, Positioning, Paper trading with a live preview: 1 lot NIFTY 27 Oct 22,950 Call at 190.70 = ₹12,395.50, Kite
