@@ -202,7 +202,7 @@
 <main>
   <section class="pane on" id="home"><div class="grid" id="home-body"></div><div id="home-ins"></div><div id="home-today"></div></section>
   <section class="pane" id="brief"><div id="brief-body"></div></section>
-  <section class="pane" id="fno"><div id="fno-body"></div><div id="fno-ins"></div></section>
+  <section class="pane" id="fno"><div id="fno-paper"></div><div id="fno-body"></div><div id="fno-ins"></div></section>
   <section class="pane" id="mb"><div id="mb-body"></div></section>
   <section class="pane" id="desk"><div id="desk-body"></div><div id="desk-ins"></div></section>
 </main>
@@ -256,6 +256,10 @@
   <div class="stock-top"><button class="btn" type="button" onclick="closeSearch()">Back</button>
     <input id="sq" class="sq" type="search" placeholder="Company name or NSE symbol" autocomplete="off" autocapitalize="characters" oninput="drawSearch()"></div>
   <div class="stock-body" id="sq-body"></div>
+</div>
+<div class="stock-bg" id="paper" role="dialog" aria-modal="true">
+  <div class="stock-top"><button class="btn" type="button" onclick="closePaper()">Back</button><span class="nm">Paper trading</span><button class="btn" type="button" onclick="loadPaper()">Refresh</button></div>
+  <div class="stock-body" id="pp-body"></div>
 </div>
 <div class="stock-bg" id="stock" role="dialog" aria-modal="true">
   <div class="stock-top"><button class="btn" type="button" onclick="closeStock()">Back</button><span class="nm" id="st-title"></span><button class="btn" type="button" id="st-star" onclick="toggleStar()">☆ Star</button></div>
@@ -1060,68 +1064,167 @@
     if (Object.keys(iv).length) html += `<div class="sec">Index option prices</div><div class="panel"><div class="pb">` +
       Object.keys(iv).map(k => `<div class="row"><span class="l">${esc(k)} · straddle ${f(iv[k].last[1], 2)}% of index</span><span class="r">rank ${iv[k].rank == null ? "–" : iv[k].rank} · ${iv[k].rank >= 70 ? "dear" : iv[k].rank <= 30 ? "cheap" : "middle"}</span></div>`).join("") +
       `<div class="note">Day-before at-the-money straddle on the latest expiry; rank 0–100 against 3 years.</div></div></div>`;
-    html += `<div class="sec">Paper trades</div><div class="panel"><div class="pb" id="pp-box">${paperHtml()}</div></div>`;
     el.innerHTML = html;
-    if (!PAPER) loadPaper();
+    drawPaperCard(); if (!PAPER) loadPaper();
   }
-  async function loadPaper(){ try { PAPER = await relayPost("app_paper", { token: SESSION }); } catch(e){ PAPER = { error: e.message }; } const b = $("#pp-box"); if (b) b.innerHTML = paperHtml(); }
-  function paperHtml(){
-    if (!PAPER) return `<div class="mut">Loading…</div>`;
-    if (PAPER.error) return `<div class="mut">${esc(PAPER.error)}</div>`;
-    const T = PAPER.trades || [], closed = T.filter(t => t.status === "closed"), won = closed.filter(t => t.pnl > 0).length, tot = closed.reduce((a, t) => a + (t.pnl || 0), 0);
-    const what = t => t.kind === "stock" ? `${esc(t.sym)} · ${t.qty} sh` : `${esc(t.idx)} ${f(t.strike)} ${esc(t.type)} · ${esc(dayTxt(parseDay(t.expiry)))}`;
-    return `<div class="row"><span class="l">Closed ${closed.length} · won ${won}</span><span class="r ${cls(tot)}">${closed.length ? rupee(tot) : "–"}</span></div>` +
-      T.slice(0, 8).map(t => `<div class="row"><span class="l">${t.side === "sell" ? "Sell" : "Buy"} ${what(t)}<br><span class="mut" style="font-size:11px">@ ${f(t.entry, 2)}${t.status === "open" ? " · open" : " → " + f(t.exit, 2)}</span></span><span class="r ${cls(t.pnl)}">${t.pnl == null ? "–" : rupee(t.pnl)}${t.status === "open" ? ` <button class="btn" style="padding:2px 8px" onclick="paperCloseP('${t.id}')">Close</button>` : ""}</span></div>`).join("") +
-      `<details style="margin-top:6px"${PQ.open ? " open" : ""} ontoggle="pqToggle(this.open)"><summary>New paper trade</summary>${pqForm()}
-        ${PP_MSG ? `<div class="mut" style="margin-top:4px">${esc(PP_MSG)}</div>` : ""}<div class="note">Index options. Nothing is sent to Kite.</div></details>`;
+  // ---- Paper trading on the phone (21 Oct 2026, owner: "yes build it"): the same account, orders, charges and margin as
+  // the dashboard (relay Paper.gs), as a full-screen page opened from the card at the top of the F&O tab.
+  async function loadPaper(){ try { PAPER = await relayPost("app_paper", { token: SESSION }); } catch(e){ PAPER = { error: e.message }; } drawPaperCard(); if ($("#paper").classList.contains("on")) drawPaperP(); }
+  // One attempt only for anything that changes the account: a retry after a lost answer could place an order twice.
+  async function relayOnce(mode, body){
+    const r = await fetch(RELAY_URL + "?mode=" + mode, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body || {}) });
+    if (!r.ok) throw new Error("server returned " + r.status);
+    return r.json();
   }
-  // The form's choices survive redraws; strikes and their latest prices come from the relay (app_paper_chain).
-  const PQ = { open: false, side: "buy", idx: "NIFTY", exp: "", strike: null, type: "CE", lots: "", price: "" };
-  let PCH = null;
+  const pMoney = (v, dp) => v == null ? "–" : (v < 0 ? "−" : "") + "₹" + f(Math.abs(v), dp || 0);
+  const pSigned = v => v == null ? "–" : `<span class="${cls(v)}">${v > 0 ? "+" : v < 0 ? "−" : ""}₹${f(Math.abs(v), 0)}</span>`;
+  function drawPaperCard(){
+    const el = $("#fno-paper"); if (!el) return;
+    const A = (PAPER && PAPER.account) || null, T = (PAPER && PAPER.trades) || [], open = T.filter(t => t.status === "open").length, work = ((PAPER && PAPER.orders) || []).filter(o => o.status === "working").length;
+    el.innerHTML = `<div class="sec">Paper trading</div><div class="panel"><div class="pb">` +
+      (PAPER && PAPER.error ? `<div class="mut">${esc(PAPER.error)}</div>` : !A ? `<div class="mut">Loading…</div>` :
+        `<div class="row"><span class="l">Account value</span><span class="r"><b>${pMoney(A.value)}</b> <span class="${cls(A.value - A.capital)}">${f((A.value / A.capital - 1) * 100, 2)}%</span></span></div>` +
+        `<div class="row"><span class="l">Open P&amp;L · ${open} open${work ? " · " + work + " working" : ""}</span><span class="r">${pSigned(A.open_pnl)}</span></div>` +
+        `<div class="row"><span class="l">Booked P&amp;L · cash free</span><span class="r">${pSigned(A.booked)} · ${pMoney(A.cash)}</span></div>`) +
+      `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="openPaper()">Open paper trading</button></div></div>`;
+  }
+  // Order form state; strikes and prices from app_paper_chain, stock price from app_paper_quote.
+  const PQ = { kind: "option", side: "buy", idx: "NIFTY", exp: "", strike: null, type: "CE", lots: "", sym: "", qty: "", otype: "MARKET", product: "", price: "", trigger: "", trail: "", unit: "pts", note: "", tab: "pos" };
+  let PCH = null, PQT = null, PPV = null;
+  function openPaper(){ $("#paper").classList.add("on"); document.body.style.overflow = "hidden"; drawPaperP(); if (!PCH && PQ.kind === "option") loadChainP(); loadPaper(); }
+  function closePaper(){ $("#paper").classList.remove("on"); document.body.style.overflow = ""; drawPaperCard(); }
   async function loadChainP(){
     PCH = { loading: true }; drawPaperP();
     try { PCH = await relayPost("app_paper_chain", { token: SESSION, idx: PQ.idx, expiry: PQ.exp }); } catch(e){ PCH = { error: e.message }; }
     if (PCH && PCH.strikes) { PQ.exp = PCH.expiry; if (PQ.strike == null || !PCH.strikes.some(r => r[0] === Number(PQ.strike))) PQ.strike = PCH.atm; }
     drawPaperP();
   }
-  function pqToggle(o){ if (o === PQ.open) return; PQ.open = o; if (o && (!PCH || PCH.error)) loadChainP(); }   // a redraw re-opens the section: not a new open
-  function drawPaperP(){ const b = $("#pp-box"); if (b) b.innerHTML = paperHtml(); }
-  function pqSet(k, v){
-    PQ[k] = v;
-    if (k === "idx") { PQ.exp = ""; PQ.strike = null; loadChainP(); }
-    else if (k === "exp") loadChainP();
-    else drawPaperP();
-  }
-  function pqForm(){
-    const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
-    const sel = (k, opts) => `<select onchange="pqSet('${k}', this.value)">${opts}</select>`;
-    const px = v => v == null ? "–" : f(v, 2);
-    const c = PCH || {};
-    let html = sel("side", opt("buy", "Buy", PQ.side) + opt("sell", "Sell", PQ.side)) + sel("idx", ["NIFTY", "BANKNIFTY", "SENSEX"].map(x => opt(x, x === "BANKNIFTY" ? "BANK NIFTY" : x, PQ.idx)).join(""));
-    let info = "", live = null;
-    if (c.loading) info = "Loading strikes and prices…";
-    else if (c.error) info = esc(c.error);
-    else if (c.strikes) {
-      html += sel("exp", c.expiries.map(e => opt(e, dayTxt(parseDay(e)), PQ.exp)).join("")) + sel("type", opt("CE", "Call", PQ.type) + opt("PE", "Put", PQ.type)) +
-        `<select style="grid-column:1/-1" onchange="pqSet('strike', this.value)">${c.strikes.map(r => opt(r[0], f(r[0]) + (r[0] === c.atm ? " (ATM)" : "") + " · C " + px(r[1]) + " · P " + px(r[2]), PQ.strike)).join("")}</select>`;
-      const row = c.strikes.find(r => r[0] === Number(PQ.strike));
-      live = row ? (PQ.type === "PE" ? row[2] : row[1]) : null;
-      info = `<b>${esc(PQ.idx)} ${f(Number(PQ.strike))} ${PQ.type === "PE" ? "Put" : "Call"}</b> latest traded <b>${live == null ? "–" : "₹" + px(live)}</b>${live != null ? ` · lot ₹${f(live * c.lot)}` : ""}<br><span class="mut" style="font-size:11px">index ${c.spot ? f(c.spot, 2) : "–"} · ${esc(c.at)}${c.kite ? "" : " · log in to Kite to see prices"}</span>`;
-    }
-    html += `<input inputmode="numeric" value="${esc(PQ.lots)}" placeholder="Lots (blank = 1)" oninput="PQ.lots=this.value">` +
-      `<input inputmode="decimal" value="${esc(PQ.price)}" placeholder="${live != null ? "Price (blank = " + px(live) + ")" : "Price"}" oninput="PQ.price=this.value">` +
-      `<button class="btn" type="button" onclick="loadChainP()">Refresh prices</button><button class="btn" type="button" onclick="paperAddP()">Add</button>`;
-    return `<div class="pq" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;margin-top:6px">${html}</div>` + (info ? `<div style="margin-top:6px;font-size:13px">${info}</div>` : "");
-  }
-  async function paperAddP(){
-    const t = { kind: "option", side: PQ.side, idx: PQ.idx, expiry: PQ.exp, strike: PQ.strike, type: PQ.type, lots: PQ.lots, price: PQ.price };
-    PP_MSG = "Saving…"; drawPaperP();
-    try { const d = await relayPost("app_paper_add", { token: SESSION, trade: t }); if (d.error) PP_MSG = d.error; else { PAPER = d; PP_MSG = ""; PQ.price = ""; } } catch(e){ PP_MSG = e.message; }
+  async function loadQuoteP(){
+    if (!PQ.sym) { PQT = null; drawPaperP(); return; }
+    PQT = { loading: true }; drawPaperP();
+    try { PQT = await relayPost("app_paper_quote", { token: SESSION, sym: PQ.sym }); } catch(e){ PQT = { error: e.message }; }
     drawPaperP();
   }
-  async function paperCloseP(id){
-    try { const d = await relayPost("app_paper_close", { token: SESSION, id }); if (!d.error) PAPER = d; else alert(d.error); } catch(e){}
-    $("#pp-box").innerHTML = paperHtml();
+  function pqIn(k, v){ PQ[k] = v; PPV = null; }
+  function drawPaperP(){ const b = $("#pp-body"); if (b) b.innerHTML = paperPage(); }
+  function pqSet(k, v){
+    PQ[k] = v; PPV = null; PP_MSG = "";
+    if (k === "idx") { PQ.exp = ""; PQ.strike = null; loadChainP(); }
+    else if (k === "exp") loadChainP();
+    else if (k === "kind") { PQ.product = ""; if (v === "option" && !PCH) loadChainP(); else drawPaperP(); }
+    else if (k === "sym") { PQ.sym = String(v || "").trim().toUpperCase(); loadQuoteP(); }
+    else drawPaperP();
+  }
+  function pqReq(){
+    const base = { side: PQ.side, otype: PQ.otype, price: PQ.price, trigger: PQ.trigger, trail: PQ.trail, trail_unit: PQ.unit, note: PQ.note };
+    return PQ.kind === "stock" ? Object.assign({ kind: "stock", sym: PQ.sym, qty: PQ.qty, product: PQ.product || "CNC" }, base)
+      : Object.assign({ kind: "option", idx: PQ.idx, expiry: PQ.exp, strike: PQ.strike, type: PQ.type, lots: PQ.lots, product: PQ.product || "NRML" }, base);
+  }
+  async function previewP(){
+    PPV = { loading: true }; drawPaperP();
+    try { PPV = await relayPost("app_paper_preview", { token: SESSION, trade: pqReq() }); } catch(e){ PPV = { error: e.message }; }
+    drawPaperP();
+  }
+  async function placeP(){
+    const P = PPV; if (!P || !P.ok) return;
+    const what = PQ.kind === "stock" ? PQ.sym : `${PQ.idx} ${f(Number(PQ.strike))} ${PQ.type === "PE" ? "Put" : "Call"}`;
+    if (!confirm(`${PQ.side === "sell" ? "Sell" : "Buy"} ${what} · ${P.qty} qty\n${P.stop != null ? "Trailing stop from " + f(P.stop, 2) : "Value " + pMoney(P.value, 2)} · charges ${pMoney(P.charges.total, 2)}\n\nPlace this paper order?`)) return;
+    PP_MSG = "Placing…"; PPV = null; drawPaperP();
+    try { const d = await relayOnce("app_paper_order", { token: SESSION, trade: pqReq() });
+      if (d.error) PP_MSG = d.error; else { PAPER = d; const w = d.orders[0] && d.orders[0].status === "working"; PP_MSG = w ? "Order placed: waiting for the price." : "Order filled."; PQ.price = PQ.trigger = PQ.note = ""; PQ.tab = w ? "ord" : "pos"; } }
+    catch(e){ PP_MSG = "No answer from the server. Refresh to see whether the order went through before trying again."; }
+    drawPaperP();
+  }
+  async function exitP(id){
+    const p = prompt("Exit at the live price, or type a price:", ""); if (p === null) return;
+    try { const d = await relayOnce("app_paper_close", { token: SESSION, id, price: p, all: true }); if (d.error) alert(d.error); else PAPER = d; } catch(e){ alert("No answer. Refresh before trying again."); }
+    drawPaperP();
+  }
+  async function cancelP(id){
+    try { const d = await relayOnce("app_paper_cancel", { token: SESSION, id }); if (d.error) alert(d.error); else PAPER = d; } catch(e){ alert("No answer. Refresh before trying again."); }
+    drawPaperP();
+  }
+  function trailP(id){
+    const t = ((PAPER && PAPER.trades) || []).find(x => x.id === id); if (!t) return;
+    const qty = PAPER.trades.filter(x => x.status === "open" && x.side === t.side && x.kind === t.kind && (t.kind === "stock" ? x.sym === t.sym : x.idx === t.idx && x.expiry === t.expiry && Number(x.strike) === Number(t.strike) && x.type === t.type)).reduce((a, x) => a + x.qty, 0);
+    PQ.kind = t.kind; PQ.side = t.side === "buy" ? "sell" : "buy"; PQ.otype = "TSL"; PQ.price = PQ.trigger = ""; PPV = null;
+    if (t.kind === "stock") { PQ.sym = t.sym; PQ.qty = String(qty); loadQuoteP(); }
+    else { PQ.lots = String(qty / ((PAPER.lots || {})[t.idx] || 1)); PQ.strike = t.strike; PQ.type = t.type; if (PQ.idx !== t.idx || PQ.exp !== t.expiry) { PQ.idx = t.idx; PQ.exp = t.expiry; loadChainP(); } }
+    drawPaperP(); $("#paper").scrollTo({ top: 0, behavior: "smooth" });
+  }
+  function pWhat(t){ return t.kind === "stock" ? `<b>${esc(t.sym)}</b>` : `<b>${esc(t.idx)} ${f(t.strike)} ${t.type === "PE" ? "Put" : "Call"}</b> <span class="mut">${esc(dayTxt(parseDay(t.expiry)).slice(4))}</span>`; }
+  const pSide = s => `<b style="color:${s === "sell" ? "var(--red)" : "#1f5fd6"}">${s === "sell" ? "S" : "B"}</b> `;
+  function paperPage(){
+    if (!PAPER) return `<div class="mut" style="padding:12px">Loading…</div>`;
+    if (PAPER.error) return `<div class="mut" style="padding:12px">${esc(PAPER.error)}</div>`;
+    const A = PAPER.account || {}, T = PAPER.trades || [], O = PAPER.orders || [], c = PCH || {}, px = v => v == null ? "–" : f(v, 2);
+    const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? " selected" : ""}>${esc(l)}</option>`;
+    const sel = (k, opts, wide) => `<select${wide ? ' style="grid-column:1/-1"' : ""} onchange="pqSet('${k}', this.value)">${opts}</select>`;
+    const box = (k, ph, dis) => `<input inputmode="decimal" value="${esc(PQ[k])}" placeholder="${ph}"${dis ? " disabled" : ""} oninput="pqIn('${k}', this.value)">`;
+    const stat = (k, v) => `<div style="padding:6px 0"><div class="mut" style="font-size:11px">${k}</div><div style="font-weight:700">${v}</div></div>`;
+    let h = `<div class="panel"><div class="pb"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 10px">` +
+      stat("Account value", pMoney(A.value)) + stat("Cash free", pMoney(A.cash)) + stat("Tied up", pMoney(A.tied)) +
+      stat("Open P&amp;L", pSigned(A.open_pnl)) + stat("Booked P&amp;L", pSigned(A.booked)) + stat("Charges", pMoney(A.charges)) + `</div>` +
+      `<div class="note">Practice account at live Kite prices, with real charges and margin. No order reaches Kite. Capital ${pMoney(A.capital)}.</div></div></div>`;
+    // order form
+    let live = null, info = "";
+    const isOpt = PQ.kind === "option";
+    let form = sel("kind", opt("option", "Index option", PQ.kind) + opt("stock", "Stock", PQ.kind)) +
+      `<div style="display:flex;gap:4px">${["buy", "sell"].map(s => `<button type="button" class="btn" style="flex:1;${PQ.side === s ? `background:${s === "sell" ? "var(--red)" : "#1f5fd6"};color:#fff;border-color:transparent` : ""}" onclick="pqSet('side','${s}')">${s === "sell" ? "Sell" : "Buy"}</button>`).join("")}</div>`;
+    if (isOpt) {
+      form += sel("idx", ["NIFTY", "BANKNIFTY", "SENSEX"].map(x => opt(x, x === "BANKNIFTY" ? "BANK NIFTY" : x, PQ.idx)).join(""));
+      if (c.loading) info = "Loading strikes and prices…"; else if (c.error) info = esc(c.error);
+      else if (c.strikes) {
+        form += sel("exp", c.expiries.map(e => opt(e, dayTxt(parseDay(e)), PQ.exp)).join("")) + sel("type", opt("CE", "Call", PQ.type) + opt("PE", "Put", PQ.type)) +
+          sel("strike", c.strikes.map(r => opt(r[0], f(r[0]) + (r[0] === c.atm ? " (ATM)" : "") + " · C " + px(r[1]) + " · P " + px(r[2]), PQ.strike)).join(""), true);
+        const row = c.strikes.find(r => r[0] === Number(PQ.strike)); live = row ? (PQ.type === "PE" ? row[2] : row[1]) : null;
+        info = `Latest traded <b>${live == null ? "–" : "₹" + px(live)}</b> · lot ${c.lot} · index ${c.spot ? f(c.spot, 2) : "–"} · ${esc(c.at)}`;
+      }
+    } else {
+      form += `<input style="grid-column:1/-1" value="${esc(PQ.sym)}" placeholder="Symbol, e.g. TITAN" autocapitalize="characters" onchange="pqSet('sym', this.value)">`;
+      if (PQT && PQT.loading) info = "Getting the price…"; else if (PQT && PQT.error) info = esc(PQT.error);
+      else if (PQT) { live = PQT.ltp; info = live == null ? "No price for " + esc(PQT.sym) : `<b>${esc(PQT.sym)}</b> latest traded <b>₹${px(live)}</b> · ${esc(PQT.at)}`; }
+    }
+    const prods = isOpt ? [["NRML", "Carry forward"], ["MIS", "Intraday"]] : [["CNC", "Delivery"], ["MIS", "Intraday"]];
+    form += sel("otype", [["MARKET", "Market"], ["LIMIT", "Limit"], ["SL", "Stop-loss"], ["SL-M", "SL-M"], ["TSL", "Trailing SL"]].map(([k, l]) => opt(k, l, PQ.otype)).join("")) +
+      sel("product", prods.map(([k, l]) => opt(k, l, PQ.product || prods[0][0])).join("")) +
+      (isOpt ? box("lots", "Lots (blank = 1)") : box("qty", "Shares (blank = 1)"));
+    if (PQ.otype === "TSL") form += `<div style="display:flex;gap:4px">${box("trail", PQ.unit === "%" ? "Trail %" : "Trail pts")}<select style="width:70px;flex:none" onchange="pqSet('unit', this.value)">${opt("pts", "pts", PQ.unit)}${opt("%", "%", PQ.unit)}</select></div>`;
+    else if (PQ.otype === "MARKET") form += box("price", live != null ? "Price (blank = " + px(live) + ")" : "Price", false);
+    else form += box("price", "Limit price", PQ.otype === "SL-M");
+    if (PQ.otype === "SL" || PQ.otype === "SL-M") form += box("trigger", "Trigger price");
+    form += `<input style="grid-column:1/-1" value="${esc(PQ.note)}" placeholder="Why (journal note, optional)" oninput="PQ.note=this.value">`;
+    let prev = "";
+    if (PPV && PPV.loading) prev = `<div class="mut" style="margin-top:6px">Working out charges and margin…</div>`;
+    else if (PPV && PPV.error) prev = `<div style="margin-top:6px;color:var(--red)">${esc(PPV.error)}</div>`;
+    else if (PPV) {
+      const it = PPV.charges.items, nm = { brokerage: "Brokerage", stt: "STT", exchange: "Exchange fee", sebi: "SEBI fee", gst: "GST", stamp: "Stamp duty", dp: "DP charge" };
+      const r = (k, v, b) => `<div class="row"${b ? ' style="font-weight:700"' : ""}><span class="l">${k}</span><span class="r">${v}</span></div>`;
+      prev = `<div style="margin-top:8px;border-top:1px solid var(--ln);padding-top:6px">` +
+        (PPV.stop != null ? r("Starting stop", f(PPV.stop, 2) + ` <span class="mut">(now ${f(PPV.ltp, 2)})</span>`) + r("Quantity", PPV.qty) : r("Price", px(PPV.price) + " × " + PPV.qty) + r("Value", pMoney(PPV.value, 2))) +
+        `<details><summary class="row" style="display:flex"><span class="l">Charges ›</span><span class="r">${pMoney(PPV.charges.total, 2)}</span></summary>${Object.keys(it).filter(k => it[k]).map(k => r("&nbsp;&nbsp;" + nm[k], pMoney(it[k], 2))).join("")}</details>` +
+        (PPV.margin ? r(PQ.side === "sell" ? "Margin blocked" : "Cash needed", pMoney(PPV.margin)) : "") + r("Cash free after", pMoney(PPV.cash_after), true) +
+        `<div style="font-size:12px;margin-top:4px;color:${PPV.ok ? "var(--grn)" : "var(--red)"}">${PPV.ok ? "● " : "✕ "}${esc(PPV.msg)} <span class="mut">${esc(PPV.fills)}</span></div></div>`;
+    }
+    const lots = Math.max(1, Math.round(Number(PQ.lots) || 1)), qty = Math.max(1, Math.round(Number(PQ.qty) || 1));
+    h += `<div class="sec">New order</div><div class="panel"><div class="pb"><div class="pq" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px">${form}</div>` +
+      (info ? `<div style="margin-top:6px;font-size:12.5px">${info}</div>` : "") + prev +
+      `<button class="btn" type="button" style="width:100%;margin-top:8px;color:#fff;border-color:transparent;background:${PQ.side === "sell" ? "var(--red)" : "#1f5fd6"}" onclick="${PPV && PPV.ok ? "placeP()" : "previewP()"}">` +
+      (PPV && PPV.ok ? `Place ${PQ.side} order` : `Preview ${PQ.side} · ${isOpt ? lots + " lot" + (lots > 1 ? "s" : "") : qty + " share" + (qty > 1 ? "s" : "")}`) + `</button>` +
+      (PP_MSG ? `<div class="mut" style="margin-top:6px;font-size:12.5px">${esc(PP_MSG)}</div>` : "") + `</div></div>`;
+    // positions, working orders, trades
+    const open = T.filter(t => t.status === "open"), g = {};
+    open.forEach(t => { const k = [t.kind, t.side, t.sym, t.idx, t.expiry, t.strike, t.type].join("|"); (g[k] = g[k] || []).push(t); });
+    const work = O.filter(o => o.status === "working");
+    h += `<div class="seg" style="display:flex;margin:12px 0 6px">${[["pos", "Positions · " + Object.keys(g).length], ["ord", "Working · " + work.length], ["trd", "Trades"]].map(([k, l]) => `<button type="button" style="flex:1" class="${PQ.tab === k ? "on" : ""}" onclick="PQ.tab='${k}';drawPaperP()">${l}</button>`).join("")}</div><div class="panel"><div class="pb">`;
+    if (PQ.tab === "ord") h += work.length ? work.map(o => `<div class="row"><span class="l">${pSide(o.side)}${pWhat(o)}<br><span class="mut" style="font-size:11px">${o.otype === "TSL" ? "Trailing stop " + o.trail + (o.trail_unit === "%" ? "%" : " pts") + " · stop " + f(o.trigger, 2) + " · best " + f(o.best, 2) : ({ LIMIT: "Limit " + f(o.price, 2), SL: "Stop-loss " + f(o.trigger, 2) + " → " + f(o.price, 2), "SL-M": "SL-M " + f(o.trigger, 2) }[o.otype] || o.otype)} · ${o.qty} qty · LTP ${o.ltp == null ? "–" : f(o.ltp, 2)}</span></span><span class="r"><button class="btn" type="button" style="padding:2px 8px" onclick="cancelP('${o.id}')">Cancel</button></span></div>`).join("")
+      : `<div class="mut">No working orders. Limit and stop orders wait here; trailing stops stay until they exit or you cancel them.</div>`;
+    else if (PQ.tab === "trd") h += T.slice(0, 15).map(t => `<div class="row"><span class="l">${pSide(t.side)}${pWhat(t)}<br><span class="mut" style="font-size:11px">@ ${f(t.entry, 2)}${t.status === "open" ? " · open" : " → " + f(t.exit, 2)} · charges ${pMoney((t.charges ? t.charges.total : 0) + (t.exitCharges ? t.exitCharges.total : 0), 2)}</span></span><span class="r">${t.status === "closed" ? pSigned(t.pnl) : ""}</span></div>`).join("") || `<div class="mut">No trades yet.</div>`;
+    else h += Object.values(g).map(ts => { const t = ts[0], q = ts.reduce((a, x) => a + x.qty, 0), avg = ts.reduce((a, x) => a + x.entry * x.qty, 0) / q, pnl = ts.every(x => x.pnl != null) ? ts.reduce((a, x) => a + x.pnl, 0) : null;
+        return `<div class="row"><span class="l">${pSide(t.side)}${pWhat(t)}<br><span class="mut" style="font-size:11px">${t.side === "sell" ? "−" : ""}${q} @ ${f(avg, 2)} · LTP ${t.ltp == null ? "–" : f(t.ltp, 2)}</span></span><span class="r">${pSigned(pnl)}<br><button class="btn" type="button" style="padding:2px 8px;margin-top:3px" onclick="trailP('${t.id}')">Trail</button> <button class="btn" type="button" style="padding:2px 8px;margin-top:3px" onclick="exitP('${t.id}')">Exit</button></span></div>`; }).join("")
+      || `<div class="mut">No open positions.</div>`;
+    h += `</div></div><div class="note">Charges from Kite when logged in, else Zerodha's published rates (${esc(PAPER.rates || "")}). Working orders are checked every 5 minutes in market hours and whenever this page opens.</div>`;
+    return h;
   }
 
   function deskIns(I){
@@ -1660,7 +1763,7 @@
   if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(politeTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
-  Object.assign(window, { openStock, closeStock, paperAddP, paperCloseP, pqSet, pqToggle, loadChainP, PQ, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
+  Object.assign(window, { openStock, closeStock, openPaper, closePaper, loadPaper, pqSet, pqIn, previewP, placeP, exitP, cancelP, trailP, drawPaperP, PQ, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
                           openSearch, closeSearch, drawSearch, sxToggle, setResMode, refreshSummary });
 })();
 </script>

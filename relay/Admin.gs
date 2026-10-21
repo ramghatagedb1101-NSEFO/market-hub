@@ -194,6 +194,10 @@ function appApi_(mode, body) {
   if (mode === 'app_paper_delete') return adminPaperDelete(p.token, p.id);
   if (mode === 'app_paper_chain') return adminPaperChain(p.token, p.idx, p.expiry);
   if (mode === 'app_paper_quote') return adminPaperQuote(p.token, p.sym);
+  if (mode === 'app_paper_preview') return adminPaperPreview(p.token, p.trade);
+  if (mode === 'app_paper_order') return adminPaperOrder(p.token, p.trade);
+  if (mode === 'app_paper_cancel') return adminPaperCancel(p.token, p.id);
+  if (mode === 'app_paper_capital') return adminPaperCapital(p.token, p.cap);
   return { error: 'unknown mode' };
 }
 

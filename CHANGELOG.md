@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-21
 
+### Paper trading on the phone (Wed 21 Oct 2026)
+Owner: "paper trading is not available on the phone app. why?" (the phone had only a small market-order form at the
+bottom of the F&O tab) then "yes build it". A Paper trading card now sits at the top of the F&O tab (account value, open
+and booked P&L, cash) and opens a full-screen page: account figures; an order form for index options or stocks with
+Buy/Sell, Market, Limit, Stop-loss, SL-M and Trailing SL, lots or shares, carry forward or intraday, and a preview of
+charges and margin before a confirm step; Positions (Exit, Trail), Working orders (Cancel) and Trades. Same account and
+server code as the dashboard (relay modes app_paper_preview, app_paper_order, app_paper_cancel, app_paper_capital). Orders,
+exits and cancels are sent once, never retried, so a lost answer cannot place an order twice. Phone cache v40. Tested at
+375 px with the real server code and simulated prices: buy, trailing stop, cancel, exit, trades.
+
 ### Paper trading: trailing stop-loss (Wed 21 Oct 2026)
 Owner: "Is there a trailing sl option in paper trade?" then "yes add it" (Kite itself has none since 2020). New order type
 Trailing SL, set in points or %: it exits an open position, keeps the best price seen and holds the stop that distance
