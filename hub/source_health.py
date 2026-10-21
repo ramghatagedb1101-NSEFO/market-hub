@@ -45,15 +45,32 @@ def _now():
     return datetime.now(config.IST)
 
 
+_HOLIDAYS = "unread"
+
+
+def _holidays():
+    """NSE's trading holidays (hub/push.py's reader, also used by the Kite reminder), read once per run.
+    21 Oct 2026: the check had only a weekend allowance and mailed "daily prices not updated" the morning
+    after the Dussehra holiday (Tue 20 Oct)."""
+    global _HOLIDAYS
+    if _HOLIDAYS == "unread":
+        from .push import nse_holidays
+        _HOLIDAYS = nse_holidays()
+    return _HOLIDAYS
+
+
 def _age_limit(last: datetime, hours: int, weekdays: bool, now: datetime) -> float:
-    """Allowed hours, plus 48 when a weekday-only job's gap spans a weekend."""
-    if weekdays:
-        d = last.date()
-        while d <= now.date():
-            if d.weekday() == 5:
-                return hours + 48
-            d += timedelta(days=1)
-    return hours
+    """Allowed hours; a weekday-only job gets 24 more for every weekend day and NSE holiday after its last
+    update. If NSE's calendar cannot be read, one day of grace stands in for an unknown holiday."""
+    if not weekdays:
+        return hours
+    hol = _holidays()
+    extra, d = 0, last.date() + timedelta(days=1)
+    while d <= now.date():
+        if d.weekday() >= 5 or (hol and d.isoformat() in hol):
+            extra += 24
+        d += timedelta(days=1)
+    return hours + extra + (0 if hol is not None else 24)
 
 
 def check_files(now: datetime) -> list:

@@ -4,6 +4,17 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-21
 
+### Two fixes from today's review (Wed 21 Oct 2026, evening)
+- **5-minute checks that really run every 5 minutes**: live.yml is scheduled every 5 minutes, but GitHub started it only 18
+  times today (about every 30 minutes, 08:47-17:36), so paper orders (limit, stop, trailing) and watchlist move emails
+  lagged. New `market-loop.yml` stays running through the session and calls the relay (paper_check, watch_check) every 5
+  minutes itself: GitHub delays when a scheduled job starts, not a running one. Two runs (09:10 and 12:10 IST, sharing a
+  queue) cover 09:15-15:30. No new permissions or secrets; minutes are free on this public repo.
+- **Data check knows exchange holidays**: this morning's email said daily prices were stale; Tue 20 Oct was the Dussehra
+  holiday. The check had a weekend allowance only and never used NSE's holiday calendar, which the Kite reminder already
+  reads. Now a weekday job gets a day's allowance for every weekend day and NSE holiday since its last update (one day of
+  grace if the calendar cannot be read). `hub/push.py` gains `nse_holidays()`, shared by both.
+
 ### Paper trading on the phone (Wed 21 Oct 2026)
 Owner: "paper trading is not available on the phone app. why?" (the phone had only a small market-order form at the
 bottom of the F&O tab) then "yes build it". A Paper trading card now sits at the top of the F&O tab (account value, open

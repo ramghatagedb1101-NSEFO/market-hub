@@ -34,25 +34,26 @@ def _today_ist() -> str:
     return datetime.now(config.IST).date().isoformat()
 
 
-def is_nse_holiday(today: str | None = None) -> bool:
-    """True on a day NSE's own trading calendar marks as a holiday. Fails toward False (send the
-    reminder) on any error: an occasional reminder on a holiday is a minor nuisance, a missed one on a
-    real trading day is not -- tested only from GitHub Actions (hub/diag_nse_alt.py's pattern); NSE
-    blocks the owner's laptop."""
-    today = today or _today_ist()
+def nse_holidays() -> set | None:
+    """ISO dates NSE's own trading calendar marks as equity-market holidays; None when it cannot be read
+    (tested only from GitHub Actions: NSE blocks the owner's laptop). Also used by hub/source_health.py."""
     try:
         s = shp.session()
         r = s.get(HOLIDAY_API, headers={**shp.HEADERS, "Accept": "application/json"}, timeout=30)
         r.raise_for_status()
         body = r.json()
         rows = body.get("CM") or [] if isinstance(body, dict) else []
-        for row in rows:
-            d = datetime.strptime(str(row.get("tradingDate", "")).strip(), "%d-%b-%Y").date().isoformat()
-            if d == today:
-                return True
-        return False
+        return {datetime.strptime(str(row.get("tradingDate", "")).strip(), "%d-%b-%Y").date().isoformat() for row in rows if row.get("tradingDate")}
     except Exception:
-        return False
+        return None
+
+
+def is_nse_holiday(today: str | None = None) -> bool:
+    """True on a day NSE's own trading calendar marks as a holiday. Fails toward False (send the
+    reminder) on any error: an occasional reminder on a holiday is a minor nuisance, a missed one on a
+    real trading day is not."""
+    days = nse_holidays()
+    return bool(days) and (today or _today_ist()) in days
 
 
 def push_state(relay_url: str, relay_key: str) -> dict:

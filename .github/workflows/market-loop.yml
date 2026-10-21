@@ -1,0 +1,45 @@
+name: market-loop
+
+# Every 5 minutes through the session (21 Oct 2026): working paper orders (limit, stop, trailing stop) and watchlist move
+# emails. live.yml is scheduled every 5 minutes but GitHub started it only about every 30 (18 runs on Wed 21 Oct 2026);
+# GitHub delays when a scheduled job starts, not a job already running, so this one stays up and calls the relay itself.
+# Two runs cover 09:15-15:30 IST (a job may run 6 hours at most); they share a queue, so the second waits for the first.
+on:
+  schedule:
+    - cron: "40 3 * * 1-5"      # 03:40 UTC = 09:10 IST: runs to about 12:30
+    - cron: "40 6 * * 1-5"      # 06:40 UTC = 12:10 IST: runs to 15:35
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-loop
+  cancel-in-progress: false
+
+jobs:
+  loop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 215
+    steps:
+      - name: Check paper orders and the watchlist every 5 minutes
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          start=$(date +%s)
+          end_ist=$(TZ=Asia/Kolkata date +%Y-%m-%d)" 15:35"
+          end=$(TZ=Asia/Kolkata date -d "$end_ist" +%s)
+          limit=$(( start + 200 * 60 ))
+          [ "$end" -lt "$limit" ] && stop=$end || stop=$limit
+          n=0
+          while [ "$(date +%s)" -lt "$stop" ]; do
+            hm=$(TZ=Asia/Kolkata date +%H%M)
+            if [ "$hm" -ge 0915 ] && [ "$hm" -le 1530 ]; then
+              curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=paper_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
+              curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=watch_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
+              n=$((n + 1))
+            fi
+            sleep 300
+          done
+          echo "::notice title=market loop::$n checks between $(TZ=Asia/Kolkata date -d @$start +%H:%M) and $(TZ=Asia/Kolkata date +%H:%M) IST"
