@@ -837,7 +837,7 @@ function todayBrief(P){
   // A short first line ("Where the markets stand") is the section's heading.
   const para = x => { const L = x.split('\n'), h = L.length > 1 && L[0].length < 60 && !/[.:]$/.test(L[0]) ? L.shift() : null;
     return (h ? '<div style="font-weight:600;margin-bottom:2px">' + esc(h) + '</div>' : '') + esc(L.join(' ')); };
-  let paras = P.plain.replace(/^#{1,6}\s*/gm, '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+  let paras = P.plain.replace(/^#{1,6}\s*/gm, '').replace(/^\s*[*-]\s+/gm, '• ').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
   paras = paras.reduce((a, x) => { const last = a[a.length - 1]; if (last != null && last.length < 60 && !last.includes('\n')) a[a.length - 1] = last + '\n' + x; else a.push(x); return a; }, []);   // a heading on its own joins its paragraph
   return head + '<div class="panel-b" style="font-size:13px;line-height:1.6">' +
     (S.briefOpen ? paras.map(x => '<p style="margin:0 0 10px">' + para(x) + '</p>').join('')
