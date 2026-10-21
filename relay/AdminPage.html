@@ -157,7 +157,8 @@ textarea.field{padding:8px 10px}
 .strip .k{font-size:11px;color:var(--text-3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 .strip .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
 .strip .c{white-space:nowrap;font-size:12px;font-variant-numeric:tabular-nums;font-weight:500}
-.strip .w{font-size:11px;color:var(--text-4);margin-top:2px;white-space:nowrap}
+.strip .w{font-size:11px;color:var(--text-4);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.strip{scrollbar-width:thin}
 .grid{display:grid;gap:16px}
 .g4{grid-template-columns:repeat(4,minmax(0,1fr))} .g3{grid-template-columns:repeat(3,minmax(0,1fr))} .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-1);min-width:0;overflow-x:auto}
@@ -836,7 +837,8 @@ function todayBrief(P){
   // A short first line ("Where the markets stand") is the section's heading.
   const para = x => { const L = x.split('\n'), h = L.length > 1 && L[0].length < 60 && !/[.:]$/.test(L[0]) ? L.shift() : null;
     return (h ? '<div style="font-weight:600;margin-bottom:2px">' + esc(h) + '</div>' : '') + esc(L.join(' ')); };
-  const paras = P.plain.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+  let paras = P.plain.replace(/^#{1,6}\s*/gm, '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+  paras = paras.reduce((a, x) => { const last = a[a.length - 1]; if (last != null && last.length < 60 && !last.includes('\n')) a[a.length - 1] = last + '\n' + x; else a.push(x); return a; }, []);   // a heading on its own joins its paragraph
   return head + '<div class="panel-b" style="font-size:13px;line-height:1.6">' +
     (S.briefOpen ? paras.map(x => '<p style="margin:0 0 10px">' + para(x) + '</p>').join('')
                  : '<div style="display:-webkit-box;-webkit-line-clamp:7;-webkit-box-orient:vertical;overflow:hidden">' + para(paras[0] || '') + '</div>') +
@@ -1236,7 +1238,7 @@ function ppTicket(){
       row('Price', num(P.price, 2) + ' × ' + P.qty) + row('Value', ppMoney(P.value, 2)) +
       '<details><summary style="cursor:pointer;display:flex;justify-content:space-between;padding:4px 0"><span class="muted">Charges ▸</span><span class="num">' + ppMoney(P.charges.total, 2) + '</span></summary>' +
         Object.keys(it).filter(k => it[k]).map(k => row('&nbsp;&nbsp;' + names[k], ppMoney(it[k], 2))).join('') + '<div class="faint" style="font-size:11px">' + (P.charges.source === 'Kite' ? 'From Kite' : 'Zerodha ' + esc(P.charges.source)) + '</div></details>' +
-      (P.margin ? row('Margin blocked', ppMoney(P.margin, 0)) : '') + row('Cash free after', ppMoney(P.cash_after, 0), true) + '</div>' +
+      (P.margin ? row(PPS.side === 'sell' ? 'Margin blocked' : 'Cash needed', ppMoney(P.margin, 0)) : '') + row('Cash free after', ppMoney(P.cash_after, 0), true) + '</div>' +
       '<div style="margin-top:8px;font-size:12.5px;color:' + (P.ok ? 'var(--ok)' : 'var(--bad)') + '">' + (P.ok ? '● ' : '✕ ') + esc(P.msg) + ' <span class="muted">' + esc(P.fills) + '</span></div>';
   }
   html += '<button class="btn" style="width:100%;margin-top:12px;height:40px;font-weight:600;color:#fff;border:0;background:' + (PPS.side === 'sell' ? 'var(--sell)' : 'var(--buy)') + '" onclick="' + (P && P.ok ? 'ppPlace()' : 'ppPreview()') + '">' +
@@ -1843,13 +1845,13 @@ function pageStock(sym){
 
   // Badges
   const badges = [];
-  if (isCompounder(sym)) badges.push('<span class="chip up">Proven compounder</span>');
-  if (r && r.score != null) badges.push('<span class="chip ' + (r.score === 4 ? 'up' : 'brand') + '">Multibagger ' + r.score + '/4</span>');
+  if (isCompounder(sym)) badges.push('<span class="chip brand">Proven compounder</span>');
+  if (r && r.score != null) badges.push('<span class="chip brand">Multibagger ' + r.score + '/4</span>');
   if (r && (r.measures || {}).turnaround) badges.push('<span class="chip">Turnaround</span>');
   if (val(s,'mf_discovery_tier') === 1) badges.push('<span class="chip warn">Undiscovered (&lt;5 funds)</span>');
   if (val(s,'pledge_pct') > 10) badges.push('<span class="chip down">Pledge ' + num(val(s,'pledge_pct'), 1) + '%</span>');
   const ck = (s && s.check) || {}, severe = ((s && s.flags) || []).filter(f => f.level === 'severe');
-  if (ck.status === 'ok') badges.push('<span class="chip up" title="Matches the NSE filing">✓ Matches NSE filing</span>');
+  if (ck.status === 'ok') badges.push('<span class="chip" title="Matches the NSE filing"><span style="color:var(--ok)">✓</span> Matches NSE filing</span>');
   if (ck.status === 'bse_only') badges.push('<span class="chip" title="Figures from BSE results">Figures from BSE results</span>');
   if (ck.status === 'nse_only') badges.push('<span class="chip" title="Figures from the NSE filing">Figures from NSE filing</span>');
   if (ck.status === 'mismatch') badges.push('<span class="chip down" title="' + esc((ck.diffs || []).join('; ')) + '">NSE figures used</span>');
@@ -1859,7 +1861,7 @@ function pageStock(sym){
   let html = '<button class="back" onclick="history.length > 1 ? history.back() : go(\'overview\')">← Back</button>' +
     '<div class="rep-head"><div><h1 class="rep-title">' + esc(name || sym) + '</h1><div class="rep-meta"><span class="chip num">NSE: ' + esc(sym) + '</span>' +
     (sectorOf(sym) ? '<span class="chip">' + esc(sectorOf(sym)) + '</span>' : '') + (s && s.latest_period ? '<span class="chip">Results to ' + esc(fmtDate(s.latest_period)) + '</span>' : '') + badges.join('') + '</div></div>' +
-    '<div class="price"><div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px"><button class="btn sm" onclick="paperFrom(\'' + esc(sym) + '\')">Paper trade</button><button class="btn sm" onclick="toggleStar(\'' + esc(sym) + '\')">' + (isStarred(sym) ? '★ Starred' : '☆ Star') + '</button></div>' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:400">· Close · ' + esc(bDay(dayOf(last[0]))) + '</span></div>'
+    '<div class="price"><div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px"><button class="btn sm" onclick="paperFrom(\'' + esc(sym) + '\')">Paper trade</button><button class="btn sm" onclick="toggleStar(\'' + esc(sym) + '\')">' + (isStarred(sym) ? '★ Starred' : '☆ Star') + '</button></div>' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:400">· ' + (marketHoursIst() && String(last[0]).slice(0, 10) === new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10) ? 'Live' : 'Close · ' + esc(bDay(dayOf(last[0])))) + '</span></div>'
                             : D5.loading ? '<div class="skel" style="width:140px;height:26px"></div>' : '') + '</div></div>';
 
   html += '<div class="stats">' + [

@@ -2,6 +2,16 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-21
+
+### Fixes from the live check (Wed 21 Oct 2026)
+Checked the live dashboard in Chrome with screenshots (Today, Shortlist, stock report, What's new, Calendar, Expiry
+meter, Positioning, Paper trading with a live preview: 1 lot NIFTY 27 Oct 22,950 Call at 190.70 = ₹12,395.50, Kite
+charges ₹28.78). Fixed: the market brief on Today showed a raw "### 1. Where the markets stand" heading with no text
+(headings now join their paragraph); the last tile's time label ran into the next one; the stock price said "Close"
+during market hours (now "Live"); the paper preview called a buy's premium "Margin blocked" (now "Cash needed");
+stock badges used green for labels (Multibagger, Proven compounder, Matches NSE filing), against the colour rule.
+
 ## 2026-10-20
 
 ### Paper trading v2: a practice account that behaves like a real one (Tue 20 Oct 2026)
