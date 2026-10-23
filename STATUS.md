@@ -3,6 +3,12 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Sat 24 Oct 2026 -- read this first
+- **US figures keep their live values when the quote fails** (phone v43, dashboard via relay): see CHANGELOG 24 Oct.
+- **Data-point audit** under way (23 Oct fixes: NIFTY 50 option screen, AI summaries, data check). Live checks of the Indian
+  figures planned for Mon 26 Oct 10:30 IST; the full table is on the laptop (`extras/data-audit/AUDIT.md`, outside this repo).
+- **market-loop.yml** first full market day is Mon 26 Oct: expect about 75 paper/watch checks.
+
 ## Tue 20 Oct 2026 -- read this first
 - **Paper trading v2** built (account, orders, charges, margin, positions/orders/trades/performance); see CHANGELOG.
   Dashboard redesign phases 1 and 2 are live; phase 4 (polish) optional.

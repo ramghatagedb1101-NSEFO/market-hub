@@ -750,7 +750,7 @@ function briefParts(){
   const crudeUsd = crudeRaw && usdRate ? { last: crudeRaw.last / usdRate, change_pct: crudeRaw.change_pct } : null;
   const vixNow = LQ && LQ.india_vix ? LQ.india_vix : (C.india_vix || ST.india_vix), sp = glob['S&P 500'];
   // Live US cash indices from the relay (Yahoo; 23 Oct 2026) over FRED's next-morning closes.
-  const OVL = {}; ((LQ && LQ.overseas && LQ.overseas.items) || []).filter(o => o.group === 'uscash').forEach(o => OVL[o.name] = o);
+  const OVL = {}; ovsItems().filter(o => o.group === 'uscash').forEach(o => OVL[o.name] = o);
   const usWhen = o => { const d = o.ts ? new Date(o.ts * 1000) : null; if (!d) return '';
     const t = new Date(d.getTime() + 5.5 * 3600e3), hm = String(t.getUTCHours()).padStart(2, '0') + ':' + String(t.getUTCMinutes()).padStart(2, '0');
     return Date.now() - d.getTime() < 15 * 60e3 ? 'Live · ' + hm + ' IST' : 'Last quote · ' + hm + ' IST · ' + bDay(new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))); };
@@ -763,7 +763,7 @@ function briefParts(){
   const idxTile = (k, name) => { const q = LQ && LQ.indices && LQ.indices[k];
     return tile(name, q ? fmt(q.last, 2) : '–', q ? chg(q.change_pct, q.last, q.change) : 'no quote', q ? bQuote(LQ.ts) : '', q && q.change_pct); };
   const yr = new Date(Date.now() + 5.5 * 3600e3).getUTCFullYear();
-  const ovs = ((LQ && LQ.overseas && LQ.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym));
+  const ovs = ovsItems().filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym));
   const tiles = [
     idxTile('NIFTY', 'NIFTY 50'), idxTile('SENSEX', 'SENSEX'), idxTile('BANKNIFTY', 'Bank NIFTY'),
     tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct, vixNow.last, vixNow.change) : '–', vixNow ? (LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : '', vixNow && vixNow.change_pct),
@@ -2567,10 +2567,20 @@ function dirOf(k){ if (k === 'composite' || FACTORS.some(f => f[0] === k) || k =
 const TAPE_NAMES = [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY'], ['SENSEX', 'SENSEX']];
 // Every 10 s only in market hours (Mon-Fri 09:00-15:45 IST); otherwise every 5 minutes, and never while the tab is hidden.
 let TAPE_LAST = 0;
+function ovsItems(){
+  if (S.ovs && S.ovs.length) return S.ovs;
+  try { return JSON.parse(localStorage.getItem('mh_ovs') || '[]') || []; } catch (e) { return []; }
+}
 function marketHoursIst(){ const d = new Date(Date.now() + 5.5 * 3600e3), m = d.getUTCHours() * 60 + d.getUTCMinutes(); return d.getUTCDay() >= 1 && d.getUTCDay() <= 5 && m >= 540 && m <= 945; }
 function tapeTick(){
   TAPE_LAST = Date.now();
   call('adminQuotes', token).then(d => {
+    // 24 Oct 2026: the relay sends overseas quotes even with a Kite error; keep them (and the last good ones) so Today's
+    // US figures never fall back to FRED's two-day-old closes.
+    if (d && d.overseas && d.overseas.items && d.overseas.items.length) {
+      S.ovs = d.overseas.items; try { localStorage.setItem('mh_ovs', JSON.stringify(S.ovs)); } catch (e) {}
+      if (d.error) drawBriefBox();
+    }
     if (d && !d.error) { S.quotes = d; drawBriefBox(); }
     const el = $('tape'); if (!el) return;
     if (!d || d.error) {

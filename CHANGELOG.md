@@ -2,6 +2,18 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-24
+
+### US markets fell back to old closes when the quote failed (Sat 24 Oct 2026, 00:50 IST)
+Owner: "Again the same US markets indicator is wrong". The relay's US figures were right (at 00:40 IST S&P 500 -0.40%,
+Dow -1.11%, Nasdaq -0.08%, matching Google Finance). The fault was on the pages: whenever the relay's quote came back with
+a Kite error (no login, refused call) or could not be reached, the phone replaced the whole quote with its backup copy,
+which has no US figures, and the dashboard ignored the answer; both then showed FRED's closes (S&P 500 dated Wed 21 Oct,
++0.58%). The same happened for the first seconds after opening the app, before the first quote arrived. Now both keep the
+US figures the relay sends even with a Kite error, and otherwise show the last live ones this device saw, with their own
+time ("Last quote · HH:MM IST · day"); FRED only if the device has never had a live US quote. Tested on the phone preview
+with a Kite error and with the relay unreachable. Phone cache v43.
+
 ## 2026-10-23
 
 ### Data-point audit, first findings (Fri 23 Oct 2026, evening)
