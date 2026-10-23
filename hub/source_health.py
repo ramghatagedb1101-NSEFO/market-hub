@@ -37,7 +37,7 @@ FILES = [
     ("site/bulk_deals.json", 30, True, "bulk deals"),
     ("state/prices.json", 30, True, "daily prices"),
     ("site/summaries.json", 4 * 24, False, "AI summaries"),
-    ("site/stocks.json", 8 * 24, False, "stock positions (weekly)"),
+    ("site/stocks.json", 30, True, "NIFTY 50 option screen (daily 18:00)"),   # was 8 days: wrong, it is daily (23 Oct 2026)
 ]
 
 
@@ -153,9 +153,10 @@ def check_jobs() -> list:
                                 params={"event": "schedule", "per_page": 1, "status": "completed"}, timeout=30).json().get("workflow_runs", [])
         except (requests.RequestException, ValueError):
             continue
-        if runs and runs[0].get("conclusion") == "failure":
+        if runs and runs[0].get("conclusion") in ("failure", "cancelled", "timed_out"):   # cancelled: hit its time limit (summaries, 20-23 Oct 2026)
             t = datetime.fromisoformat(runs[0]["created_at"].replace("Z", "+00:00")).astimezone(config.IST)
-            out.append({"id": "job:" + w["path"], "what": "job " + w["name"], "text": f"last scheduled run failed ({t:%a %d %b %Y %H:%M} IST)"})
+            word = {"failure": "failed", "cancelled": "was cancelled (time limit)", "timed_out": "timed out"}[runs[0]["conclusion"]]
+            out.append({"id": "job:" + w["path"], "what": "job " + w["name"], "text": f"last scheduled run {word} ({t:%a %d %b %Y %H:%M} IST)"})
     return out
 
 

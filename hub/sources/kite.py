@@ -15,6 +15,7 @@ same instrument lists several times. Now, per process:
   - each exchange's instrument list is downloaded once a day: kept in memory and on disk (.cache/kite_instruments/,
     which every step of a GitHub job shares), so `python -m hub`, hub.stocks, hub.fno ... share one download.
 """
+from urllib.parse import quote_plus
 import os
 import pickle
 import time
@@ -27,6 +28,7 @@ from .. import config
 QUOTE_GAP = 1.05          # seconds between quote-family calls (Kite: 1 request a second)
 HIST_GAP = 0.35           # seconds between historical-candle calls (Kite: 3 a second)
 QUOTE_MAX = 500           # instruments per quote call (Kite's limit)
+QUOTE_URL_MAX = 6000      # characters of instrument list per quote call: Kite's front server refuses very long URLs
 CACHE_DIR = config.REPO / ".cache" / "kite_instruments"
 _IST = timezone(timedelta(hours=5, minutes=30))
 _last = {"quote": 0.0, "hist": 0.0}      # shared by every client in the process
@@ -69,10 +71,20 @@ class PacedKite(KiteConnect):
         flat = []
         for i in instruments:
             flat.extend(i if isinstance(i, (list, tuple, set)) else [i])
-        out = {}
-        for start in range(0, len(flat), QUOTE_MAX):
-            part = flat[start:start + QUOTE_MAX]
-            out.update(self._paced("quote", lambda: method(self, part)) or {})
+        # Chunks by count AND by request-line length (23 Oct 2026): 500 long option names (NFO:TCS26OCT4100CE...) made a
+        # ~17,000-character URL that Kite's front server refused ("400 Bad request", HTML), so the NIFTY 50 option screen
+        # (hub/stocks.py prefetch) failed every day from 14 Oct. The relay keeps its own URLs short for the same reason.
+        out, part, size = {}, [], 0
+        for inst in flat:
+            cost = len("i=" + quote_plus(str(inst))) + 1
+            if part and (len(part) >= QUOTE_MAX or size + cost > QUOTE_URL_MAX):
+                chunk = part
+                out.update(self._paced("quote", lambda: method(self, chunk)) or {})
+                part, size = [], 0
+            part.append(inst); size += cost
+        if part:
+            chunk = part
+            out.update(self._paced("quote", lambda: method(self, chunk)) or {})
         return out
 
     def quote(self, *instruments):

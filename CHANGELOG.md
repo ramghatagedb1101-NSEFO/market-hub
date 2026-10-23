@@ -4,6 +4,19 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-23
 
+### Data-point audit, first findings (Fri 23 Oct 2026, evening)
+Owner asked for a full review of every figure after the US-markets miss. First pass (sources, freshness, hidden failures):
+- **NIFTY 50 option screen stuck since 14 Oct**: `hub/stocks.py`'s batched Kite quote sent up to 500 long option names in one
+  URL (~17,000 characters); Kite's front server answered "400 Bad request" every day, the step is allowed to fail, so the
+  daily run still showed success and the phone's F&O tab kept showing the 14 Oct screen with no date. `hub/sources/kite.py`
+  now splits quote calls by URL length (6,000 characters) as well as count; the phone screen shows its "As of" time.
+- **AI summaries cancelled 20, 22 and 23 Oct** at the 45-minute limit with nothing saved (the file was written only at the
+  end). Now each summary is saved as it is made, progress is printed, Gemini calls time out after 4 minutes, and the run
+  stops itself after 35 minutes so the save step runs; the rest wait for the next day.
+- **Daily data check blind to both**: it expected stocks.json weekly (wrong, it is daily) and counted only failed jobs, not
+  cancelled ones. Fixed.
+- Phone cache v42.
+
 ### Live US markets on the phone and dashboard (Fri 23 Oct 2026)
 Owner, 21:33 IST with the US market open: "I think the US markets are showing yesterday's levels, not live". The phone's
 Brief (and the dashboard's Today) read the S&P 500, Dow and Nasdaq from FRED's daily closes, published the next US

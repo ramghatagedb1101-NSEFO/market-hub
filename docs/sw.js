@@ -1,6 +1,6 @@
 // Network-first everywhere: the phone always gets the latest page and feed when online.
 // The cache is only a fallback for when the network is unavailable.
-const CACHE = "market-hub-v41";
+const CACHE = "market-hub-v42";
 const SHELL = ["./", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (e) => {

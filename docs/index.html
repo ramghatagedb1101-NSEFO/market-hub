@@ -782,7 +782,7 @@
     const counts = barRows([{ label: "Trades", v: recs.length, txt: String(recs.length) },
       ...catOrder.filter(c => (g[c] || []).length).map(c => ({ label: CAT_LABEL[c].split(" (")[0].split(":")[0], v: g[c].length, txt: String(g[c].length) }))]);
     const tiles = [
-      tile("SCREENED", String(d.symbol_count || 0), (d.mode || "") + " · NIFTY 50", ""),
+      tile("SCREENED", String(d.symbol_count || 0), "NIFTY 50" + (d.generated_at ? "<br>" + asSnap(d.generated_at) : ""), ""),
       tile("TRADES", String(recs.length), recs.length ? "qualifying" : "none today", recs.length ? "up" : ""),
       tile("INDIA VIX", d.india_vix != null ? f(d.india_vix, 2) : "–", "gate 30 on IV rank", "")
     ].join("");

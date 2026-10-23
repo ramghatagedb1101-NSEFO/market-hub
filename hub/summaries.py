@@ -45,6 +45,7 @@ GEMINI_MAX_PDF_BYTES, GEMINI_MAX_PAGES = 48 * 1024 * 1024, 1000
 DAILY_LIMIT = int(os.getenv("AI_DAILY_LIMIT", "15"))
 MAX_PDF_BYTES = 30 * 1024 * 1024
 MAX_TEXT_CHARS = 600_000            # roughly 150k tokens of annual-report text
+TIME_BUDGET_S = 35 * 60             # stop starting new documents after this; the job's limit is 45 minutes
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
 
 SCHEMA = {
@@ -202,7 +203,11 @@ def make_client():
         import anthropic
         return anthropic.Anthropic()
     from google import genai
-    return genai.Client()          # reads GEMINI_API_KEY
+    try:                           # a call that hangs must not use up the job (23 Oct 2026): 4 minutes per request
+        from google.genai import types
+        return genai.Client(http_options=types.HttpOptions(timeout=240_000))
+    except Exception:
+        return genai.Client()      # reads GEMINI_API_KEY
 
 
 def summarise(client, kind: str, doc: dict) -> dict:
@@ -275,7 +280,21 @@ def main() -> dict:
                                  "in the market-hub repository.")
         todo = []
     client = make_client() if todo else None
-    for sym, kind, doc in todo:
+    SUMMARIES_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    def save():
+        SUMMARIES_FILE.write_text(json.dumps(done, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+    # 23 Oct 2026: the job was cancelled at its 45-minute limit on 20, 22 and 23 Oct, silently and with every finished
+    # summary lost (the file was written only at the end). Now each summary is saved as it is made, progress is printed,
+    # and the run stops by itself after TIME_BUDGET_S so the save-to-private-repo step still runs; the rest wait for tomorrow.
+    started = time.monotonic()
+    for n, (sym, kind, doc) in enumerate(todo, 1):
+        if time.monotonic() - started > TIME_BUDGET_S:
+            report["deferred"] = [f"{s}:{k}" for s, k, _ in todo[n - 1:]]
+            print(f"[summaries] time budget used: {len(report['deferred'])} left for the next run", flush=True)
+            break
+        t0 = time.monotonic()
         try:
             done.setdefault(sym, {})[kind] = summarise(client, kind, doc)
             report["done"].append(f"{sym}:{kind}")
@@ -283,8 +302,9 @@ def main() -> dict:
         except Exception as exc:
             report["failed"].append({"doc": f"{sym}:{kind}", "error": str(exc)[:200]})
             status(sym, "error", f"Could not summarise the {'transcript' if kind == 'tr' else 'annual report'}: {str(exc)[:160]}")
-    SUMMARIES_FILE.parent.mkdir(parents=True, exist_ok=True)
-    SUMMARIES_FILE.write_text(json.dumps(done, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        save()
+        print(f"[summaries] {n}/{len(todo)} {sym}:{kind} {'ok' if report['done'] and report['done'][-1] == f'{sym}:{kind}' else 'failed'} in {time.monotonic() - t0:.0f}s", flush=True)
+    save()
     return report
 
 
