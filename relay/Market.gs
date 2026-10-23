@@ -150,7 +150,10 @@ function snapFetch_(symbols, headers) {
  * expiry meter, and recorded with each meter reading so the learning can test whether they help (weight starts at 0).
  */
 const OVS = [['^GDAXI', 'DAX', 'eu'], ['^FTSE', 'FTSE 100', 'eu'], ['^STOXX50E', 'Euro Stoxx 50', 'eu'], ['^FCHI', 'CAC 40', 'eu'],
-             ['ES=F', 'S&P 500 fut', 'us'], ['NQ=F', 'Nasdaq fut', 'us'], ['YM=F', 'Dow fut', 'us']];
+             ['ES=F', 'S&P 500 fut', 'us'], ['NQ=F', 'Nasdaq fut', 'us'], ['YM=F', 'Dow fut', 'us'],
+             // US cash indices (23 Oct 2026, owner: "the US markets are showing yesterday's levels, not live"): the phone's
+             // Brief read FRED's daily closes, published the next US morning. Own group: not part of the 'us' futures average.
+             ['^GSPC', 'S&P 500', 'uscash'], ['^DJI', 'Dow Jones', 'uscash'], ['^IXIC', 'Nasdaq', 'uscash']];
 function overseasSnapshot_() {
   const cache = CacheService.getScriptCache();
   const hit = cache.get('ovs');
@@ -168,9 +171,9 @@ function overseasSnapshot_() {
       // Only today's trading counts (audit, 13 Oct 2026): before Europe opens, Yahoo's day is yesterday's session,
       // whose move is already in NIFTY's open.
       const today = t && Utilities.formatDate(new Date(t * 1000), 'Asia/Kolkata', 'yyyy-MM-dd') === Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd');
-      out.items.push({ sym: sym, name: name, group: g, last: Math.round(last * 100) / 100, change_pct: pct, today: !!today,
+      out.items.push({ sym: sym, name: name, group: g, last: Math.round(last * 100) / 100, change_pct: pct, today: !!today, ts: t || null,
                        at: t ? Utilities.formatDate(new Date(t * 1000), 'Asia/Kolkata', today ? 'HH:mm' : 'dd MMM HH:mm') : null });
-      if (today) grp[g].push(pct);
+      if (today && grp[g]) grp[g].push(pct);
     });
     const avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 100) / 100 : null;
     out.eu = avg(grp.eu); out.us = avg(grp.us);

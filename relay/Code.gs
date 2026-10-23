@@ -127,7 +127,9 @@ function handleCheck_(p) {
  * never the token. Cached for 10 seconds so many visitors cost one Kite call.
  */
 function handleQuote_() {
-  return json_(quoteData_());
+  const q = quoteData_();
+  q.overseas = overseasSnapshot_();   // live US and Europe for the phone's Brief (23 Oct 2026); one Yahoo request a minute
+  return json_(q);
 }
 
 /** Dashboard market strip (13 Oct 2026): the same quotes as the phone, behind the dashboard sign-in. */

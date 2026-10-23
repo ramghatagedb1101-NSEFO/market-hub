@@ -749,6 +749,12 @@ function briefParts(){
   const usd = ex.usd_inr || C.usd_inr_live || null, usdRate = usd ? usd.last : (C.fx ? C.fx.usd_inr : null);
   const crudeUsd = crudeRaw && usdRate ? { last: crudeRaw.last / usdRate, change_pct: crudeRaw.change_pct } : null;
   const vixNow = LQ && LQ.india_vix ? LQ.india_vix : (C.india_vix || ST.india_vix), sp = glob['S&P 500'];
+  // Live US cash indices from the relay (Yahoo; 23 Oct 2026) over FRED's next-morning closes.
+  const OVL = {}; ((LQ && LQ.overseas && LQ.overseas.items) || []).filter(o => o.group === 'uscash').forEach(o => OVL[o.name] = o);
+  const usWhen = o => { const d = o.ts ? new Date(o.ts * 1000) : null; if (!d) return '';
+    const t = new Date(d.getTime() + 5.5 * 3600e3), hm = String(t.getUTCHours()).padStart(2, '0') + ':' + String(t.getUTCMinutes()).padStart(2, '0');
+    return Date.now() - d.getTime() < 15 * 60e3 ? 'Live · ' + hm + ' IST' : 'Last quote · ' + hm + ' IST · ' + bDay(new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))); };
+  const GLOB_LIVE = { 'S&P 500': 'S&P 500', 'Dow Jones': 'Dow Jones', 'Nasdaq Composite': 'Nasdaq' }, spL = OVL['S&P 500'];
   // % or absolute change (owner's switch, 15 Oct 2026): the quote's own change when it has one, else worked back from the %.
   const chg = (p, last, change, dp) => { if (p == null) return '–'; if (!S.chgAbs) return pct(p, 2);
     const a = change != null ? change : (last != null ? last * p / (100 + p) : null);
@@ -765,11 +771,13 @@ function briefParts(){
          usd ? (ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? bClose(C.fx.date) : ''), usd && usd.change_pct),
     tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct, goldRaw.last, goldRaw.change, 0) : '–', goldRaw ? (ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : '', goldRaw && goldRaw.change_pct),
     tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct, crudeUsd.last) : '–', crudeUsd ? (ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : '', crudeUsd && crudeUsd.change_pct),
-    tile('S&P 500', sp ? fmt(sp.last, 0) : '–', sp ? chg(sp.change_pct, sp.last, sp.prev != null ? sp.last - sp.prev : null) : '–', sp ? bClose(sp.date) : '', sp && sp.change_pct),
+    spL ? tile('S&P 500', fmt(spL.last, 0), chg(spL.change_pct, spL.last), usWhen(spL), spL.change_pct)
+        : tile('S&P 500', sp ? fmt(sp.last, 0) : '–', sp ? chg(sp.change_pct, sp.last, sp.prev != null ? sp.last - sp.prev : null) : '–', sp ? bClose(sp.date) : '', sp && sp.change_pct),
     ...ovs.map(o => tile(o.name, fmt(o.last, 2), chg(o.change_pct, o.last), o.at ? (o.today ? 'As of ' + o.at + ' IST' : 'Last quote · ' + o.at.slice(7) + ' IST · ' + o.at.slice(0, 6) + ' ' + yr) : '', o.change_pct))
   ].join('');
   const moves = briefBars([
-    ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => ({ label: k.replace(' Composite', ''), v: glob[k].change_pct, txt: chg(glob[k].change_pct) })),
+    ...Object.keys(glob).filter(k => !/WTI/.test(k)).map(k => { const L = OVL[GLOB_LIVE[k]], p = L ? L.change_pct : glob[k].change_pct; return { label: k.replace(' Composite', ''), v: p, txt: chg(p) }; }),
+    ...Object.keys(GLOB_LIVE).filter(k => !glob[k] && OVL[GLOB_LIVE[k]]).map(k => ({ label: GLOB_LIVE[k], v: OVL[GLOB_LIVE[k]].change_pct, txt: chg(OVL[GLOB_LIVE[k]].change_pct) })),
     ...(goldRaw ? [{ label: 'Gold', v: goldRaw.change_pct, txt: chg(goldRaw.change_pct) }] : []),
     ...(crudeUsd ? [{ label: 'Crude US$', v: crudeUsd.change_pct, txt: chg(crudeUsd.change_pct) }] : [])
   ]);

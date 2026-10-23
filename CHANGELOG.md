@@ -2,6 +2,17 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-23
+
+### Live US markets on the phone and dashboard (Fri 23 Oct 2026)
+Owner, 21:33 IST with the US market open: "I think the US markets are showing yesterday's levels, not live". The phone's
+Brief (and the dashboard's Today) read the S&P 500, Dow and Nasdaq from FRED's daily closes, published the next US
+morning: at 18:42 on Friday the latest was Wednesday's (7,757, +0.58%; live at 22:46 it was 7,625.66, -0.49%). The relay's
+one-a-minute Yahoo request (Europe and US futures) now also carries the S&P 500, Dow Jones and Nasdaq cash indices, the
+phone's quote call receives it, and both pages use it: "Live · HH:MM IST" while trading, else "Last quote · HH:MM IST ·
+day". FRED stays as the fallback. The cash indices are their own group, so the expiry meter's US-futures input is
+unchanged. Phone cache v41.
+
 ## 2026-10-21
 
 ### Two fixes from today's review (Wed 21 Oct 2026, evening)
