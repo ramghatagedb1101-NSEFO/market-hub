@@ -6,6 +6,8 @@ first) and `CLAUDE.md`.
 ## Sun 25 Oct 2026 -- read this first
 - **F&O positions** now update daily (were stuck on 15 Oct); **expiry-history.yml** runs weekly (Sat 07:30 IST) so the
   option-price rank stays current; weekend quotes labelled "Close · Fri …". See CHANGELOG 25 Oct.
+- **Written brief** works again (failed 20-25 Oct; NVIDIA model fallbacks, keeps the last good brief). The daily check now
+  reads inside the files (brief errors, stale sections). During any audit, read the private repo's state/source_health.json first.
 
 ## Sat 24 Oct 2026 -- read this first
 - **US figures keep their live values when the quote fails** (phone v43, dashboard via relay): see CHANGELOG 24 Oct.
