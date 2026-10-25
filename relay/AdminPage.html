@@ -931,8 +931,19 @@ const bDay = d => d ? DOW3[d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + MON3[d.
 const bTime = d => d ? String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0') + ' IST' : '';
 const bClose = day => day ? 'Close · ' + bDay(dayOf(day)) : 'Close';
 const bSnap = ts => { const d = istOf(ts); return d ? 'As of ' + bTime(d) + ' · ' + bDay(d) : ''; };
+// A quote taken at a weekend or before 09:00 is the last session's close (25 Oct 2026: Kite answers at weekends with
+// Friday's prices, stamped with the time asked). Weekday evenings keep their time: MCX trades until 23:30.
+function closeDayOf(d){
+  const m = d.getUTCHours() * 60 + d.getUTCMinutes(), wd = d.getUTCDay();
+  if (wd !== 0 && wd !== 6 && m >= 540) return null;
+  const x = new Date(d.getTime());
+  if (m < 540 && wd >= 1 && wd <= 5) x.setUTCDate(x.getUTCDate() - 1);
+  while (x.getUTCDay() === 0 || x.getUTCDay() === 6) x.setUTCDate(x.getUTCDate() - 1);
+  return x;
+}
 function bQuote(ts){
   const d = istOf(ts); if (!d) return '';
+  const cd = closeDayOf(d); if (cd) return 'Close · ' + bDay(cd);
   const now = new Date(Date.now() + 5.5 * 3600e3), m = now.getUTCHours() * 60 + now.getUTCMinutes();
   const open = now.getUTCDay() >= 1 && now.getUTCDay() <= 5 && m >= 555 && m <= 930;
   return open && bDay(d) === bDay(now) ? 'Live · ' + bTime(d) : 'Last quote · ' + bTime(d) + ' · ' + bDay(d);
@@ -1137,7 +1148,7 @@ function pagePositions(){
     return '<div class="panel kpi"><div class="k">' + w + ' index futures long</div><div class="v">' + (r == null ? '–' : num(r, 0) + '%') + '</div><div class="s ' + cls(r != null && r5 != null ? r - r5 : null) + '">' + (r != null && r5 != null ? (r - r5 >= 0 ? '+' : '') + num(r - r5, 1) + ' pts in a week' : '') + '</div></div>'; }).join('');
   const iv = I.iv || {};
   const ivRows = Object.keys(iv).map(k => '<tr><td class="l"><b>' + esc(k) + '</b></td><td class="num">' + num(iv[k].last[1], 2) + '%</td><td class="num">' + esc(bDay(dayOf(iv[k].last[0]))) + '</td><td class="num">' + (iv[k].rank == null ? '–' : iv[k].rank) + '</td><td class="l muted" style="font-size:12px">' + (iv[k].rank >= 70 ? 'options dear' : iv[k].rank <= 30 ? 'options cheap' : 'middle') + '</td></tr>').join('');
-  v.innerHTML = '<div class="page-head"><div><p class="sub">Who holds index futures long or short, from exchange data, and how dear index options have been.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Who holds index futures long or short (NSE, after each close): FIIs under about 20% long means they are heavily short. And how dear index options were before the latest expiry: dear favours selling options, cheap favours buying. Background only: not used in the forecasts.' + (days.length ? ' Positions: ' + esc(bClose(days[days.length - 1])) + '.' : '') + '</p></div></div>' +
     '<div class="grid g4" style="margin-bottom:14px">' + cards + '</div>' +
     '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Share of index futures held long</h3>' + seg2('POS_WHO', POS_WHO, [['FII', 'FII'], ['DII', 'DII'], ['Pro', 'Pro'], ['Client', 'Client']]) + '</div><div class="panel-b"><div class="chart" style="height:260px"><canvas id="cPos"></canvas></div></div></div>' +
     '<div class="panel"><div class="panel-h"><h3>Index option prices</h3><span class="muted" style="font-size:12px">day-before at-the-money straddle as % of the index, latest expiry; rank 0–100 against 3 years</span></div>' +
@@ -2599,7 +2610,7 @@ function tapeTick(){
     el.innerHTML = TAPE_NAMES.map(([k, n]) => item(n, (d.indices || {})[k])).join('') + item('VIX', d.india_vix) +
       item('GOLD', x.gold) + item('CRUDE', x.crude) + item('USD/INR', x.usd_inr) +
       ((d.overseas && d.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym)).map(o => item(esc(o.name).toUpperCase(), o)).join('') +
-      '<span class="t">' + (open ? 'Live · ' + hm + ' IST' : 'Last quote · ' + hm + ' IST · ' + dayTxt) + '</span>';
+      '<span class="t">' + (open ? 'Live · ' + hm + ' IST' : bQuote(d.ts)) + '</span>';
   }).catch(() => {});
 }
 

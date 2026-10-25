@@ -2,6 +2,27 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-25
+
+### F&O positions stuck on Thu 15 Oct; option prices a fortnight old; weekend quote label (Sun 25 Oct 2026)
+Owner, with a screenshot of the F&O tab: "I don't know what is the relevance of this, and why is the data showing as of
+Thursday?"
+- **Index futures held long (FII/DII/Pro/Client) stuck on 15 Oct**: `hub/insights.py` `positions()` stopped looking as soon
+  as it held 60 days, so after its first run filled them (16 Oct) it never fetched a new day. Now it always walks back from
+  yesterday to the newest day held (dry run on the stored history: fetches 16-23 Oct), then fills older gaps. Corrects the
+  23 Oct audit, which marked this panel "previous session" from the code without checking the date in the file.
+- **Index option prices a fortnight behind** (NIFTY 13 Oct, SENSEX 8 Oct): they come from the expiry history records, which
+  `expiry-history.yml` only added when run by hand. It now also runs every Saturday at 07:30 IST (new expiries only, about
+  ten free NSE/BSE requests), before the 08:05 insights job. METHOD.md (private) updated first.
+- **What the panels mean**: each now has one plain line (share of futures bets that gain if the market rises; FIIs under
+  about 20% means heavily short; the straddle is the move the market was pricing in, dear favours selling options, cheap
+  buying; background only, not used in the forecasts), and each option-price row shows its expiry date. Dashboard
+  Positioning page: the same words and the positions date.
+- **Header said "Last quote · 14:48 IST · Sun 25 Oct 2026"**: Kite answers at weekends with Friday's prices, stamped with the
+  time asked. A quote taken at a weekend or before 09:00 now reads "Close · Fri 23 Oct 2026" (phone and dashboard).
+  Weekday evenings keep their time because MCX trades until 23:30. A weekday market holiday still shows the time.
+- Phone cache v44.
+
 ## 2026-10-24
 
 ### US markets fell back to old closes when the quote failed (Sat 24 Oct 2026, 00:50 IST)

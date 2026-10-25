@@ -229,9 +229,16 @@ def _participant(text: str) -> dict | None:
 def positions(n: Nse, today: date, prior: dict) -> dict:
     hist = dict(prior)
     d, tried, start = today, 0, n.calls          # its own allowance: the insider step has used ~450 calls by now
-    while tried < 90 and len([k for k in hist if k >= (today - timedelta(days=POSITION_DAYS * 1.6)).isoformat()]) < POSITION_DAYS:
+    # 25 Oct 2026 (owner: "why is the data showing as of Thursday?"): the loop used to stop as soon as 60 days were held,
+    # so after the first run filled them (16 Oct) it never fetched a new day and the phone stayed on Thu 15 Oct. Now it
+    # always walks back from yesterday to the newest day held, then fills older gaps only while fewer than 60 are held.
+    newest = max(hist) if hist else ""
+    window = (today - timedelta(days=POSITION_DAYS * 1.6)).isoformat()
+    while tried < 90:
         d -= timedelta(days=1)
         tried += 1
+        if d.isoformat() <= newest and len([k for k in hist if k >= window]) >= POSITION_DAYS:
+            break
         if d.weekday() >= 5 or d.isoformat() in hist:
             continue
         txt = n.text(ARCH + f"nsccl/fao_participant_oi_{d:%d%m%Y}.csv")

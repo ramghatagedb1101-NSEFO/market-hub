@@ -303,6 +303,16 @@
   function asQuote(ts){
     const d = toIst(ts); if (!d) return "";
     const now = toIst(new Date().toISOString());
+    // 25 Oct 2026: Kite still answers at weekends with Friday's prices, stamped with the time asked ("Last quote · 14:48
+    // IST · Sun 25 Oct"). A quote taken at a weekend or before 09:00 is the last session's close, so say which session.
+    // (Weekday evenings keep their time: MCX gold and crude trade until 23:30.)
+    const m = d.getUTCHours() * 60 + d.getUTCMinutes(), wd = d.getUTCDay();
+    if (wd === 0 || wd === 6 || m < 540) {
+      const x = new Date(d.getTime());
+      if (m < 540 && wd >= 1 && wd <= 5) x.setUTCDate(x.getUTCDate() - 1);
+      while (x.getUTCDay() === 0 || x.getUTCDay() === 6) x.setUTCDate(x.getUTCDate() - 1);
+      return "Close · " + dayTxt(x);
+    }
     return marketOpenIst() && dayTxt(d) === dayTxt(now) ? "Live · " + timeTxt(d) : "Last quote · " + timeTxt(d) + " · " + dayTxt(d);
   }
   const as24h = ts => { const d = toIst(ts); return "24 h · " + timeTxt(d); };
@@ -1067,12 +1077,13 @@
       const lastD = days[days.length - 1], wk = days.length > 5 ? days[days.length - 6] : null;
       html += `<div class="sec">Index futures held long · ${esc(asClose(lastD))}</div><div class="panel"><div class="pb">` +
         ["FII", "DII", "Pro", "Client"].map(w => { const a = r(lastD, w), b = wk ? r(wk, w) : null;
-          return `<div class="row"><span class="l">${w}</span><span class="r">${a == null ? "–" : f(a, 0) + "%"} <span class="${cls(a != null && b != null ? a - b : null)}">${a != null && b != null ? (a - b >= 0 ? "+" : "") + f(a - b, 1) + " in a week" : ""}</span></span></div>`; }).join("") + `</div></div>`;
+          return `<div class="row"><span class="l">${w}</span><span class="r">${a == null ? "–" : f(a, 0) + "%"} <span class="${cls(a != null && b != null ? a - b : null)}">${a != null && b != null ? (a - b >= 0 ? "+" : "") + f(a - b, 1) + " in a week" : ""}</span></span></div>`; }).join("") +
+        `<div class="note">Of each group's index-futures bets, the share that gains if the market rises (NSE, after each close). FIIs under about 20% means they are heavily short; traders watch for that share turning up. Background only: not used in the forecasts.</div></div></div>`;
     }
     const iv = (I && I.iv) || {};
     if (Object.keys(iv).length) html += `<div class="sec">Index option prices</div><div class="panel"><div class="pb">` +
-      Object.keys(iv).map(k => `<div class="row"><span class="l">${esc(k)} · straddle ${f(iv[k].last[1], 2)}% of index</span><span class="r">rank ${iv[k].rank == null ? "–" : iv[k].rank} · ${iv[k].rank >= 70 ? "dear" : iv[k].rank <= 30 ? "cheap" : "middle"}</span></div>`).join("") +
-      `<div class="note">Day-before at-the-money straddle on the latest expiry; rank 0–100 against 3 years.</div></div></div>`;
+      Object.keys(iv).map(k => `<div class="row"><span class="l">${esc(k)} · ${f(iv[k].last[1], 2)}% · ${esc(dayTxt(parseDay(iv[k].last[0])).slice(4))}</span><span class="r">rank ${iv[k].rank == null ? "–" : iv[k].rank} · ${iv[k].rank >= 70 ? "dear" : iv[k].rank <= 30 ? "cheap" : "middle"}</span></div>`).join("") +
+      `<div class="note">The cost of an at-the-money straddle the day before each index's latest expiry, as % of the index: the move the market was pricing in. Rank 73 = dearer than 73% of expiries in 3 years. Dear favours selling options, cheap favours buying. Date = expiry.</div></div></div>`;
     el.innerHTML = html;
     drawPaperCard(); if (!PAPER) loadPaper();
   }

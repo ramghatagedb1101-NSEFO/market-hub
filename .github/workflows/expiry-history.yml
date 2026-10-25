@@ -3,9 +3,12 @@ name: expiry-history
 # Expiry history test (13 Oct 2026; hub/expiry_history.py): do option sellers' walls and max pain, read the evening
 # before, predict where NIFTY, BANK NIFTY and SENSEX settle on expiry day, beyond the open? Fits the expiry meter's starting
 # weights from ~3 years of NSE's free end-of-day F&O files. NSE blocks the owner's laptop, so it runs here.
-# Run by hand. Results: private repository state/expiry_history/ (records.json, summary.json) and this run's summary.
+# Weekly on Saturday 07:30 IST (25 Oct 2026: the phone's "Index option prices" panel reads the latest expiry from these
+# records, and with runs by hand only it had fallen a fortnight behind), and by hand. Results: private repository state/expiry_history/ (records.json, summary.json) and this run's summary.
 # Later runs fetch only expiries not yet recorded (about one NSE request a second; a first 3-year run ~500 requests).
 on:
+  schedule:
+    - cron: "0 2 * * 6"          # Saturday 07:30 IST, before insights.yml (08:05) reads the records
   workflow_dispatch:
     inputs:
       start:

@@ -3,6 +3,10 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Sun 25 Oct 2026 -- read this first
+- **F&O positions** now update daily (were stuck on 15 Oct); **expiry-history.yml** runs weekly (Sat 07:30 IST) so the
+  option-price rank stays current; weekend quotes labelled "Close · Fri …". See CHANGELOG 25 Oct.
+
 ## Sat 24 Oct 2026 -- read this first
 - **US figures keep their live values when the quote fails** (phone v43, dashboard via relay): see CHANGELOG 24 Oct.
 - **Data-point audit** under way (23 Oct fixes: NIFTY 50 option screen, AI summaries, data check). Live checks of the Indian
