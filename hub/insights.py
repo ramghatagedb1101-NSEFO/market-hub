@@ -7,7 +7,7 @@ the morning library run (library.yml step) into ONE file, docs/data/insights.jso
   pledge      promoter shares pledged, latest disclosure and whether it rose             NSE pledge disclosures
   calendar    board meetings in the next 45 days (results dates)                          NSE
   filings     announcements of the last 3 days                                            NSE
-  insider     promoter / director market buys and sells over 180 days, per followed company   NSE insider (PIT)
+  insider     promoter / director market buys and sells over 180 days, per followed company   BSE insider file (PIT)
   positions   FII, DII, Pro and Client index futures and options positions, last 60 days  NSE participant-wise OI
   spikes      volume 3x its 20-day average with high delivery                             NSE daily price file
   heatmap     NIFTY Total Market stocks: industry, size, day / 1-month / from 52-week high   library + price file
@@ -18,7 +18,7 @@ the morning library run (library.yml step) into ONE file, docs/data/insights.jso
   alerts      52-week highs/lows, 200-day crossings, results filed, insider buys/sells, saved-screen
               entries and exits, new surveillance flags -- for followed companies; new ones pushed to the phone
 
-Nothing here is a BharatStock call or BharatStock raw data: only NSE files and figures the library already derived.
+Nothing here is a BharatStock call or BharatStock raw data: only NSE/BSE files and figures the library already derived.
 """
 import csv
 import io
@@ -174,36 +174,56 @@ def filings(n: Nse, today: date) -> list:
     return out
 
 
-def insider(n: Nse, syms: list, today: date, prior: dict) -> dict:
-    """{sym: {buy, sell, promoter_net (rupees, market trades only), rows:[latest 6]}} over INSIDER_DAYS."""
-    cut = (today - timedelta(days=INSIDER_DAYS)).isoformat()
-    out = {}
-    for sym in syms:
-        body = n.json(NSE + f"corporates-pit?index=equities&symbol={requests.utils.quote(sym)}")
-        time.sleep(0.35)
-        if body is None:
-            if sym in prior:
-                out[sym] = prior[sym]
+BSE_PIT = "https://api.bseindia.com/BseIndiaAPI/api/Corp_Regulation_DownloadCSV_ng/w"
+
+
+def insider(syms: list, today: date) -> dict:
+    """{sym: {buy, sell, promoter_net (rupees, market trades only), rows:[latest 6]}} over INSIDER_DAYS.
+
+    26 Oct 2026: from BSE's insider-trading file (SEBI PIT Regulation 7(2)), one call for the whole window. NSE's
+    per-company list (corporates-pit) has had no new rows since 28 Apr 2026; BSE's is current and covers every
+    company listed on both exchanges. Companies listed only on NSE get none. Only the person's name and category,
+    date, side and value are kept (the file also carries addresses and PANs: never stored)."""
+    from . import bse
+    want = set(syms)
+    sym_of = {code: sym for sym, code in bse.codes().items() if sym in want}
+    cut = today - timedelta(days=INSIDER_DAYS)
+    r = bse._get(BSE_PIT, params={"scripCode": "", "Regulation": "", "fromDT": cut.strftime("%Y%m%d"),
+                                  "ToDate": today.strftime("%Y%m%d"), "Isdefault": "2"})
+    lines = list(csv.reader(io.StringIO(r.text)))
+    if r.status_code != 200 or len(lines) < 2:
+        raise ValueError(f"BSE insider file: status {r.status_code}, {len(lines)} lines")
+    head = [" ".join(h.split()).lower() for h in lines[0]]
+
+    def col(prefix):
+        return next(i for i, h in enumerate(head) if h.startswith(prefix))
+    i_code, i_who, i_cat, i_val, i_day, i_mode = (col("security code"), col("name of person"), col("category of person"),
+                                                  col("value of securities"), col("date of acquisition"), col("mode of acquisition"))
+    per = {}
+    for row in lines[1:]:
+        if len(row) < len(head):
             continue
-        rows = []
-        for r in body.get("data") or []:
-            mode = str(r.get("acqMode") or "")
-            if "market" not in mode.lower():
-                continue                       # pledges, ESOPs, gifts, inter-se transfers: not a trade
-            d = _day(r.get("acqfromDt") or r.get("date"))
-            if not d or d.isoformat() < cut or d > today + timedelta(days=1):
-                continue                       # outside the window, or a typo'd future date (one row says 2924)
-            before, after = _num(r.get("befAcqSharesNo")), _num(r.get("afterAcqSharesNo"))
-            kind = str(r.get("tdpTransactionType") or "").title() or ("Buy" if (after or 0) >= (before or 0) else "Sell")
-            rows.append({"d": d.isoformat(), "who": str(r.get("acqName") or "")[:60], "cat": str(r.get("personCategory") or "")[:30],
-                         "k": "Buy" if kind.startswith("Buy") else "Sell", "v": _num(r.get("secVal")) or 0.0,
-                         "id": str(r.get("did") or r.get("pid") or "") + d.isoformat() + str(r.get("acqName") or "")[:20]})
+        sym = sym_of.get(row[i_code].strip())
+        mode = row[i_mode].strip().lower()
+        if not sym or not mode.startswith("market"):
+            continue                       # pledges, ESOPs, gifts, inter-se transfers, off-market: not a trade
+        try:
+            d = datetime.strptime(row[i_day].strip(), "%d %b %Y").date()
+        except ValueError:
+            continue
+        if d < cut or d > today + timedelta(days=1):
+            continue                       # outside the window, or a typo'd future date
+        who = " ".join(row[i_who].split())
+        per.setdefault(sym, []).append({"d": d.isoformat(), "who": who[:60], "cat": row[i_cat].strip()[:30],
+                                        "k": "Buy" if "purchase" in mode else "Sell", "v": _num(row[i_val]) or 0.0,
+                                        "id": "bse" + row[i_code].strip() + d.isoformat() + who[:20]})
+    out = {}
+    for sym, rows in per.items():
         rows.sort(key=lambda x: x["d"], reverse=True)
         buy = sum(x["v"] for x in rows if x["k"] == "Buy")
         sell = sum(x["v"] for x in rows if x["k"] == "Sell")
         prom = sum((x["v"] if x["k"] == "Buy" else -x["v"]) for x in rows if "promoter" in x["cat"].lower())
-        if rows:
-            out[sym] = {"buy": round(buy), "sell": round(sell), "promoter_net": round(prom), "n": len(rows), "rows": rows[:6]}
+        out[sym] = {"buy": round(buy), "sell": round(sell), "promoter_net": round(prom), "n": len(rows), "rows": rows[:6]}
     return out
 
 
@@ -228,7 +248,7 @@ def _participant(text: str) -> dict | None:
 
 def positions(n: Nse, today: date, prior: dict) -> dict:
     hist = dict(prior)
-    d, tried, start = today, 0, n.calls          # its own allowance: the insider step has used ~450 calls by now
+    d, tried, start = today, 0, n.calls          # its own allowance, apart from the other NSE steps
     # 25 Oct 2026 (owner: "why is the data showing as of Thursday?"): the loop used to stop as soon as 60 days were held,
     # so after the first run filled them (16 Oct) it never fetched a new day and the phone stayed on Thu 15 Oct. Now it
     # always walks back from yesterday to the newest day held, then fills older gaps only while fewer than 60 are held.
@@ -581,7 +601,7 @@ def main() -> dict:
     pledge = step("pledge", lambda: pledges(n, today, names, st.get("pledge") or {}), st.get("pledge") or {})
     cal = step("calendar", lambda: calendar(n, today), [])
     fil = step("filings", lambda: filings(n, today), [])
-    ins = step("insider", lambda: insider(n, followed, today, st.get("insider") or {}), st.get("insider") or {})
+    ins = step("insider", lambda: insider(followed, today), st.get("insider") or {})
     pos = step("positions", lambda: positions(n, today, st.get("positions") or {}), st.get("positions") or {})
 
     factors_ = {}

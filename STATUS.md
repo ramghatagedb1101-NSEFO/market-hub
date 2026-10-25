@@ -24,8 +24,8 @@ first) and `CLAUDE.md`.
   (design system, 14-item menu with tabs, theme switch). Next: phase 2 page by page, then paper trading v2 (must items;
   owner keeps typed prices and trade deletion).
 - **Daily source check** (`source-health.yml`, 09:10 IST Mon-Sat): emails when a data file stops changing, an insights
-  section goes empty or old, or a scheduled job fails. Known open problem it reports: insider trades (NSE list stopped
-  28 Apr 2026; BSE's list to be tested).
+  section goes empty or old, or a scheduled job fails. Insider trades now come from BSE's file (26 Oct 2026; NSE's list
+  stopped 28 Apr 2026).
 
 ## Fri 16 Oct 2026 -- read this first
 - **Public history cleaned** (19:20 IST): private files removed from every old commit; all commit ids changed. Any other

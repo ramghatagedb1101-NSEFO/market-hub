@@ -2,6 +2,19 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-26
+
+### Insider trades back: BSE's file replaces NSE's stalled list (Mon 26 Oct 2026, 00:45)
+NSE's per-company insider list (`corporates-pit`) has had no new rows since 28 Apr 2026, so the phone and dashboard
+insider sections and the promoter buy/sell alerts showed six-month-old trades. BSE publishes the same SEBI insider
+disclosures as a free CSV (`Corp_Regulation_DownloadCSV_ng`): one call returns the whole 180 days (9,136 filings,
+about 2,900 market trades, newest filed Sat 24 Oct 2026). `hub/insights.py` `insider()` now reads that file instead
+of ~450 NSE calls, matched to NSE symbols through BSE's scrip list (`hub/bse.py`). Test on real data: 426 companies
+with market trades, newest trade Wed 21 Oct 2026. Kept: name, category, date, side, value only (the file also holds
+addresses and PANs; never stored). Limit: companies listed only on NSE get no insider rows. Alerts still fire only
+for promoter trades in the last 7 days, so the switch does not resend old trades. The dashboard's "no new entries"
+notice goes by itself once the data is current. [method: no change]
+
 ## 2026-10-25
 
 ### Written brief failing since 20 Oct; daily check now reads inside the files (Sun 25 Oct 2026, evening)
