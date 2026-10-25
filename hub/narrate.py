@@ -100,16 +100,28 @@ Data:
 
 NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+# 25 Oct 2026: from the evening of 20 Oct NVIDIA answered 404 ("Function ... Not found for account") for the model above,
+# and the brief failed on 10 of 12 runs (Gemini's fallback timed out). Other free NIM models are tried in turn on a 404.
+NVIDIA_FALLBACKS = ["nvidia/llama-3.1-nemotron-ultra-253b-v1", "mistralai/mistral-large-2-instruct", "openai/gpt-oss-20b"]
 
 
 def _write_nvidia(api_key: str, prompt: str) -> str:
     """NVIDIA NIM (OpenAI-compatible). Free credits on build.nvidia.com."""
-    r = requests.post(NVIDIA_URL, headers={"Authorization": f"Bearer {api_key}"},
-                      json={"model": NVIDIA_MODEL, "messages": [{"role": "user", "content": prompt}],
-                            "max_tokens": 6000, "temperature": 0.3},
-                      timeout=120)
+    global NVIDIA_MODEL
+    errors = []
+    for model in [NVIDIA_MODEL] + [m for m in NVIDIA_FALLBACKS if m != NVIDIA_MODEL]:
+        r = requests.post(NVIDIA_URL, headers={"Authorization": f"Bearer {api_key}"},
+                          json={"model": model, "messages": [{"role": "user", "content": prompt}],
+                                "max_tokens": 6000, "temperature": 0.3},
+                          timeout=120)
+        if r.status_code == 200:
+            NVIDIA_MODEL = model
+            break
+        errors.append(f"{model}: {r.status_code}")
+        if r.status_code not in (404, 410):
+            break
     if r.status_code != 200:
-        raise RuntimeError(f"NVIDIA returned {r.status_code}: {r.text[:300]}")
+        raise RuntimeError(f"NVIDIA returned {r.status_code}: {r.text[:200]} (tried {', '.join(errors)})")
     msg = r.json()["choices"][0]["message"]
     # Reasoning models may put the answer in content, or leave it empty and only fill reasoning_content.
     text = (msg.get("content") or "").strip() or (msg.get("reasoning_content") or "").strip()
@@ -126,7 +138,12 @@ def _write_gemini(key: str, prompt: str) -> str:
     body = {"contents": [{"parts": [{"text": prompt}]}]}
     r = None
     for attempt in range(4):   # Gemini returns 429/503 under load; back off and retry
-        r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key}, json=body, timeout=60)
+        try:                   # 25 Oct 2026: it timed out at 60 s on most runs since 20 Oct; 180 s, and a timeout is retried
+            r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key}, json=body, timeout=180)
+        except requests.Timeout:
+            if attempt == 3:
+                raise
+            continue
         if r.status_code not in (429, 503):
             break
         time.sleep(15 * (attempt + 1))
@@ -175,6 +192,14 @@ def main() -> dict:
             both = f"NVIDIA: {nv_error}. Gemini: {exc}" if nv_error else str(exc)
             out["text"] = f"Daily brief could not be written. {both}"
             out["source"] = "none"
+            # 25 Oct 2026: keep the last good brief (its own time shows on the page) instead of replacing it with an error.
+            try:
+                old = json.loads(BRIEF_FILE.read_text(encoding="utf-8"))
+                if old.get("source") not in (None, "", "none") and old.get("text"):
+                    old["last_error"] = {"ts": out["ts"], "error": both[:300]}
+                    out = old
+            except (OSError, ValueError):
+                pass
     elif not out["text"]:
         # NVIDIA failed and there is no Gemini key to fall back to.
         out["text"] = f"Daily brief could not be written ({NVIDIA_MODEL}). {nv_error}"

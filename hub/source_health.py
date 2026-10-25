@@ -135,6 +135,68 @@ def check_sections(now: datetime) -> list:
     return out
 
 
+# Inside the other files (25 Oct 2026): a file can be rewritten every day while what it holds is old or an error. The
+# written brief said "could not be written" on 10 of 12 runs from 20 Oct and the file check saw a fresh file each time.
+# path, what, rule(d, today) -> problem text or None. Ages are calendar days, generous enough for a weekend.
+def _newest(o, out=None):
+    out = [] if out is None else out
+    if isinstance(o, dict):
+        for k, v in o.items():
+            x = _day(k)
+            if x: out.append(x)
+            _newest(v, out)
+    elif isinstance(o, list):
+        for v in o: _newest(v, out)
+    elif isinstance(o, str) and len(o) < 40:
+        x = _day(o)
+        if x: out.append(x)
+    return out
+
+
+def _older(last, today, days, what="newest entry"):
+    if last is None:
+        return "no dated entries"
+    return f"{what} is from {last:%a %d %b %Y} ({(today - last).days} days old)" if (today - last).days > days else None
+
+
+def _max_ok(dates, today):
+    dates = [x for x in dates if x and x <= today + timedelta(days=1)]
+    return max(dates) if dates else None
+
+
+CONTENTS = [
+    ("site/brief.json", "written market brief",
+     lambda d, t: ("could not be written: " + str((d.get("last_error") or {}).get("error") or d.get("text"))[:140])
+     if d.get("source") in (None, "", "none") or d.get("last_error") else None),
+    ("site/context.json", "FII/DII cash flows", lambda d, t: _older(_max_ok([_day(r.get("date")) for r in d.get("fii_dii") or []], t), t, 4)),
+    ("site/context.json", "US closes (FRED, fallback)", lambda d, t: _older(_max_ok([_day(v.get("date")) for v in (d.get("global") or {}).values()], t), t, 5)),
+    ("site/context.json", "market context sources", lambda d, t: ("; ".join(f"{k}: {v}" for k, v in d["errors"].items())[:160]) if d.get("errors") else None),
+    ("site/feed.json", "NIFTY forecast data", lambda d, t: _older(_day(((d.get("indices") or {}).get("NIFTY") or {}).get("last_date")), t, 4, "last close")),
+    ("site/shortlist.json", "Shortlist weekly list", lambda d, t: _older(_max_ok(_newest(d.get("lists")), t), t, 9)),
+    ("site/bulk_deals.json", "bulk deals", lambda d, t: _older(_day(d.get("last_day")), t, 4, "last day")),
+    ("site/summaries.json", "AI summaries", lambda d, t: _older(_max_ok(_newest(d), t), t, 5, "newest summary")),
+]
+
+
+def check_contents(now: datetime) -> list:
+    today, out, cache = now.date(), [], {}
+    for path, what, rule in CONTENTS:
+        if path not in cache:
+            r = _request("GET", f"{API}/repos/{PRIVATE_REPO}/contents/{path}?ref={BRANCH}", headers=_headers("application/vnd.github.raw"))
+            try:
+                cache[path] = r.json() if r.status_code == 200 else None
+            except ValueError:
+                cache[path] = None
+        d = cache[path]
+        try:
+            text = "could not be read" if d is None else rule(d, today)
+        except Exception as e:
+            text = f"check failed: {e}"[:120]
+        if text:
+            out.append({"id": "in:" + path + ":" + what, "what": what, "text": text})
+    return out
+
+
 def check_jobs() -> list:
     token = os.getenv("GITHUB_TOKEN", "")
     if not token:
@@ -182,7 +244,7 @@ def _save_state(st, sha):
 def main() -> dict:
     now = _now()
     problems = []
-    for part in (check_files, check_sections):
+    for part in (check_files, check_sections, check_contents):
         try:
             problems += part(now)
         except Exception as e:                     # one broken check must not hide the others

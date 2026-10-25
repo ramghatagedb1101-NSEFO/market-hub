@@ -4,6 +4,20 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-25
 
+### Written brief failing since 20 Oct; daily check now reads inside the files (Sun 25 Oct 2026, evening)
+Owner: "Why was this not caught in the full fledged audit". It was not a full audit: the 23 Oct pass checked jobs, file
+times and code, not the date or content of each figure. The daily check *had* flagged the stale positions and SENSEX option
+prices (email Sat 24 Oct 09:36); I did not read its findings during the audit. A date audit of every section of every data
+file (25 Oct) found one more problem nobody had flagged:
+- **Written brief** (phone Brief "Read the written brief", dashboard Today): "Daily brief could not be written" on 10 of the
+  last 12 runs since the evening of 20 Oct. NVIDIA answers 404 for its model on this account, and Gemini's fallback timed
+  out at 60 s. `hub/narrate.py` now tries three other free NVIDIA models on a 404, gives Gemini 180 s with a retry on a
+  timeout, and if everything fails keeps the last good brief (with its own time) instead of an error message.
+- **Daily check, new "inside the files" rules** (`hub/source_health.py` `check_contents`): the brief is an error; FII/DII
+  flows, US closes, NIFTY forecast data, bulk deals or AI summaries older than a few days; Shortlist's weekly list older
+  than 9 days; any market-context source error. Tested on today's real files: flags the brief, passes the rest.
+- Option-price history brought up to date now (402 expiries, from 399); positions refreshed by an insights run tonight.
+
 ### F&O positions stuck on Thu 15 Oct; option prices a fortnight old; weekend quote label (Sun 25 Oct 2026)
 Owner, with a screenshot of the F&O tab: "I don't know what is the relevance of this, and why is the data showing as of
 Thursday?"
