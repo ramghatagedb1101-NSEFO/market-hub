@@ -545,6 +545,9 @@
     const mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
     const dueToday = String(t.target || "").slice(0, 10) === todayIst;
     const lts = live && (live.ts || (LIVE && LIVE.ts)), liveToday = live && live.last && lts && toIst(lts).toISOString().slice(0, 10) === todayIst;
+    // 15:30 until the evening update moves the card to the next session: the day is over, show its close, not an
+    // estimate (26 Oct 2026: GIFT kept trading and the card would have "estimated" a session that had closed)
+    if (dueToday && mins >= 930) return { closed: true, pred: liveToday ? live.last : t.base };
     if (dueToday && liveToday && mins >= 555 && mins < 930 && marketOpenIst()) {
       // the index's own expiry day: calmer afternoons (pinning), config.EXPIRY_RANGE_* (hub/diag_expiry_close.py)
       const left = Math.sqrt((930 - mins) / 375);
@@ -618,7 +621,7 @@
     const t0 = b.today || {};
     const live0 = LIVE && LIVE.indices && LIVE.indices[name];
     const est = t0.actual == null ? closeEstimate(name, t0, live0) : null;
-    const t = est ? Object.assign({}, t0, est, { expected_move_pct: (est.pred / t0.base - 1) * 100 }) : t0;
+    const t = est && !est.closed ? Object.assign({}, t0, est, { expected_move_pct: (est.pred / t0.base - 1) * 100 }) : t0;
     const live = LIVE && LIVE.indices && LIVE.indices[name];
     const last = live ? live.last : b.last_close;
     const chg = live ? live.change_pct : (b.history.length > 1 ? (b.last_close / b.history[b.history.length-2].c - 1) * 100 : null);
@@ -629,11 +632,14 @@
     const todayIst = toIst(new Date().toISOString()).toISOString().slice(0, 10);
     const dueToday = t.target && String(t.target).slice(0, 10) === todayIst;
     const flag = t.actual != null ? (inside ? `<span class="flag g">IN BAND</span>` : `<span class="flag r">OUT OF BAND</span>`)
-      : dueToday ? `<span class="flag">CLOSES 15:30 IST</span>` : `<span class="flag">${esc(("Next session · " + dayTxt(parseDay(t.target))).toUpperCase())}</span>`;
+      : dueToday ? (est && est.closed ? `<span class="flag">CLOSED</span>` : `<span class="flag">CLOSES 15:30 IST</span>`) : `<span class="flag">${esc(("Next session · " + dayTxt(parseDay(t.target))).toUpperCase())}</span>`;
     const actualRow = t.actual != null ? `<span class="l">Actual close</span><span class="r">${f(t.actual,2)} &nbsp;${pct((t.actual / t.pred - 1) * 100)}</span>`
       : dueToday ? `<span class="l">Actual close</span><span class="r">today, after 15:30 IST</span>`
       : null;   // shown in the first row instead (no duplicate)
-    const lastLabel = marketOpenIst() ? "Last" : asClose(lastDay);   // outside market hours the figure is a close
+    // outside market hours the figure is a close: today's when the live quote is from today (15:30 until the evening
+    // update adds today to the history, the label used to say the previous session's date)
+    const quoteDay = LIVE && LIVE.ts ? toIst(LIVE.ts).toISOString().slice(0, 10) : null;
+    const lastLabel = marketOpenIst() ? "Last" : asClose(live && quoteDay && quoteDay > (lastDay || "") ? quoteDay : lastDay);
     const ahead = b.horizons.day.forecast;
     // The next-session forecast is often the same one as the card's estimate (same target day): show it only
     // when it is a later day, with that day's date (owner, 11 Oct 2026: duplicates).
@@ -644,10 +650,12 @@
       <div class="ph"><span>${esc(NAMES[name] || name)}</span>${flag}</div>
       <div class="pb">
         <div class="row"><span class="l">${esc(lastLabel)}</span><span class="r ${cls(chg)}">${f(last,2)} &nbsp;${pct(chg)}</span></div>
-        <div class="row"><span class="l">Estimate · ${esc(t.target ? "close " + dayTxt(parseDay(t.target)) : "")}</span><span class="r">${f(t.pred,0)} &nbsp;<span class="${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)}</span></span></div>
+        ${est && est.closed
+          ? `<div class="row"><span class="l" style="font-size:12px">Market closed. NSE's official close and the estimate for the next session come with the evening update (about 18:15 IST).</span></div>`
+          : `<div class="row"><span class="l">Estimate · ${esc(t.target ? "close " + dayTxt(parseDay(t.target)) : "")}</span><span class="r">${f(t.pred,0)} &nbsp;<span class="${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)}</span></span></div>
         ${est ? estimateRows(name, t, est) : band(t.base, t.pred, t.lo, t.hi)}
         ${actualRow ? `<div class="row">${actualRow}</div>` : ""}
-        ${est ? "" : `<div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>`}
+        ${est ? "" : `<div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>`}`}
         ${nextRow}
         <div class="row"><span class="l">Settled outcomes</span><span class="r amb">${trk ? trk : "0 · no verdict yet"}</span></div>
         ${(() => { const r = FEED && FEED.close_estimate_record && FEED.close_estimate_record[name];   // recorded since 26 Oct 2026

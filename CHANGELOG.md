@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### After 15:30: the card shows the day as closed (Mon 26 Oct 2026, 15:50)
+Between 15:30 and the evening update the card still had today as its target, so it would have shown a GIFT-based
+"estimate" for a session that had already closed (GIFT keeps trading), and the top row labelled today's last price with
+the previous session's date. Now it shows "CLOSED", "Close · <today>" and a note that the official close and the next
+estimate come with the evening update. Phone v51.
+
 ### Expiry-day close estimate (Mon 26 Oct 2026, 16:00)
 Owner: "make it better at expiry specifically". Tested on 402 past expiries (`hub/diag_expiry_close.py`):
 - **Max pain and option walls do not pull the close**: towards max pain only 39-55% of the time at every hour for NIFTY
