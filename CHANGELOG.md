@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### Close-estimate card: direction odds, typical miss, strike odds (Mon 26 Oct 2026, 15:40)
+Owner: "80% range is of no use". The card (phone v48) now shows the estimate, the direction from the last close with its
+chance ("Up from 22,600 · 66% chance"), the typical miss in points, and the chance of closing above three round strikes
+around the estimate; the reason and the 80% range are behind a tap. All are read from the same tested estimate and range
+(normal in log terms). The typical miss uses current volatility (NIFTY about 1.0% a day now against about 0.6% on
+average over two years), so it is wider than the two-year averages quoted in chat. The recorder saves each stated chance
+so the feed can check that "66%" comes true about two times in three.
+
 ### Expiry days: GIFT Nifty still works; part of its move fades (Mon 26 Oct 2026, 15:20)
 Owner: "see if it can predict tomorrow's expiry close". On 145 NIFTY weekly expiry days GIFT's 09:00 move called the
 close's direction right 68% (NIFTY), 66% (BANK NIFTY), 67% (SENSEX), and 89% / 77% / 89% on the biggest 30% of moves.

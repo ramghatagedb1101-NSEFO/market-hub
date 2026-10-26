@@ -42,12 +42,19 @@ def preopen(t: dict, spx_move_pct: float | None, gift_x: float | None = None, id
     elif spx_move_pct is not None and abs(spx_move_pct) >= config.CLOSE_MIN_US_MOVE and t.get("us_beta") is not None:
         lean = t["us_beta"] * math.log(1 + spx_move_pct / 100)
     c = t["base"] * math.exp(lean)
-    return {"pred": c, "lo": c * math.exp(-k), "hi": c * math.exp(k), "lean_pct": lean * 100}
+    return {"pred": c, "lo": c * math.exp(-k), "hi": c * math.exp(k), "lean_pct": lean * 100, **_odds(t["base"], c, k)}
 
 
 def live(t: dict, level: float, mins: int) -> dict:
     w = t["sig_d"] * (config.CLOSE_RANGE_A * math.sqrt(max(930 - mins, 0) / 375) + config.CLOSE_RANGE_C)
-    return {"pred": level, "lo": level * math.exp(-w), "hi": level * math.exp(w)}
+    return {"pred": level, "lo": level * math.exp(-w), "hi": level * math.exp(w), **_odds(t["base"], level, w)}
+
+
+def _odds(base: float, centre: float, half80: float) -> dict:
+    """The card's read-outs (docs/index.html estimateRows): normal in log terms, sigma = 80% half-width / 1.2816;
+    p_up = chance of closing above the last close. Recorded so the odds can be checked for calibration."""
+    sigma = half80 / 1.2816
+    return {"p_up": 0.5 * math.erfc(-math.log(centre / base) / sigma / math.sqrt(2)), "sigma_pct": sigma * 100}
 
 
 def _spx_move(asof: str, target: str):
@@ -110,11 +117,11 @@ def record() -> list:
         new.append({"date": today, "index": idx, "kind": "pre", "at": now.strftime("%H:%M"), "base": t["base"],
                     "cue": "gift" if gift is not None else "spx", "spx_pct": None if spx is None else round(spx, 3),
                     "gift_pct": None if gift is None else round(gift * 100, 3),
-                    **{k: round(v, 2) for k, v in preopen(t, spx, gift, idx).items()}})
+                    **{k: round(v, 4 if k in ("p_up", "sigma_pct") else 2) for k, v in preopen(t, spx, gift, idx).items()}})
         q = (quote.get("indices") or {}).get(idx) or {}
         if 555 <= mins < 930 and q.get("last") and str(quote.get("ts", ""))[:10] == today:
             new.append({"date": today, "index": idx, "kind": "live", "at": now.strftime("%H:%M"), "base": t["base"],
-                        "level": q["last"], **{k: round(v, 2) for k, v in live(t, q["last"], mins).items()}})
+                        "level": q["last"], **{k: round(v, 4 if k in ("p_up", "sigma_pct") else 2) for k, v in live(t, q["last"], mins).items()}})
     for attempt in range(4):                            # append; the sha guard refuses a stale write, then retry
         r = _gh("GET", LOG_PATH)
         sha, log = (r.json()["sha"], json.loads(base64.b64decode(r.json()["content"]))) if r.status_code == 200 else (None, [])
@@ -146,6 +153,11 @@ def summary(prices: dict) -> dict:
         lv = [(e, a) for e, a in rows if e["kind"] == "live"]
         leaned = [(e, a) for e, a in pre if abs(e.get("lean_pct") or 0) > 0]
         s = {"pre_n": len(pre), "live_n": len(lv)}
+        odds = [(e["p_up"], a > e["base"]) for e, a in pre if e.get("p_up") is not None]
+        if odds:                                        # calibration: the mean stated chance vs how often it came true
+            s["pre_p_up_mean"] = round(100 * sum(p for p, _ in odds) / len(odds), 1)
+            s["pre_up_share"] = round(100 * sum(u for _, u in odds) / len(odds), 1)
+            s["pre_brier"] = round(sum((p - u) ** 2 for p, u in odds) / len(odds), 3)
         if pre:
             s["pre_in_band_pct"] = round(100 * sum(e["lo"] <= a <= e["hi"] for e, a in pre) / len(pre), 1)
             s["pre_err_pct"] = round(sum(abs(a / e["pred"] - 1) for e, a in pre) / len(pre) * 100, 3)

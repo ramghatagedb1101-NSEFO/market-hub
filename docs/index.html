@@ -547,7 +547,7 @@
     const lts = live && (live.ts || (LIVE && LIVE.ts)), liveToday = live && live.last && lts && toIst(lts).toISOString().slice(0, 10) === todayIst;
     if (dueToday && liveToday && mins >= 555 && mins < 930 && marketOpenIst()) {
       const w = t.sig_d * (0.656 * Math.sqrt((930 - mins) / 375) + 0.245);
-      return { pred: live.last, lo: live.last * Math.exp(-w), hi: live.last * Math.exp(w), live: true,
+      return { pred: live.last, lo: live.last * Math.exp(-w), hi: live.last * Math.exp(w), live: true, sigma: w / 1.2816,
                why: "Live · " + timeTxt(toIst(lts)) + " · from the live level; the range narrows towards 15:30" };
     }
     let k = Math.log(t.hi / t.lo) / 2;                         // the day model's 80% half-width, in log terms
@@ -562,7 +562,7 @@
       why = `GIFT Nifty ${pct(x * 100)} since 15:30 ${dayTxt(parseDay(asof))} · lean ${pct(lean * 100)}`
         + (gs.nifty_expiry ? " (NIFTY expiry: part of the move usually fades)" : "") + ` · such calls were right ${gs.hit}% of the time`;
       const c = t.base * Math.exp(lean);
-      return { pred: c, lo: c * Math.exp(-k), hi: c * Math.exp(k), live: false, why };
+      return { pred: c, lo: c * Math.exp(-k), hi: c * Math.exp(k), live: false, why, sigma: k / 1.2816 };
     }
     const spx = (ovsItems() || []).find(x => x.sym === "^GSPC");
     if (spx && spx.ts && t.us_beta != null) {
@@ -582,7 +582,31 @@
       }
     }
     const c = t.base * Math.exp(lean);
-    return { pred: c, lo: c * Math.exp(-k), hi: c * Math.exp(k), live: false, why };
+    return { pred: c, lo: c * Math.exp(-k), hi: c * Math.exp(k), live: false, why, sigma: k / 1.2816 };
+  }
+
+  // Card read-outs from the estimate (26 Oct 2026, owner: "80% range is of no use"): the close is treated as normal in
+  // log terms around the estimate with sigma = the 80% half-width / 1.2816, so every figure agrees with the tested range.
+  function ncdf(z){                                           // standard normal CDF (Abramowitz-Stegun 26.2.17)
+    const t = 1 / (1 + 0.2316419 * Math.abs(z)), d = 0.3989423 * Math.exp(-z * z / 2);
+    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return z > 0 ? 1 - p : p;
+  }
+  const STRIKE_STEP = { NIFTY: 100, BANKNIFTY: 200, SENSEX: 200 };
+  function estimateRows(name, t, est){
+    const pAbove = x => 1 - ncdf(Math.log(x / est.pred) / est.sigma);
+    const up = pAbove(t.base), dirP = Math.max(up, 1 - up);
+    const dir = Math.abs(up - 0.5) < 0.03 ? "No lean · 50/50"
+      : `${up > 0.5 ? "Up" : "Down"} from ${f(t.base, 0)} · ${Math.round(dirP * 100)}% chance`;
+    const miss = est.pred * est.sigma * 0.7979;                // mean absolute miss of a normal = 0.80 sigma
+    const step = STRIKE_STEP[name] || 100, mid = Math.round(est.pred / step) * step;
+    const strikes = [mid - step, mid, mid + step].map(x =>
+      `<div style="text-align:center"><div class="l" style="font-size:12px">above ${f(x, 0)}</div><div class="r" style="text-align:center;display:block">${Math.round(pAbove(x) * 100)}%</div></div>`).join("");
+    return `<div class="row"><span class="l">Direction</span><span class="r ${cls(up > 0.53 ? 1 : up < 0.47 ? -1 : 0)}">${esc(dir)}</span></div>
+        <div class="row"><span class="l">Typical miss</span><span class="r">±${f(miss, 0)} pts</span></div>
+        <div class="row" style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">${strikes}</div>
+        <details><summary>Why, and the 80% range</summary><div class="row"><span class="l" style="font-size:12px">${esc(est.why)}</span></div>
+          ${band(t.base, t.pred, t.lo, t.hi)}<div class="row"><span class="l">80% range</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div></details>`;
   }
 
   function indexPanel(name, b){
@@ -616,10 +640,9 @@
       <div class="pb">
         <div class="row"><span class="l">${esc(lastLabel)}</span><span class="r ${cls(chg)}">${f(last,2)} &nbsp;${pct(chg)}</span></div>
         <div class="row"><span class="l">Estimate · ${esc(t.target ? "close " + dayTxt(parseDay(t.target)) : "")}</span><span class="r">${f(t.pred,0)} &nbsp;<span class="${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)}</span></span></div>
-        ${est ? `<div class="row"><span class="l" style="font-size:12px">${esc(est.why)}</span></div>` : ""}
-        ${band(t.base, t.pred, t.lo, t.hi)}
+        ${est ? estimateRows(name, t, est) : band(t.base, t.pred, t.lo, t.hi)}
         ${actualRow ? `<div class="row">${actualRow}</div>` : ""}
-        <div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>
+        ${est ? "" : `<div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>`}
         ${nextRow}
         <div class="row"><span class="l">Settled outcomes</span><span class="r amb">${trk ? trk : "0 · no verdict yet"}</span></div>
         ${(() => { const r = FEED && FEED.close_estimate_record && FEED.close_estimate_record[name];   // recorded since 26 Oct 2026
