@@ -767,7 +767,8 @@ function briefParts(){
   const tiles = [
     idxTile('NIFTY', 'NIFTY 50'), idxTile('SENSEX', 'SENSEX'), idxTile('BANKNIFTY', 'Bank NIFTY'),
     tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct, vixNow.last, vixNow.change) : '–', vixNow ? (LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : '', vixNow && vixNow.change_pct),
-    tile('USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'), usd ? chg(usd.change_pct, usd.last, usd.change, 3) : (C.fx ? 'ECB rate' : '–'),
+    // Kite's CDS front-month futures when live, not the spot rate (live audit, 26 Oct 2026): say so
+    tile(ex.usd_inr ? 'USD/INR fut' : 'USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'), usd ? chg(usd.change_pct, usd.last, usd.change, 3) : (C.fx ? 'ECB rate' : '–'),
          usd ? (ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? bClose(C.fx.date) : ''), usd && usd.change_pct),
     tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct, goldRaw.last, goldRaw.change, 0) : '–', goldRaw ? (ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : '', goldRaw && goldRaw.change_pct),
     tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct, crudeUsd.last) : '–', crudeUsd ? (ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : '', crudeUsd && crudeUsd.change_pct),
@@ -2617,7 +2618,7 @@ function tapeTick(){
     const dd = day ? new Date(day + 'T00:00:00Z') : null;
     const dayTxt = dd ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dd.getUTCDay()] + ' ' + dd.getUTCDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dd.getUTCMonth()] + ' ' + dd.getUTCFullYear() : '';
     el.innerHTML = TAPE_NAMES.map(([k, n]) => item(n, (d.indices || {})[k])).join('') + item('VIX', d.india_vix) +
-      item('GOLD', x.gold) + item('CRUDE', x.crude) + item('USD/INR', x.usd_inr) +
+      item('GOLD', x.gold) + item('CRUDE', x.crude) + item('USD/INR fut', x.usd_inr) +
       ((d.overseas && d.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym)).map(o => item(esc(o.name).toUpperCase(), o)).join('') +
       '<span class="t">' + (open ? 'Live · ' + hm + ' IST' : bQuote(d.ts)) + '</span>';
   }).catch(() => {});
