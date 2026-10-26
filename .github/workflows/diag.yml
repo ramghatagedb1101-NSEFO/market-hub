@@ -26,9 +26,24 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      # Today's Kite token from the relay, for probes that read Kite (diag_gift). Same call as daily.yml; a probe that
+      # does not need Kite still runs when there is no token.
+      - name: Fetch today's Kite access token from the relay
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          for attempt in 1 2 3; do
+            TOKEN=$(curl -sSL -G "$RELAY_URL" --data-urlencode "mode=token" --data-urlencode "key=$RELAY_KEY" \
+              | python -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)
+            [ -n "$TOKEN" ] && break
+            sleep $((attempt * 5))
+          done
+          if [ -n "$TOKEN" ]; then echo "::add-mask::$TOKEN"; echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"; else echo "No Kite token (fine unless the probe reads Kite)"; fi
       - run: python -m "hub.${{ inputs.module }}"
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}     # needed by diag_library_sample, diag_shareholding, diag_roce_fields
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}                   # diag_gift
       - run: |
           if [ -n "$(git status --porcelain diag_output/)" ]; then
             git config user.name "market-hub-bot"
