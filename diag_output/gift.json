@@ -1,0 +1,32 @@
+{
+  "days": 724,
+  "first_day": "2022-10-27",
+  "gift_0910": {
+    "n": 724,
+    "corr": 0.595,
+    "beta": 0.906,
+    "hit": 68.9,
+    "hit_strongest_30pct": 82.9,
+    "err_pct": 0.494,
+    "no_change_err_pct": 0.607
+  },
+  "spx": {
+    "n": 724,
+    "corr": 0.253,
+    "beta": 0.241,
+    "hit": 55.4,
+    "hit_strongest_30pct": 65.0,
+    "err_pct": 0.598,
+    "no_change_err_pct": 0.607
+  },
+  "both_second_half": {
+    "coef_gift_spx": [
+      0.928,
+      -0.022
+    ],
+    "hit": 72.1,
+    "gift_alone_hit": 72.4,
+    "err_pct": 0.47,
+    "no_change_err_pct": 0.604
+  }
+}
