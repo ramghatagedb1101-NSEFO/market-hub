@@ -559,7 +559,8 @@
     if (G && G.last && gref && gs.beta != null && (qDay === todayIst || qDay === asof) && qDay <= String(t.target || "").slice(0, 10)) {
       const x = Math.log(G.last / gref);
       lean = gs.beta * x; k *= gs.range || 1;
-      why = `GIFT Nifty ${pct(x * 100)} since 15:30 ${dayTxt(parseDay(asof))} · lean ${pct(lean * 100)} · such calls were right ${gs.hit}% of the time`;
+      why = `GIFT Nifty ${pct(x * 100)} since 15:30 ${dayTxt(parseDay(asof))} · lean ${pct(lean * 100)}`
+        + (gs.nifty_expiry ? " (NIFTY expiry: part of the move usually fades)" : "") + ` · such calls were right ${gs.hit}% of the time`;
       const c = t.base * Math.exp(lean);
       return { pred: c, lo: c * Math.exp(-k), hi: c * Math.exp(k), live: false, why };
     }

@@ -59,5 +59,8 @@ CLOSE_RANGE_A, CLOSE_RANGE_C = 0.656, 0.245   # live 80% half-width = daily vol 
 GIFT_BETA = {"NIFTY": 0.90, "BANKNIFTY": 0.97, "SENSEX": 0.90}
 GIFT_HIT = {"NIFTY": 69, "BANKNIFTY": 64, "SENSEX": 68}
 GIFT_RANGE = {"NIFTY": 0.80, "BANKNIFTY": 0.85, "SENSEX": 0.81}
+# On NIFTY weekly expiry days only about three-quarters of GIFT's move carries to the close (145 expiry days, same test;
+# direction 68/66/67%, 89/77/89% on the biggest 30% of moves): the beta used when the target day is a NIFTY expiry.
+GIFT_BETA_EXPIRY = {"NIFTY": 0.76, "BANKNIFTY": 0.80, "SENSEX": 0.78}
 # The phone (docs/index.html closeEstimate) uses these numbers through the feed, and the range constants above
 # directly: change both together.

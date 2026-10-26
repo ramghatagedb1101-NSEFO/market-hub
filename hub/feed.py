@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 
-from . import close_estimate, config, engine, news_score
+from . import close_estimate, config, engine, horizons, news_score
 from .store import Store
 
 
@@ -40,6 +40,8 @@ def _today_estimate(store: Store, idx: str):
     else:
         asof_i, actual = len(dates) - 1, None
     asof = dates[asof_i]
+    # the target is a NIFTY weekly expiry: GIFT's move carries less to the close (config.GIFT_BETA_EXPIRY)
+    nifty_expiry = horizons.target_for("expiry", "NIFTY", asof) == horizons.target_for("day", "NIFTY", asof)
     fc = engine.forecast(idx, "day", asof, dates[:asof_i + 1], closes[:asof_i + 1],
                          store.get_weights(idx, "day"), store.get_band(idx, "day"))
     return {
@@ -52,7 +54,8 @@ def _today_estimate(store: Store, idx: str):
         # from the live level after it.
         "sig_d": _rnd(fc["sig_h"] / fc["h"] ** 0.5, 6),
         "us_beta": config.US_BETA.get(idx),
-        "gift": {"beta": config.GIFT_BETA.get(idx), "hit": config.GIFT_HIT.get(idx), "range": config.GIFT_RANGE.get(idx)},
+        "gift": {"beta": config.GIFT_BETA_EXPIRY.get(idx) if nifty_expiry else config.GIFT_BETA.get(idx),
+                 "hit": config.GIFT_HIT.get(idx), "range": config.GIFT_RANGE.get(idx), "nifty_expiry": nifty_expiry},
     }
 
 

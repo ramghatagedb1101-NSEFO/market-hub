@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### Expiry days: GIFT Nifty still works; part of its move fades (Mon 26 Oct 2026, 15:20)
+Owner: "see if it can predict tomorrow's expiry close". On 145 NIFTY weekly expiry days GIFT's 09:00 move called the
+close's direction right 68% (NIFTY), 66% (BANK NIFTY), 67% (SENSEX), and 89% / 77% / 89% on the biggest 30% of moves.
+Only about three-quarters of the move carried to the close (beta 0.76 against 0.94 on other days), so on a NIFTY expiry
+day the estimate uses the smaller factor (`config.GIFT_BETA_EXPIRY`) and the card says part of the move usually fades.
+Phone v47. The dashboard's Expiry meter (intraday, option walls) is unchanged.
+
 ### Relay: GIFT Nifty in the live quote; dashboard 52-week range and paper chain refresh (Mon 26 Oct 2026, 15:05)
 Pushed during market hours on the owner's instruction ("Push the relay changes now instead of 15:37").
 - **GIFT Nifty** joins the one Kite snapshot (`SNAP_BASE`); `?mode=quote` now carries `gift` = live price and its 15:30

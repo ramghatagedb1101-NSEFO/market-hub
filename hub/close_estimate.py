@@ -37,7 +37,8 @@ def preopen(t: dict, spx_move_pct: float | None, gift_x: float | None = None, id
     k = math.log(t["hi"] / t["lo"]) / 2
     lean = 0.0
     if gift_x is not None and idx in config.GIFT_BETA:
-        lean, k = config.GIFT_BETA[idx] * gift_x, k * config.GIFT_RANGE[idx]
+        beta = (t.get("gift") or {}).get("beta") or config.GIFT_BETA[idx]   # the feed gives the expiry-day beta when due
+        lean, k = beta * gift_x, k * config.GIFT_RANGE[idx]
     elif spx_move_pct is not None and abs(spx_move_pct) >= config.CLOSE_MIN_US_MOVE and t.get("us_beta") is not None:
         lean = t["us_beta"] * math.log(1 + spx_move_pct / 100)
     c = t["base"] * math.exp(lean)
