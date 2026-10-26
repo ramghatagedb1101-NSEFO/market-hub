@@ -57,26 +57,8 @@ def _stats(x, y):
             "no_change_err_pct": round(float(np.mean(np.abs(y))) * 100, 3)}
 
 
-def main():
-    k = kite.client()
-    gift = kite.instrument_token(k, "NSEIX", "GIFT NIFTY")
-    nifty = kite.instrument_token(k, "NSE", "NIFTY 50")
-    end = datetime.now(IST).date() - timedelta(days=1)
-    start = end - timedelta(days=4 * 365)
-    g = _candles(k, gift, "15minute", start, end, 190)
-    n = _candles(k, nifty, "day", start, end, 1900)
-    print("GIFT 15-minute candles:", len(g), "first", g[0]["date"] if g else None, "| NIFTY days:", len(n))
-    bars = {}
-    for c in g:
-        t = c["date"].astimezone(IST)
-        bars.setdefault(t.date().isoformat(), []).append((t.hour * 60 + t.minute, float(c["close"])))
-
-    def at(day, m):                                     # last 15-minute close starting at or before m minutes
-        xs = [v for mm, v in bars.get(day, []) if mm <= m]
-        return xs[-1] if xs else None
-
+def _one(n, at, ud, ur):
     closes = [(c["date"].date().isoformat(), float(c["close"])) for c in n]
-    ud, ur = _spx()
     X, S, Y = [], [], []
     for i in range(1, len(closes)):
         (pd, pc), (td, tc) = closes[i - 1], closes[i]
@@ -88,6 +70,14 @@ def main():
     X, S, Y = np.array(X), np.array(S), np.array(Y)
     out = {"days": int(len(Y)), "first_day": closes[0][0] if closes else None,
            "gift_0910": _stats(X, Y), "spx": _stats(S, Y)}
+    for m in (6 * 60 + 45, 7 * 60 + 45, 8 * 60 + 15):   # earlier in the morning: bars ending 07:00, 08:00, 08:30
+        xs, ys = [], []
+        for i in range(1, len(closes)):
+            (pd, pc), (td, tc) = closes[i - 1], closes[i]
+            a, b = at(pd, 15 * 60 + 15), at(td, m)
+            if a and b:
+                xs.append(np.log(b / a)); ys.append(np.log(tc / pc))
+        out[f"gift_{(m + 15) // 60:02d}{(m + 15) % 60:02d}"] = _stats(xs, ys)
     if len(Y) >= 60:                                    # both together, walk-forward on the second half
         h = len(Y) // 2
         A = np.vstack([X[:h], S[:h]]).T
@@ -98,6 +88,32 @@ def main():
                                    "gift_alone_hit": round(float(np.mean(np.sign(X[h:]) == np.sign(Y[h:]))) * 100, 1),
                                    "err_pct": round(float(np.mean(np.abs(Y[h:] - p))) * 100, 3),
                                    "no_change_err_pct": round(float(np.mean(np.abs(Y[h:]))) * 100, 3)}
+    return out
+
+
+def main():
+    k = kite.client()
+    gift = kite.instrument_token(k, "NSEIX", "GIFT NIFTY")
+    targets = {"NIFTY": ("NSE", "NIFTY 50"), "BANKNIFTY": ("NSE", "NIFTY BANK"), "SENSEX": ("BSE", "SENSEX")}
+    end = datetime.now(IST).date() - timedelta(days=1)
+    start = end - timedelta(days=4 * 365)
+    g = _candles(k, gift, "15minute", start, end, 190)
+    print("GIFT 15-minute candles:", len(g), "first", g[0]["date"] if g else None)
+    bars = {}
+    for c in g:
+        t = c["date"].astimezone(IST)
+        bars.setdefault(t.date().isoformat(), []).append((t.hour * 60 + t.minute, float(c["close"])))
+
+    def at(day, m):                                     # last 15-minute close starting at or before m minutes
+        xs = [v for mm, v in bars.get(day, []) if mm <= m]
+        return xs[-1] if xs else None
+
+    ud, ur = _spx()
+    result = {}
+    for name, (ex, sym) in targets.items():
+        n = _candles(k, kite.instrument_token(k, ex, sym), "day", start, end, 1900)
+        result[name] = _one(n, at, ud, ur)
+    out = result
     os.makedirs("diag_output", exist_ok=True)
     json.dump(out, open(OUT, "w"), indent=2)
     print(json.dumps(out, indent=2))
