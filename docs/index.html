@@ -546,11 +546,15 @@
     const dueToday = String(t.target || "").slice(0, 10) === todayIst;
     const lts = live && (live.ts || (LIVE && LIVE.ts)), liveToday = live && live.last && lts && toIst(lts).toISOString().slice(0, 10) === todayIst;
     if (dueToday && liveToday && mins >= 555 && mins < 930 && marketOpenIst()) {
-      const w = t.sig_d * (0.656 * Math.sqrt((930 - mins) / 375) + 0.245);
+      // the index's own expiry day: calmer afternoons (pinning), config.EXPIRY_RANGE_* (hub/diag_expiry_close.py)
+      const left = Math.sqrt((930 - mins) / 375);
+      const w = t.sig_d * (t.own_expiry ? Math.max(0.20, 1.080 * left - 0.074) : 0.656 * left + 0.245);
       return { pred: live.last, lo: live.last * Math.exp(-w), hi: live.last * Math.exp(w), live: true, sigma: w / 1.2816,
                why: "Live · " + timeTxt(toIst(lts)) + " · from the live level; the range narrows towards 15:30" };
     }
     let k = Math.log(t.hi / t.lo) / 2;                         // the day model's 80% half-width, in log terms
+    // own expiry day: the evening-before ATM straddle sizes the move better than recent volatility
+    if (t.own_expiry && t.straddle_pct && t.expiry_q80) k = t.expiry_q80 * t.straddle_pct / 100;
     let lean = 0, why = "No US session since the last close · no clear lean";
     // GIFT Nifty first (26 Oct 2026, hub/diag_gift.py): its move since 15:30 IST on the last Indian session. It needs a
     // quote from today (or from the evening of that session) and the relay's 15:30 price for that day.
@@ -560,7 +564,8 @@
       const x = Math.log(G.last / gref);
       lean = gs.beta * x; k *= gs.range || 1;
       why = `GIFT Nifty ${pct(x * 100)} since 15:30 ${dayTxt(parseDay(asof))} · lean ${pct(lean * 100)}`
-        + (gs.nifty_expiry ? " (NIFTY expiry: part of the move usually fades)" : "") + ` · such calls were right ${gs.hit}% of the time`;
+        + (gs.nifty_expiry ? " (NIFTY expiry: part of the move usually fades)" : "")
+        + (t.own_expiry && t.straddle_pct ? ` · range from the options' expected move (straddle ${pct(t.straddle_pct)})` : "") + ` · such calls were right ${gs.hit}% of the time`;
       const c = t.base * Math.exp(lean);
       return { pred: c, lo: c * Math.exp(-k), hi: c * Math.exp(k), live: false, why, sigma: k / 1.2816 };
     }

@@ -35,6 +35,8 @@ PRIVATE = "https://api.github.com/repos/ramghatagedb1101-NSEFO/market-hub-privat
 
 def preopen(t: dict, spx_move_pct: float | None, gift_x: float | None = None, idx: str = "") -> dict:
     k = math.log(t["hi"] / t["lo"]) / 2
+    if t.get("own_expiry") and t.get("straddle_pct") and t.get("expiry_q80"):
+        k = t["expiry_q80"] * t["straddle_pct"] / 100          # expiry day: the options market's own expected move
     lean = 0.0
     if gift_x is not None and idx in config.GIFT_BETA:
         beta = (t.get("gift") or {}).get("beta") or config.GIFT_BETA[idx]   # the feed gives the expiry-day beta when due
@@ -46,7 +48,9 @@ def preopen(t: dict, spx_move_pct: float | None, gift_x: float | None = None, id
 
 
 def live(t: dict, level: float, mins: int) -> dict:
-    w = t["sig_d"] * (config.CLOSE_RANGE_A * math.sqrt(max(930 - mins, 0) / 375) + config.CLOSE_RANGE_C)
+    left = math.sqrt(max(930 - mins, 0) / 375)
+    w = t["sig_d"] * (max(config.EXPIRY_RANGE_FLOOR, config.EXPIRY_RANGE_A * left + config.EXPIRY_RANGE_C) if t.get("own_expiry")
+                      else config.CLOSE_RANGE_A * left + config.CLOSE_RANGE_C)
     return {"pred": level, "lo": level * math.exp(-w), "hi": level * math.exp(w), **_odds(t["base"], level, w)}
 
 
@@ -92,6 +96,34 @@ def _gift_move(asof: str, today: str):
 
 
 GIFT_TOKEN = 291849                                     # NSEIX:GIFT NIFTY
+OPT_EXCH = {"NIFTY": "NFO", "BANKNIFTY": "NFO", "SENSEX": "BFO"}
+
+
+def expiry_straddles(store, targets: dict) -> dict:
+    """{idx: {"date", "pct"}}: the ATM straddle (call + put last price, % of the last close) of each index's contract
+    expiring on its next session, read from Kite in the evening run. targets: {idx: (target day, last close)} for the
+    indices whose next session is their own expiry. Empty without a Kite token or on any failure (the phone then uses
+    the daily volatility)."""
+    if not targets or not os.getenv("KITE_ACCESS_TOKEN"):
+        return {}
+    from .sources import kite
+    out = {}
+    try:
+        k = kite.client()
+        for idx, (day, spot) in targets.items():
+            rows = [r for r in kite._retry(lambda: k.instruments(OPT_EXCH[idx]))
+                    if r.get("name") == idx and str(r.get("expiry"))[:10] == day and r.get("instrument_type") in ("CE", "PE")]
+            if not rows:
+                continue
+            atm = min({r["strike"] for r in rows}, key=lambda s: abs(s - spot))
+            syms = [f"{OPT_EXCH[idx]}:{r['tradingsymbol']}" for r in rows if r["strike"] == atm]
+            q = k.quote(*syms)
+            prices = [q[s]["last_price"] for s in syms if s in q and q[s].get("last_price")]
+            if len(prices) == 2:
+                out[idx] = {"date": day, "strike": atm, "pct": round(sum(prices) / spot * 100, 4)}
+    except Exception as exc:                            # noqa: BLE001 -- the estimate falls back to daily volatility
+        print("expiry straddle unavailable:", str(exc)[:120])
+    return out
 
 
 def _gh(method, path, **kw):

@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### Expiry-day close estimate (Mon 26 Oct 2026, 16:00)
+Owner: "make it better at expiry specifically". Tested on 402 past expiries (`hub/diag_expiry_close.py`):
+- **Max pain and option walls do not pull the close**: towards max pain only 39-55% of the time at every hour for NIFTY
+  and SENSEX, and adding them made the estimates worse. Not used (also not before the open).
+- **The evening-before straddle sizes the day better** than recent volatility. On an index's own expiry day the morning
+  range now comes from it (read from Kite by the 18:00 run).
+- **Expiry afternoons are calmer**: the real range at 14:00 is about 25% narrower than on other days and about 45% at
+  15:00. The live range on expiry days follows its own curve, held at its 15:00 width after 15:00 (NSE's close is the
+  15:00-15:30 average). Phone v50. Tomorrow (Tue 27 Oct 2026) both NIFTY (weekly) and BANK NIFTY (monthly) expire.
+
 ### Market loop starts at 08:45; USD/INR labelled as futures (Mon 26 Oct 2026, 15:20)
 - `market-loop.yml` started at 09:43 today (scheduled 09:10; GitHub delay), so paper orders and watchlist moves were not
   checked from 09:15 to 09:43. It now starts at 08:45 and waits for 09:15; the second run is queued for 11:45 and takes

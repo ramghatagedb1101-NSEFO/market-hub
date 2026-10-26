@@ -62,5 +62,14 @@ GIFT_RANGE = {"NIFTY": 0.80, "BANKNIFTY": 0.85, "SENSEX": 0.81}
 # On NIFTY weekly expiry days only about three-quarters of GIFT's move carries to the close (145 expiry days, same test;
 # direction 68/66/67%, 89/77/89% on the biggest 30% of moves): the beta used when the target day is a NIFTY expiry.
 GIFT_BETA_EXPIRY = {"NIFTY": 0.76, "BANKNIFTY": 0.80, "SENSEX": 0.78}
+# The index's OWN expiry day (hub/diag_expiry_close.py, 402 expiries Oct 2023 - Oct 2026). Max pain and option walls
+# were tested and do not pull the close (towards them 40-55% of the time at every hour), so they are not used. What helps:
+#  - the evening-before ATM straddle sizes the day's move better than the 20-day volatility (correlation with the size of
+#    the move 0.34 vs 0.19 NIFTY, 0.58 vs 0.39 BANK NIFTY, 0.31 vs 0.15 SENSEX): pre-open 80% half-width =
+#    EXPIRY_Q80_STRADDLE x straddle / spot (the 80th percentile of |move| / straddle);
+#  - expiry afternoons are calmer (pinning): live 80% half-width = daily vol x max(EXPIRY_RANGE_FLOOR,
+#    EXPIRY_RANGE_A x sqrt(share of session left) + EXPIRY_RANGE_C), about 45% narrower than everyday at 15:00.
+EXPIRY_Q80_STRADDLE = {"NIFTY": 1.39, "BANKNIFTY": 1.27, "SENSEX": 1.51}
+EXPIRY_RANGE_A, EXPIRY_RANGE_C, EXPIRY_RANGE_FLOOR = 1.080, -0.074, 0.20   # floor: measured only to 15:00; NSE's close is the 15:00-15:30 average
 # The phone (docs/index.html closeEstimate) uses these numbers through the feed, and the range constants above
 # directly: change both together.

@@ -42,6 +42,8 @@ def _today_estimate(store: Store, idx: str):
     asof = dates[asof_i]
     # the target is a NIFTY weekly expiry: GIFT's move carries less to the close (config.GIFT_BETA_EXPIRY)
     nifty_expiry = horizons.target_for("expiry", "NIFTY", asof) == horizons.target_for("day", "NIFTY", asof)
+    own_expiry = horizons.target_for("expiry", idx, asof) == horizons.target_for("day", idx, asof)
+    st = (store.data.get("meta", {}).get("expiry_straddle") or {}).get(idx) or {}
     fc = engine.forecast(idx, "day", asof, dates[:asof_i + 1], closes[:asof_i + 1],
                          store.get_weights(idx, "day"), store.get_band(idx, "day"))
     return {
@@ -56,6 +58,10 @@ def _today_estimate(store: Store, idx: str):
         "us_beta": config.US_BETA.get(idx),
         "gift": {"beta": config.GIFT_BETA_EXPIRY.get(idx) if nifty_expiry else config.GIFT_BETA.get(idx),
                  "hit": config.GIFT_HIT.get(idx), "range": config.GIFT_RANGE.get(idx), "nifty_expiry": nifty_expiry},
+        # the index's own expiry day: straddle-sized pre-open range and the calmer expiry-afternoon curve (config)
+        "own_expiry": own_expiry,
+        "straddle_pct": st.get("pct") if own_expiry and st.get("date") == fc["target"] else None,
+        "expiry_q80": config.EXPIRY_Q80_STRADDLE.get(idx),
     }
 
 

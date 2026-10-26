@@ -1,7 +1,7 @@
 """Live loop: refresh prices, settle what is due, make today's forecasts, publish the feed."""
 from datetime import datetime
 
-from . import config, engine, feed, horizons
+from . import close_estimate, config, engine, feed, horizons
 from .store import Store
 
 
@@ -57,6 +57,14 @@ def run_daily() -> dict:
     counts = store.refresh_prices()          # raises if NSE/Kite are unavailable: no partial writes
     settled = settle_due(store)
     made = predict_all(store)
+    # Evening-before ATM straddle for indices whose next session is their own expiry (the close estimate's range)
+    targets = {}
+    for idx in config.INDICES:
+        dates, closes = store.series(idx)
+        day = horizons.target_for("day", idx, dates[-1])
+        if horizons.target_for("expiry", idx, dates[-1]) == day:
+            targets[idx] = (day.isoformat(), float(closes[-1]))
+    store.set_meta("expiry_straddle", close_estimate.expiry_straddles(store, targets))
     store.set_meta("last_run", datetime.now(config.IST).isoformat(timespec="seconds"))
     store.save()
     feed.write(store)
