@@ -1172,11 +1172,18 @@ function pagePositions(){
 function paperLoad(){ S.paperLoading = true; call('adminPaper', token).then(d => { S.paper = d; S.paperLoading = false; rerender(); }).catch(e => { S.paper = { error: e.message }; S.paperLoading = false; rerender(); }); }
 const PPS = { side: 'buy', idx: 'NIFTY', exp: '', strike: null, type: 'CE', lots: '', price: '', trigger: '', note: '', sym: '', qty: '', otype: 'MARKET', product: '', trail: '', trail_unit: 'pts' };
 let PP_KIND = 'option', PP_TAB = 'positions', PP_OF = 'working';
-function ppLoadChain(){
-  S.ppChain = { loading: true }; rerender();
-  call('adminPaperChain', token, PPS.idx, PPS.exp).then(d => { S.ppChain = d; if (!d.error) { PPS.exp = d.expiry; if (PPS.strike == null || !d.strikes.some(r => r[0] === Number(PPS.strike))) PPS.strike = d.atm; } rerender(); })
-    .catch(e => { S.ppChain = { error: e.message }; rerender(); });
+function ppLoadChain(quiet){
+  if (!quiet) { S.ppChain = { loading: true }; rerender(); }
+  const want = PPS.idx + '|' + PPS.exp;
+  call('adminPaperChain', token, PPS.idx, PPS.exp).then(d => {
+    if (quiet && (current.page !== 'paper' || want !== PPS.idx + '|' + PPS.exp)) return;
+    S.ppChain = d; if (!d.error) { PPS.exp = d.expiry; if (PPS.strike == null || !d.strikes.some(r => r[0] === Number(PPS.strike))) PPS.strike = d.atm; } rerender(); })
+    .catch(e => { if (!quiet) { S.ppChain = { error: e.message }; rerender(); } });
 }
+// 26 Oct 2026 audit: the chain loaded once and kept saying "Live · 11:37 IST" with 11:37 prices. Now it reloads every 30 s
+// in market hours while the paper page is open and the tab visible, without clearing what is on screen.
+setInterval(() => { if (current.page === 'paper' && PP_KIND === 'option' && S.ppChain && !S.ppChain.loading && !document.hidden && marketHoursIst()
+  && !(document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))) ppLoadChain(true); }, 30000);
 function ppLoadQuote(){
   if (!PPS.sym) { S.ppQuote = null; rerender(); return; }
   S.ppQuote = { loading: true }; rerender();
@@ -1869,8 +1876,10 @@ function pageStock(sym){
   const chg = last && prev ? (last[1] / prev[1] - 1) * 100 : null;
   const yAgo = last ? px.find(p => p[0] >= isoShift(last[0], -365)) : null;
   const r1y = last && yAgo ? (last[1] / yAgo[1] - 1) * 100 : val(s,'ret_12m');
-  const y52 = last ? px.filter(p => p[0] >= isoShift(last[0], -365)).map(p => p[1]) : [];
-  const hi52 = y52.length ? Math.max(...y52) : null, lo52 = y52.length ? Math.min(...y52) : null;
+  // 26 Oct 2026 audit: the range came from closes (NTPC ₹298–410 against NSE's ₹292.05–414.40); intraday highs and lows
+  // now, as NSE and Kite show it, with the close only where a candle has no high/low (BharatStock fallback).
+  const y52c = last ? (D5.candles || []).filter(c => c[0] >= isoShift(last[0], -365)) : [];
+  const hi52 = y52c.length ? Math.max(...y52c.map(c => c[2] != null ? c[2] : c[4])) : null, lo52 = y52c.length ? Math.min(...y52c.map(c => c[3] != null ? c[3] : c[4])) : null;
   const p3 = last ? px.find(p => p[0] >= isoShift(last[0], -1096)) : null;
   const cagr3 = last && p3 && daysBetween(p3[0], last[0]) > 1000 ? (Math.pow(last[1] / p3[1], 365 / daysBetween(p3[0], last[0])) - 1) * 100 : null;
 
@@ -2119,9 +2128,9 @@ function drawPriceChart(sym, s){
     });
   }
   if (px52 && daily && !pxRel && all.length >= 120) {
-    const yr = all.slice(-252).map(x => x[4]);
-    main.createPriceLine({ price: Math.max(...yr), color: up, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '52W high' });
-    main.createPriceLine({ price: Math.min(...yr), color: down, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '52W low' });
+    const yr = all.slice(-252);
+    main.createPriceLine({ price: Math.max(...yr.map(x => x[2] != null ? x[2] : x[4])), color: up, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '52W high' });
+    main.createPriceLine({ price: Math.min(...yr.map(x => x[3] != null ? x[3] : x[4])), color: down, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '52W low' });
   }
   // One lower panel: volume, RSI (14, Wilder) or MACD (12, 26, 9), on its own scale under the price.
   const lower = pxRel ? 'none' : pxLower;

@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### Relay: GIFT Nifty in the live quote; dashboard 52-week range and paper chain refresh (Mon 26 Oct 2026, 15:05)
+Pushed during market hours on the owner's instruction ("Push the relay changes now instead of 15:37").
+- **GIFT Nifty** joins the one Kite snapshot (`SNAP_BASE`); `?mode=quote` now carries `gift` = live price and its 15:30
+  IST price on recent days (`giftRefs_`: one Kite historical call, cached 3 hours). The phone's pre-open estimate uses it.
+- **52-week range** on the dashboard came from daily closes (NTPC ₹298-410 against NSE's ₹292.05-414.40); now from the
+  daily highs and lows, in the stats and the chart's 52W lines (live audit, 26 Oct).
+- **Paper-trading option chain** loaded once and kept its first prices under a "Live" label; it now reloads every 30
+  seconds in market hours without clearing the screen, and ignores late answers (live audit, 26 Oct).
+
 ### Daily news score, recorded to be tested (Mon 26 Oct 2026, 14:50)
 Owner: "Also add the Gemini news score recording". No free news history exists to test a news signal, so this builds
 one. Each weekday before the open Gemini (free tier, one request a day) scores the headlines published between 15:30 on

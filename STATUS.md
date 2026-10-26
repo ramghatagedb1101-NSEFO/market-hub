@@ -13,8 +13,8 @@ first) and `CLAUDE.md`.
   forecast records with official closes and test the estimate's skill.
 - **News score** (Gemini, daily before the open) is recorded only; review it after about 60 trading days (late Jan 2027).
 - **SENSEX**: no Kite close for today before 15:35 IST (mid-session values had seeded forecasts on 5 days); 25 records fixed.
-- **Live data audit** done (extras/data-audit/AUDIT.md on the laptop). Dashboard 52-week range and paper chain refresh wait
-  for the 15:37 relay push.
+- **Live data audit** done (extras/data-audit/AUDIT.md on the laptop). Relay pushed 15:05: GIFT Nifty in the quote,
+  dashboard 52-week range from highs/lows, paper chain refreshes every 30 s.
 
 ## Sun 25 Oct 2026 -- read this first
 - **F&O positions** now update daily (were stuck on 15 Oct); **expiry-history.yml** runs weekly (Sat 07:30 IST) so the

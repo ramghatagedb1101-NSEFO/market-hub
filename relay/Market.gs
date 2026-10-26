@@ -17,7 +17,10 @@
  * lock, a second after the main one, so the platform never sends two quote requests within a second. Expiry days
  * therefore cost about 7 requests a minute while someone watches (expiry-tape.yml keeps 2 a minute when nobody does).
  */
-const SNAP_BASE = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX'];
+// GIFT Nifty (26 Oct 2026): the phone's pre-open close estimate. It trades from 06:30 IST, so its move since the last
+// Indian close is known before 09:15 (hub/diag_gift.py: NIFTY direction right 69% of 724 sessions).
+const SNAP_BASE = ['NSE:NIFTY 50', 'NSE:NIFTY BANK', 'BSE:SENSEX', 'NSE:INDIA VIX', 'NSEIX:GIFT NIFTY'];
+const GIFT_TOKEN = 291849;                         // NSEIX:GIFT NIFTY in Kite's instrument list
 const SNAP_TTL = 10;
 
 function marketSnapshot_() {
@@ -82,6 +85,27 @@ function marketSnapshot_() {
     try { const j = JSON.stringify(snap); cache.put('snap', j, SNAP_TTL); cache.put('snap_prev', j, 120); } catch (e) { /* over 100 KB: serve uncached */ }
     return snap;
   } finally { if (got) lock.releaseLock(); }
+}
+
+// GIFT Nifty at 15:30 IST (the 15-minute bar that starts 15:15) on each of the last few days, {date: price}: the
+// reference its live price is compared with. One Kite historical call, cached 3 hours (refreshed once today's 15:30 bar exists).
+function giftRefs_(headers) {
+  const now = istNow_(), key = 'gift_refs_' + now.date + (now.hm >= '15:35' ? 'b' : 'a'), cache = CacheService.getScriptCache();
+  const hit = cache.get(key);
+  if (hit) return JSON.parse(hit);
+  const fmt = d => Utilities.formatDate(d, 'Asia/Kolkata', 'yyyy-MM-dd HH:mm:ss'), to = new Date();
+  const res = UrlFetchApp.fetch('https://api.kite.trade/instruments/historical/' + GIFT_TOKEN + '/15minute?from='
+    + encodeURIComponent(fmt(new Date(to.getTime() - 7 * 86400000))) + '&to=' + encodeURIComponent(fmt(to)), { headers: headers, muteHttpExceptions: true });
+  const out = {};
+  try {
+    const body = JSON.parse(res.getContentText());
+    ((body.data && body.data.candles) || []).forEach(c => {
+      const t = new Date(c[0]);
+      if (Utilities.formatDate(t, 'Asia/Kolkata', 'HH:mm') === '15:15') out[Utilities.formatDate(t, 'Asia/Kolkata', 'yyyy-MM-dd')] = c[4];
+    });
+  } catch (e) { /* none this time */ }
+  cache.put(key, JSON.stringify(out), Object.keys(out).length ? 10800 : 300);
+  return out;
 }
 
 function snapLen_(a) { return ('i=' + encodeURIComponent(a)).length + 1; }

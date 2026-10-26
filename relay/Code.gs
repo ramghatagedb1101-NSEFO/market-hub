@@ -170,6 +170,12 @@ function quoteData_() {
   if (front.gold && d['MCX:' + front.gold]) out.extra.gold = Object.assign(pick('MCX:' + front.gold, 'GOLD'), { contract: front.gold });
   if (front.crude && d['MCX:' + front.crude]) out.extra.crude = Object.assign(pick('MCX:' + front.crude, 'CRUDE'), { contract: front.crude });
   if (front.usd && d['CDS:' + front.usd]) out.extra.usd_inr = Object.assign(pick('CDS:' + front.usd, 'USDINR'), { contract: front.usd });
+  // GIFT Nifty for the phone's pre-open estimate: live price and its 15:30 IST price on recent days (refs, by date).
+  if (d['NSEIX:GIFT NIFTY'] && d['NSEIX:GIFT NIFTY'][0]) {
+    let refs = {};
+    try { const h = kiteHeaders_(); if (h) refs = giftRefs_(h); } catch (e) {}
+    out.gift = { last: d['NSEIX:GIFT NIFTY'][0], refs: refs };
+  }
   quoteKeep_(out);
   return out;
 }
