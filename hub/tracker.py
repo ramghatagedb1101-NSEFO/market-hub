@@ -64,7 +64,11 @@ def run_daily() -> dict:
         day = horizons.target_for("day", idx, dates[-1])
         if horizons.target_for("expiry", idx, dates[-1]) == day:
             targets[idx] = (day.isoformat(), float(closes[-1]))
-    store.set_meta("expiry_straddle", close_estimate.expiry_straddles(store, targets))
+    got = close_estimate.expiry_straddles(store, targets)
+    old = store.data.get("meta", {}).get("expiry_straddle") or {}
+    # a failed read (no Kite token yet in a morning run) keeps the evening's figure for the same day
+    got.update({i: v for i, v in old.items() if i not in got and i in targets and v.get("date") == targets[i][0]})
+    store.set_meta("expiry_straddle", got)
     store.set_meta("last_run", datetime.now(config.IST).isoformat(timespec="seconds"))
     store.save()
     feed.write(store)

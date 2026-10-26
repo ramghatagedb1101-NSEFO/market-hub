@@ -28,14 +28,17 @@ def _stats(settled: list) -> dict:
     }
 
 
-def _today_estimate(store: Store, idx: str):
+def _today_estimate(store: Store, idx: str, nxt: bool = False):
     """
     Estimate of today's close, made from the close before today. Not a stored pre-open record:
     the page labels it as an estimate. Once today's close exists, the actual is shown beside it.
+    nxt: the next session's estimate from today's close (block "next", for the card after the close).
     """
     dates, closes = store.prices[idx]
     today = datetime.now(config.IST).date()
-    if dates[-1] == today and len(dates) > 1:
+    if nxt:
+        asof_i, actual = len(dates) - 1, None
+    elif dates[-1] == today and len(dates) > 1:
         asof_i, actual = len(dates) - 2, float(closes[-1])
     else:
         asof_i, actual = len(dates) - 1, None
@@ -102,6 +105,10 @@ def build(store: Store) -> dict:
                 "band_k": _rnd(store.get_band(idx, h), 3),
             }
         block["today"] = _today_estimate(store, idx)
+        # 26 Oct 2026: after the close "today" keeps the day's result until midnight, so the card had no estimate for
+        # the next session until the morning run; "next" lets it move on in the evening
+        if block["today"]["actual"] is not None:
+            block["next"] = _today_estimate(store, idx, nxt=True)
         out["indices"][idx] = block
     out["close_estimate_record"] = close_estimate.summary(store.prices)   # the phone card's own record
     out["news_score_record"] = news_score.summary(store.prices)          # recorded to be tested; not used in estimates

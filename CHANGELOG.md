@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### The card moves to the next session in the evening (Mon 26 Oct 2026, 21:20)
+Tonight's check: after the close the feed kept today as the card's day (to show its result) until midnight, so the new
+estimate for the next session would only have appeared after the next morning's run (about 08:30). The feed now also
+carries the next session's estimate once today's close exists, and the card switches to it (phone v52). A morning run
+that cannot read the expiry straddle keeps the evening's figure. Tonight's daily run started at 20:31 IST, 2 h 30 min
+late (GitHub's schedule delay).
+
 ### After 15:30: the card shows the day as closed (Mon 26 Oct 2026, 15:50)
 Between 15:30 and the evening update the card still had today as its target, so it would have shown a GIFT-based
 "estimate" for a session that had already closed (GIFT keeps trading), and the top row labelled today's last price with

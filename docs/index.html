@@ -618,7 +618,8 @@
   }
 
   function indexPanel(name, b){
-    const t0 = b.today || {};
+    // after the close the feed's "today" keeps the day's result; "next" is the next session's estimate (26 Oct 2026)
+    const t0 = (b.today && b.today.actual != null && b.next) ? b.next : (b.today || {});
     const live0 = LIVE && LIVE.indices && LIVE.indices[name];
     const est = t0.actual == null ? closeEstimate(name, t0, live0) : null;
     const t = est && !est.closed ? Object.assign({}, t0, est, { expected_move_pct: (est.pred / t0.base - 1) * 100 }) : t0;
