@@ -59,7 +59,7 @@ def _stats(x, y):
 
 def _one(n, at, ud, ur):
     closes = [(c["date"].date().isoformat(), float(c["close"])) for c in n]
-    X, S, Y = [], [], []
+    X, S, Y, E = [], [], [], []
     for i in range(1, len(closes)):
         (pd, pc), (td, tc) = closes[i - 1], closes[i]
         a, b = at(pd, 15 * 60 + 15), at(td, 8 * 60 + 55)    # bars starting 15:15 (ends 15:30) and 08:45 (ends 09:00; 15-minute bars start on the quarter-hour)
@@ -67,9 +67,15 @@ def _one(n, at, ud, ur):
             continue
         sess = [ur[d] for d in ud[bisect.bisect_left(ud, pd):bisect.bisect_left(ud, td)] if d in ur]
         X.append(np.log(b / a)); S.append(sum(sess)); Y.append(np.log(tc / pc))
-    X, S, Y = np.array(X), np.array(S), np.array(Y)
+        # NIFTY weekly expiry by rule: Thursday until Aug 2025, Tuesday from Sep 2025 (holiday moves ignored)
+        wd = date.fromisoformat(td).weekday()
+        E.append(wd == (3 if td < "2025-09-01" else 1))
+    X, S, Y, E = np.array(X), np.array(S), np.array(Y), np.array(E)
     out = {"days": int(len(Y)), "first_day": closes[0][0] if closes else None,
            "gift_0900": _stats(X, Y), "spx": _stats(S, Y)}
+    out["gift_0900_expiry_days"] = _stats(X[E], Y[E])
+    out["gift_0900_other_days"] = _stats(X[~E], Y[~E])
+    out["abs_move_expiry_vs_other_pct"] = [round(float(np.mean(np.abs(Y[E]))) * 100, 3), round(float(np.mean(np.abs(Y[~E]))) * 100, 3)]
     for m in (6 * 60 + 45, 7 * 60 + 45, 8 * 60 + 15):   # earlier in the morning: bars ending 07:00, 08:00, 08:30
         xs, ys = [], []
         for i in range(1, len(closes)):
