@@ -47,3 +47,10 @@ jobs:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub.close_estimate record
+      - name: News score (once a day; recorded to be tested, not used in the estimate)
+        if: always()
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.news_score record

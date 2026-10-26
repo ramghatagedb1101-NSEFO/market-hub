@@ -29,6 +29,7 @@ FILES = [
     ("library.json", 30, False, "stock library (daily 06:15)"),
     ("site/shortlist.json", 30, False, "Shortlist"),
     ("state/close_estimate_log.json", 30, True, "close-estimate record (close-estimate.yml)"),
+    ("state/news_score_log.json", 30, True, "daily news score (close-estimate.yml)"),
     ("site/multibagger.json", 30, False, "early multibaggers"),
     ("site/digest.json", 30, False, "morning digest"),
     ("site/insights.json", 30, False, "insights (alerts, calendar, filings, positions)"),

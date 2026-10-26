@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### Daily news score, recorded to be tested (Mon 26 Oct 2026, 14:50)
+Owner: "Also add the Gemini news score recording". No free news history exists to test a news signal, so this builds
+one. Each weekday before the open Gemini (free tier, one request a day) scores the headlines published between 15:30 on
+the last session and 09:00 today from -2 to +2 for NIFTY's close (`hub/news_score.py`, last step of
+`close-estimate.yml`; only headlines with a publish time in that window, so a late run cannot see later news). It is not
+used in any estimate. The feed scores it each evening, including against what is left after the GIFT-based estimate,
+so after two or three months it shows whether news adds anything. The daily source check watches its log.
+
 ### GIFT Nifty in the closing estimate; the estimate gets its own record; forecast checks (Mon 26 Oct 2026, 14:30)
 Owner: "57% is not good enough", asked about news, Europe, pre-open and live rates, then "1, 2 and 3".
 - **GIFT Nifty** (Kite lists it as NSEIX:GIFT NIFTY; already in the owner's plan, so no new cost). Its move from 15:30 the

@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 
-from . import close_estimate, config, engine
+from . import close_estimate, config, engine, news_score
 from .store import Store
 
 
@@ -95,6 +95,7 @@ def build(store: Store) -> dict:
         block["today"] = _today_estimate(store, idx)
         out["indices"][idx] = block
     out["close_estimate_record"] = close_estimate.summary(store.prices)   # the phone card's own record
+    out["news_score_record"] = news_score.summary(store.prices)          # recorded to be tested; not used in estimates
 
     if config.TRADES_FILE.exists():
         out["trades"] = json.loads(config.TRADES_FILE.read_text(encoding="utf-8"))
