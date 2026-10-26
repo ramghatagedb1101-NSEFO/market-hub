@@ -4,6 +4,17 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### Live check found: ownership figures 100x for one quarter; pledge change wrong (Mon 26 Oct 2026, 12:10)
+The 26 Oct live audit opened NTPC's Ownership tab: "Holding by quarter" showed FII 1,609% and DII 2,892% for Jun 2025.
+Shareholding filings from about mid-2025 state percentages as whole numbers (16.09); newer ones as fractions (0.1609).
+`hub/shareholding.py` multiplied every value by 100, so 1,117 companies carry a 100x FII/DII point for that quarter,
+and the year-ago pledge used by "Promoter pledge not higher than a year ago" was 100x too big for companies whose
+year-ago filing was in whole percentages (RKEC and FLEXITUFF showed a pledge change of about -7,800, so the rule
+passed whatever the real change). Fix: each filing is read at its own scale (a fraction-scale filing never has a value
+above 1). Stored 100x points are dropped from the history, and `SHP_VERSION` 3 makes the library re-read every
+company's filings (free NSE files, spread over the self-chaining library runs). Tested on NTPC (Jun 2025: FII 16.09%,
+DII 28.92%) and RKEC (pledge 75-79% in every quarter).
+
 ### Insider trades back: BSE's file replaces NSE's stalled list (Mon 26 Oct 2026, 00:45)
 NSE's per-company insider list (`corporates-pit`) has had no new rows since 28 Apr 2026, so the phone and dashboard
 insider sections and the promoter buy/sell alerts showed six-month-old trades. BSE publishes the same SEBI insider

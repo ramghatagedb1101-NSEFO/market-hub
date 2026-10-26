@@ -96,10 +96,16 @@ def institutional_from_text(text: str) -> dict:
     fact that is simply missing, so pledge_pct is 0.0 (not "not testable") when that flag says false."""
     out = {}
     tag = "ShareholdingAsAPercentageOfTotalNumberOfShares"
+    # 26 Oct 2026: filings from about mid-2025 state these as whole percentages (16.09), not fractions
+    # (0.1609); multiplying those by 100 stored FII 1,609% / DII 2,892% for 1,117 companies' Jun 2025
+    # quarter and a year-ago pledge 100x too big (pledge_change -7,800 for two companies). A fraction-
+    # scale filing never has a value above 1 (its total is 1), a percent-scale one always does (100).
+    vals = [float(x) for x in re.findall(r'<in-bse-shp:' + tag + r'[^>]*>\s*([0-9.]+)\s*<', text)]
+    scale = 1.0 if vals and max(vals) > 1.0001 else 100.0
 
     def pct(context):
         v = _xbrl_fact(text, tag, context)
-        return None if v in (None, "") else float(v) * 100
+        return None if v in (None, "") else float(v) * scale
 
     # FII means foreign portfolio investors: FPI Category I + II. The filing's "Institutions (Foreign)"
     # total also holds foreign direct investment, overseas depositories (ADR/GDR shares) and foreign
@@ -129,7 +135,7 @@ def institutional_from_text(text: str) -> dict:
             pledge = _xbrl_fact(text, "EncumberedShareUnderPledgedAsPercentageOfTotalNumberOfShares",
                                  "ShareholdingOfPromoterAndPromoterGroup_ContextI")
             if pledge not in (None, ""):
-                out["pledge_pct"] = float(pledge) * 100
+                out["pledge_pct"] = float(pledge) * scale
     return out
 
 
@@ -199,7 +205,8 @@ def holding_history(records: list[dict], inst_by_quarter: dict | None = None,
     for row in prior or []:
         q = row.get("quarter")
         if q:
-            by_q[q] = dict(row)
+            # drop percentages stored 100x too big before the 26 Oct 2026 scale fix
+            by_q[q] = {k: v for k, v in row.items() if not (isinstance(v, (int, float)) and v > 100)}
     for rec in records:
         q = rec["date"].isoformat()
         row = by_q.setdefault(q, {"quarter": q})

@@ -683,7 +683,7 @@ def merge_and_write_multibagger(mb_stocks: list[dict], prior_mb: dict, mb_failur
     return len(merged)
 
 
-SHP_VERSION = 2
+SHP_VERSION = 3   # 3 (26 Oct 2026): re-read every company's filings after the percent-scale fix in shareholding.py
 INDUSTRY_LIST = "https://nsearchives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv"
 
 # The measures the admin dashboard compares between batches for its "What changed" feed: the six
