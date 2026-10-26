@@ -4,6 +4,25 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### Closing estimate rebuilt; SENSEX forecasts were built on mid-morning prices (Mon 26 Oct 2026, 15:00)
+Owner: "Something is not right about the estimated close values. It's always mostly flat" and "I want a more realistic
+closing estimate".
+- **Why it was flat.** The estimate blends ten chart signals that mostly cancel. A 2-year replay: typical lean 0.04%
+  against a typical real move of 0.47%, direction right 41-48% of days. None of the ten had next-day skill on its own.
+- **What was tested** (`hub/us_cue_test.py` plus a 10-year walk-forward): last night's S&P 500 move is the one factor that
+  works: NIFTY's direction right 61% over 10 years (always-up 54%), 65% when the S&P moved 0.5-1%, 68% above 1%, about
+  50% below 0.5%. Crude, Brent, USD/INR, dollar index, US 10-year yield, US VIX, gold, Nasdaq, chips, India VIX, Nikkei,
+  Hang Seng and the index's own recent moves added nothing on top (all together did worse, 58%). News: no free history to
+  test against, so not used.
+- **Phone (v45).** Before 09:15 the card's estimate is the last close moved by the S&P (only when it moved 0.5% or more),
+  with the past hit rate for that size of move; otherwise "too small to call". From 09:15 it starts from the live level,
+  with a range that narrows towards 15:30 (fitted on 60 days of 5-minute data; 74-83% of closes inside at every point of
+  the day). Feed adds `sig_d` and `us_beta` (`config.US_BETA`). The stored forecasts and the Desk record are unchanged.
+- **SENSEX bug.** The Kite login starts the daily job at about 09:30; it stored a mid-session SENSEX, settled the previous
+  forecast and made the next one from it (7, 8, 12, 13 and 23 Oct 2026; up to 660 points off). The evening run fixed the
+  price file but not the forecasts. Now no Kite close for today is read before 15:35 IST (`hub/sources/prices.py`); the
+  25 affected SENSEX records were recomputed from the correct closes.
+
 ### Live check found: ownership figures 100x for one quarter; pledge change wrong (Mon 26 Oct 2026, 12:10)
 The 26 Oct live audit opened NTPC's Ownership tab: "Holding by quarter" showed FII 1,609% and DII 2,892% for Jun 2025.
 Shareholding filings from about mid-2025 state percentages as whole numbers (16.09); newer ones as fractions (0.1609).

@@ -531,8 +531,52 @@
       <span class="lo" style="left:0">${f(lo)}</span><span class="hi" style="right:0">${f(hi)}</span></div>`;
   }
 
+  // Close estimate (26 Oct 2026, owner: "I want a more realistic closing estimate"). The ten forecast tools have no
+  // next-day skill (2-year replay: direction 41-48%), so their near-zero lean is not shown as the estimate. Instead:
+  //  - before 09:15: last close moved by last night's S&P 500 (us_beta x its move) when it moved 0.5% or more,
+  //    with that size's past hit rate; range = the day model's calibrated 80% width;
+  //  - 09:15-15:30: the live level, range = daily vol x (0.656 x sqrt(share of session left) + 0.245), fitted on 60 days
+  //    of 5-minute bars (hub/us_cue_test.py; 74-83% of closes inside at every time of day).
+  // The tracked forecast (Desk tab record) is unchanged.
+  function closeEstimate(name, t, live){
+    if (!t.base || !t.sig_d) return null;
+    const ist = new Date(Date.now() + 5.5 * 3600 * 1000), todayIst = ist.toISOString().slice(0, 10);
+    const mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+    const dueToday = String(t.target || "").slice(0, 10) === todayIst;
+    const lts = live && (live.ts || (LIVE && LIVE.ts)), liveToday = live && live.last && lts && toIst(lts).toISOString().slice(0, 10) === todayIst;
+    if (dueToday && liveToday && mins >= 555 && mins < 930 && marketOpenIst()) {
+      const w = t.sig_d * (0.656 * Math.sqrt((930 - mins) / 375) + 0.245);
+      return { pred: live.last, lo: live.last * Math.exp(-w), hi: live.last * Math.exp(w), live: true,
+               why: "Live · " + timeTxt(toIst(lts)) + " · from the live level; the range narrows towards 15:30" };
+    }
+    const k = Math.log(t.hi / t.lo) / 2;                       // the day model's 80% half-width, in log terms
+    let lean = 0, why = "No US session since the last close · no clear lean";
+    const spx = (ovsItems() || []).find(x => x.sym === "^GSPC");
+    if (spx && spx.ts && t.us_beta != null) {
+      const usDay = new Date(spx.ts * 1000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+      if (usDay >= String(t.asof || "").slice(0, 10)) {
+        // Direction right by size of the S&P move (10 years NIFTY, 5 years the others): under 0.5% a coin toss, so no
+        // lean is shown; 0.5-1% and over 1% as below. Crude, USD/INR, dollar index, US yields, VIX, Asia and the index's
+        // own recent moves were tested too and added nothing on top (26 Oct 2026, hub/us_cue_test.py).
+        const HIT = { NIFTY: [65, 68], BANKNIFTY: [58, 63], SENSEX: [62, 70] }[name] || [60, 65];
+        const a = Math.abs(spx.change_pct), done = Date.now() / 1000 - spx.ts > 3600;   // no bar for an hour: closed
+        const src = `S&P 500 ${pct(spx.change_pct)} (${done ? "close " + dayTxt(parseDay(usDay)) : "live · " + (spx.at || "") + " IST"})`;
+        if (a < 0.5) why = src + " · too small to call (past record about 50/50)";
+        else {
+          lean = t.us_beta * Math.log(1 + spx.change_pct / 100);
+          why = src + ` · lean ${pct(lean * 100)} · such calls were right ${a < 1 ? HIT[0] : HIT[1]}% of the time`;
+        }
+      }
+    }
+    const c = t.base * Math.exp(lean);
+    return { pred: c, lo: c * Math.exp(-k), hi: c * Math.exp(k), live: false, why };
+  }
+
   function indexPanel(name, b){
-    const t = b.today || {};
+    const t0 = b.today || {};
+    const live0 = LIVE && LIVE.indices && LIVE.indices[name];
+    const est = t0.actual == null ? closeEstimate(name, t0, live0) : null;
+    const t = est ? Object.assign({}, t0, est, { expected_move_pct: (est.pred / t0.base - 1) * 100 }) : t0;
     const live = LIVE && LIVE.indices && LIVE.indices[name];
     const last = live ? live.last : b.last_close;
     const chg = live ? live.change_pct : (b.history.length > 1 ? (b.last_close / b.history[b.history.length-2].c - 1) * 100 : null);
@@ -559,6 +603,7 @@
       <div class="pb">
         <div class="row"><span class="l">${esc(lastLabel)}</span><span class="r ${cls(chg)}">${f(last,2)} &nbsp;${pct(chg)}</span></div>
         <div class="row"><span class="l">Estimate · ${esc(t.target ? "close " + dayTxt(parseDay(t.target)) : "")}</span><span class="r">${f(t.pred,0)} &nbsp;<span class="${cls(t.expected_move_pct)}">${pct(t.expected_move_pct)}</span></span></div>
+        ${est ? `<div class="row"><span class="l" style="font-size:12px">${esc(est.why)}</span></div>` : ""}
         ${band(t.base, t.pred, t.lo, t.hi)}
         ${actualRow ? `<div class="row">${actualRow}</div>` : ""}
         <div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>

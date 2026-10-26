@@ -46,3 +46,8 @@ ETA_BAND = 0.02           # step size for band calibration (fixed-step; still th
 ETA_BAND_MIN = 0.004      # floor for the adaptive step size (hub.band_step_test), a fifth of ETA_BAND --
                           # the band is never frozen solid, same principle as WEIGHT_FLOOR below
 WEIGHT_FLOOR = 0.02       # no tool is ever switched fully off
+
+# Overnight US cue for the phone's close estimate (26 Oct 2026, hub.us_cue_test): next-day index log return per unit
+# of S&P 500 log return over the US sessions since the last Indian close. Least squares over the last 2 years; the
+# 5-year direction hit rate is 56-59% on all three (the ten tools above: 41-48%, no next-day skill).
+US_BETA = {"NIFTY": 0.24, "BANKNIFTY": 0.22, "SENSEX": 0.22}

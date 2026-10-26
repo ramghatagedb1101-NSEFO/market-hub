@@ -52,9 +52,16 @@ def refresh(path: Path = config.PRICES_FILE) -> dict:
         if "nse_csv" in spec:
             have.update(nse.fetch_range(start, today, spec["nse_csv"]))
         elif k is not None and "kite" in spec:
+            # 26 Oct 2026: dropping today was not enough. The Kite login starts this job at about 09:30, and that run
+            # settled yesterday's forecast and made the next one from a mid-session SENSEX (7, 8, 12, 13 and 23 Oct
+            # 2026, up to 660 points off). Before 15:35 IST today's candle is not read at all.
+            now = datetime.now(config.IST)
+            end = today if (now.hour, now.minute) >= (15, 35) else today - timedelta(days=1)
+            if start > end:
+                continue
             exchange, symbol = spec["kite"]
             token = kite.instrument_token(k, exchange, symbol)
-            have.update(kite.daily_closes(k, token, start, today))
+            have.update(kite.daily_closes(k, token, start, end))
 
     _save(path, raw)
     return raw

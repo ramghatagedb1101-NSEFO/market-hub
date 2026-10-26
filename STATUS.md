@@ -3,6 +3,16 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Mon 26 Oct 2026 -- read this first
+- **Phone close estimate rebuilt** (v45): before 09:15 the last close moved by last night's S&P 500 (only when it moved
+  0.5% or more, with that size's past hit rate); after 09:15 the live level with a range that narrows towards 15:30. The
+  ten forecast tools had no next-day skill; crude, USD/INR, dollar, yields, VIX, Asia added nothing over the S&P in a
+  10-year test. Stored forecasts and the Desk record are unchanged. Open: record the new estimate so it gets its own
+  track record. See CHANGELOG 26 Oct.
+- **SENSEX**: no Kite close for today before 15:35 IST (mid-session values had seeded forecasts on 5 days); 25 records fixed.
+- **Live data audit** done (extras/data-audit/AUDIT.md on the laptop). Dashboard 52-week range and paper chain refresh wait
+  for the 15:37 relay push.
+
 ## Sun 25 Oct 2026 -- read this first
 - **F&O positions** now update daily (were stuck on 15 Oct); **expiry-history.yml** runs weekly (Sat 07:30 IST) so the
   option-price rank stays current; weekend quotes labelled "Close · Fri …". See CHANGELOG 25 Oct.

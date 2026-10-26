@@ -47,6 +47,11 @@ def _today_estimate(store: Store, idx: str):
         "pred": _rnd(fc["pred"]), "lo": _rnd(fc["lo"]), "hi": _rnd(fc["hi"]),
         "expected_move_pct": _rnd((fc["pred"] / fc["base"] - 1) * 100),
         "actual": _rnd(actual),
+        # For the phone's close estimate (26 Oct 2026): daily volatility and the overnight-US factor
+        # (config.US_BETA). The phone moves the centre by last night's S&P 500 before 09:15 and works
+        # from the live level after it.
+        "sig_d": _rnd(fc["sig_h"] / fc["h"] ** 0.5, 6),
+        "us_beta": config.US_BETA.get(idx),
     }
 
 
