@@ -6,8 +6,10 @@ name: market-loop
 # Two runs cover 09:15-15:30 IST (a job may run 6 hours at most); they share a queue, so the second waits for the first.
 on:
   schedule:
-    - cron: "40 3 * * 1-5"      # 03:40 UTC = 09:10 IST: runs to about 12:30
-    - cron: "40 6 * * 1-5"      # 06:40 UTC = 12:10 IST: runs to 15:35
+    # 26 Oct 2026: the 09:10 start began at 09:43 (GitHub delay), leaving 09:15-09:43 unchecked. It now starts at
+    # 08:45 and waits for 09:15; the second is queued for 11:45 and takes over when the first stops (shared queue).
+    - cron: "15 3 * * 1-5"      # 03:15 UTC = 08:45 IST: runs until 3 hours 30 minutes after it starts
+    - cron: "15 6 * * 1-5"      # 06:15 UTC = 11:45 IST: waits for the first, then runs to 15:35
   workflow_dispatch:
 
 permissions:
@@ -20,7 +22,7 @@ concurrency:
 jobs:
   loop:
     runs-on: ubuntu-latest
-    timeout-minutes: 215
+    timeout-minutes: 225
     steps:
       - name: Check paper orders and the watchlist every 5 minutes
         env:
@@ -30,7 +32,7 @@ jobs:
           start=$(date +%s)
           end_ist=$(TZ=Asia/Kolkata date +%Y-%m-%d)" 15:35"
           end=$(TZ=Asia/Kolkata date -d "$end_ist" +%s)
-          limit=$(( start + 200 * 60 ))
+          limit=$(( start + 210 * 60 ))
           [ "$end" -lt "$limit" ] && stop=$end || stop=$limit
           n=0
           while [ "$(date +%s)" -lt "$stop" ]; do

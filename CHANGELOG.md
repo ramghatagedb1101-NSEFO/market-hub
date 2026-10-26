@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-26
 
+### Market loop starts at 08:45; USD/INR labelled as futures (Mon 26 Oct 2026, 15:20)
+- `market-loop.yml` started at 09:43 today (scheduled 09:10; GitHub delay), so paper orders and watchlist moves were not
+  checked from 09:15 to 09:43. It now starts at 08:45 and waits for 09:15; the second run is queued for 11:45 and takes
+  over when the first stops (3 h 30 min each).
+- The USD/INR tile and strip show Kite's front-month futures (95.53 today), not the spot rate: labelled "USD/INR fut"
+  when live (phone v49, dashboard). Found in the 26 Oct live audit.
+
 ### Close-estimate card: direction odds, typical miss, strike odds (Mon 26 Oct 2026, 15:40)
 Owner: "80% range is of no use". The card (phone v48) now shows the estimate, the direction from the last close with its
 chance ("Up from 22,600 · 66% chance"), the typical miss in points, and the chance of closing above three round strikes

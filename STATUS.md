@@ -11,6 +11,9 @@ first) and `CLAUDE.md`.
 - **GIFT Nifty** now leads the pre-open estimate (69% direction for NIFTY over 724 sessions; phone v46, relay after 15:30).
   The estimate is recorded (`close-estimate.yml`) and scored; the card shows "Estimate record". Daily checks now compare
   forecast records with official closes and test the estimate's skill.
+- **Card** (phone v48-49) shows direction odds, typical miss and strike odds; 80% range behind a tap. Market loop now
+  starts 08:45. Next: once the new estimate has ~20 days of record, let it replace the old 10-signal forecast on the Desk
+  tab and in the F&O/Brief ranges; refit the intraday range monthly from the recorder's live entries.
 - **News score** (Gemini, daily before the open) is recorded only; review it after about 60 trading days (late Jan 2027).
 - **SENSEX**: no Kite close for today before 15:35 IST (mid-session values had seeded forecasts on 5 days); 25 records fixed.
 - **Live data audit** done (extras/data-audit/AUDIT.md on the laptop). Relay pushed 15:05: GIFT Nifty in the quote,

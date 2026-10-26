@@ -742,7 +742,8 @@
     const tiles = [
       tile("GOLD ₹/10g", goldRaw ? f(goldRaw.last, 0) : "–", goldRaw ? chgTxt(goldRaw.change_pct) + "<br>" + (ex.gold ? asQuote(LIVE.ts) : asSnap(C.ts)) : "no data", cls(goldRaw && goldRaw.change_pct)),
       tile("CRUDE US$", crudeUsd ? f(crudeUsd.last, 2) : "–", crudeUsd ? chgTxt(crudeUsd.change_pct) + "<br>" + (ex.crude ? asQuote(LIVE.ts) : asSnap(C.ts)) : "no data", cls(crudeUsd && crudeUsd.change_pct)),
-      tile("USD/INR", usd ? f(usd.last, 2) : (C.fx ? f(C.fx.usd_inr, 2) : "–"),
+      // Kite's CDS front-month futures when live, not the spot rate (live audit, 26 Oct 2026): say so
+      tile(ex.usd_inr ? "USD/INR fut" : "USD/INR", usd ? f(usd.last, 2) : (C.fx ? f(C.fx.usd_inr, 2) : "–"),
            usd ? chgTxt(usd.change_pct) + "<br>" + (ex.usd_inr ? asQuote(LIVE.ts) : asSnap(C.ts)) : (C.fx ? "ECB rate<br>" + asClose(C.fx.date) : "no data"), cls(usd && usd.change_pct)),
       tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) + "<br>" + (LIVE && LIVE.india_vix ? asQuote(LIVE.ts) : asSnap(C.ts)) : "no data", cls(vixNow && vixNow.change_pct)),
       spL ? tile("S&P 500", f(spL.last, 0), chgTxt(spL.change_pct) + "<br>" + usWhen(spL), cls(spL.change_pct))
