@@ -7,13 +7,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 ### GIFT Nifty in the closing estimate; the estimate gets its own record; forecast checks (Mon 26 Oct 2026, 14:30)
 Owner: "57% is not good enough", asked about news, Europe, pre-open and live rates, then "1, 2 and 3".
 - **GIFT Nifty** (Kite lists it as NSEIX:GIFT NIFTY; already in the owner's plan, so no new cost). Its move from 15:30 the
-  day before to 09:10 called the close's direction right 69% (NIFTY), 64% (BANK NIFTY) and 68% (SENSEX) of 724 sessions,
+  day before to 09:00 called the close's direction right 69% (NIFTY), 64% (BANK NIFTY) and 68% (SENSEX) of 724 sessions,
   and 75-83% on the biggest 30% of moves; still 63-67% at 07:00. With GIFT known, the S&P adds nothing. The relay adds
   GIFT to its one Kite snapshot with its 15:30 price (pushed after 15:30). The phone (v46) uses GIFT before 09:15, with a
   range about 15-20% narrower, and falls back to the S&P without a GIFT quote (before the Kite login). `hub/diag_gift.py`
   (diag.yml now fetches the Kite token).
 - **Europe and US futures** for the last two hours of the session: no consistent signal on 60 days of 5-minute data. Not used.
-- **Record**: `close-estimate.yml` (09:20, 11:00, 13:00, 14:45 IST) saves the pre-open estimate (GIFT's 09:10 candle,
+- **Record**: `close-estimate.yml` (09:20, 11:00, 13:00, 14:45 IST) saves the pre-open estimate (GIFT's 09:00 candle,
   so a late GitHub start records the same figure) and the live one to the private `state/close_estimate_log.json`; the
   daily job scores them. The card shows "Estimate record".
 - **Why the audit missed both problems**: it compared each figure on screen with its source at one moment; it did not

@@ -2,7 +2,7 @@
 GIFT Nifty as a pre-open cue for NIFTY's close (26 Oct 2026, owner: "look for a free GIFT Nifty feed"). Run on GitHub
 with diag.yml (needs today's Kite token). Kite lists it as NSEIX:GIFT NIFTY (an index-type instrument).
 
-For each NIFTY session t: x = log(GIFT at 09:10 IST on t / GIFT at 15:30 IST on t-1) -- the move since the last Indian
+For each NIFTY session t: x = log(GIFT at 09:00 IST on t / GIFT at 15:30 IST on t-1) -- the move since the last Indian
 close, so the futures premium cancels; y = log(NIFTY close t / close t-1). Compared with the S&P 500 cue (Yahoo, US
 sessions since the last Indian close) on the same days, and both together. Writes derived statistics only to
 diag_output/gift.json (no candles).
@@ -62,14 +62,14 @@ def _one(n, at, ud, ur):
     X, S, Y = [], [], []
     for i in range(1, len(closes)):
         (pd, pc), (td, tc) = closes[i - 1], closes[i]
-        a, b = at(pd, 15 * 60 + 15), at(td, 8 * 60 + 55)    # bars starting 15:15 (ends 15:30) and 08:55 (ends 09:10)
+        a, b = at(pd, 15 * 60 + 15), at(td, 8 * 60 + 55)    # bars starting 15:15 (ends 15:30) and 08:45 (ends 09:00; 15-minute bars start on the quarter-hour)
         if not (a and b):
             continue
         sess = [ur[d] for d in ud[bisect.bisect_left(ud, pd):bisect.bisect_left(ud, td)] if d in ur]
         X.append(np.log(b / a)); S.append(sum(sess)); Y.append(np.log(tc / pc))
     X, S, Y = np.array(X), np.array(S), np.array(Y)
     out = {"days": int(len(Y)), "first_day": closes[0][0] if closes else None,
-           "gift_0910": _stats(X, Y), "spx": _stats(S, Y)}
+           "gift_0900": _stats(X, Y), "spx": _stats(S, Y)}
     for m in (6 * 60 + 45, 7 * 60 + 45, 8 * 60 + 15):   # earlier in the morning: bars ending 07:00, 08:00, 08:30
         xs, ys = [], []
         for i in range(1, len(closes)):

@@ -2,11 +2,11 @@
 The phone's close estimate, recorded so it builds its own track record (26 Oct 2026, owner's go-ahead).
 Same formulas as docs/index.html closeEstimate (keep both in step; evidence in hub/us_cue_test.py):
 
-  pre-open  centre = last close x exp(GIFT_BETA x log(GIFT Nifty at 09:10 / at 15:30 on the last session)), range = the
+  pre-open  centre = last close x exp(GIFT_BETA x log(GIFT Nifty at 09:00 / at 15:30 on the last session)), range = the
             day forecast's 80% half-width x GIFT_RANGE; without GIFT (no Kite token): last close x exp(US_BETA x S&P 500
             log move) when the S&P moved CLOSE_MIN_US_MOVE % or more over the US sessions dated on or after the last
             Indian close, else the last close, with the full half-width. GIFT comes from Kite's 15-minute candles (the bar
-            ending 09:10), so a run that GitHub starts late still records the pre-open figure.
+            ending 09:00), so a run that GitHub starts late still records the pre-open figure.
   live      centre = the live level; half-width = daily vol x (CLOSE_RANGE_A x sqrt(share of session left) + CLOSE_RANGE_C).
 
 python -m hub.close_estimate record   (close-estimate.yml, a few times a day) appends to the private repo's
@@ -64,20 +64,22 @@ def _spx_move(asof: str, target: str):
 
 
 def _gift_move(asof: str, today: str):
-    """log(GIFT Nifty at 09:10 IST today / at 15:30 IST on asof), from Kite's 15-minute candles; None without Kite."""
+    """log(GIFT Nifty at 09:00 IST today (the bar starting 08:45) / at 15:30 IST on asof), from Kite's 15-minute candles; None without Kite."""
     if not os.getenv("KITE_ACCESS_TOKEN"):
         return None
     from datetime import date, timedelta
     from .sources import kite
     try:
         k = kite.client()
-        rows = kite._retry(lambda: k.historical_data(GIFT_TOKEN, date.fromisoformat(asof), date.fromisoformat(today), "15minute"))
+        # "to" is a midnight: one day past today, or today's morning bars are left out
+        rows = kite._retry(lambda: k.historical_data(GIFT_TOKEN, date.fromisoformat(asof),
+                                                     date.fromisoformat(today) + timedelta(days=1), "15minute"))
     except Exception as exc:                            # noqa: BLE001 -- fall back to the S&P cue
         print("GIFT candles unavailable:", str(exc)[:120])
         return None
     at = {(c["date"].astimezone(config.IST).date().isoformat(), c["date"].astimezone(config.IST).strftime("%H:%M")): float(c["close"])
           for c in rows}
-    a, b = at.get((asof, "15:15")), at.get((today, "08:55"))
+    a, b = at.get((asof, "15:15")), at.get((today, "08:45"))
     return math.log(b / a) if a and b else None
 
 

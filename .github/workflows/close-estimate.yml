@@ -1,9 +1,9 @@
 name: close-estimate
 
 # Records the phone's close estimate so it builds its own track record (26 Oct 2026, owner's go-ahead): the pre-open
-# figure (GIFT Nifty at 09:10, else the S&P 500) once a day, and the live estimate with its range at each run in market
+# figure (GIFT Nifty at 09:00, else the S&P 500) once a day, and the live estimate with its range at each run in market
 # hours. Appends to the private repo's state/close_estimate_log.json (only this job writes it); the daily job scores it.
-# GitHub may start a scheduled run late; the pre-open figure is read from Kite's 09:10 candle, so lateness does not change it.
+# GitHub may start a scheduled run late; the pre-open figure is read from Kite's 09:00 candle, so lateness does not change it.
 on:
   schedule:
     - cron: "50 3 * * 1-5"     # 09:20 IST
