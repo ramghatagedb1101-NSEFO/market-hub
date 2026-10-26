@@ -7,8 +7,10 @@ first) and `CLAUDE.md`.
 - **Phone close estimate rebuilt** (v45): before 09:15 the last close moved by last night's S&P 500 (only when it moved
   0.5% or more, with that size's past hit rate); after 09:15 the live level with a range that narrows towards 15:30. The
   ten forecast tools had no next-day skill; crude, USD/INR, dollar, yields, VIX, Asia added nothing over the S&P in a
-  10-year test. Stored forecasts and the Desk record are unchanged. Open: record the new estimate so it gets its own
-  track record. See CHANGELOG 26 Oct.
+  10-year test. Stored forecasts and the Desk record are unchanged. See CHANGELOG 26 Oct.
+- **GIFT Nifty** now leads the pre-open estimate (69% direction for NIFTY over 724 sessions; phone v46, relay after 15:30).
+  The estimate is recorded (`close-estimate.yml`) and scored; the card shows "Estimate record". Daily checks now compare
+  forecast records with official closes and test the estimate's skill.
 - **SENSEX**: no Kite close for today before 15:35 IST (mid-session values had seeded forecasts on 5 days); 25 records fixed.
 - **Live data audit** done (extras/data-audit/AUDIT.md on the laptop). Dashboard 52-week range and paper chain refresh wait
   for the 15:37 relay push.

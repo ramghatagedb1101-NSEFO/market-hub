@@ -51,3 +51,13 @@ WEIGHT_FLOOR = 0.02       # no tool is ever switched fully off
 # of S&P 500 log return over the US sessions since the last Indian close. Least squares over the last 2 years; the
 # 5-year direction hit rate is 56-59% on all three (the ten tools above: 41-48%, no next-day skill).
 US_BETA = {"NIFTY": 0.24, "BANKNIFTY": 0.22, "SENSEX": 0.22}
+CLOSE_MIN_US_MOVE = 0.5   # % S&P move below which there is no lean (past direction about 50/50 there)
+CLOSE_RANGE_A, CLOSE_RANGE_C = 0.656, 0.245   # live 80% half-width = daily vol x (A x sqrt(session left) + C)
+# GIFT Nifty cue (26 Oct 2026, hub/diag_gift.py, 724 sessions Nov 2023 - Oct 2026): x = log(GIFT now / GIFT at 15:30 IST
+# on the last Indian session). Before 09:15 it replaces the S&P cue when the relay has a GIFT quote. Beta, direction hit %
+# at 09:10, and the range factor sqrt(1 - corr^2) (what the cue leaves unexplained) per index.
+GIFT_BETA = {"NIFTY": 0.90, "BANKNIFTY": 0.97, "SENSEX": 0.90}
+GIFT_HIT = {"NIFTY": 69, "BANKNIFTY": 64, "SENSEX": 68}
+GIFT_RANGE = {"NIFTY": 0.80, "BANKNIFTY": 0.85, "SENSEX": 0.81}
+# The phone (docs/index.html closeEstimate) uses these numbers through the feed, and the range constants above
+# directly: change both together.

@@ -28,6 +28,7 @@ REMIND_DAYS = 3
 FILES = [
     ("library.json", 30, False, "stock library (daily 06:15)"),
     ("site/shortlist.json", 30, False, "Shortlist"),
+    ("state/close_estimate_log.json", 30, True, "close-estimate record (close-estimate.yml)"),
     ("site/multibagger.json", 30, False, "early multibaggers"),
     ("site/digest.json", 30, False, "morning digest"),
     ("site/insights.json", 30, False, "insights (alerts, calendar, filings, positions)"),
@@ -197,6 +198,38 @@ def check_contents(now: datetime) -> list:
     return out
 
 
+def check_forecasts(now: datetime) -> list:
+    """26 Oct 2026 (owner: "how come the audit did not identify these issues"): the SENSEX forecasts had been made and
+    scored from mid-session prices for two weeks, and the estimate had no skill, and no check looked at either. Every
+    stored forecast's starting close and settled close must equal the official close in prices.json; the phone card's
+    recorded estimate must beat "no change" once it has 20 settled days."""
+    from datetime import date
+    from . import horizons
+    get = lambda path: _request("GET", f"{API}/repos/{PRIVATE_REPO}/contents/{path}?ref={BRANCH}",
+                                headers=_headers("application/vnd.github.raw")).json()
+    st, px, out = get("state/state.json"), get("state/prices.json"), []
+    bad = {}
+    for p in st.get("predictions", []):
+        rows = sorted(px.get(p["index"], {}).items())
+        dates, closes = [date.fromisoformat(d) for d, _ in rows], [c for _, c in rows]
+        close = dict(rows)
+        wrong = p["asof"] in close and abs(close[p["asof"]] - p["base"]) > 0.01
+        if p.get("settled_on") and p["horizon"] in ("day", "expiry"):
+            act = horizons.settle_value(p["horizon"], date.fromisoformat(p["target"]), dates, closes)
+            wrong = wrong or (act is not None and abs(float(act[1]) - p["actual"]) > 0.01)
+        if wrong:
+            bad[p["index"]] = bad.get(p["index"], 0) + 1
+    for idx, n in bad.items():
+        out.append({"id": "forecast:records:" + idx, "what": idx + " forecasts",
+                    "text": f"{n} stored forecasts start from or were scored on a close that differs from the official close"})
+    rec = (get("site/feed.json").get("close_estimate_record") or {})
+    for idx, r in rec.items():
+        if r.get("pre_n", 0) >= 20 and r.get("pre_err_pct", 0) > r.get("no_change_err_pct", 9):
+            out.append({"id": "forecast:skill:" + idx, "what": idx + " close estimate",
+                        "text": f"over {r['pre_n']} days its error ({r['pre_err_pct']}%) is worse than assuming no change ({r['no_change_err_pct']}%)"})
+    return out
+
+
 def check_jobs() -> list:
     token = os.getenv("GITHUB_TOKEN", "")
     if not token:
@@ -244,7 +277,7 @@ def _save_state(st, sha):
 def main() -> dict:
     now = _now()
     problems = []
-    for part in (check_files, check_sections, check_contents):
+    for part in (check_files, check_sections, check_contents, check_forecasts):
         try:
             problems += part(now)
         except Exception as e:                     # one broken check must not hide the others

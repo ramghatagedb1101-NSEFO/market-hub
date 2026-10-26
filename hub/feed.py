@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 
-from . import config, engine
+from . import close_estimate, config, engine
 from .store import Store
 
 
@@ -52,6 +52,7 @@ def _today_estimate(store: Store, idx: str):
         # from the live level after it.
         "sig_d": _rnd(fc["sig_h"] / fc["h"] ** 0.5, 6),
         "us_beta": config.US_BETA.get(idx),
+        "gift": {"beta": config.GIFT_BETA.get(idx), "hit": config.GIFT_HIT.get(idx), "range": config.GIFT_RANGE.get(idx)},
     }
 
 
@@ -93,6 +94,7 @@ def build(store: Store) -> dict:
             }
         block["today"] = _today_estimate(store, idx)
         out["indices"][idx] = block
+    out["close_estimate_record"] = close_estimate.summary(store.prices)   # the phone card's own record
 
     if config.TRADES_FILE.exists():
         out["trades"] = json.loads(config.TRADES_FILE.read_text(encoding="utf-8"))

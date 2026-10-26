@@ -533,8 +533,9 @@
 
   // Close estimate (26 Oct 2026, owner: "I want a more realistic closing estimate"). The ten forecast tools have no
   // next-day skill (2-year replay: direction 41-48%), so their near-zero lean is not shown as the estimate. Instead:
-  //  - before 09:15: last close moved by last night's S&P 500 (us_beta x its move) when it moved 0.5% or more,
-  //    with that size's past hit rate; range = the day model's calibrated 80% width;
+  //  - before 09:15: last close moved by GIFT Nifty's move since the last 15:30 (when the relay has a GIFT quote; range
+  //    narrowed by what it explains), else by last night's S&P 500 (us_beta x its move) when it moved 0.5% or more, with
+  //    that size's past hit rate; range = the day model's calibrated 80% width;
   //  - 09:15-15:30: the live level, range = daily vol x (0.656 x sqrt(share of session left) + 0.245), fitted on 60 days
   //    of 5-minute bars (hub/us_cue_test.py; 74-83% of closes inside at every time of day).
   // The tracked forecast (Desk tab record) is unchanged.
@@ -549,8 +550,19 @@
       return { pred: live.last, lo: live.last * Math.exp(-w), hi: live.last * Math.exp(w), live: true,
                why: "Live · " + timeTxt(toIst(lts)) + " · from the live level; the range narrows towards 15:30" };
     }
-    const k = Math.log(t.hi / t.lo) / 2;                       // the day model's 80% half-width, in log terms
+    let k = Math.log(t.hi / t.lo) / 2;                         // the day model's 80% half-width, in log terms
     let lean = 0, why = "No US session since the last close · no clear lean";
+    // GIFT Nifty first (26 Oct 2026, hub/diag_gift.py): its move since 15:30 IST on the last Indian session. It needs a
+    // quote from today (or from the evening of that session) and the relay's 15:30 price for that day.
+    const G = LIVE && LIVE.gift, gs = t.gift || {}, asof = String(t.asof || "").slice(0, 10);
+    const gref = G && G.refs && G.refs[asof], qDay = LIVE && LIVE.ts ? toIst(LIVE.ts).toISOString().slice(0, 10) : "";
+    if (G && G.last && gref && gs.beta != null && (qDay === todayIst || qDay === asof) && qDay <= String(t.target || "").slice(0, 10)) {
+      const x = Math.log(G.last / gref);
+      lean = gs.beta * x; k *= gs.range || 1;
+      why = `GIFT Nifty ${pct(x * 100)} since 15:30 ${dayTxt(parseDay(asof))} · lean ${pct(lean * 100)} · such calls were right ${gs.hit}% of the time`;
+      const c = t.base * Math.exp(lean);
+      return { pred: c, lo: c * Math.exp(-k), hi: c * Math.exp(k), live: false, why };
+    }
     const spx = (ovsItems() || []).find(x => x.sym === "^GSPC");
     if (spx && spx.ts && t.us_beta != null) {
       const usDay = new Date(spx.ts * 1000).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -609,6 +621,10 @@
         <div class="row"><span class="l">80% band</span><span class="r">${f(t.lo)} – ${f(t.hi)}</span></div>
         ${nextRow}
         <div class="row"><span class="l">Settled outcomes</span><span class="r amb">${trk ? trk : "0 · no verdict yet"}</span></div>
+        ${(() => { const r = FEED && FEED.close_estimate_record && FEED.close_estimate_record[name];   // recorded since 26 Oct 2026
+          return `<div class="row"><span class="l">Estimate record</span><span class="r amb">${r && r.pre_n
+            ? `${r.pre_n} day${r.pre_n > 1 ? "s" : ""} · ${Math.round(r.pre_in_band_pct)}% in range` + (r.leaned_n ? ` · direction ${Math.round(r.leaned_hit_pct)}% of ${r.leaned_n}` : "")
+            : "no settled days yet"}</span></div>`; })()}
       </div>
     </div>`;
   }
