@@ -1,7 +1,7 @@
 """Live loop: refresh prices, settle what is due, make today's forecasts, publish the feed."""
 from datetime import datetime
 
-from . import close_estimate, config, engine, feed, horizons
+from . import close_estimate, config, engine, feed, holidays, horizons
 from .store import Store
 
 
@@ -54,6 +54,10 @@ def predict_all(store: Store) -> list:
 
 def run_daily() -> dict:
     store = Store()
+    try:                                     # NSE's trading holidays for "the next session"; a failure keeps the stored list
+        holidays.refresh()
+    except Exception as exc:                 # noqa: BLE001
+        print("holiday list not refreshed:", str(exc)[:120])
     counts = store.refresh_prices()          # raises if NSE/Kite are unavailable: no partial writes
     settled = settle_due(store)
     made = predict_all(store)

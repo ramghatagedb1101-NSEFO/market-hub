@@ -3,7 +3,7 @@ import calendar
 from bisect import bisect_right
 from datetime import date, timedelta
 
-from . import config, expiries
+from . import config, expiries, holidays
 
 
 def _last_weekday_of_month(year: int, month: int) -> date:
@@ -17,7 +17,7 @@ def target_for(horizon: str, index: str, asof: date) -> date:
     """The date whose close we are forecasting, given the last close we know (asof)."""
     if horizon == "day":
         t = asof + timedelta(days=1)
-        while t.weekday() >= 5:
+        while not holidays.is_session(t):           # weekends and NSE trading holidays (hub/holidays.py, 27 Oct 2026)
             t += timedelta(days=1)
         return t
     if horizon == "expiry":

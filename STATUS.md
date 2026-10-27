@@ -68,6 +68,7 @@ to `main` (CI) or the owner running `--pull`/`--push` locally with their own tok
 - **Card** (phone v48-49) shows direction odds, typical miss and strike odds; 80% range behind a tap. Market loop now
   starts 08:45. Next: once the new estimate has ~20 days of record, let it replace the old 10-signal forecast on the Desk
   tab and in the F&O/Brief ranges; refit the intraday range monthly from the recorder's live entries.
+- **Holidays**: NSE's trading-holiday list now drives "the next session" (next: Tue 10 Nov, Tue 24 Nov 2026).
 - **Evening update**: the afternoon market-loop run starts daily.yml at 18:05 IST (GitHub had delayed the 18:00
   schedule by 2.5 hours on 26 Oct). If the repo ever goes private, this idle wait costs Actions minutes.
 - **News score** (Gemini, daily before the open) is recorded only; review it after about 60 trading days (late Jan 2027).

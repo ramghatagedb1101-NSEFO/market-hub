@@ -2,7 +2,7 @@
 import json
 from datetime import datetime
 
-from . import close_estimate, config, engine, horizons, news_score
+from . import close_estimate, config, engine, holidays, horizons, news_score
 from .store import Store
 
 
@@ -110,6 +110,9 @@ def build(store: Store) -> dict:
         if block["today"]["actual"] is not None:
             block["next"] = _today_estimate(store, idx, nxt=True)
         out["indices"][idx] = block
+    # upcoming NSE trading holidays: the recorders stay quiet on them instead of failing for "nothing to record"
+    today = datetime.now(config.IST).date().isoformat()
+    out["holidays"] = sorted(d for d in holidays.load() if d >= today)[:10]
     out["close_estimate_record"] = close_estimate.summary(store.prices)   # the phone card's own record
     out["news_score_record"] = news_score.summary(store.prices)          # recorded to be tested; not used in estimates
 

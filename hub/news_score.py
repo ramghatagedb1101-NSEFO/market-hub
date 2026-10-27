@@ -100,6 +100,8 @@ def record() -> dict | None:
     feed = requests.get(PRIVATE + "site/feed.json", timeout=30, headers={
         "Authorization": "Bearer " + os.environ["PRIVATE_REPO_TOKEN"], "Accept": "application/vnd.github.raw"}).json()
     t = session_block(feed["indices"]["NIFTY"], today)
+    if today in (feed.get("holidays") or []):
+        return None                                     # NSE trading holiday
     if t is None:
         if now.weekday() < 5:                           # outside review 27 Oct 2026: never succeed with nothing
             raise SystemExit(f"no open session for {today} in the feed ({feed.get('generated_at')})")

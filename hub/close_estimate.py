@@ -164,6 +164,9 @@ def record() -> list:
         if 555 <= mins < 930 and q.get("last") and str(quote.get("ts", ""))[:10] == today:
             new.append({"date": today, "index": idx, "kind": "live", "at": now.strftime("%H:%M"), "base": t["base"],
                         "level": q["last"], **{k: round(v, 4 if k in ("p_up", "sigma_pct") else 2) for k, v in live(t, q["last"], mins).items()}})
+    if today in (feed.get("holidays") or []):
+        print(f"{today} is an NSE trading holiday: nothing to record")
+        return []
     # Fail loudly rather than succeed with nothing (outside review 27 Oct 2026, finding 3): the daily source check emails
     # on a failed scheduled run.
     if not new and now.weekday() < 5 and mins < 930:

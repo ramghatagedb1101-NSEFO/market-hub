@@ -17,7 +17,7 @@ from datetime import date, timedelta
 
 import numpy as np
 
-from . import config, horizons
+from . import config, holidays, horizons
 from .tools import TOOLS, daily_sigma
 
 DEFAULT_WEIGHT = 1.0 / max(len(TOOLS), 1)
@@ -35,9 +35,9 @@ def forecast(index: str, horizon: str, asof: date, dates: list, closes: np.ndarr
              weights: dict, band_k: float) -> dict:
     """Forecast the close for `horizon`, using only data up to and including `asof`."""
     target = horizons.target_for(horizon, index, asof)
-    # Trading sessions in (asof, target]: weekdays only, exchange holidays not modelled.
-    h = max(1, int(np.busday_count(np.datetime64(asof + timedelta(days=1)),
-                                   np.datetime64(target + timedelta(days=1)))))
+    # Trading sessions in (asof, target]: weekdays less NSE trading holidays (hub/holidays.py, since 27 Oct 2026).
+    h = max(1, int(np.busday_count(np.datetime64(asof + timedelta(days=1)), np.datetime64(target + timedelta(days=1)),
+                                   holidays=sorted(holidays.load()))))
     sig = daily_sigma(closes)
     sig_h = max(sig * math.sqrt(h), 1e-4)
     signals = {name: s for name, fn in TOOLS.items()

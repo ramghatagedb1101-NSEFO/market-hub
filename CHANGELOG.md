@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-27
 
+### Market holidays: the next session skips NSE trading holidays (Tue 27 Oct 2026, 13:00)
+Until now "the next session" was the next weekday, so on a weekday holiday the close estimate targeted a day the market
+was shut and its records were never scored; the old ten-tool forecast did the same (it "forecast" Tue 20 Oct 2026, a
+holiday, and settled on Wednesday's close under Tuesday's date). `hub/holidays.py` reads NSE's free trading-holiday list
+(refreshed by every daily run into the private `state/holidays.json`; a failed refresh keeps the stored list). The day
+horizon, the session count behind the range, the feed and both recorders now skip holidays; the recorders stay quiet on
+a holiday instead of failing for "nothing to record". Checked against 2026: every weekday without a NIFTY close is on
+NSE's list and nothing else is. Next weekday holidays: Tue 10 Nov and Tue 24 Nov 2026.
+
 ### The evening update starts at 18:05 reliably (Tue 27 Oct 2026, 12:45)
 `daily.yml`'s 18:00 schedule started at 20:31 on Mon 26 Oct (GitHub delays when a scheduled job starts), so the phone
 moved to the next session 2.5 hours late. GitHub does not delay a job that is already running, and the afternoon
