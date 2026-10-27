@@ -3,6 +3,55 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Outside review, Tue 27 Oct 2026 (owner asked for a critique, no code changed)
+
+Five things worth fixing, in the owner's own words "note these in the documentation":
+
+1. **Two forecast engines are running for the same question, and neither has a retirement date.** `hub/tracker.py`
+   still calls `engine.forecast`/`learn`/`score` (the original ten-tool, learned-weight engine) every day, alongside
+   the new GIFT-Nifty-led `hub/close_estimate.py`, which keeps its own separate log and track record. The 26 Oct plan
+   ("let the new one replace the old once it has ~20 days of record") is the right call, but nothing enforces it --
+   without a concrete date or trigger this becomes two systems, two track records, and two things to keep honest
+   indefinitely.
+2. **The GIFT Nifty pivot trades ensemble robustness for average-case skill.** 69% direction over 724 sessions
+   (walk-forward tested, not curve-fit -- checked directly in `hub/us_cue_test.py`) is a real result, but a single
+   dominant external signal has one failure mode a ten-tool blend didn't: if GIFT/NIFTY's relationship shifts (a
+   liquidity, settlement or policy change on either exchange), the estimate has nothing else to lean on. Worth a
+   specific test: how the estimate does on the days GIFT and NIFTY's opens *disagree*, not just the aggregate hit
+   rate.
+3. **The recurring bug shape is "a job reports success while doing nothing," and it's happened at least three times
+   in two weeks**: the all-zero library entries (8 Oct), the NIFTY 50 option screen silently 400-erroring for 9 days
+   (14-23 Oct), and AI summaries cancelled with nothing saved for three straight days (20-23 Oct). Each was caught by
+   the owner noticing something looked wrong, not by the system's own monitoring -- the monitoring was built
+   *after* each incident. Worth making "can this job succeed while doing nothing?" a standing question for every new
+   job, not a retrospective fix.
+4. **The METHOD.md public/private decision was made after merging it to `main`, not before**, which is what forced
+   the 16 Oct full-history rewrite (`git filter-repo`, 645 commits renumbered). The resulting setup -- a local sparse
+   clone of a second repo, a guard that checks out that repo a second way on GitHub, "push METHOD.md first, then the
+   code" as an unenforced two-repo ordering rule -- is real, ongoing complexity for one file, and it already caused
+   one false-failure bug (the inside-vs-outside checkout-layout mismatch, fixed 15 Oct). See "Decision needed" below
+   for a concrete way to simplify this.
+5. **Feature velocity is outrunning the free-tier budget it depends on.** Fifteen features in one day (16 Oct), two
+   dashboard redesigns and three paper-trading rebuilds inside two weeks -- and GitHub Actions minutes are already
+   at ~2,100 of the 2,000/month free allowance *before* the still-undecided move to a private repo (which has the
+   same 2,000-minute free ceiling). The budget question in "Thu 15 Oct 2026, morning" below isn't a side item; it's
+   the ceiling the free-tier premise already depends on.
+
+**Done, Tue 27 Oct 2026: METHOD.md's cross-repo setup simplified, owner-approved.** The local git sparse-clone is
+gone. `hub/method_check.py` now reads and writes METHOD.md straight over the GitHub API (`fetch_doc`/`push_doc`/
+`doc_last_commit_ts`, the same `PRIVATE_REPO_TOKEN`-based pattern `hub/site_data.py` already uses) -- no
+sparse-checkout flags, no "which path is my clone at" ambiguity (the old `find_doc()`'s three-path search is gone).
+`python -m hub.method_check --pull` saves a local copy to `extras/METHOD.md` for editing; `--push extras/METHOD.md
+"message"` commits it back; the coverage check now always asks the private repo's real GitHub history "was this
+updated after the pushed range's base commit", never a local clone's possibly-stale idea of that. The CI workflow
+(`.github/workflows/method-doc.yml`) dropped its second `actions/checkout` entirely -- one less step, no sparse
+layout to get wrong. `hub/method_check_test.py` rewritten to match (23 cases, all pass, no network calls --
+`fetch_doc`/`doc_last_commit_ts`/`pull_doc`/`push_doc` are monkeypatched). CLAUDE.md's instructions updated.
+**Not yet done: a real end-to-end run.** I don't hold `PRIVATE_REPO_TOKEN` (never will -- it's a secret, the owner
+adds it), so the actual API calls are untested against the real private repo; the first real check is the next push
+to `main` (CI) or the owner running `--pull`/`--push` locally with their own token set. Watch the next
+`method-doc` run on GitHub for a clean pass.
+
 ## Mon 26 Oct 2026 -- read this first
 - **Phone close estimate rebuilt** (v45): before 09:15 the last close moved by last night's S&P 500 (only when it moved
   0.5% or more, with that size's past hit rate); after 09:15 the live level with a range that narrows towards 15:30. The

@@ -2,6 +2,47 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-27
+
+### METHOD.md: dropped the local sparse-clone, guard now talks to the GitHub API directly (owner-approved)
+Implements the proposal from the outside review below. `hub/method_check.py` no longer searches for a local clone
+of `market-hub-private` (the old `find_doc()`'s three-path search, and its "checked out inside vs. beside this
+repo" distinction that caused a false guard failure on 15 Oct, are both gone). It now reads METHOD.md and the
+private repo's commit history for it live over the GitHub API -- `fetch_doc()`, `doc_last_commit_ts()`, `push_doc()`
+-- reusing the exact `PRIVATE_REPO_TOKEN` request pattern `hub/site_data.py` already has (`site_data._headers`/
+`_request`), not a new one.
+- New commands: `python -m hub.method_check --pull` saves the live document to `extras/METHOD.md` for editing
+  (no git clone, just a file); `--push extras/METHOD.md "message"` commits it straight back (one Contents-API PUT,
+  with a sha-conflict retry if someone else pushed in between); `--write` with no `--doc` now pulls a fresh copy to
+  `extras/METHOD.md`, syncs the settings table's values from the code, and tells you to review and push it.
+- The coverage check (does a prediction-engine change have a matching METHOD.md update) is actually more correct
+  now, not just simpler: it always asks the private repo's real GitHub history, never a local clone's idea of "I
+  edited this a minute ago" -- the old git-log-based version would have passed on an edited-but-not-yet-pushed
+  local copy, which was never really true.
+- `.github/workflows/method-doc.yml`: dropped the second `actions/checkout` (sparse-checkout of market-hub-private)
+  entirely; the job now just sets `PRIVATE_REPO_TOKEN` as an env var and installs `requests`. One less step, nothing
+  to get the sparse-checkout flags wrong on.
+- `hub/method_check_test.py` rewritten: 23 cases, all pass, no network calls anywhere (`fetch_doc`/
+  `doc_last_commit_ts`/`pull_doc`/`push_doc` are monkeypatched rather than exercised against real git repos or the
+  real API, since a test must never depend on `PRIVATE_REPO_TOKEN`).
+- CLAUDE.md's "Making changes" section updated to describe `--pull`/`--push` instead of the sparse-clone setup.
+- **Not yet verified end to end**: I was never given `PRIVATE_REPO_TOKEN` (correctly -- it is the owner's secret),
+  so the actual API calls have only been checked by unit test, never against the real private repo. First real
+  check: the next push to `main` (the `method-doc` workflow run), or the owner running `--pull`/`--push` locally.
+
+### Outside review of the last two weeks' changes (owner asked for critique, no code changed)
+Owner asked for an opinion on the recent changes and how the app works, "no changes, you are only the critique" --
+read the whole CHANGELOG and checked several claims directly against the code (confirmed `hub/tracker.py` still
+runs the old ten-tool engine alongside the new `hub/close_estimate.py`; confirmed the GIFT Nifty beta is walk-forward
+tested in `hub/us_cue_test.py`, not curve-fit; confirmed `hub/expiry_theta.py`'s `LOTS = 1` safety gate still holds).
+Five findings recorded in STATUS.md ("Outside review, 27 Oct 2026"): the two parallel forecast engines with no
+retirement trigger for the old one; the GIFT-Nifty single-signal dependency traded against ensemble robustness;
+a recurring "job reports success while doing nothing" bug shape caught three times by the owner noticing, not by
+monitoring; the METHOD.md public/private decision made after merging rather than before (what forced the 16 Oct
+history rewrite); and feature velocity outrunning the free-tier Actions-minutes budget it depends on. Also recorded:
+a concrete proposal to simplify METHOD.md's cross-repo setup (drop the local sparse clone for the GitHub Contents
+API) -- a decision for the owner, not implemented.
+
 ## 2026-10-26
 
 ### The card moves to the next session in the evening (Mon 26 Oct 2026, 21:20)

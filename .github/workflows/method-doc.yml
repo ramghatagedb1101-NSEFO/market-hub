@@ -1,8 +1,9 @@
 name: method-doc
 
-# Keeps METHOD.md (how the platform forecasts, scores and screens) in step with the code (15 Oct 2026).
-# METHOD.md lives in the PRIVATE repo market-hub-private (owner, 15 Oct 2026); this job checks it out with
-# PRIVATE_REPO_TOKEN (read-only use) and never prints its contents, only pass/fail lines.
+# Keeps METHOD.md (how the platform forecasts, scores and screens) in step with the code (15 Oct 2026; moved off a
+# second checkout to the GitHub API 27 Oct 2026). METHOD.md lives in the PRIVATE repo market-hub-private (owner,
+# 15 Oct 2026); this job reads it live with PRIVATE_REPO_TOKEN (Contents read, same token hub/site_data.py uses) and
+# never prints its contents, only pass/fail lines.
 # Fails, and GitHub emails the pusher, when a push changes a prediction-engine file listed in METHOD.md's source map
 # without changing METHOD.md, or when a value in its settings table no longer matches the code. A refactor that
 # leaves the method unchanged passes with "[method: no change]" in a commit message. Details: hub/method_check.py.
@@ -26,17 +27,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0           # the pushed range needs its history
-      - uses: actions/checkout@v4
-        with:
-          repository: ramghatagedb1101-NSEFO/market-hub-private
-          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          path: market-hub-private
-          fetch-depth: 0           # the time of METHOD.md's last change is needed
-          sparse-checkout: |
-            METHOD.md
-          sparse-checkout-cone-mode: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: pip install "requests>=2.31"   # the one dependency hub/method_check.py and hub/site_data.py share
       - name: METHOD.md in step with the code
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: python -m hub.method_check --base "${{ github.event.before }}"
