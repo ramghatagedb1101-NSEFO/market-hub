@@ -27,6 +27,27 @@
    "test_zero_err_pct": 0.4761,
    "big_gaps_hit": 60.1
   },
+  "beyond_0930": {
+   "n": 723,
+   "beta_first_half": -0.195,
+   "test_hit": 53.3,
+   "test_err_pct": 0.4239,
+   "test_zero_err_pct": 0.4232
+  },
+  "beyond_1000": {
+   "n": 723,
+   "beta_first_half": -0.089,
+   "test_hit": 53.6,
+   "test_err_pct": 0.379,
+   "test_zero_err_pct": 0.3797
+  },
+  "beyond_1100": {
+   "n": 723,
+   "beta_first_half": -0.098,
+   "test_hit": 52.5,
+   "test_err_pct": 0.3447,
+   "test_zero_err_pct": 0.3451
+  },
   "preopen_test_half": {
    "err_pct_agree": 0.4629,
    "no_change_err_agree": 0.622,
@@ -62,6 +83,27 @@
    "test_zero_err_pct": 0.5419,
    "big_gaps_hit": 57.9
   },
+  "beyond_0930": {
+   "n": 723,
+   "beta_first_half": -0.257,
+   "test_hit": 52.5,
+   "test_err_pct": 0.4791,
+   "test_zero_err_pct": 0.477
+  },
+  "beyond_1000": {
+   "n": 723,
+   "beta_first_half": -0.092,
+   "test_hit": 53.6,
+   "test_err_pct": 0.4271,
+   "test_zero_err_pct": 0.4297
+  },
+  "beyond_1100": {
+   "n": 723,
+   "beta_first_half": -0.107,
+   "test_hit": 52.2,
+   "test_err_pct": 0.3892,
+   "test_zero_err_pct": 0.3891
+  },
   "preopen_test_half": {
    "err_pct_agree": 0.5659,
    "no_change_err_agree": 0.6937,
@@ -96,6 +138,27 @@
    "test_err_pct": 0.4775,
    "test_zero_err_pct": 0.4992,
    "big_gaps_hit": 62.9
+  },
+  "beyond_0930": {
+   "n": 723,
+   "beta_first_half": -0.162,
+   "test_hit": 53.6,
+   "test_err_pct": 0.4315,
+   "test_zero_err_pct": 0.4319
+  },
+  "beyond_1000": {
+   "n": 723,
+   "beta_first_half": -0.097,
+   "test_hit": 53.6,
+   "test_err_pct": 0.3865,
+   "test_zero_err_pct": 0.388
+  },
+  "beyond_1100": {
+   "n": 723,
+   "beta_first_half": -0.103,
+   "test_hit": 53.0,
+   "test_err_pct": 0.3569,
+   "test_zero_err_pct": 0.3568
   },
   "preopen_test_half": {
    "err_pct_agree": 0.4672,
