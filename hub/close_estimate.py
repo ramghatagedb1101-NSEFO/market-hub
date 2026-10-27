@@ -131,6 +131,16 @@ def _gh(method, path, **kw):
     return requests.request(method, PRIVATE + path, headers=h, timeout=30, **kw)
 
 
+def session_block(b: dict, today: str) -> dict | None:
+    """The feed block whose target is today's session, still open: "today", or "next" when the feed is the previous
+    evening's (27 Oct 2026: before the morning run the feed's "today" is yesterday's result and the recorder skipped
+    the whole day while reporting success)."""
+    t = b.get("today") or {}
+    if t.get("actual") is not None and b.get("next"):
+        t = b["next"]
+    return t if t.get("target") == today and t.get("actual") is None and t.get("sig_d") else None
+
+
 def record() -> list:
     now = datetime.now(config.IST)
     today, mins = now.date().isoformat(), now.hour * 60 + now.minute
@@ -141,8 +151,8 @@ def record() -> list:
     spx = gift = None
     new = []
     for idx, b in feed["indices"].items():
-        t = b.get("today") or {}
-        if t.get("target") != today or t.get("actual") is not None or not t.get("sig_d"):
+        t = session_block(b, today)
+        if t is None:
             continue                                    # not a session day, or already closed
         if spx is None:
             spx, gift = _spx_move(t["asof"], today), _gift_move(t["asof"], today)
@@ -154,18 +164,31 @@ def record() -> list:
         if 555 <= mins < 930 and q.get("last") and str(quote.get("ts", ""))[:10] == today:
             new.append({"date": today, "index": idx, "kind": "live", "at": now.strftime("%H:%M"), "base": t["base"],
                         "level": q["last"], **{k: round(v, 4 if k in ("p_up", "sigma_pct") else 2) for k, v in live(t, q["last"], mins).items()}})
+    # Fail loudly rather than succeed with nothing (outside review 27 Oct 2026, finding 3): the daily source check emails
+    # on a failed scheduled run.
+    if not new and now.weekday() < 5 and mins < 930:
+        raise SystemExit(f"nothing to record: the feed has no open session for {today} (feed {feed.get('generated_at')})")
+    if 555 <= mins < 930 and not any(e["kind"] == "live" for e in new):
+        print("no live quote in market hours (Kite login missing?): pre-open entry only")
+        live_missing = True
+    else:
+        live_missing = False
     for attempt in range(4):                            # append; the sha guard refuses a stale write, then retry
         r = _gh("GET", LOG_PATH)
         sha, log = (r.json()["sha"], json.loads(base64.b64decode(r.json()["content"]))) if r.status_code == 200 else (None, [])
         have = {(e["date"], e["index"]) for e in log if e["kind"] == "pre"}
         add = [e for e in new if e["kind"] == "live" or (e["date"], e["index"]) not in have]
         if not add:
+            if live_missing:
+                raise SystemExit("no live quote in market hours and nothing new to record (Kite login missing?)")
             return []
         body = {"message": f"close estimates {today} {now.strftime('%H:%M')} IST",
                 "content": base64.b64encode(json.dumps(log + add, separators=(",", ":")).encode()).decode()}
         if sha:
             body["sha"] = sha
         if _gh("PUT", LOG_PATH, json=body).status_code in (200, 201):
+            if live_missing:
+                raise SystemExit("recorded the pre-open entry, but no live quote in market hours (Kite login missing?)")
             return add
         time.sleep(3 * (attempt + 1))
     raise SystemExit("could not write the close-estimate log")

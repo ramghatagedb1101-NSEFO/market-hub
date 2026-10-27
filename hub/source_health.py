@@ -223,7 +223,15 @@ def check_forecasts(now: datetime) -> list:
     for idx, n in bad.items():
         out.append({"id": "forecast:records:" + idx, "what": idx + " forecasts",
                     "text": f"{n} stored forecasts start from or were scored on a close that differs from the official close"})
-    rec = (get("site/feed.json").get("close_estimate_record") or {})
+    feed = get("site/feed.json")
+    # an index expiring on its next session must have the evening-before straddle (its expiry-day range), else the card
+    # quietly falls back to daily volatility
+    for idx, b in (feed.get("indices") or {}).items():
+        t = b.get("next") if (b.get("today") or {}).get("actual") is not None and b.get("next") else (b.get("today") or {})
+        if t.get("own_expiry") and not t.get("straddle_pct"):
+            out.append({"id": "forecast:straddle:" + idx, "what": idx + " expiry-day range",
+                        "text": f"{idx} expires on {t.get('target')} but the evening-before straddle was not read from Kite"})
+    rec = (feed.get("close_estimate_record") or {})
     for idx, r in rec.items():
         if r.get("pre_n", 0) >= 20 and r.get("pre_err_pct", 0) > r.get("no_change_err_pct", 9):
             out.append({"id": "forecast:skill:" + idx, "what": idx + " close estimate",

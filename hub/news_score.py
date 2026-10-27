@@ -24,7 +24,7 @@ from xml.etree import ElementTree
 import requests
 
 from . import config
-from .close_estimate import PRIVATE, _gh
+from .close_estimate import PRIVATE, _gh, session_block
 from .context import NEWS_FEEDS, UA
 
 LOG_PATH = "state/news_score_log.json"
@@ -99,9 +99,11 @@ def record() -> dict | None:
         return None                                     # one score a day
     feed = requests.get(PRIVATE + "site/feed.json", timeout=30, headers={
         "Authorization": "Bearer " + os.environ["PRIVATE_REPO_TOKEN"], "Accept": "application/vnd.github.raw"}).json()
-    t = feed["indices"]["NIFTY"].get("today") or {}
-    if t.get("target") != today:
-        return None                                     # not a session day
+    t = session_block(feed["indices"]["NIFTY"], today)
+    if t is None:
+        if now.weekday() < 5:                           # outside review 27 Oct 2026: never succeed with nothing
+            raise SystemExit(f"no open session for {today} in the feed ({feed.get('generated_at')})")
+        return None
     start = datetime.fromisoformat(t["asof"] + "T15:30:00+05:30")
     end = datetime.fromisoformat(today + "T09:00:00+05:30")
     items = _items(start, end)

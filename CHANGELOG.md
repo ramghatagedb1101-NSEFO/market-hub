@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-27
 
+### New jobs fail loudly instead of succeeding with nothing (Tue 27 Oct 2026, 12:20)
+Outside review finding 3 ("a job reports success while doing nothing"), applied to yesterday's new jobs:
+- Found a real case: before the morning daily run the feed's "today" block is the previous day's result, and the
+  close-estimate recorder and the news score both skipped the day while reporting success (it did not happen today only
+  because the morning run came at 08:10). Both now read the next-session block in that case.
+- The recorder now fails (so the daily source check emails) when a weekday has nothing to record, or when it runs in
+  market hours without a live quote (Kite login missing). The news score fails on a weekday with no session in the feed.
+- The daily source check now flags an index that expires on its next session without the evening-before straddle
+  (the card would quietly fall back to daily volatility).
+
 ### The card switches to NSE's pre-open level at 09:08 (Tue 27 Oct 2026, 12:00)
 Owner: "add the 09:08 pre-open switch". NSE's pre-open auction sets the opening level at 09:08; on about 1 day in 5 it
 goes against GIFT and the GIFT estimate has no skill (test above). From 09:08 the card uses that level (labelled
