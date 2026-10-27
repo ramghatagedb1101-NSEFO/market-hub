@@ -1,0 +1,107 @@
+{
+ "NIFTY": {
+  "days": 725,
+  "agree_direction_pct": 82.8,
+  "corr_gift_open": 0.881,
+  "open_vs_gift_beta": 0.904,
+  "all": {
+   "preopen_hit": 69.0,
+   "open_hit": 69.0
+  },
+  "disagree_direction": {
+   "n": 125,
+   "preopen_hit": 49.6,
+   "open_hit": 49.6,
+   "abs_move_pct": 0.484
+  },
+  "apart_0_3pct": {
+   "n": 143,
+   "preopen_hit": 69.2,
+   "open_hit": 72.7
+  },
+  "beyond_open": {
+   "beta_first_half": 0.39,
+   "corr_all": 0.178,
+   "test_hit": 61.4,
+   "test_err_pct": 0.4633,
+   "test_zero_err_pct": 0.4761,
+   "big_gaps_hit": 60.1
+  },
+  "preopen_test_half": {
+   "err_pct_agree": 0.4629,
+   "no_change_err_agree": 0.622,
+   "err_pct_disagree": 0.5227,
+   "no_change_err_disagree": 0.49
+  }
+ },
+ "BANKNIFTY": {
+  "days": 725,
+  "agree_direction_pct": 80.7,
+  "corr_gift_open": 0.84,
+  "open_vs_gift_beta": 0.949,
+  "all": {
+   "preopen_hit": 64.1,
+   "open_hit": 65.2
+  },
+  "disagree_direction": {
+   "n": 140,
+   "preopen_hit": 47.1,
+   "open_hit": 52.9,
+   "abs_move_pct": 0.553
+  },
+  "apart_0_3pct": {
+   "n": 190,
+   "preopen_hit": 67.9,
+   "open_hit": 69.5
+  },
+  "beyond_open": {
+   "beta_first_half": 0.057,
+   "corr_all": 0.054,
+   "test_hit": 55.6,
+   "test_err_pct": 0.5399,
+   "test_zero_err_pct": 0.5419,
+   "big_gaps_hit": 57.9
+  },
+  "preopen_test_half": {
+   "err_pct_agree": 0.5659,
+   "no_change_err_agree": 0.6937,
+   "err_pct_disagree": 0.5339,
+   "no_change_err_disagree": 0.5345
+  }
+ },
+ "SENSEX": {
+  "days": 725,
+  "agree_direction_pct": 78.8,
+  "corr_gift_open": 0.847,
+  "open_vs_gift_beta": 0.908,
+  "all": {
+   "preopen_hit": 67.7,
+   "open_hit": 66.3
+  },
+  "disagree_direction": {
+   "n": 154,
+   "preopen_hit": 53.2,
+   "open_hit": 46.8,
+   "abs_move_pct": 0.479
+  },
+  "apart_0_3pct": {
+   "n": 194,
+   "preopen_hit": 66.5,
+   "open_hit": 67.0
+  },
+  "beyond_open": {
+   "beta_first_half": 0.501,
+   "corr_all": 0.248,
+   "test_hit": 63.1,
+   "test_err_pct": 0.4775,
+   "test_zero_err_pct": 0.4992,
+   "big_gaps_hit": 62.9
+  },
+  "preopen_test_half": {
+   "err_pct_agree": 0.4672,
+   "no_change_err_agree": 0.6297,
+   "err_pct_disagree": 0.5489,
+   "no_change_err_disagree": 0.5413
+  }
+ }
+}
