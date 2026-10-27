@@ -4,6 +4,17 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-27
 
+### Tested: the close estimate on days GIFT Nifty and NIFTY's open disagree (Tue 27 Oct 2026, 11:30)
+From the outside review (finding 2); owner: "yes run it". `hub/diag_gift_open.py`, 725 sessions (Nov 2023 - Oct 2026):
+- NIFTY opened in GIFT's direction 83% of days (BANK NIFTY 81%, SENSEX 79%); the open held about 90% of GIFT's move.
+- On the other days (about 1 in 5) the pre-open estimate had no skill: direction 47-53%, error no better than "no
+  change". That is the single-signal weakness the review suspected, now measured. It cannot be seen before the open,
+  so the morning odds stay as they are (they are right on average); from 09:15 the card works from the live level.
+- GIFT's leftover beyond the official 09:15 open first looked predictive (NIFTY 61%, SENSEX 63%) but it was an artefact
+  of the stale opening print: measured from the 09:30, 10:00 and 11:00 levels it predicted nothing (52-54%, no error
+  reduction). No change to the estimate.
+- First real use of `method_check --pull/--push` (yesterday's change): METHOD.md updated through it, worked end to end.
+
 ### METHOD.md: dropped the local sparse-clone, guard now talks to the GitHub API directly (owner-approved)
 Implements the proposal from the outside review below. `hub/method_check.py` no longer searches for a local clone
 of `market-hub-private` (the old `find_doc()`'s three-path search, and its "checked out inside vs. beside this

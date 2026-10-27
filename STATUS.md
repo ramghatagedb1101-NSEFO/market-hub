@@ -14,11 +14,13 @@ Five things worth fixing, in the owner's own words "note these in the documentat
    without a concrete date or trigger this becomes two systems, two track records, and two things to keep honest
    indefinitely.
 2. **The GIFT Nifty pivot trades ensemble robustness for average-case skill.** 69% direction over 724 sessions
-   (walk-forward tested, not curve-fit -- checked directly in `hub/us_cue_test.py`) is a real result, but a single
+   (first-half/second-half tested in `hub/diag_gift.py`; held-out half 72%) is a real result, but a single
    dominant external signal has one failure mode a ten-tool blend didn't: if GIFT/NIFTY's relationship shifts (a
    liquidity, settlement or policy change on either exchange), the estimate has nothing else to lean on. Worth a
    specific test: how the estimate does on the days GIFT and NIFTY's opens *disagree*, not just the aggregate hit
    rate.
+   **Tested 27 Oct 2026** (`hub/diag_gift_open.py`): they disagree on about 1 day in 5, and on those days the pre-open
+   estimate has no skill (47-53%); after the open GIFT adds nothing beyond the live level. See CHANGELOG 27 Oct.
 3. **The recurring bug shape is "a job reports success while doing nothing," and it's happened at least three times
    in two weeks**: the all-zero library entries (8 Oct), the NIFTY 50 option screen silently 400-erroring for 9 days
    (14-23 Oct), and AI summaries cancelled with nothing saved for three straight days (20-23 Oct). Each was caught by
