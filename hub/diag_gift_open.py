@@ -45,13 +45,22 @@ def main():
     for name, (ex, sym) in IDX.items():
         days = [(c["date"].date().isoformat(), float(c["open"]), float(c["close"]))
                 for c in _candles(k, kite.instrument_token(k, ex, sym), "day", start, end, 1900)]
+        five = {}
+        for c in _candles(k, kite.instrument_token(k, ex, sym), "5minute", start, end, 95):
+            t = c["date"].astimezone(config.IST)
+            five.setdefault(t.date().isoformat(), {})[t.hour * 60 + t.minute + 5] = float(c["close"])
         G, O, Y, Rr = [], [], [], []
+        L = {m: ([], []) for m in (570, 600, 660)}       # level at 09:30, 10:00, 11:00: (GIFT beyond it, rest of day)
         for i in range(1, len(days)):
             (pd, _, pc), (td, op, cl) = days[i - 1], days[i]
             a, b = at(pd, 15 * 60 + 30), at(td, 9 * 60)
             if not (a and b and op):
                 continue
             G.append(np.log(b / a)); O.append(np.log(op / pc)); Y.append(np.log(cl / pc)); Rr.append(np.log(cl / op))
+            for m, (xs, rs) in L.items():
+                lv = [v for mm, v in sorted(five.get(td, {}).items()) if mm <= m]
+                if lv:
+                    xs.append(np.log(b / a) - np.log(lv[-1] / pc)); rs.append(np.log(cl / lv[-1]))
         G, O, Y, Rr = map(np.array, (G, O, Y, Rr))
         n, h = len(Y), len(Y) // 2
         dis = np.sign(G) != np.sign(O)                       # opposite directions
@@ -74,6 +83,17 @@ def main():
                               "test_err_pct": round(float(np.mean(np.abs(Rr[h:] - p))) * 100, 4),
                               "test_zero_err_pct": round(float(np.mean(np.abs(Rr[h:]))) * 100, 4),
                               "big_gaps_hit": _hit(X[far], Rr[far])}
+        # the same from the live level at 09:30 / 10:00 / 11:00: does GIFT's leftover still predict the rest of the day?
+        for m, (xs, rs) in L.items():
+            xs, rs = np.array(xs), np.array(rs)
+            hh = len(xs) // 2
+            if hh < 30:
+                continue
+            bm = float((xs[:hh] @ rs[:hh]) / (xs[:hh] @ xs[:hh]))
+            pm = bm * xs[hh:]
+            res[f"beyond_{m // 60:02d}{m % 60:02d}"] = {"n": int(len(xs)), "beta_first_half": round(bm, 3),
+                "test_hit": _hit(pm, rs[hh:]), "test_err_pct": round(float(np.mean(np.abs(rs[hh:] - pm))) * 100, 4),
+                "test_zero_err_pct": round(float(np.mean(np.abs(rs[hh:]))) * 100, 4)}
         # the pre-open estimate itself (GIFT beta fitted on the first half) on the second half, split by agreement
         bg = float((G[:h] @ Y[:h]) / (G[:h] @ G[:h]))
         e2, y2, d2 = bg * G[h:], Y[h:], dis[h:]
