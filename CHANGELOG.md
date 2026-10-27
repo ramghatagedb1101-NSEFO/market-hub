@@ -33,8 +33,17 @@ private repo's commit history for it live over the GitHub API -- `fetch_doc()`, 
 ### Outside review of the last two weeks' changes (owner asked for critique, no code changed)
 Owner asked for an opinion on the recent changes and how the app works, "no changes, you are only the critique" --
 read the whole CHANGELOG and checked several claims directly against the code (confirmed `hub/tracker.py` still
-runs the old ten-tool engine alongside the new `hub/close_estimate.py`; confirmed the GIFT Nifty beta is walk-forward
-tested in `hub/us_cue_test.py`, not curve-fit; confirmed `hub/expiry_theta.py`'s `LOTS = 1` safety gate still holds).
+runs the old ten-tool engine alongside the new `hub/close_estimate.py`; confirmed `hub/expiry_theta.py`'s `LOTS = 1`
+safety gate still holds).
+
+**Correction, same day:** this entry originally said the GIFT Nifty beta was "walk-forward tested in
+`hub/us_cue_test.py`" -- wrong on both counts. `hub/us_cue_test.py` only covers the US/S&P cue (the fallback path,
+used when GIFT is unavailable); the GIFT test is `hub/diag_gift.py`, run on GitHub via `diag.yml`, output committed
+at `diag_output/gift.json`. And its evidence isn't a rolling walk-forward like `us_cue_test.py`'s -- it's a single
+first-half/second-half split. Checked the real numbers in `diag_output/gift.json` before correcting this: the
+held-out second half's hit rate (`gift_alone_hit`) is 72.4% (NIFTY), 68.2% (BANK NIFTY), 70.4% (SENSEX) against
+68.9%/64.1%/67.7% on the full 724-session sample -- holding up, not degrading, on data the fit never saw. Real
+reassurance, just a different and slightly weaker form of it (one split, not a rolling one) than originally claimed.
 Five findings recorded in STATUS.md ("Outside review, 27 Oct 2026"): the two parallel forecast engines with no
 retirement trigger for the old one; the GIFT-Nifty single-signal dependency traded against ensemble robustness;
 a recurring "job reports success while doing nothing" bug shape caught three times by the owner noticing, not by
