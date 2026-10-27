@@ -548,12 +548,18 @@
     // 15:30 until the evening update moves the card to the next session: the day is over, show its close, not an
     // estimate (26 Oct 2026: GIFT kept trading and the card would have "estimated" a session that had closed)
     if (dueToday && mins >= 930) return { closed: true, pred: liveToday ? live.last : t.base };
-    if (dueToday && liveToday && mins >= 555 && mins < 930 && marketOpenIst()) {
+    // NSE's pre-open auction sets the opening level at 09:08 (27 Oct 2026, owner: "add the 09:08 pre-open switch"): on
+    // about 1 day in 5 the open goes against GIFT and the GIFT estimate has no skill (hub/diag_gift_open.py), so switch
+    // to the live level as soon as the quote shows a 09:08+ level that has moved off yesterday's close.
+    const lq = lts ? toIst(lts) : null, qMins = lq ? lq.getUTCHours() * 60 + lq.getUTCMinutes() : 0;
+    const preOpen = dueToday && liveToday && mins >= 548 && mins < 555 && qMins >= 548 && Math.abs(live.last / t.base - 1) > 1e-6;
+    if (preOpen || (dueToday && liveToday && mins >= 555 && mins < 930 && marketOpenIst())) {
       // the index's own expiry day: calmer afternoons (pinning), config.EXPIRY_RANGE_* (hub/diag_expiry_close.py)
-      const left = Math.sqrt((930 - mins) / 375);
+      const left = Math.sqrt((930 - Math.max(mins, 555)) / 375);       // before 09:15: the whole session is still to come
       const w = t.sig_d * (t.own_expiry ? Math.max(0.20, 1.080 * left - 0.074) : 0.656 * left + 0.245);
       return { pred: live.last, lo: live.last * Math.exp(-w), hi: live.last * Math.exp(w), live: true, sigma: w / 1.2816,
-               why: "Live · " + timeTxt(toIst(lts)) + " · from the live level; the range narrows towards 15:30" };
+               why: (preOpen ? "Pre-open · " + timeTxt(lq) + " · from NSE's 09:08 opening level" : "Live · " + timeTxt(lq) + " · from the live level")
+                 + "; the range narrows towards 15:30" };
     }
     let k = Math.log(t.hi / t.lo) / 2;                         // the day model's 80% half-width, in log terms
     // own expiry day: the evening-before ATM straddle sizes the move better than recent volatility
@@ -640,7 +646,10 @@
     // outside market hours the figure is a close: today's when the live quote is from today (15:30 until the evening
     // update adds today to the history, the label used to say the previous session's date)
     const quoteDay = LIVE && LIVE.ts ? toIst(LIVE.ts).toISOString().slice(0, 10) : null;
-    const lastLabel = marketOpenIst() ? "Last" : asClose(live && quoteDay && quoteDay > (lastDay || "") ? quoteDay : lastDay);
+    const istNow = new Date(Date.now() + 5.5 * 3600e3), nowMins = istNow.getUTCHours() * 60 + istNow.getUTCMinutes();
+    const preOpenNow = live && quoteDay === todayIst && nowMins >= 548 && nowMins < 555;   // 09:08-09:15: auction level
+    const lastLabel = marketOpenIst() ? "Last" : preOpenNow ? "Pre-open"
+      : asClose(live && quoteDay && quoteDay > (lastDay || "") && nowMins >= 930 ? quoteDay : lastDay);   // today only after 15:30
     const ahead = b.horizons.day.forecast;
     // The next-session forecast is often the same one as the card's estimate (same target day): show it only
     // when it is a later day, with that day's date (owner, 11 Oct 2026: duplicates).

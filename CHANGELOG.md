@@ -4,6 +4,14 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-27
 
+### The card switches to NSE's pre-open level at 09:08 (Tue 27 Oct 2026, 12:00)
+Owner: "add the 09:08 pre-open switch". NSE's pre-open auction sets the opening level at 09:08; on about 1 day in 5 it
+goes against GIFT and the GIFT estimate has no skill (test above). From 09:08 the card uses that level (labelled
+"Pre-open") with the full-session range, about seven minutes earlier than before. It only switches when the quote is
+timed 09:08 or later and has moved off yesterday's close, so if Kite's index quote does not update before 09:15 nothing
+changes. Also fixed: before 09:08 a quote stamped today labelled yesterday's price "Close · <today>"; today's date now
+appears only after 15:30. Phone v54. Whether Kite updates at 09:08 will be seen tomorrow morning.
+
 ### Tested: the close estimate on days GIFT Nifty and NIFTY's open disagree (Tue 27 Oct 2026, 11:30)
 From the outside review (finding 2); owner: "yes run it". `hub/diag_gift_open.py`, 725 sessions (Nov 2023 - Oct 2026):
 - NIFTY opened in GIFT's direction 83% of days (BANK NIFTY 81%, SENSEX 79%); the open held about 90% of GIFT's move.
