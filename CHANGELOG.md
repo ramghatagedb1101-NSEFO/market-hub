@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-27
 
+### A dated decision on retiring the old ten-tool forecast (Tue 27 Oct 2026, 12:35)
+Outside review finding 1 (two engines, no retirement trigger). Once the new close estimate has 20 scored days (about
+Tue 24 Nov 2026), the daily source check compares both on the same days and emails the result ("new estimate error
+x% vs old y%") every few days until the owner decides whether the new one takes over the Desk record and the F&O and
+Brief ranges (`hub/source_health.py`, `RETIRE_DAYS`).
+
 ### New jobs fail loudly instead of succeeding with nothing (Tue 27 Oct 2026, 12:20)
 Outside review finding 3 ("a job reports success while doing nothing"), applied to yesterday's new jobs:
 - Found a real case: before the morning daily run the feed's "today" block is the previous day's result, and the

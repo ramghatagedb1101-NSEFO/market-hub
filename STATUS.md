@@ -13,6 +13,8 @@ Five things worth fixing, in the owner's own words "note these in the documentat
    ("let the new one replace the old once it has ~20 days of record") is the right call, but nothing enforces it --
    without a concrete date or trigger this becomes two systems, two track records, and two things to keep honest
    indefinitely.
+   **Trigger set 27 Oct 2026:** at 20 scored days (about Tue 24 Nov 2026) the daily source check emails the comparison
+   until the owner decides.
 2. **The GIFT Nifty pivot trades ensemble robustness for average-case skill.** 69% direction over 724 sessions
    (first-half/second-half tested in `hub/diag_gift.py`; held-out half 72%) is a real result, but a single
    dominant external signal has one failure mode a ten-tool blend didn't: if GIFT/NIFTY's relationship shifts (a
@@ -27,6 +29,7 @@ Five things worth fixing, in the owner's own words "note these in the documentat
    the owner noticing something looked wrong, not by the system's own monitoring -- the monitoring was built
    *after* each incident. Worth making "can this job succeed while doing nothing?" a standing question for every new
    job, not a retrospective fix.
+   **Applied 27 Oct 2026** to the close-estimate recorder, news score and expiry straddle (they now fail or are flagged).
 4. **The METHOD.md public/private decision was made after merging it to `main`, not before**, which is what forced
    the 16 Oct full-history rewrite (`git filter-repo`, 645 commits renumbered). The resulting setup -- a local sparse
    clone of a second repo, a guard that checks out that repo a second way on GitHub, "push METHOD.md first, then the

@@ -22,6 +22,7 @@ from . import config
 from .site_data import API, PRIVATE_REPO, PUBLIC_REPO, BRANCH, _headers, _request
 
 STATE = "state/source_health.json"
+RETIRE_DAYS = 20         # scored days of the new close estimate before the old forecast's retirement is put to the owner
 REMIND_DAYS = 3
 
 # path, hours it may go without a change, True = written on weekdays only (a weekend adds 48 hours), what it is
@@ -231,6 +232,25 @@ def check_forecasts(now: datetime) -> list:
         if t.get("own_expiry") and not t.get("straddle_pct"):
             out.append({"id": "forecast:straddle:" + idx, "what": idx + " expiry-day range",
                         "text": f"{idx} expires on {t.get('target')} but the evening-before straddle was not read from Kite"})
+    # Retirement decision for the old ten-tool forecast (outside review 27 Oct 2026, finding 1): once the new close
+    # estimate has RETIRE_DAYS scored days, compare both on the same days and email until the owner decides.
+    try:
+        log = get("state/close_estimate_log.json")
+    except Exception:                               # noqa: BLE001 -- no log yet
+        log = []
+    for idx in (feed.get("indices") or {}):
+        close = px.get(idx, {})
+        new = {e["date"]: abs(close[e["date"]] / e["pred"] - 1) * 100 for e in log
+               if e["index"] == idx and e["kind"] == "pre" and e["date"] in close}
+        old = {p["target"]: abs(p["err_pct"]) for p in st.get("predictions", [])
+               if p["index"] == idx and p["horizon"] == "day" and p.get("settled_on") and p["target"] in new}
+        same = sorted(set(new) & set(old))
+        if len(same) >= RETIRE_DAYS:
+            n_err, o_err = sum(new[d] for d in same) / len(same), sum(old[d] for d in same) / len(same)
+            better = "new estimate better" if n_err < o_err else "old forecast not beaten"
+            out.append({"id": "forecast:retire:" + idx, "what": idx + " forecast retirement",
+                        "text": f"{len(same)} days scored: new estimate error {n_err:.2f}% vs old ten-tool forecast {o_err:.2f}% "
+                                f"({better}). Decide whether the new one replaces the old on the Desk tab and in the F&O/Brief ranges."})
     rec = (feed.get("close_estimate_record") or {})
     for idx, r in rec.items():
         if r.get("pre_n", 0) >= 20 and r.get("pre_err_pct", 0) > r.get("no_change_err_pct", 9):
