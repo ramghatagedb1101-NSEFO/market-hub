@@ -68,6 +68,8 @@ to `main` (CI) or the owner running `--pull`/`--push` locally with their own tok
 - **Card** (phone v48-49) shows direction odds, typical miss and strike odds; 80% range behind a tap. Market loop now
   starts 08:45. Next: once the new estimate has ~20 days of record, let it replace the old 10-signal forecast on the Desk
   tab and in the F&O/Brief ranges; refit the intraday range monthly from the recorder's live entries.
+- **Evening update**: the afternoon market-loop run starts daily.yml at 18:05 IST (GitHub had delayed the 18:00
+  schedule by 2.5 hours on 26 Oct). If the repo ever goes private, this idle wait costs Actions minutes.
 - **News score** (Gemini, daily before the open) is recorded only; review it after about 60 trading days (late Jan 2027).
 - **SENSEX**: no Kite close for today before 15:35 IST (mid-session values had seeded forecasts on 5 days); 25 records fixed.
 - **Live data audit** done (extras/data-audit/AUDIT.md on the laptop). Relay pushed 15:05: GIFT Nifty in the quote,

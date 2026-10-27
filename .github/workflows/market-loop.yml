@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: write          # the afternoon run starts daily.yml at 18:05 (see the last step)
 
 concurrency:
   group: market-loop
@@ -22,7 +23,7 @@ concurrency:
 jobs:
   loop:
     runs-on: ubuntu-latest
-    timeout-minutes: 225
+    timeout-minutes: 358
     steps:
       - name: Check paper orders and the watchlist every 5 minutes
         env:
@@ -30,6 +31,7 @@ jobs:
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
         run: |
           start=$(date +%s)
+          echo "LOOP_START=$start" >> "$GITHUB_ENV"
           end_ist=$(TZ=Asia/Kolkata date +%Y-%m-%d)" 15:35"
           end=$(TZ=Asia/Kolkata date -d "$end_ist" +%s)
           limit=$(( start + 210 * 60 ))
@@ -45,3 +47,20 @@ jobs:
             sleep 300
           done
           echo "::notice title=market loop::$n checks between $(TZ=Asia/Kolkata date -d @$start +%H:%M) and $(TZ=Asia/Kolkata date +%H:%M) IST"
+      # 27 Oct 2026: daily.yml's own 18:00 schedule started at 20:31 on 26 Oct (GitHub delays scheduled starts, not running
+      # jobs), so the phone moved to the next session 2.5 hours late. The afternoon run is already running at 15:35: it
+      # waits until 18:05 IST and starts daily.yml itself (its schedule stays as a backup; a second run changes nothing).
+      # Free on a public repo; a job may run 6 hours, so it gives up if 18:05 is out of reach.
+      - name: Start the evening daily run at 18:05 IST
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          now_hm=$(TZ=Asia/Kolkata date +%H%M)
+          if [ "$now_hm" -lt 1530 ]; then echo "morning run: nothing to do"; exit 0; fi
+          go=$(TZ=Asia/Kolkata date -d "$(TZ=Asia/Kolkata date +%Y-%m-%d) 18:05" +%s)
+          last=$(( LOOP_START + 352 * 60 ))
+          if [ "$go" -gt "$last" ]; then echo "::warning title=evening run::18:05 IST is past this job's 6-hour limit; daily.yml's own schedule will run it"; exit 0; fi
+          sleep $(( go - $(date +%s) > 0 ? go - $(date +%s) : 0 ))
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${{ github.repository }}/actions/workflows/daily.yml/dispatches" -d '{"ref":"main"}')
+          if [ "$code" != "204" ]; then echo "::error title=evening run::starting daily.yml failed (HTTP $code)"; exit 1; fi
+          echo "::notice title=evening run::daily.yml started at $(TZ=Asia/Kolkata date +%H:%M) IST"

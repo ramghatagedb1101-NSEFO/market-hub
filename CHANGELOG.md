@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-27
 
+### The evening update starts at 18:05 reliably (Tue 27 Oct 2026, 12:45)
+`daily.yml`'s 18:00 schedule started at 20:31 on Mon 26 Oct (GitHub delays when a scheduled job starts), so the phone
+moved to the next session 2.5 hours late. GitHub does not delay a job that is already running, and the afternoon
+`market-loop.yml` run is running at 15:35: it now waits until 18:05 IST and starts `daily.yml` itself (needs
+`actions: write`; free on a public repo). The 18:00 schedule stays as a backup. A relay timer was the alternative, but it
+needs a new Google permission on the relay script that only the owner can grant.
+
 ### A dated decision on retiring the old ten-tool forecast (Tue 27 Oct 2026, 12:35)
 Outside review finding 1 (two engines, no retirement trigger). Once the new close estimate has 20 scored days (about
 Tue 24 Nov 2026), the daily source check compares both on the same days and emails the result ("new estimate error
