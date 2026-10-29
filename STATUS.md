@@ -84,6 +84,8 @@ to `main` (CI) or the owner running `--pull`/`--push` locally with their own tok
 - **Holidays**: NSE's trading-holiday list now drives "the next session" (next: Tue 10 Nov, Tue 24 Nov 2026).
 - **Evening update**: the afternoon market-loop run starts daily.yml at 18:05 IST (GitHub had delayed the 18:00
   schedule by 2.5 hours on 26 Oct). If the repo ever goes private, this idle wait costs Actions minutes.
+- **14:45 runs** (close estimate; expiry-day option screen on Mon/Tue) are started by the same afternoon loop (29 Oct
+  2026: their schedules ran 35-45 minutes late, after the close).
 - **News score** (Gemini, daily before the open) is recorded only; review it after about 60 trading days (late Jan 2027).
 - **SENSEX**: no Kite close for today before 15:35 IST (mid-session values had seeded forecasts on 5 days); 25 records fixed.
 - **Live data audit** done (extras/data-audit/AUDIT.md on the laptop). Relay pushed 15:05: GIFT Nifty in the quote,

@@ -9,7 +9,7 @@ on:
     - cron: "50 3 * * 1-5"     # 09:20 IST
     - cron: "30 5 * * 1-5"     # 11:00 IST
     - cron: "30 7 * * 1-5"     # 13:00 IST
-    - cron: "15 9 * * 1-5"     # 14:45 IST
+    - cron: "15 9 * * 1-5"     # 14:45 IST (backup: market-loop.yml starts this run at 14:45; GitHub delays this one)
   workflow_dispatch:
 
 permissions:

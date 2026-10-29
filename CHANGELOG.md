@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-29
 
+### Evening check; the 14:45 runs now start on time (Thu 29 Oct 2026, 19:00)
+- **Checked tonight:** the evening run started at 18:05 and passed; the option screen wrote its first progress report
+  (18:07, ok); the phone card moved to Fri 30 Oct 2026; Thu 29 Oct is scored (4 pre-open days, 15 live readings).
+- **Found: the 14:45 slots ran after the close.** GitHub started `close-estimate.yml`'s 14:45 run at 15:28 (28 Oct) and
+  15:30 (29 Oct), so the day's last live estimate was never recorded; `expiry-theta.yml`'s "final check, 45 minutes
+  before the close" ran at 15:21 and 15:26 (26 and 27 Oct). The afternoon market loop is already running at 14:45, so it
+  now starts both itself (expiry-theta only Mon/Tue; it does nothing when NIFTY has no expiry). Their schedules stay as
+  backups; a late duplicate records nothing after 15:30.
+
 ### Checked the other session's 29 Oct work on live data; two gaps fixed (Thu 29 Oct 2026, 13:15)
 - **GIFT rolling walk-forward: run for real** (first live run). Refitting on the last 250 days each day, over 477 days:
   direction right 71.5% NIFTY, 68.3% BANK NIFTY, 70.2% SENSEX; error 0.48% vs 0.61% for "no change" (NIFTY). Adding the

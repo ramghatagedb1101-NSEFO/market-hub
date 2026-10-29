@@ -29,6 +29,7 @@ jobs:
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           start=$(date +%s)
           echo "LOOP_START=$start" >> "$GITHUB_ENV"
@@ -37,12 +38,26 @@ jobs:
           limit=$(( start + 210 * 60 ))
           [ "$end" -lt "$limit" ] && stop=$end || stop=$limit
           n=0
+          est=0
           while [ "$(date +%s)" -lt "$stop" ]; do
             hm=$(TZ=Asia/Kolkata date +%H%M)
             if [ "$hm" -ge 0915 ] && [ "$hm" -le 1530 ]; then
               curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=paper_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
               curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=watch_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
               n=$((n + 1))
+            fi
+            # 29 Oct 2026: the 14:45 schedules start 35-45 minutes late (close-estimate 15:28/15:30 on 28/29 Oct, after the
+            # close; expiry-theta's "final check" 15:21/15:26 on 26/27 Oct). This loop is running then: it starts them itself
+            # (their schedules stay as backups). expiry-theta runs Mon/Tue and no-ops when NIFTY has no expiry today.
+            if [ "$est" = 0 ] && [ "$hm" -ge 1445 ] && [ "$hm" -le 1515 ]; then
+              est=1
+              wfs="close-estimate.yml"
+              [ "$(TZ=Asia/Kolkata date +%u)" -le 2 ] && wfs="$wfs expiry-theta.yml"
+              for wf in $wfs; do
+                code=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${{ github.repository }}/actions/workflows/$wf/dispatches" -d '{"ref":"main"}' || true)
+                echo "started $wf at $(TZ=Asia/Kolkata date +%H:%M) IST (HTTP $code)"
+                [ "$code" = "204" ] || echo "::warning title=14:45 runs::starting $wf failed (HTTP $code)"
+              done
             fi
             sleep 300
           done
