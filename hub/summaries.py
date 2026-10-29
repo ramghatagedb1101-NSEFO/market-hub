@@ -305,6 +305,19 @@ def main() -> dict:
         save()
         print(f"[summaries] {n}/{len(todo)} {sym}:{kind} {'ok' if report['done'] and report['done'][-1] == f'{sym}:{kind}' else 'failed'} in {time.monotonic() - t0:.0f}s", flush=True)
     save()
+    # 27 Oct 2026, outside review: the exact 20-23 Oct bug (cancelled, nothing saved, no trace of why) is
+    # already fixed structurally above (incremental save, time budget, deferred list) -- this is a
+    # regression guard, not a fix for something still broken. Reports every run, success or not: a report
+    # written only on failure would never clear itself once the job starts working again.
+    silent_nothing = bool(report["to_summarise"]) and not (report["done"] or report["failed"]
+                                                            or report.get("deferred") or report.get("error"))
+    try:
+        from .source_health import report_progress
+        report_progress("summaries", ok=not silent_nothing,
+                        detail=(f"{report['to_summarise']} to summarise, none done/failed/deferred, no error"
+                                if silent_nothing else f"{len(report['done'])} done, {len(report['failed'])} failed"))
+    except Exception as exc:
+        print(f"[summaries] progress report not sent: {exc}")
     return report
 
 

@@ -6,6 +6,9 @@ insider list stopped on 28 Apr 2026 and nothing noticed for six months; this loo
   sections   the insights sections are not empty and their newest entries are recent (filings, insider trades,
              positions, option prices, surveillance lists, heatmap) and every insights source reported ok
   jobs       no scheduled workflow's latest run failed
+  progress   (27 Oct 2026) a job that calls report_progress() said it did no real work this run, with no
+             not-yet-covered reason -- opt-in per job (hub/stocks.py, hub/summaries.py so far; see
+             report_progress()'s own docstring for why this is opt-in, not automatic)
 
 Email (relay mode=source_health) only when the list of problems changes, or every 3 days while one lasts, so a known
 problem does not mail daily. State in the private repo's state/source_health.json. Reads through GitHub's API; needs
@@ -259,6 +262,51 @@ def check_forecasts(now: datetime) -> list:
     return out
 
 
+PROGRESS_DIR = "state/progress"
+
+
+def report_progress(job: str, ok: bool, detail: str = "") -> None:
+    """A job calls this once, near the end of its own main(), to say whether it actually did real work this
+    run -- not just exited 0 (27 Oct 2026, outside review). Three real incidents did exactly that: the NIFTY
+    option screen's quote call 400-erroring silently 14-23 Oct (hub/stocks.py), AI summaries cancelled with
+    nothing saved 20-23 Oct (hub/summaries.py), and library's corrupted all-zero entries 8 Oct. check_files/
+    check_sections/check_contents below catch the ones someone has already noticed and written a rule for;
+    this is the second line, for a kind of silent failure nobody has seen yet -- but only where "did nothing"
+    has one unambiguous meaning for that job (many jobs legitimately do nothing on an ordinary day, which is
+    why this is opt-in per job, not automatic). One file per job (not one shared file) so two jobs reporting
+    around the same time can never race each other's write."""
+    path = f"{PROGRESS_DIR}/{job}.json"
+    r = _request("GET", f"{API}/repos/{PRIVATE_REPO}/contents/{path}?ref={BRANCH}", headers=_headers())
+    body = {"message": f"progress: {job}", "branch": BRANCH,
+            "content": base64.b64encode(json.dumps({"ok": bool(ok), "detail": str(detail)[:200],
+                                                     "at": datetime.now(config.IST).isoformat(timespec="minutes")}
+                                                    ).encode("utf-8")).decode("ascii")}
+    if r.status_code == 200:
+        body["sha"] = r.json()["sha"]
+    _request("PUT", f"{API}/repos/{PRIVATE_REPO}/contents/{path}", headers=_headers(), json=body)
+
+
+def check_progress(now: datetime) -> list:
+    r = _request("GET", f"{API}/repos/{PRIVATE_REPO}/contents/{PROGRESS_DIR}?ref={BRANCH}", headers=_headers())
+    if r.status_code != 200:
+        return []
+    out = []
+    for item in r.json():
+        if item.get("type") != "file" or not item["name"].endswith(".json"):
+            continue
+        job = item["name"][:-len(".json")]
+        rr = _request("GET", f"{API}/repos/{PRIVATE_REPO}/contents/{PROGRESS_DIR}/{item['name']}?ref={BRANCH}",
+                      headers=_headers("application/vnd.github.raw"))
+        try:
+            d = json.loads(rr.content)
+        except ValueError:
+            continue
+        if not d.get("ok"):
+            out.append({"id": "progress:" + job, "what": "job " + job,
+                        "text": f"reported no real progress ({d.get('at', '?')}): {d.get('detail') or 'no detail given'}"})
+    return out
+
+
 def check_jobs() -> list:
     token = os.getenv("GITHUB_TOKEN", "")
     if not token:
@@ -306,7 +354,7 @@ def _save_state(st, sha):
 def main() -> dict:
     now = _now()
     problems = []
-    for part in (check_files, check_sections, check_contents, check_forecasts):
+    for part in (check_files, check_sections, check_contents, check_forecasts, check_progress):
         try:
             problems += part(now)
         except Exception as e:                     # one broken check must not hide the others

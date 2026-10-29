@@ -6,6 +6,12 @@ For each NIFTY session t: x = log(GIFT at 09:00 IST on t / GIFT at 15:30 IST on 
 close, so the futures premium cancels; y = log(NIFTY close t / close t-1). Compared with the S&P 500 cue (Yahoo, US
 sessions since the last Indian close) on the same days, and both together. Writes derived statistics only to
 diag_output/gift.json (no candles).
+
+Two kinds of out-of-sample check, kept side by side for comparison: `both_second_half` fits once on the first half
+and tests on the second (the original, 26 Oct 2026); `rolling_walkforward_gift_alone`/`_gift_spx` (27 Oct 2026, an
+outside review's suggestion) retrain on a trailing 250-day window and predict one day ahead, sliding forward --
+the same method hub/us_cue_test.py already uses for the S&P cue, and a sturdier check than a single split: it asks
+whether the relationship holds up continuously, not just once, two-thirds of the way through the sample.
 """
 import bisect
 import json
@@ -57,6 +63,31 @@ def _stats(x, y):
             "no_change_err_pct": round(float(np.mean(np.abs(y))) * 100, 3)}
 
 
+def _rolling_wf(X, Y, S=None, window=250):
+    """Retrain on the trailing `window` days only, predict the next day, slide forward one day at a time --
+    the same rolling walk-forward hub/us_cue_test.py already uses for the S&P cue (27 Oct 2026: the single
+    first-half/second-half split in both_second_half is weaker evidence than this; added alongside it, not
+    instead, so both stay comparable). With `S` given, fits GIFT+SPX jointly each window; without, GIFT alone."""
+    if len(Y) < window + 20:
+        return None
+    preds = []
+    for i in range(window, len(Y)):
+        if S is None:
+            xi, yi = X[i - window:i], Y[i - window:i]
+            b = float((xi @ yi) / (xi @ xi)) if xi @ xi else 0.0
+            preds.append(b * X[i])
+        else:
+            A = np.vstack([X[i - window:i], S[i - window:i]]).T
+            coef = np.linalg.lstsq(A, Y[i - window:i], rcond=None)[0]
+            preds.append(float(np.array([X[i], S[i]]) @ coef))
+    preds, y2 = np.array(preds), Y[window:]
+    return {"n": int(len(preds)), "window": window,
+            "hit": round(float(np.mean(np.sign(preds) == np.sign(y2))) * 100, 1),
+            "gift_alone_hit": round(float(np.mean(np.sign(X[window:]) == np.sign(y2))) * 100, 1),
+            "err_pct": round(float(np.mean(np.abs(y2 - preds))) * 100, 3),
+            "no_change_err_pct": round(float(np.mean(np.abs(y2))) * 100, 3)}
+
+
 def _one(n, at, ud, ur):
     closes = [(c["date"].date().isoformat(), float(c["close"])) for c in n]
     X, S, Y, E = [], [], [], []
@@ -94,6 +125,10 @@ def _one(n, at, ud, ur):
                                    "gift_alone_hit": round(float(np.mean(np.sign(X[h:]) == np.sign(Y[h:]))) * 100, 1),
                                    "err_pct": round(float(np.mean(np.abs(Y[h:] - p))) * 100, 3),
                                    "no_change_err_pct": round(float(np.mean(np.abs(Y[h:]))) * 100, 3)}
+    rwf = _rolling_wf(X, Y, S, window=250)
+    if rwf:
+        out["rolling_walkforward_gift_alone"] = _rolling_wf(X, Y, window=250)
+        out["rolling_walkforward_gift_spx"] = rwf
     return out
 
 

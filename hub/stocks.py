@@ -198,6 +198,17 @@ def main() -> dict:
     print(f"[STOCKS] wrote {STOCKS_FILE}")
     _append_log(payload)
     print(f"[STOCKS] appended to {LOG_FILE}")
+    if not replaying:
+        # 27 Oct 2026, outside review: the exact 14-23 Oct bug (Kite's quote call 400-erroring on every
+        # symbol, silently, with the daily run still reporting success) always shows up as zero spots
+        # fetched despite having symbols to fetch for -- a sharper, unambiguous signal than
+        # recommendation_count, which is legitimately often 0 on an ordinary day.
+        try:
+            from .source_health import report_progress
+            report_progress("stocks", ok=pf["spot_keys"] > 0,
+                            detail=f"prefetched {pf['spot_keys']} spot(s) for {pf['symbols']} symbol(s)")
+        except Exception as exc:
+            print(f"[STOCKS] progress report not sent: {exc}")
     return payload
 
 

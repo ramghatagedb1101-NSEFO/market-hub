@@ -23,6 +23,10 @@ Five things worth fixing, in the owner's own words "note these in the documentat
    rate.
    **Tested 27 Oct 2026** (`hub/diag_gift_open.py`): they disagree on about 1 day in 5, and on those days the pre-open
    estimate has no skill (47-53%); after the open GIFT adds nothing beyond the live level. See CHANGELOG 27 Oct.
+   **Extended 29 Oct 2026** (`hub/diag_gift.py`, a second, independent session): a rolling walk-forward (retrain
+   every 250 days, the same method `hub/us_cue_test.py` already uses for the S&P cue) added alongside this, as a
+   complementary check on a different axis -- stability across *time*, not across GIFT/open disagreement. Not yet
+   run against the real history (needs a live Kite token); first numbers come from the next `diag.yml` dispatch.
 3. **The recurring bug shape is "a job reports success while doing nothing," and it's happened at least three times
    in two weeks**: the all-zero library entries (8 Oct), the NIFTY 50 option screen silently 400-erroring for 9 days
    (14-23 Oct), and AI summaries cancelled with nothing saved for three straight days (20-23 Oct). Each was caught by
@@ -30,6 +34,15 @@ Five things worth fixing, in the owner's own words "note these in the documentat
    *after* each incident. Worth making "can this job succeed while doing nothing?" a standing question for every new
    job, not a retrospective fix.
    **Applied 27 Oct 2026** to the close-estimate recorder, news score and expiry straddle (they now fail or are flagged).
+   **Extended 29 Oct 2026** (a second, independent session, found while reconciling with the above): the 27 Oct
+   fix relies on `check_jobs()` seeing the workflow run itself fail -- but `hub/stocks.py`'s step in `daily.yml` is
+   deliberately `continue-on-error: true` (so one failure doesn't skip bulk deals/admin publish/the commit), and
+   `hub/summaries.py`'s own `__main__` always calls `sys.exit(0)`. For these two, `check_jobs()` can never see a
+   failure no matter what the job does internally. Added a second, file-based channel for exactly this case
+   (`hub/source_health.py`'s `report_progress()`/`check_progress()`): each job writes its own ok/not-ok verdict to
+   its own file every run (so a later success clears an earlier failure, and two jobs reporting at once can't
+   race each other), checked daily alongside everything else. `hub/library.py` deliberately left out of this --
+   "zero new filings today" is a normal, correct outcome there, not a bug.
 4. **The METHOD.md public/private decision was made after merging it to `main`, not before**, which is what forced
    the 16 Oct full-history rewrite (`git filter-repo`, 645 commits renumbered). The resulting setup -- a local sparse
    clone of a second repo, a guard that checks out that repo a second way on GitHub, "push METHOD.md first, then the

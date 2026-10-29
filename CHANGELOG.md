@@ -2,6 +2,45 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-10-29
+
+### Two more fixes from the 27 Oct outside review -- found mid-way that another session had already acted on both
+Owner approved building a rolling walk-forward for GIFT Nifty and a generic "did this job actually do anything"
+check. Partway through, found that a second, independent session had already worked this same repo on 27 Oct and
+built its own fixes for the same two findings (`hub/diag_gift_open.py`; `hub/source_health.py`'s retirement-trigger
+and fail-loudly changes) -- this session's local checkout was two days stale and didn't know. Stopped, synced to
+the real `main` (no conflicts: different files, or the same file at a different, non-overlapping location), checked
+each addition is genuinely complementary rather than a duplicate before keeping it. Both findings now carry fixes
+from both sessions, noted as such in STATUS.md.
+
+- **GIFT Nifty: rolling walk-forward, alongside the 27 Oct disagreement-day test** (`hub/diag_gift.py`; the other
+  session's `hub/diag_gift_open.py` tests a different axis -- GIFT vs the actual 09:08 open -- and already found
+  a real gap, acted on with the 09:08 switch). This adds `_rolling_wf()`: retrain on a trailing 250-day window,
+  predict one day ahead, slide forward -- the method `hub/us_cue_test.py` already uses for the S&P cue, testing
+  stability across *time* rather than across GIFT/open disagreement. New fields
+  `rolling_walkforward_gift_alone`/`_gift_spx` in `diag_output/gift.json`, kept alongside `both_second_half` so
+  the two stay comparable. Checked against synthetic data with a known relationship before trusting it (recovers
+  the planted beta's hit rate, returns `None` rather than crashing on a too-short series) -- not yet run against
+  the real GIFT history (needs a live Kite token only `diag.yml` has); first real numbers come from the next
+  dispatch.
+- **A second channel for "this job did nothing," for the two jobs the 27 Oct fix structurally can't cover**
+  (`hub/source_health.py`'s new `report_progress()`/`check_progress()`). The 27 Oct fix makes a job raise loudly
+  and relies on `check_jobs()` seeing the workflow fail -- which only works when the step isn't allowed to fail
+  and the code doesn't force its own exit code. Checked both targets against their actual workflow files before
+  building this: `hub/stocks.py`'s step in `daily.yml` is deliberately `continue-on-error: true` (so one failure
+  doesn't skip bulk deals/admin publish/the commit), and `hub/summaries.py`'s own `__main__` always calls
+  `sys.exit(0)` regardless of what happened inside. For both, `check_jobs()` can never see a failure no matter
+  what the job does -- confirmed this is a real, different gap, not a second fix for the same hole. `hub/stocks.py`
+  now reports whether the Kite spot prefetch actually got anything back (the precise 14-23 Oct signature);
+  `hub/summaries.py` reports whether work existed with nothing to show for it and no explanation (done/failed/
+  deferred/error all empty -- the precise 20-23 Oct signature, a regression guard since that bug is already fixed
+  structurally). Each job reports every run, success or not, to its own file (`state/progress/<job>.json`) -- a
+  report written only on failure would never clear itself once the job starts working again; one file per job so
+  two jobs reporting at once can't race each other's write. Checked with a mocked GitHub API (no real network, no
+  token): a bad report is flagged, a later good report for the same job clears it, two jobs' reports never
+  interfere. `hub/library.py` deliberately left out -- "zero new filings today" is a normal, correct outcome
+  there, not a bug, and a naive `processed == 0` rule would just be noise.
+
 ## 2026-10-27
 
 ### Market holidays: the next session skips NSE trading holidays (Tue 27 Oct 2026, 13:00)
