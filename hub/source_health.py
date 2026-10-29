@@ -34,6 +34,10 @@ FILES = [
     ("site/shortlist.json", 30, False, "Shortlist"),
     ("state/close_estimate_log.json", 30, True, "close-estimate record (close-estimate.yml)"),
     ("state/news_score_log.json", 30, True, "daily news score (close-estimate.yml)"),
+    # 29 Oct 2026: the progress reports themselves. check_progress() reads only reports that exist, so a job whose
+    # report never arrives (on 29 Oct both steps lacked PRIVATE_REPO_TOKEN and nothing was written) looked fine.
+    ("state/progress/stocks.json", 30, True, "option screen progress report (daily.yml)"),
+    ("state/progress/summaries.json", 30, False, "AI summaries progress report (summaries.yml)"),
     ("site/multibagger.json", 30, False, "early multibaggers"),
     ("site/digest.json", 30, False, "morning digest"),
     ("site/insights.json", 30, False, "insights (alerts, calendar, filings, positions)"),

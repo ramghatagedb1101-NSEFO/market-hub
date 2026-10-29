@@ -25,8 +25,8 @@ Five things worth fixing, in the owner's own words "note these in the documentat
    estimate has no skill (47-53%); after the open GIFT adds nothing beyond the live level. See CHANGELOG 27 Oct.
    **Extended 29 Oct 2026** (`hub/diag_gift.py`, a second, independent session): a rolling walk-forward (retrain
    every 250 days, the same method `hub/us_cue_test.py` already uses for the S&P cue) added alongside this, as a
-   complementary check on a different axis -- stability across *time*, not across GIFT/open disagreement. Not yet
-   run against the real history (needs a live Kite token); first numbers come from the next `diag.yml` dispatch.
+   complementary check on a different axis -- stability across *time*, not across GIFT/open disagreement. **Run 29 Oct:**
+   71.5% / 68.3% / 70.2% over 477 days (refit daily on 250); GIFT alone beats GIFT + S&P.
 3. **The recurring bug shape is "a job reports success while doing nothing," and it's happened at least three times
    in two weeks**: the all-zero library entries (8 Oct), the NIFTY 50 option screen silently 400-erroring for 9 days
    (14-23 Oct), and AI summaries cancelled with nothing saved for three straight days (20-23 Oct). Each was caught by

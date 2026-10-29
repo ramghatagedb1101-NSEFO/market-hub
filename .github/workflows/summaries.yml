@@ -44,6 +44,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SYMBOL: ${{ github.event.inputs.symbol }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}   # its progress report (source_health.report_progress)
         run: python -m hub.summaries
       - name: Save the summaries to the private repo
         if: always() && steps.pull.outcome == 'success'

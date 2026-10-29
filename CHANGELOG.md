@@ -4,6 +4,21 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-10-29
 
+### Checked the other session's 29 Oct work on live data; two gaps fixed (Thu 29 Oct 2026, 13:15)
+- **GIFT rolling walk-forward: run for real** (first live run). Refitting on the last 250 days each day, over 477 days:
+  direction right 71.5% NIFTY, 68.3% BANK NIFTY, 70.2% SENSEX; error 0.48% vs 0.61% for "no change" (NIFTY). Adding the
+  S&P makes it slightly worse (69.8%). Stable over time; GIFT alone stays.
+- **The new progress reports were never written.** Today's AI summaries run ended with "progress report not sent:
+  PRIVATE_REPO_TOKEN is not set": neither the summaries step nor the option-screen step in `daily.yml` passed the
+  private-repo token, so the new check silently did nothing. Both steps now have it. And `check_progress()` read only
+  reports that exist, so a report that never arrives looked fine: the two report files are now in the daily check's
+  freshness list (flagged if missing or stale), like every other data file.
+- **AI summaries cancelled at the time limit on 27 and 28 Oct** (flagged by the daily check; fine today). One document
+  ran 27 and 37 minutes; the 35-minute budget is checked only between documents. `requests`' timeout bounds the gap
+  between chunks, not a whole download, so a slow server can drip a PDF for half an hour (the likely cause; the log did
+  not name the document). Each document now has a hard limit (15 minutes, and never past 41 minutes into the job), runs
+  in a background thread, and its name is printed when it starts, so a stall is named and the save step always runs.
+
 ### Two more fixes from the 27 Oct outside review -- found mid-way that another session had already acted on both
 Owner approved building a rolling walk-forward for GIFT Nifty and a generic "did this job actually do anything"
 check. Partway through, found that a second, independent session had already worked this same repo on 27 Oct and

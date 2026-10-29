@@ -23,6 +23,7 @@ Output: site/summaries.json in the private repo, {symbol: {"tr": {...}, "ar": {.
 """
 import base64
 import io
+import threading
 import time
 import json
 import os
@@ -46,6 +47,8 @@ DAILY_LIMIT = int(os.getenv("AI_DAILY_LIMIT", "15"))
 MAX_PDF_BYTES = 30 * 1024 * 1024
 MAX_TEXT_CHARS = 600_000            # roughly 150k tokens of annual-report text
 TIME_BUDGET_S = 35 * 60             # stop starting new documents after this; the job's limit is 45 minutes
+JOB_LIMIT_S = 41 * 60                # 29 Oct 2026: no single document may run past this (the save step needs the rest)
+DOC_LIMIT_S = 15 * 60                # nor longer than this: four Gemini attempts at 240 s each, plus the download
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
 
 SCHEMA = {
@@ -295,8 +298,27 @@ def main() -> dict:
             print(f"[summaries] time budget used: {len(report['deferred'])} left for the next run", flush=True)
             break
         t0 = time.monotonic()
+        # 29 Oct 2026: on 27 and 28 Oct one document ran 27 and 37 minutes and the job was cancelled at its limit (the
+        # budget above is only checked between documents). requests' timeout bounds the gap between chunks, not a whole
+        # download, so a slow server can drip a PDF for half an hour. Each document now runs in a background thread with
+        # a hard limit, and its name is printed when it starts, so a stall is named in the log.
+        print(f"[summaries] {n}/{len(todo)} {sym}:{kind} starting", flush=True)
+        box = {}
+
+        def work(sym=sym, kind=kind, doc=doc, box=box):
+            try:
+                box["out"] = summarise(client, kind, doc)
+            except Exception as exc:                # noqa: BLE001 -- reported below
+                box["err"] = exc
+        th = threading.Thread(target=work, daemon=True)
+        th.start()
+        th.join(max(30, min(DOC_LIMIT_S, JOB_LIMIT_S - (time.monotonic() - started))))
+        if th.is_alive():
+            box["err"] = TimeoutError(f"no answer after {time.monotonic() - t0:.0f} s (download or summary stalled); tried again next run")
         try:
-            done.setdefault(sym, {})[kind] = summarise(client, kind, doc)
+            if "err" in box:
+                raise box["err"]
+            done.setdefault(sym, {})[kind] = box["out"]
             report["done"].append(f"{sym}:{kind}")
             status(sym, "done", "Summarised.")
         except Exception as exc:
@@ -304,6 +326,9 @@ def main() -> dict:
             status(sym, "error", f"Could not summarise the {'transcript' if kind == 'tr' else 'annual report'}: {str(exc)[:160]}")
         save()
         print(f"[summaries] {n}/{len(todo)} {sym}:{kind} {'ok' if report['done'] and report['done'][-1] == f'{sym}:{kind}' else 'failed'} in {time.monotonic() - t0:.0f}s", flush=True)
+        if th.is_alive():                           # the stalled thread is left behind; no time for another document
+            report["deferred"] = [f"{s}:{k}" for s, k, _ in todo[n:]]
+            break
     save()
     # 27 Oct 2026, outside review: the exact 20-23 Oct bug (cancelled, nothing saved, no trace of why) is
     # already fixed structurally above (incremental save, time budget, deferred list) -- this is a

@@ -67,6 +67,7 @@ jobs:
         continue-on-error: true
         env:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}   # its progress report (source_health.report_progress)
         run: python -m hub.stocks
 
       - name: F&O suggestions from the option chain
