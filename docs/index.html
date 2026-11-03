@@ -947,9 +947,9 @@
         return `<div class="sec">${esc(X.label)} expiry today · As of ${timeTxt(d)}</div>
         <div class="panel"><div class="pb">
           <div class="row"><span class="l">Spot</span><span class="r">${f(X.spot, 2)}</span></div>
-          ${X.prediction != null ? `<div class="row"><span class="l"><b>Expected close (meter)</b></span><span class="r"><b>${f(X.prediction)}</b></span></div>` : ""}
-          <div class="row"><span class="l"><b>Likely close range</b></span><span class="r"><b>${f(X.likely_range[0])} – ${f(X.likely_range[1])}</b></span></div>
-          <div class="row"><span class="l">${X.sd != null ? `Market's expected range (±${f(X.sd)}, about 2 in 3)` : `Market's range (about 3 in 5)`}</span><span class="r">${f(X.implied_range[0])} – ${f(X.implied_range[1])}</span></div>
+          ${expCall(X)}
+          ${expOdds(X)}
+          <div class="row"><span class="l">Market's expected move (from option prices)</span><span class="r">${f(X.implied_range[0])} – ${f(X.implied_range[1])}</span></div>
           <div class="row"><span class="l">Max pain</span><span class="r">${f(X.max_pain)}</span></div>
           <div class="row"><span class="l">Heaviest strike near spot</span><span class="r">${f(X.pin)}</span></div>
           <div class="row"><span class="l">Call walls (resistance)</span><span class="r">${walls(X.call_walls)}</span></div>
@@ -962,29 +962,49 @@
           <details><summary>Open interest by strike</summary>
             <table class="t"><tr><th>Strike</th><th>Calls OI</th><th>Puts OI</th></tr>${X.rows.map(r =>
               `<tr${r.strike === X.atm ? ' style="font-weight:600"' : ""}><td>${f(r.strike)}</td><td>${bar(r.ce_oi, "var(--neg, #d9534f)")}</td><td>${bar(r.pe_oi, "var(--pos, #2e9d5b)")}</td></tr>`).join("")}</table></details>
-          <div class="mut" style="margin-top:6px">Not a prediction. The range covers about 2 in 3 outcomes.</div>
         </div></div>`;
       }).join("");
     }catch(e){ return ""; }
   }
 
-  // Replay scoreboard (14 Oct 2026; relay expiryScore_, written by hub/expiry_day.py): every recorded expiry re-scored with
-  // today's model beside what the meter showed live and the forward. Collapsed per index: it changes once per expiry.
+  // Prediction meter (3 Nov 2026, owner: "I need a real prediction meter"): the morning call from GIFT Nifty at 09:00,
+  // fixed for the day, and the chance of settling above each strike (relay expMorning_/expOdds_, hub/expiry_meter.py).
+  const tenOf = p => Math.max(1, Math.min(9, Math.round(p / 10))) + " in 10";
+  const idxName = i => i === "BANKNIFTY" ? "BANK NIFTY" : i;
+  function expCall(X){
+    const c = X.call;
+    if (!c) return "";
+    if (c.pending) return `<div class="row"><span class="l"><b>Morning call</b></span><span class="r mut">at 09:00 IST</span></div>`;
+    if (c.unavailable) return `<div class="row"><span class="l"><b>Morning call</b></span><span class="r mut">none today</span></div>`;
+    const up = c.dir === "up", right = (X.spot > c.base) === up;
+    return `<div class="row"><span class="l"><b>Morning call</b> <span class="mut">· 09:00, fixed</span></span><span class="r"><b class="${up ? "up" : "dn"}">${up ? "Up" : "Down"} · ${tenOf(c.chance)}</b></span></div>
+      <div class="row"><span class="l">Likely close <span class="mut">(8 in 10)</span></span><span class="r"><b>${f(c.pred)}</b> <span class="mut">${f(c.lo)} – ${f(c.hi)}</span></span></div>
+      <div class="row"><span class="l">So far</span><span class="r ${right ? "up" : "dn"}">${right ? "Right" : "Wrong"} · now ${f(X.spot, 2)}</span></div>`;
+  }
+  function expOdds(X){
+    const o = X.odds;
+    if (!o || !o.rows || !o.rows.length) return "";
+    return `<div class="row"><span class="l"><b>Settles between</b> <span class="mut">(8 in 10)</span></span><span class="r"><b>${f(o.range80[0])} – ${f(o.range80[1])}</b></span></div>
+      <details open><summary>Chance it settles above</summary>
+        <table class="t"><tr><th>Strike</th><th>Above</th></tr>${o.rows.slice().reverse().map(r =>
+          `<tr${Math.abs(r[0] - X.spot) < (X.step || 50) / 2 ? ' style="font-weight:600"' : ""}><td>${f(r[0])}</td><td>${Math.round(r[1])}%</td></tr>`).join("")}</table>
+        <div class="mut">${o.basis === "morning" ? "From the morning call until 09:15 IST." : "From the level now and the time left, as on 150 past expiries."}</div></details>`;
+  }
+
+  // The meter's record (hub/expiry_meter.py via the relay, written by hub/expiry_day.py): collapsed, it changes once per expiry.
   async function scorePanel(){
     try{
-      const S = await (await fetch("data/expiry_score.json?t=" + Date.now(), {cache:"no-store"})).json();
-      const ids = Object.keys(S.indices || {}).filter(id => (S.indices[id].score || []).some(s => s.n));
-      if (!ids.length) return "";
-      const v = x => x == null ? "–" : f(x, 0);
-      const body = ids.map(id => {
-        const X = S.indices[id], rows = X.score.filter(s => s.n), n = Math.max(...rows.map(s => s.n));
-        const few = !rows.some(s => s.enough) ? ` <span class="mut">· too few to judge (${n} of ${rows[0].min_n})</span>` : "";
-        return `<details><summary>${esc(X.label)} · ${n} expir${n === 1 ? "y" : "ies"}${few}</summary>
-          <table class="t"><tr><th>Time</th><th>Meter</th><th>Model</th><th>Fwd</th><th>In range</th></tr>${rows.map(s =>
-            `<tr><td>${esc(s.at)}</td><td>${v(s.live_bp)}</td><td>${v(s.model_bp)}</td><td>${v(s.forward_bp)}</td><td>${s.n_band ? s.live_band_hits + "/" + s.n_band : "–"}</td></tr>`).join("")}</table></details>`;
-      }).join("");
-      return `<div class="sec">Expiry meter scoreboard</div><div class="panel"><div class="pb">
-        <div class="mut" style="margin-bottom:4px">Average distance from the close in bp (lower is better). "In range": close inside the ±1 sd band.</div>${body}</div></div>`;
+      const R = ((await (await fetch("data/expiry_score.json?t=" + Date.now(), {cache:"no-store"})).json()) || {}).record;
+      if (!R) return "";
+      const M = R.morning || {}, T = R.odds_tested || {};
+      const near = (T.bins || []).filter(b => b.said === "20-30%" || b.said === "70-80%").map(b => `said ${esc(b.said)} → ${b.happened}%`).join(" · ");
+      const rows = (M.rows || []).map(r => `<tr><td>${esc(dayTxt(parseDay(r.date)))}</td><td>${esc(idxName(r.index))}</td><td>${r.call === "up" ? "Up" : "Down"}</td><td>${r.right == null ? "–" : r.right ? '<span class="up">right</span>' : '<span class="dn">wrong</span>'}</td></tr>`).join("");
+      return `<div class="sec">Expiry meter record</div><div class="panel"><div class="pb">
+        <div class="row"><span class="l">Morning call on expiry days</span><span class="r"><b>${M.n ? M.right + " of " + M.n + " right" : "none yet"}</b></span></div>
+        ${M.tested && M.tested.NIFTY ? `<div class="mut">On 146 past expiries: right ${M.tested.NIFTY.hit}% (NIFTY), ${M.tested.NIFTY.hit_strong}% on the strongest mornings.</div>` : ""}
+        ${rows ? `<details><summary>Each expiry</summary><table class="t"><tr><th>Expiry</th><th>Index</th><th>Call</th><th></th></tr>${rows}</table></details>` : ""}
+        ${near ? `<div class="row"><span class="l">Odds on ${f(T.expiries)} past expiries</span><span class="r">${near}</span></div>` : ""}
+      </div></div>`;
     }catch(e){ return ""; }
   }
 

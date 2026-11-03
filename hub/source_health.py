@@ -47,7 +47,8 @@ FILES = [
     ("site/bulk_deals.json", 30, True, "bulk deals"),
     ("state/prices.json", 30, True, "daily prices"),
     ("site/summaries.json", 4 * 24, False, "AI summaries"),
-    ("site/stocks.json", 30, True, "NIFTY 50 option screen (daily 18:00)"),   # was 8 days: wrong, it is daily (23 Oct 2026)
+    ("site/stocks.json", 30, True, "NIFTY 50 option screen (daily 18:00)"),
+    ("site/expiry_meter.json", 30, True, "expiry meter settings and record (daily 18:00)"),   # 3 Nov 2026   # was 8 days: wrong, it is daily (23 Oct 2026)
 ]
 
 

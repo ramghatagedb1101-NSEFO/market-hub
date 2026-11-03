@@ -212,7 +212,9 @@ function expirySd_(F, straddle) { return straddle ? Math.max(straddle * EXP_SD_P
 // Prior spread for k, m, e, u, v; starts in EXP_START. k, m and v are pinned (14 Oct 2026): a near-zero spread means a
 // few live expiries cannot pull them off 0 -- one expiry moved m by 0.26 on 13 Oct, noise that 399 expiries outweigh.
 // Re-open them only if the monthly intraday test (expiry-intraday.yml) shows a real gain. Europe/US still learn.
-const EXP_SPREAD = [0.001, 0.001, 0.3, 0.3, 0.001];
+// 3 Nov 2026: Europe/US pinned too. Their live refit (3 expiries) only nudged the forward by noise; the meter now shows
+// the morning call and settlement odds instead (expMorning_, expOdds_).
+const EXP_SPREAD = [0.001, 0.001, 0.001, 0.001, 0.001];
 const EXP_BOUNDS = [[-0.5, 1.5], [-0.5, 1.5], [-1, 1], [-1, 1], [-0.5, 1]];
 function expiryModel_(id) {
   const props = PropertiesService.getScriptProperties();
@@ -277,6 +279,74 @@ function expiryAccuracy_(id) {
 function expiryFormula_(M, F, MP, W, eu, us, NW) {
   return F + M.k * (MP - F) + M.m * (W - F) + (M.e || 0) * F * (eu || 0) / 100 + (M.u || 0) * F * (us || 0) / 100 +
     (NW != null ? (M.v || 0) * (NW - F) : 0);
+}
+
+// ---- Prediction meter (3 Nov 2026, owner: "I need a real prediction meter. Make it work") ----
+// The "expected close" above is the forward, i.e. the live price; the meter now shows what testing says can be predicted
+// (hub/expiry_meter.py has the evidence): the morning call from GIFT Nifty at 09:00, fixed for the day, and the chance of
+// settling above each strike, from the level now, the time left and the index's 20-day volatility, read from the
+// percentile tables of 150 past expiries. Settings come from the daily job's site/expiry_meter.json (cached 30 minutes).
+function expMeterCfg_() {
+  const cache = CacheService.getScriptCache(), hit = cache.get('exp_meter_cfg');
+  if (hit) return JSON.parse(hit);
+  const tok = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  let cfg = null;
+  try {
+    const res = tok ? privateRaw_(tok, 'site/expiry_meter.json') : null;
+    if (res && res.getResponseCode() === 200) cfg = JSON.parse(res.getContentText());
+  } catch (e) { cfg = null; }
+  if (cfg) { try { cache.put('exp_meter_cfg', JSON.stringify(cfg), 1800); } catch (e) {} }
+  return cfg;
+}
+function normCdf_(x) {                                  // Abramowitz-Stegun 7.1.26, error < 1.5e-7
+  const t = 1 / (1 + 0.3275911 * Math.abs(x) / Math.SQRT2), y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x / 2);
+  return x >= 0 ? (1 + y) / 2 : (1 - y) / 2;
+}
+// The percentile row at `minute` after 09:15 (tables interpolated in time); same arithmetic as hub/expiry_meter.p_above.
+function expRow_(T, minute) {
+  const M = T.mins, m = Math.max(M[0], Math.min(M[M.length - 1], minute));
+  let i = 0; while (i < M.length - 2 && M[i + 1] <= m) i++;
+  const w = (m - M[i]) / (M[i + 1] - M[i]);
+  return T.q[i].map((a, j) => a + w * (T.q[i + 1][j] - a));
+}
+function expAbove_(T, row, z) {
+  const P = T.pcts;
+  if (z <= row[0]) return 0.995;
+  if (z >= row[row.length - 1]) return 0.005;
+  let j = 0; while (j < row.length - 2 && row[j + 1] <= z) j++;
+  return 1 - (P[j] + (z - row[j]) / ((row[j + 1] - row[j]) || 1e-12) * (P[j + 1] - P[j])) / 100;
+}
+// Morning call: close_estimate.preopen's arithmetic on Kite's 08:45 GIFT bar (ends 09:00) against the last session's
+// 15:15 bar (ends 15:30). Null until 09:01 or without settings for today; never changes after it is made.
+function expMorning_(id, now, cfg) {
+  const s = cfg && cfg.session ? cfg.session[id] : null;
+  if (!s || s.target !== now.date) return null;
+  if (now.hm < '09:01') return { pending: true };
+  let refs = {};
+  try { const h = kiteHeaders_(); if (h) refs = giftRefs_(h); } catch (e) {}
+  const am = refs['am_' + now.date], ref = refs[s.asof];
+  if (!am || !ref) return { unavailable: true };
+  const c = s.base * Math.exp(s.beta * Math.log(am / ref)), sig = s.k80 / 1.2816, r2 = x => Math.round(x * 100) / 100;
+  const pUp = normCdf_(Math.log(c / s.base) / sig);
+  return { made: '09:00', base: s.base, pred: r2(c), lo: r2(c * Math.exp(-s.k80)), hi: r2(c * Math.exp(s.k80)), sigma: sig,
+           dir: c >= s.base ? 'up' : 'down', chance: Math.round((c >= s.base ? pUp : 1 - pUp) * 100), gift_pct: r2(Math.log(am / ref) * 100) };
+}
+// Chance of settling above strikes near the level: from the morning call before 09:15, from the live level after.
+function expOdds_(ix, now, spot, call, cfg) {
+  if (!cfg || !cfg.table || now.hm > '15:30') return null;
+  const vol = (cfg.vol20 || {})[ix.id], minute = expMins_(now.hm) - 555;
+  const pre = minute < 0 && call && call.pred;
+  if (!pre && !vol) return null;
+  const row = pre ? null : expRow_(cfg.table, Math.max(minute, 0));
+  const above = K => pre ? 1 - normCdf_(Math.log(K / call.pred) / call.sigma) : expAbove_(cfg.table, row, Math.log(K / spot) / vol);
+  const pick = step => { const atm = Math.round(spot / step) * step, out = [];
+    for (let k = -20; k <= 20; k++) { const K = atm + k * step, p = above(K); if (p >= 0.03 && p <= 0.97) out.push([K, Math.round(p * 1000) / 10]); }
+    return out; };
+  let rows = pick(ix.step); if (rows.length > 11) rows = pick(ix.step * 2); if (rows.length > 11) rows = pick(ix.step * 4);
+  const r2 = x => Math.round(x * 100) / 100;
+  const lo = pre ? call.pred * Math.exp(-1.2816 * call.sigma) : spot * Math.exp(vol * row[9]);
+  const hi = pre ? call.pred * Math.exp(1.2816 * call.sigma) : spot * Math.exp(vol * row[89]);
+  return { at: now.hm, basis: pre ? 'morning' : 'live', rows: rows, range80: [r2(lo), r2(hi)] };
 }
 
 // Replay scoreboard (14 Oct 2026, owner): every stored expiry re-scored at 10:00/12:00/14:00/15:00 four ways -- what the
@@ -386,6 +456,8 @@ function expiryNow_() {
   const base = { ts: now.ts, date: now.date, tracks: tracks, indices: [],
                  upcoming: EXP_IDX.map(ix => ({ id: ix.id, label: ix.label, today: lists[ix.id].today ? lists[ix.id].today.length > 0 : null,
                                                 next: lists[ix.id].next, source: lists[ix.id].source })) };
+  const cfg = expMeterCfg_();
+  base.record = cfg ? cfg.record : null;   // the meter's record, shown on every day
   const maybe = EXP_IDX.filter(ix => lists[ix.id].today === null || lists[ix.id].today.length > 0);
   base.listed = EXP_IDX.filter(ix => lists[ix.id].today && lists[ix.id].today.length).map(ix => ix.id);
   if (!maybe.length) { base.expiry_today = false; base.source = 'list'; cache.put('exp_now2', JSON.stringify(base), 10); return base; }
@@ -396,7 +468,7 @@ function expiryNow_() {
   if (snap.error) return Object.assign(base, { expiry_today: true, error: kiteReason_(snap.error) });
   base.ts = snap.ts;
   const ov = overseasSnapshot_();
-  maybe.forEach(ix => { const r = expiryIndex_(ix, snap, now, tracks[ix.id].model, ov); if (r) base.indices.push(r); });
+  maybe.forEach(ix => { const r = expiryIndex_(ix, snap, now, tracks[ix.id].model, ov, cfg); if (r) base.indices.push(r); });
   base.expiry_today = base.indices.length > 0;
   if (snap.opts_trimmed) base.note = 'Several indices expire today: strikes nearest each spot were kept so all fit one Kite request.';
   if (!base.expiry_today && maybe.some(ix => lists[ix.id].today === null))
@@ -463,7 +535,7 @@ const EXP_TAPE_FIELDS = ['time', 'spot', 'forward', 'straddle', 'max_pain', 'cal
 
 // One index's reading from the shared snapshot; also its chart point, its sellers' record row, its learning sample and,
 // after 15:45, its close.
-function expiryIndex_(ix, snap, now, M, ov) {
+function expiryIndex_(ix, snap, now, M, ov, cfg) {
   const q = snap.q, sx = q[ix.spot];
   if (!sx) return { id: ix.id, label: ix.label, error: 'No ' + ix.label + ' price yet.' };
   const spot = sx[0];
@@ -505,6 +577,7 @@ function expiryIndex_(ix, snap, now, M, ov) {
     // likely = +-1 sd (about 2 in 3); range (+-straddle, about 3 in 5) is kept as it was for the phone's straddle row.
     sd: r2(sd), likely: [r2(pred - sd), r2(pred + sd)], model_close: r2(model), settle: ST,
     pcr: C.ceAll ? Math.round(C.peAll / C.ceAll * 100) / 100 : null, model: M, strikes: rows.length,
+    call: expMorning_(ix.id, now, cfg), meter_ready: !!(cfg && cfg.table),
     rows: near(rows).map(r => [r.strike, r.ce_oi, r.pe_oi, chg(Bc, r, 0), chg(Bc, r, 1)]),
     px: near(rows).map(r => [r.strike, r.ce, r.pe]),   // per-strike prices for the payoff builder (16 Oct 2026)
     oi: { calls: C.ceAll, puts: C.peAll, calls_chg: sumChg(rows, Bc, 0), puts_chg: sumChg(rows, Bc, 1), since: B ? B.hm : null,
@@ -519,6 +592,7 @@ function expiryIndex_(ix, snap, now, M, ov) {
       rows: near(nrows).map(r => [r.strike, r.ce_oi, r.pe_oi, chg(Bn, r, 0), chg(Bn, r, 1)]) }
   };
 
+  out.odds = expOdds_(ix, now, spot, out.call, cfg);
   // After 15:30 the meter stops tracking (13 Oct 2026, owner): it shows its last market-hours reading and, once recorded
   // after 15:45, the actual close.
   if (now.hm > '15:30') {

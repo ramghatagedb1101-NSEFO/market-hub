@@ -63,6 +63,12 @@ jobs:
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
         run: python -m hub
 
+      - name: Expiry meter settings, odds table and record (writes docs/data/expiry_meter.json)
+        continue-on-error: true   # the relay keeps yesterday's file; the daily source check flags a stale one
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}   # reads state/expiry_history and state/expiry
+        run: python -m hub.expiry_meter
+
       - name: Nifty 50 option-selling screen (writes docs/data/stocks.json)
         continue-on-error: true
         env:

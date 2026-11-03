@@ -90,7 +90,8 @@ function marketSnapshot_() {
 // GIFT Nifty at 15:30 IST (the 15-minute bar that starts 15:15) on each of the last few days, {date: price}: the
 // reference its live price is compared with. One Kite historical call, cached 3 hours (refreshed once today's 15:30 bar exists).
 function giftRefs_(headers) {
-  const now = istNow_(), key = 'gift_refs_' + now.date + (now.hm >= '15:35' ? 'b' : 'a'), cache = CacheService.getScriptCache();
+  // 'm' from 09:01: today's 08:45 bar (ends 09:00) is the expiry meter's morning call (Expiry.gs expMorning_, 3 Nov 2026)
+  const now = istNow_(), key = 'gift_refs_' + now.date + (now.hm >= '15:35' ? 'b' : now.hm >= '09:01' ? 'm' : 'a'), cache = CacheService.getScriptCache();
   const hit = cache.get(key);
   if (hit) return JSON.parse(hit);
   const fmt = d => Utilities.formatDate(d, 'Asia/Kolkata', 'yyyy-MM-dd HH:mm:ss'), to = new Date();
@@ -101,7 +102,9 @@ function giftRefs_(headers) {
     const body = JSON.parse(res.getContentText());
     ((body.data && body.data.candles) || []).forEach(c => {
       const t = new Date(c[0]);
-      if (Utilities.formatDate(t, 'Asia/Kolkata', 'HH:mm') === '15:15') out[Utilities.formatDate(t, 'Asia/Kolkata', 'yyyy-MM-dd')] = c[4];
+      const hm = Utilities.formatDate(t, 'Asia/Kolkata', 'HH:mm'), d = Utilities.formatDate(t, 'Asia/Kolkata', 'yyyy-MM-dd');
+      if (hm === '15:15') out[d] = c[4];
+      else if (hm === '08:45') out['am_' + d] = c[4];
     });
   } catch (e) { /* none this time */ }
   cache.put(key, JSON.stringify(out), Object.keys(out).length ? 10800 : 300);

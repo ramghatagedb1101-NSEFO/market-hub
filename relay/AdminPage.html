@@ -2663,26 +2663,6 @@ function expMerge(d){
     add(cur.hist, x.history); add(cur.tape, x.tape || []);
   });
 }
-function expGauge(d){
-  // Semicircle: left end = range low, right end = range high (the market's one-standard-deviation move).
-  const R = d.likely || d.range, lo = Math.min(R[0], d.put_wall), hi = Math.max(R[1], d.call_wall), span = (hi - lo) || 1;
-  const ang = v => Math.PI * (1 - Math.max(0, Math.min(1, (v - lo) / span)));
-  const pt = (v, r) => [150 + r * Math.cos(ang(v)), 150 - r * Math.sin(ang(v))];
-  const arc = (a, b, col, w) => { const p1 = pt(a, 110), p2 = pt(b, 110);
-    return '<path d="M' + p1[0].toFixed(1) + ' ' + p1[1].toFixed(1) + ' A110 110 0 0 1 ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1) + '" stroke="' + col + '" stroke-width="' + w + '" fill="none" stroke-linecap="round"/>'; };
-  const tickAt = (v, col, label, up, rIn) => { const a = pt(v, 96), b = pt(v, 126), t = pt(v, up ? 140 : (rIn || 82));
-    return '<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="' + col + '" stroke-width="2"/>' +
-      // Labels near the ends of the arc are anchored inward so they are not cut off (13 Oct 2026).
-      '<text x="' + t[0].toFixed(1) + '" y="' + (t[1] + (up && (t[0] < 90 || t[0] > 210) ? 12 : 0)).toFixed(1) + '" font-size="10" fill="' + col + '" text-anchor="' + (t[0] < 90 ? 'start' : t[0] > 210 ? 'end' : 'middle') + '">' + label + '</text>'; };
-  const n = pt(d.prediction, 100);
-  return '<svg viewBox="-20 0 340 175" style="width:100%;max-width:440px;display:block;margin:0 auto">' +
-    arc(lo, hi, cssVar('--line2') || '#e2e8f0', 16) + arc(R[0], R[1], cssVar('--up-soft') || '#e7f7f0', 16) +
-    tickAt(d.put_wall, cssVar('--up'), 'Put wall ' + fmt(d.put_wall), true) + tickAt(d.call_wall, cssVar('--down'), 'Call wall ' + fmt(d.call_wall), true) +
-    tickAt(d.max_pain, cssVar('--warn'), 'Max pain', false) + tickAt(d.spot, cssVar('--muted'), 'Spot', false, 64) +
-    '<line x1="150" y1="150" x2="' + n[0].toFixed(1) + '" y2="' + n[1].toFixed(1) + '" stroke="' + cssVar('--text') + '" stroke-width="3" stroke-linecap="round"/>' +
-    '<circle cx="150" cy="150" r="6" fill="' + cssVar('--text') + '"/>' +
-    '<text x="150" y="172" font-size="11" fill="' + cssVar('--muted') + '" text-anchor="middle">' + fmt(lo) + ' ← walls and range → ' + fmt(hi) + '</text></svg>';
-}
 function fmt(v, dp){ return v == null ? '–' : Number(v).toLocaleString('en-IN', { minimumFractionDigits: dp || 0, maximumFractionDigits: dp || 0 }); }
 function expDay(iso){ if (!iso) return '–'; const d = new Date(iso + 'T00:00:00Z');
   return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getUTCDay()] + ' ' + d.getUTCDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()] + ' ' + d.getUTCFullYear(); }
@@ -2695,54 +2675,59 @@ function ovPanel(o){
     '<div style="margin-bottom:8px">' + avg('Europe today', o.eu) + avg('US futures today', o.us) + '</div>' +
     '<div style="overflow-x:auto"><table class="t"><tr><th style="text-align:left">Market</th><th>Level</th><th>Today</th><th>As of (IST)</th></tr>' + o.items.map(row).join('') + '</table></div>' + '</div></div>';
 }
-// One index's track record (13 Oct 2026): at 10:00, 12:00, 14:00 and 15:00, the meter's expected close against the
-// close, beside the market's forward at the same moment. The forward is the bar to beat: late in the day the move left
-// is small, so "within 25 bp" proves little unless the meter is closer than the market's own estimate.
-// Replay scoreboard (relay expiryScore_, 14 Oct 2026): every recorded expiry re-scored with the CURRENT model beside what
-// the meter showed live, the forward and the spot; plus how often the close fell inside the live band and a narrower
-// trial band. Average distance from the close in bp (lower is better).
-function expScore(t){
-  const S = (t && t.score) || [];
-  if (!S.some(s => s.n)) return '';
-  const v = x => x == null ? '–' : x + ' bp';
-  // Highlight one clear winner only: no highlight on a shared minimum (with the wall weights at 0 the model often equals the
-  // forward), and spot competes only when it covers the same expiries as the rest (independent review, 14 Oct 2026).
-  const best = s => { const c = [['live', s.live_bp], ['model', s.model_bp], ['forward', s.forward_bp]].concat(s.n_spot === s.n ? [['spot', s.spot_bp]] : [])
-      .filter(x => x[1] != null);
-    if (!c.length) return null;
-    const lo = Math.min.apply(null, c.map(x => x[1])), at = c.filter(x => x[1] === lo);
-    return at.length === 1 ? at[0][0] : null; };
-  const td = (s, key, x, extra) => '<td' + (best(s) === key ? ' style="color:var(--up);font-weight:600"' : '') + '>' + v(x) + (extra || '') + '</td>';
-  const spotNote = s => s.spot_bp == null || s.n_spot === s.n ? '' :
-    '<div class="muted" style="font-size:11px">' + s.n_spot + ' of ' + s.n + ' expiries; forward on those: ' + v(s.forward_bp_on_spot_days) + '</div>';
-  const vsFwd = s => !s.n ? '–' : s.model_beat_forward + ' of ' + s.n + (s.model_tied_forward ? ' <span class="muted">(tied ' + s.model_tied_forward + ')</span>' : '');
-  const band = (h, n) => n ? h + ' of ' + n : '–';
-  return '<div style="margin-top:12px"><b>Replay scoreboard</b> <span class="muted" style="font-size:12px">average distance from the close</span></div>' +
-    '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th>Time</th><th>Expiries</th><th>Meter (live)</th><th>Model (today)</th><th>Forward</th><th>Spot</th><th>Model beat forward</th><th>Close in ±1 sd band</th><th>In ' + (S[0] ? S[0].trial_band : 0.88) + ' sd band</th></tr>' +
-    S.map(s => '<tr><td>' + esc(s.at) + '</td><td>' + s.n + (s.n && !s.enough ? ' <span class="muted">(too few, ' + s.n + ' of ' + s.min_n + ')</span>' : '') + '</td>' +
-      td(s, 'live', s.live_bp) + td(s, 'model', s.model_bp) + td(s, 'forward', s.forward_bp) + td(s, 'spot', s.spot_bp, spotNote(s)) +
-      '<td>' + vsFwd(s) + '</td><td>' + band(s.live_band_hits, s.n_band) + '</td><td>' + band(s.trial_band_hits, s.n_band) + '</td></tr>').join('') +
-    '</table></div>';
+// ---- Prediction meter (3 Nov 2026, owner: "I need a real prediction meter"; relay expMorning_/expOdds_,
+// hub/expiry_meter.py). The morning call from GIFT Nifty at 09:00 never changes during the day; the settlement odds come
+// from the level now, the time left and 150 past expiries. The old "expected close" was the live price and is gone.
+function expTen(p){ return Math.max(1, Math.min(9, Math.round(p / 10))) + ' in 10'; }
+function expIdx(i){ return i === 'BANKNIFTY' ? 'BANK NIFTY' : i; }
+function expCallPanel(x){
+  const c = x.call, now = x.closed != null ? x.closed : x.spot;
+  let body;
+  if (!c) body = '<div class="muted">No morning call today.</div>';
+  else if (c.pending) body = '<div class="muted">The morning call is made at 09:00 IST.</div>';
+  else if (c.unavailable) body = '<div class="muted">No morning call today: GIFT Nifty\'s 09:00 price is not available.</div>';
+  else {
+    const up = c.dir === 'up', right = (now > c.base) === up;
+    body = '<div style="font-size:34px;font-weight:700;color:' + (up ? 'var(--up)' : 'var(--down)') + '">' + (up ? 'Up' : 'Down') + ' · ' + expTen(c.chance) + '</div>' +
+      '<div style="margin-top:4px">Likely close <b>' + fmt(c.pred) + '</b> <span class="muted">(' + fmt(c.lo) + ' – ' + fmt(c.hi) + ', 8 in 10)</span></div>' +
+      '<div class="muted" style="font-size:12px;margin-top:4px">From GIFT Nifty at 09:00 (' + (c.gift_pct >= 0 ? '+' : '') + fmt(c.gift_pct, 2) + '%) · last close ' + fmt(c.base, 2) + '</div>' +
+      '<div style="margin-top:10px;font-weight:600;color:' + (right ? 'var(--up)' : 'var(--down)') + '">' +
+        (x.closed != null ? 'Closed ' + fmt(x.closed, 2) + ' · ' + (right ? 'call right' : 'call wrong') : (right ? 'Right so far' : 'Wrong so far') + ' · now ' + fmt(now, 2)) + '</div>';
+  }
+  return '<div class="panel"><div class="panel-h"><h3>Morning call</h3><span class="muted" style="font-size:12px">fixed for the day</span></div><div class="panel-b" style="text-align:center">' + body + '</div></div>';
 }
-function expTrack(label, t){
-  const acc = (t && t.accuracy) || [], M = (t && t.model) || {}, T = [['10', '10:00'], ['12', '12:00'], ['14', '14:00'], ['15', '15:00']];
-  const bp = (x, a) => (x - a.close) / a.close * 1e4;
-  const sbp = v => { const r = Math.round(v); return (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r) + ' bp'; };
-  const beat = k => { const r = acc.filter(a => a['at' + k] != null && a['f' + k] != null); if (!r.length) return '–';
-    return r.filter(a => Math.abs(a['at' + k] - a.close) < Math.abs(a['f' + k] - a.close)).length + ' of ' + r.length; };
-  const within = k => { const r = acc.filter(a => a['at' + k] != null); return r.length ? r.filter(a => Math.abs(bp(a['at' + k], a)) <= 25).length + ' of ' + r.length : '–'; };
-  const cell = (a, k) => { const x = a['at' + k], f = a['f' + k]; if (x == null) return '–';
-    const m = bp(x, a), won = f != null && Math.abs(x - a.close) < Math.abs(f - a.close);
-    return fmt(x) + ' <span style="color:' + (Math.abs(m) <= 25 ? 'var(--up)' : 'var(--down)') + '">(' + sbp(m) + ')</span>' +
-      (f == null ? '' : '<div class="muted" style="font-size:11px">fwd ' + sbp(bp(f, a)) + (won ? ' · <b style="color:var(--up)">meter closer</b>' : ' · fwd closer') + '</div>'); };
-  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>' + esc(label) + ' · track record</h3><span class="muted" style="font-size:12px">expected close vs actual close</span></div><div class="panel-b">' +
-    (acc.length ? '<div style="margin-bottom:4px">Meter closer to the close than the forward: ' + T.map(([k, h]) => h + ' <b>' + beat(k) + '</b>').join(' · ') + '</div>' +
-      '<div class="muted" style="margin-bottom:8px;font-size:12px">Within 25 bp: ' + T.map(([k, h]) => h + ' ' + within(k)).join(' · ') + '</div>' +
-      '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th>Expiry</th><th>Close</th>' + T.map(([, h]) => '<th>' + h + '</th>').join('') + '</tr>' +
-      acc.map(a => '<tr><td>' + esc(expDay(a.date)) + '</td><td><b>' + fmt(a.close) + '</b></td>' + T.map(([k]) => '<td>' + cell(a, k) + '</td>').join('') + '</tr>').join('') + '</table></div>' +
-      '<div class="muted" style="margin-top:6px;font-size:12px">Forward: the option market\'s expected close.</div>'
-      : '<div class="muted">No finished expiries yet.</div>') +
-    expScore(t) +
+function expOddsPanel(x, t, stale){
+  const o = x.odds;
+  const when = stale ? '<span style="color:var(--warn)">Stale · last good reading ' + t + ' IST</span>' : (marketHoursIst() ? 'Live · ' + t + ' IST' : 'As of ' + t + ' IST');
+  let body;
+  if (x.closed != null) body = '<div style="text-align:center"><div style="font-size:34px;font-weight:700;font-family:var(--mono)">' + fmt(x.closed, 2) + '</div><div class="muted">Settled</div></div>';
+  else if (!o) body = '<div class="muted">' + (x.meter_ready === false ? 'Odds not ready yet: the daily file has not loaded.' : 'Odds stop at 15:30 IST. The close shows after 15:45 IST.') + '</div>';
+  else body = '<div style="margin-bottom:8px">8 in 10: <b>' + fmt(o.range80[0]) + ' – ' + fmt(o.range80[1]) + '</b></div>' +
+    '<table class="t" style="width:100%"><tr><th style="text-align:left">Strike</th><th>Settles above</th><th style="width:45%"></th></tr>' +
+    o.rows.slice().reverse().map(r => '<tr' + (Math.abs(r[0] - x.spot) < (x.step || 50) / 2 ? ' style="font-weight:700"' : '') + '><td style="text-align:left">' + fmt(r[0]) + '</td><td>' + Math.round(r[1]) + '%</td>' +
+      '<td><span style="display:inline-block;height:8px;border-radius:2px;width:' + r[1].toFixed(0) + '%;background:var(--accent,#2563eb)"></span></td></tr>').join('') + '</table>' +
+    '<div class="muted" style="font-size:12px;margin-top:6px">' + (o.basis === 'morning' ? 'From the morning call until 09:15 IST.' : 'From the level now and the time left, as on 150 past expiries.') + '</div>';
+  return '<div class="panel"><div class="panel-h"><h3>Chance it settles above</h3><span class="muted" style="font-size:12px">' + when + '</span></div><div class="panel-b">' + body + '</div></div>';
+}
+// The meter's record (hub/expiry_meter.py via the relay): the morning call on every expiry day, the odds checked against
+// what happened (tested on past expiries and live), and the option-flow signals waiting for enough expiry days.
+function expRecord(R){
+  if (!R) return '';
+  const M = R.morning || {}, T = R.odds_tested || {}, L = R.odds_live || {}, G = R.learning || {};
+  const tested = Object.keys(M.tested || {}).map(i => esc(expIdx(i)) + ' ' + M.tested[i].hit + '% (' + M.tested[i].hit_strong + '% on the strongest mornings)').join(' · ');
+  const rows = (M.rows || []).map(r => '<tr><td style="text-align:left">' + esc(expDay(r.date)) + '</td><td style="text-align:left">' + esc(expIdx(r.index)) + '</td><td>' + (r.call === 'up' ? 'Up' : 'Down') + ' · ' + expTen(r.p) + '</td><td>' + fmt(r.pred) + '</td><td>' + (r.close == null ? '–' : fmt(r.close, 2)) + '</td><td>' +
+    (r.right == null ? '–' : r.right ? '<b style="color:var(--up)">right</b>' : '<b style="color:var(--down)">wrong</b>') + '</td></tr>').join('');
+  const bins = b => (b || []).map(x => '<tr><td>' + esc(x.said) + '</td><td>' + x.happened + '%</td><td class="muted">' + fmt(x.n) + '</td></tr>').join('');
+  return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Meter record</h3></div><div class="panel-b">' +
+    '<div><b>Morning call on expiry days: ' + (M.n ? M.right + ' of ' + M.n + ' right' : 'none scored yet') + '</b></div>' +
+    (tested ? '<div class="muted" style="font-size:12px;margin:2px 0 8px">Tested on 146 past expiries each: ' + tested + '</div>' : '') +
+    (rows ? '<div style="overflow-x:auto"><table class="t" style="width:100%"><tr><th style="text-align:left">Expiry</th><th style="text-align:left">Index</th><th>Call</th><th>Likely close</th><th>Close</th><th></th></tr>' + rows + '</table></div>' : '') +
+    '<div class="grid g2" style="margin-top:12px"><div><b>Odds, tested on ' + fmt(T.expiries) + ' past expiries</b>' +
+      '<table class="t" style="width:100%"><tr><th>Said</th><th>Happened</th><th>Checks</th></tr>' + bins(T.bins) + '</table></div>' +
+    '<div><b>Odds, live on ' + (L.days || 0) + ' expiry days</b>' + (L.bins && L.bins.length ? '<table class="t" style="width:100%"><tr><th>Said</th><th>Happened</th><th>Checks</th></tr>' + bins(L.bins) + '</table>' : '<div class="muted">None yet.</div>') +
+      '<div class="muted" style="font-size:12px;margin-top:4px">Few days so far: these rows settle down after about 30 expiries.</div></div></div>' +
+    '<div style="margin-top:12px"><b>Option-flow signals:</b> <span class="muted">' + (G.proven && G.proven.length ? G.proven.map(p => esc(p.signal) + ' at ' + esc(p.at)).join(', ') + ' passed the test' :
+      (G.days >= G.needed ? 'tested on ' + G.days + ' expiry days; none beats the live level yet' : 'testing starts at ' + G.needed + ' recorded expiry days (' + (G.days || 0) + ' so far)')) + '</span></div>' +
     '</div></div>';
 }
 // How today's expiry settles, from the relay's EXP_SETTLE (13 Oct 2026): the closing auction since 3 Aug 2026, or the
@@ -2755,26 +2740,13 @@ function expSettleNote(x){
 function expBlock(x, t, stale){
   const kpi = (k, val, sub) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="s">' + sub + '</div></div>';
   if (x.error) return '<div class="sec" style="margin:18px 0 8px;font-weight:700">' + esc(x.label) + ' · expires today</div>' + errBlock(x.error);
-  // After 15:30 (13 Oct 2026, owner: no tracking after the close): the meter's last market-hours reading, and the actual
-  // close once recorded (after 15:45), with how far the meter and the forward were from it.
-  const F = x.final;
-  if (F) x = Object.assign({}, x, { prediction: F.prediction });
-  const off = v => { const b = Math.round((v - x.closed) / x.closed * 1e4); return (b > 0 ? '+' : b < 0 ? '−' : '') + Math.abs(b) + ' bp'; };
-  const head = x.closed != null
-    ? '<div class="muted" style="font-size:12px">Closed at</div><div style="font-size:40px;font-weight:700;font-family:var(--mono)">' + fmt(x.closed, 2) + '</div>' +
-      (F ? '<div class="muted">Meter\'s last reading (' + esc(F.hm) + ' IST): ' + fmt(F.prediction, 0) + ' (' + off(F.prediction) + ')' + (F.forward != null ? ' · forward ' + fmt(F.forward, 0) + ' (' + off(F.forward) + ')' : '') + '</div>' : '')
-    : F ? '<div class="muted" style="font-size:12px">Final reading · ' + esc(F.hm) + ' IST</div><div style="font-size:40px;font-weight:700;font-family:var(--mono)">' + fmt(F.prediction, 0) + '</div>' +
-      '<div class="muted">Close shown after 15:45 IST.</div>'
-    : null;
   const W = [['day', 'Day'], ['120', '2h'], ['60', '1h'], ['30', '30m']];
   const winSel = '<span style="display:flex;gap:4px">' + W.map(([k, l]) => '<button class="btn' + (EXP.win === k ? ' primary' : '') + '" style="padding:2px 8px;font-size:12px" onclick="EXP.win=\'' + k + '\';drawExpiry()">' + l + '</button>').join('') + '</span>';
   return '<div style="margin:18px 0 8px;font-weight:700;font-size:15px">' + esc(x.label) + ' · expires today</div>' +
-    '<div class="grid g2"><div class="panel"><div class="panel-h"><h3>' + (x.closed != null ? 'Expiry close' : 'Expected close') + '</h3><span style="font-size:12px;color:' + (stale ? 'var(--warn)' : 'var(--muted)') + '">' + (stale ? 'Stale · last good reading ' + t + ' IST' + (EXP.err ? ' · ' + esc(EXP.err) : '') : (marketHoursIst() ? 'Live · ' + t + ' IST' : 'Last reading · ' + t + ' IST')) + '</span></div><div class="panel-b" style="text-align:center">' +
-      (head != null ? head : '<div style="font-size:40px;font-weight:700;font-family:var(--mono)">' + fmt(x.prediction, 0) + '</div>' +
-      (x.likely ? '<div class="muted">likely ' + fmt(x.likely[0]) + ' – ' + fmt(x.likely[1]) + ' (±' + fmt(x.sd, 0) + ', about 2 in 3)</div>'
-        : '<div class="muted">likely ' + fmt(x.range[0]) + ' – ' + fmt(x.range[1]) + ' (±' + fmt(x.straddle, 1) + ')</div>')) + (head != null ? '' : expGauge(x)) +
-      (x.settle ? '<div class="muted" style="font-size:12px;margin-top:4px;text-align:left">' + expSettleNote(x) + '</div>' : '') + '</div></div>' +
-    '<div class="panel"><div class="panel-h"><h3>How the expected close has moved today</h3>' + winSel + '</div><div class="panel-b"><div style="height:300px"><canvas id="expChart_' + esc(x.id) + '"></canvas></div></div></div></div>' +
+    '<div class="grid g2">' + expCallPanel(x) + expOddsPanel(x, t, stale) + '</div>' +
+    (x.settle ? '<div class="muted" style="font-size:12px;margin-top:6px">' + expSettleNote(x) + '</div>' : '') +
+    '<div class="grid g2" style="margin-top:14px">' +
+    '<div class="panel"><div class="panel-h"><h3>Level and morning call</h3>' + winSel + '</div><div class="panel-b"><div style="height:300px"><canvas id="expChart_' + esc(x.id) + '"></canvas></div></div></div></div>' +
     '<div class="grid g4" style="margin-top:14px">' +
       kpi('Spot', fmt(x.spot, 2), esc(x.label)) + kpi('Forward (market)', fmt(x.forward, 0), 'ATM ' + fmt(x.atm)) +
       kpi('Max pain', fmt(x.max_pain), 'buyers collect least here') + kpi('PCR', x.pcr == null ? '–' : x.pcr, 'put OI ÷ call OI, ±3%') + '</div>' +
@@ -2835,16 +2807,16 @@ function expSellers(x){
 let EXP_TAB = null;
 function expShown(d){ return d.indices.find(x => x.id === EXP_TAB) || d.indices[0]; }
 function drawExpiry(){
-  const d = EXP.data, v = $('view'), tracks = d.tracks || {};
+  const d = EXP.data, v = $('view');
   const ups = d.upcoming || [];
   const upTable = '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Next expiries</h3></div><div class="panel-b"><div style="overflow-x:auto"><table class="t"><tr><th style="text-align:left">Index</th><th>Today</th><th>Next expiry</th></tr>' +
     ups.map(u => '<tr><td style="text-align:left">' + esc(u.label) + '</td><td>' + (u.today ? '<b>expires today</b>' : u.today === false ? '–' : 'unknown') + '</td><td>' + esc(expDay(u.next)) + '</td></tr>').join('') + '</table></div></div></div>';
-  const allTracks = ids => ids.map(id => { const u = ups.find(x => x.id === id) || { label: id }; return expTrack(u.label, tracks[id]); }).join('');
+  const rec = expRecord(d.record);
   // Errors first: a missing Kite login on an expiry day must not read as "no expiry" or stop the polling (review).
-  if (d.error) { v.innerHTML = errBlock(d.error) + upTable + allTracks(ups.map(u => u.id)); return; }
+  if (d.error) { v.innerHTML = errBlock(d.error) + upTable + rec; return; }
   if (!d.expiry_today) {
     v.innerHTML = '<div class="panel"><div class="panel-b">No index expires today.' +
-      (d.note ? '<div class="muted" style="margin-top:6px;font-size:12px">' + esc(d.note) + '</div>' : '') + '</div></div>' + upTable + allTracks(ups.map(u => u.id));
+      (d.note ? '<div class="muted" style="margin-top:6px;font-size:12px">' + esc(d.note) + '</div>' : '') + '</div></div>' + upTable + rec;
     if (d.source === 'list') stopExpiry();   // stop only when Kite's contract lists say so; a guess keeps checking
     return;
   }
@@ -2855,9 +2827,8 @@ function drawExpiry(){
       (d.note ? '<div class="muted" style="margin-top:6px;font-size:12px">' + esc(d.note) + '</div>' : '') + '</div></div>' +
     (d.indices.length > 1 ? '<div class="tabs" style="margin-top:14px">' + d.indices.map(x => '<a href="javascript:void 0" class="' + (x.id === expShown(d).id ? 'on' : '') + '" onclick="EXP_TAB=\'' + x.id + '\';drawExpiry()">' + esc(x.label) + '</a>').join('') + '</div>' : '') +
     expBlock(expShown(d), t, stale) +
-    ovPanel(d.overseas) + allTracks(today) +
-    '<details style="margin-top:14px"><summary class="muted">Other indices: next expiries and track records</summary>' + upTable + allTracks(ups.map(u => u.id).filter(id => !today.includes(id))) + '</details>' +
-    '<div class="muted" style="margin-top:10px;font-size:12px">Not a guarantee. The range covers about 2 in 3 outcomes.</div>';
+    rec + ovPanel(d.overseas) +
+    '<details style="margin-top:14px"><summary class="muted">Next expiries</summary>' + upTable + '</details>';
   Object.values(EXP.charts).forEach(c => { try { c.destroy(); } catch (e) {} }); EXP.charts = {};
   if (!marketHoursIst() && d.indices.length && d.indices.every(x => x.error || x.closed != null) && EXP.timer) { clearInterval(EXP.timer); EXP.timer = null; }
   if (typeof Chart === 'undefined') return;   // chart library did not load: the figures above still stand
@@ -2901,15 +2872,16 @@ function drawExpiry(){
   d.indices.forEach(x => {
     if (x.error) return;
     if (!((EXP.tapes[x.id] || {}).tape || []).length) ['expWalls_', 'expSize_', 'expCost_'].forEach(k => { const c = EXP.charts[k + x.id]; if (c) { c.destroy(); delete EXP.charts[k + x.id]; } empty(k + x.id, 'minute rows'); });
-    if (!((EXP.tapes[x.id] || {}).hist || []).length) empty('expChart_' + x.id, 'expected-close readings');
+    if (!((EXP.tapes[x.id] || {}).hist || []).length) empty('expChart_' + x.id, 'readings');
   });
   d.indices.forEach(x => {
     const el = $('expChart_' + x.id); if (!el || x.error) return;
     const H = (EXP.tapes[x.id] || {}).hist || [], hl = axis(H), hc = place(H, hl);
     EXP.charts[x.id] = new Chart(el, { type: 'line', data: { labels: hl, datasets: [
-        { label: 'Expected close', data: hc(1), borderColor: cssVar('--accent') || '#2563eb', borderWidth: 2, pointRadius: 0, tension: .2, spanGaps: true },
-        { label: 'Spot', data: hc(2), borderColor: cssVar('--muted'), borderWidth: 1, pointRadius: 0, borderDash: [4, 3], spanGaps: true },
-        { label: 'Max pain', data: hc(4), borderColor: cssVar('--warn'), borderWidth: 1, pointRadius: 0, stepped: true, spanGaps: true }] },
+        { label: 'Level', data: hc(2), borderColor: cssVar('--accent') || '#2563eb', borderWidth: 2, pointRadius: 0, tension: .2, spanGaps: true }]
+        .concat(x.call && x.call.pred ? [
+          { label: 'Morning call', data: hl.map(() => x.call.pred), borderColor: x.call.dir === 'up' ? cssVar('--up') : cssVar('--down'), borderWidth: 1.5, pointRadius: 0, borderDash: [6, 4] },
+          { label: 'Last close', data: hl.map(() => x.call.base), borderColor: cssVar('--muted'), borderWidth: 1, pointRadius: 0, borderDash: [2, 3] }] : []) },
       options: { animation: false, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
         plugins: { legend: { labels: { boxWidth: 12, color: cssVar('--text2') } } },
         scales: { x: { ticks: { maxTicksLimit: 8, color: cssVar('--muted') } }, y: { ticks: { color: cssVar('--muted') } } } } });

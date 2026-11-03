@@ -2,6 +2,31 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-11-03
+
+### Expiry meter rebuilt: a fixed morning call and settlement odds (Tue 3 Nov 2026, 16:00)
+- **Why (owner):** "It is hardly predicting anything. It is just following whatever the market is doing." Correct. On all 7
+  recorded expiries the "expected close" was the forward, never more than 70 points from the live price; its small offsets
+  pointed the right way about half the time; the NIFTY meter switched sides of the last close 30 times on 27 Oct 2026. Its
+  "in range 22 of 30" came from a band 1,000-1,300 SENSEX points wide at 10:00.
+- **What was tested first:** 98 intraday signal/time pairs on 399 past expiries (Oct 2023 - Oct 2026), each expiry predicted
+  only from earlier ones: momentum, gap, day average, range position, max pain, gamma strike, gamma regime, FII futures,
+  PCR, first half hour. None beat "close = the level now". The only real edge is GIFT Nifty at 09:00 (right about 2 in 3 on
+  past expiry days, 8-9 in 10 on the strongest mornings).
+- **The new meter** (dashboard Expiry meter page and phone F&O tab):
+  - *Morning call*, made at 09:00 from GIFT Nifty and fixed for the day: "Up · 7 in 10 · likely close 23,550", then
+    "right so far / wrong so far" and, after the close, "call right / wrong".
+  - *Chance it settles above* each strike near the level, plus the 8-in-10 settle range: from the level now, the time
+    left and the index's 20-day volatility, read from 150 past expiries. Checked on 319 expiries it was honest: said
+    70-80%, happened 71%; said 20-30%, happened 26%.
+  - *Meter record*: every expiry's morning call (2 of 3 right so far), the odds as tested and as checked live, and the
+    option-flow signals, which get tested from 60 recorded expiry days (7 so far). Nothing switches on by itself.
+- **Removed:** the expected close, its gauge and chart line, the "likely close range", the track record and the replay
+  scoreboard. The relay's Europe/US weights are pinned at 0 too (`EXP_SPREAD`).
+- **Files:** new `hub/expiry_meter.py` (daily.yml step, writes site/expiry_meter.json; source check watches it);
+  `relay/Expiry.gs` (`expMeterCfg_`, `expMorning_`, `expOdds_`), `relay/Market.gs` (GIFT's 08:45 bar), `relay/AdminPage.html`,
+  `hub/expiry_day.py`, `docs/index.html` (phone cache v55). METHOD.md section 7 updated first.
+
 ## 2026-10-29
 
 ### Evening check; the 14:45 runs now start on time (Thu 29 Oct 2026, 19:00)

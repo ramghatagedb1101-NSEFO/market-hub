@@ -84,6 +84,9 @@ to `main` (CI) or the owner running `--pull`/`--push` locally with their own tok
 - **Holidays**: NSE's trading-holiday list now drives "the next session" (next: Tue 10 Nov, Tue 24 Nov 2026).
 - **Evening update**: the afternoon market-loop run starts daily.yml at 18:05 IST (GitHub had delayed the 18:00
   schedule by 2.5 hours on 26 Oct). If the repo ever goes private, this idle wait costs Actions minutes.
+- **Expiry meter (rebuilt 3 Nov 2026):** a morning call from GIFT Nifty at 09:00, fixed for the day, and the chance of
+  settling above each strike (calibrated on 319 past expiries). Old "expected close" removed. Option-flow signals are
+  tested from 60 recorded expiry days (7 on 3 Nov 2026; about mid-2027).
 - **14:45 runs** (close estimate; expiry-day option screen on Mon/Tue) are started by the same afternoon loop (29 Oct
   2026: their schedules ran 35-45 minutes late, after the close).
 - **News score** (Gemini, daily before the open) is recorded only; review it after about 60 trading days (late Jan 2027).
