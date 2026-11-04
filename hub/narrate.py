@@ -109,19 +109,30 @@ def _write_nvidia(api_key: str, prompt: str) -> str:
     """NVIDIA NIM (OpenAI-compatible). Free credits on build.nvidia.com."""
     global NVIDIA_MODEL
     errors = []
+    # 4 Nov 2026: from 2 Nov the first model timed out at 120 s on every run and the timeout ended the loop, so the
+    # other models were never asked and the brief stayed on 2 Nov. A timeout, 429 or 5xx now moves on to the next model.
+    # At most about 5 minutes in all, so the daily job (30-minute limit) keeps time for Gemini and the steps after it.
+    r, start = None, time.monotonic()
     for model in [NVIDIA_MODEL] + [m for m in NVIDIA_FALLBACKS if m != NVIDIA_MODEL]:
-        r = requests.post(NVIDIA_URL, headers={"Authorization": f"Bearer {api_key}"},
-                          json={"model": model, "messages": [{"role": "user", "content": prompt}],
-                                "max_tokens": 6000, "temperature": 0.3},
-                          timeout=120)
+        if time.monotonic() - start > 300:
+            break
+        try:
+            r = requests.post(NVIDIA_URL, headers={"Authorization": f"Bearer {api_key}"},
+                              json={"model": model, "messages": [{"role": "user", "content": prompt}],
+                                    "max_tokens": 6000, "temperature": 0.3},
+                              timeout=120)
+        except requests.RequestException as exc:
+            r = None
+            errors.append(f"{model}: {type(exc).__name__}")
+            continue
         if r.status_code == 200:
             NVIDIA_MODEL = model
             break
         errors.append(f"{model}: {r.status_code}")
-        if r.status_code not in (404, 410):
+        if r.status_code not in (404, 410, 429) and r.status_code < 500:
             break
-    if r.status_code != 200:
-        raise RuntimeError(f"NVIDIA returned {r.status_code}: {r.text[:200]} (tried {', '.join(errors)})")
+    if r is None or r.status_code != 200:
+        raise RuntimeError(f"NVIDIA failed (tried {', '.join(errors)})" + (f": {r.text[:200]}" if r is not None else ""))
     msg = r.json()["choices"][0]["message"]
     # Reasoning models may put the answer in content, or leave it empty and only fill reasoning_content.
     text = (msg.get("content") or "").strip() or (msg.get("reasoning_content") or "").strip()

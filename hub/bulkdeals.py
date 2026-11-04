@@ -85,10 +85,13 @@ def main() -> dict:
         w.writeheader()
         w.writerows(store)
 
-    dates = sorted({r["date"] for r in store})
+    # NSE writes "03-NOV-2026"; sorted as text, 02-NOV came before 30-OCT, so "last day" was 5 days stale (4 Nov 2026).
+    # Sort by the real date and publish ISO days, which also sort right where the dashboard sorts the keys.
+    nse = sorted({r["date"] for r in store}, key=lambda d: datetime.strptime(d, "%d-%b-%Y"))
+    dates = [datetime.strptime(d, "%d-%b-%Y").date().isoformat() for d in nse]
     by_date = {}
-    for d in dates:
-        day = [r for r in store if r["date"] == d]
+    for d, raw in zip(dates, nse):
+        day = [r for r in store if r["date"] == raw]
         by_date[d] = {
             "deals": len(day),
             "buys": sum(1 for r in day if r["side"] == "BUY"),

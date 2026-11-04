@@ -2,6 +2,19 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-11-04
+
+### Written brief and bulk-deal dates fixed (Wed 4 Nov 2026, 12:30)
+- **Written brief stuck on Mon 2 Nov 2026.** From 2 Nov NVIDIA's first model timed out at 120 s on every run, and a timeout
+  ended the model loop, so the backup models were never asked; Gemini's fallback then hit its free quota (429). Seven runs
+  failed in a row. A timeout, 429 or server error now moves on to the next NVIDIA model (about 5 minutes at most in all,
+  so the daily job keeps its time). `hub/narrate.py`.
+- **Bulk deals showed "last day 30 Oct, 5 days old" although 2 and 3 Nov were stored.** NSE's dates ("03-NOV-2026") were
+  sorted as text, so 02-NOV came before 30-OCT. Days are now sorted by date and published as 2026-11-03, which also fixes
+  the dashboard's Bulk deals order and its "since" date. `hub/bulkdeals.py`.
+- Checked live at 12:00: last night's and this morning's daily runs passed (meter step included; morning-call record 3 of
+  4); live quotes current. The 09:58 live-quotes run failed only because Kite was not logged in yet.
+
 ## 2026-11-03
 
 ### Expiry meter rebuilt: a fixed morning call and settlement odds (Tue 3 Nov 2026, 16:00)
