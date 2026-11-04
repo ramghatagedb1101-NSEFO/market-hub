@@ -19,6 +19,8 @@ from . import config
 
 BRIEF_FILE = config.SITE_DIR / "data" / "brief.json"
 MODEL = os.getenv("GEMINI_MODEL", "gemini-flash-latest")   # Google's alias for the current Flash model
+# 4 Nov 2026: the Flash quota is used up by the AI summaries most days (429); the lighter model has its own free quota.
+LITE_MODEL = os.getenv("GEMINI_LITE_MODEL", "gemini-flash-lite-latest")
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
 
 
@@ -102,7 +104,10 @@ NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 # 25 Oct 2026: from the evening of 20 Oct NVIDIA answered 404 ("Function ... Not found for account") for the model above,
 # and the brief failed on 10 of 12 runs (Gemini's fallback timed out). Other free NIM models are tried in turn on a 404.
-NVIDIA_FALLBACKS = ["nvidia/llama-3.1-nemotron-ultra-253b-v1", "mistralai/mistral-large-2-instruct", "openai/gpt-oss-20b"]
+# 4 Nov 2026: the first three answered 404 again; newer models from NVIDIA's own list (/v1/models) are tried after them.
+NVIDIA_FALLBACKS = ["nvidia/llama-3.1-nemotron-ultra-253b-v1", "mistralai/mistral-large-2-instruct",
+                    "deepseek-ai/deepseek-v4.1-flash", "moonshotai/kimi-k2.6", "mistralai/mistral-large-4-1t-a52b",
+                    "nvidia/llama-3.1-nemotron-70b-instruct", "openai/gpt-oss-20b"]
 
 
 def _write_nvidia(api_key: str, prompt: str) -> str:
@@ -128,7 +133,7 @@ def _write_nvidia(api_key: str, prompt: str) -> str:
         if r.status_code == 200:
             NVIDIA_MODEL = model
             break
-        errors.append(f"{model}: {r.status_code}")
+        errors.append(f"{model}: {r.status_code}" + ("" if len(errors) else f" ({r.text[:120]})"))
         if r.status_code not in (404, 410, 429) and r.status_code < 500:
             break
     if r is None or r.status_code != 200:
@@ -146,9 +151,12 @@ def _data(feed: dict, fno: dict | None, ctx: dict | None) -> str:
 
 
 def _write_gemini(key: str, prompt: str) -> str:
+    global MODEL
     body = {"contents": [{"parts": [{"text": prompt}]}]}
     r = None
     for attempt in range(4):   # Gemini returns 429/503 under load; back off and retry
+        if attempt == 2 and r is not None and r.status_code == 429:
+            MODEL = LITE_MODEL
         try:                   # 25 Oct 2026: it timed out at 60 s on most runs since 20 Oct; 180 s, and a timeout is retried
             r = requests.post(URL.format(m=MODEL), headers={"x-goog-api-key": key}, json=body, timeout=180)
         except requests.Timeout:
@@ -196,8 +204,8 @@ def main() -> dict:
 
     if not out["text"] and gm_key:
         try:
-            out["source"] = f"Gemini · {MODEL}" + (" (NVIDIA fallback)" if nv_error else "")
             out["text"] = _write_gemini(gm_key, prompt)
+            out["source"] = f"Gemini · {MODEL}" + (" (NVIDIA fallback)" if nv_error else "")
         except Exception as exc:
             # Record the reason on the page instead of failing the job. The rest still publishes.
             both = f"NVIDIA: {nv_error}. Gemini: {exc}" if nv_error else str(exc)

@@ -8,7 +8,9 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 - **Written brief stuck on Mon 2 Nov 2026.** From 2 Nov NVIDIA's first model timed out at 120 s on every run, and a timeout
   ended the model loop, so the backup models were never asked; Gemini's fallback then hit its free quota (429). Seven runs
   failed in a row. A timeout, 429 or server error now moves on to the next NVIDIA model (about 5 minutes at most in all,
-  so the daily job keeps its time). `hub/narrate.py`.
+  so the daily job keeps its time). The 12:06 test run showed the first three models now answer 404 (not found for this
+  account), so newer models from NVIDIA's own list are tried after them, and Gemini switches to its lighter model, which
+  has its own free quota, when Flash says 429. `hub/narrate.py`.
 - **Bulk deals showed "last day 30 Oct, 5 days old" although 2 and 3 Nov were stored.** NSE's dates ("03-NOV-2026") were
   sorted as text, so 02-NOV came before 30-OCT. Days are now sorted by date and published as 2026-11-03, which also fixes
   the dashboard's Bulk deals order and its "since" date. `hub/bulkdeals.py`.
