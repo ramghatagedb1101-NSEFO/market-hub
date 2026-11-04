@@ -100,14 +100,15 @@ Data:
 {data}"""
 
 
-NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+NVIDIA_MODEL = os.getenv("NVIDIA_MODEL", "nvidia/nemotron-3-ultra-550b-a55b")
 NVIDIA_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 # 25 Oct 2026: from the evening of 20 Oct NVIDIA answered 404 ("Function ... Not found for account") for the model above,
 # and the brief failed on 10 of 12 runs (Gemini's fallback timed out). Other free NIM models are tried in turn on a 404.
-# 4 Nov 2026: the first three answered 404 again; newer models from NVIDIA's own list (/v1/models) are tried after them.
-NVIDIA_FALLBACKS = ["nvidia/llama-3.1-nemotron-ultra-253b-v1", "mistralai/mistral-large-2-instruct",
-                    "deepseek-ai/deepseek-v4.1-flash", "moonshotai/kimi-k2.6", "mistralai/mistral-large-4-1t-a52b",
-                    "nvidia/llama-3.1-nemotron-70b-instruct", "openai/gpt-oss-20b"]
+# 4 Nov 2026 (hub/diag_nvidia.py on GitHub): the key is fine, but 47 of the 64 chat models in NVIDIA's list answer 404,
+# including all the older ones used here until now. /v1/models still lists them, so the list does not prove a model works:
+# re-run that diagnostic if these fail. These all wrote a brief-sized answer in the test, fastest first after the main one.
+NVIDIA_FALLBACKS = ["nvidia/nemotron-3-nano-omni-30b-a3b-reasoning", "minimaxai/minimax-m3.1-flash", "poolside/laguna-xs-2.1",
+                    "mistralai/mistral-large-4-1t-a52b", "deepseek-ai/deepseek-v4.1-flash"]
 
 
 def _write_nvidia(api_key: str, prompt: str) -> str:
@@ -133,7 +134,7 @@ def _write_nvidia(api_key: str, prompt: str) -> str:
         if r.status_code == 200:
             NVIDIA_MODEL = model
             break
-        errors.append(f"{model}: {r.status_code}" + ("" if len(errors) else f" ({r.text[:120]})"))
+        errors.append(f"{model}: {r.status_code}")
         if r.status_code not in (404, 410, 429) and r.status_code < 500:
             break
     if r is None or r.status_code != 200:
