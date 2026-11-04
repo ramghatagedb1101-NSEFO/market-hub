@@ -215,7 +215,7 @@ def main() -> dict:
             try:
                 old = json.loads(BRIEF_FILE.read_text(encoding="utf-8"))
                 if old.get("source") not in (None, "", "none") and old.get("text"):
-                    old["last_error"] = {"ts": out["ts"], "error": both[:300]}
+                    old["last_error"] = {"ts": out["ts"], "error": both[:1200]}
                     out = old
             except (OSError, ValueError):
                 pass
