@@ -4,10 +4,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-04
 
-### NVIDIA checked: the key is fine, the models had gone (Wed 4 Nov 2026, 21:30)
+### NVIDIA checked: the key is fine, the models had gone (Wed 4 Nov 2026, 21:05)
 - **Correction to the entry below:** NVIDIA's service was not down. `hub/diag_nvidia.py` on GitHub tried all 64 chat models
   in NVIDIA's list: 11 answered, 47 said 404, 5 timed out, 1 failed. Every older model the brief used is among the 404s,
-  though the list still shows them. The brief now uses `nemotron-3-ultra-550b-a55b`, with five other models that passed.
+  though the list still shows them; NVIDIA's own page marks the free version of the old main model "Deprecated". The test
+  run at 21:04 wrote the brief through NVIDIA again, with no error. The brief now uses `nemotron-3-ultra-550b-a55b`, with five other models that passed.
 
 ### Written brief and bulk-deal dates fixed (Wed 4 Nov 2026, 12:30)
 - **Written brief stuck on Mon 2 Nov 2026.** From 2 Nov NVIDIA's first model timed out at 120 s on every run, and a timeout
