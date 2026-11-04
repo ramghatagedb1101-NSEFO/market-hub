@@ -44,6 +44,7 @@ jobs:
         env:
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}     # needed by diag_library_sample, diag_shareholding, diag_roce_fields
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}                   # diag_gift, diag_expiry_close
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}               # diag_nvidia
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}       # diag_expiry_close reads the private expiry history (derived stats only are committed)
       - run: |
           if [ -n "$(git status --porcelain diag_output/)" ]; then
