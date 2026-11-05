@@ -3,6 +3,9 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Thu 5 Nov 2026
+- First live expiry-meter check done. Fixed: the morning login's run overwrote the evening straddle (see CHANGELOG).
+
 ## Wed 4 Nov 2026
 - Written brief fixed: moved to NVIDIA models that still answer (`hub/diag_nvidia.py` finds them; NVIDIA retires free models without notice); bulk-deal days sorted by date. First live
   test of the new expiry meter's odds: SENSEX expiry, Thu 5 Nov 2026.

@@ -2,6 +2,17 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-11-05
+
+### Expiry meter: the morning call's range and chance changed after the morning run (Thu 5 Nov 2026, 12:00)
+- **First live check of the new meter (SENSEX expiry).** The call's centre, the live odds and the settle range all worked.
+  But the "fixed" call was not fixed: it should have read Up, about 9 in 10, 77,425 - 79,057; after 09:27 it read Up, about
+  8 in 10, 76,537 - 79,974.
+- **Cause:** the daily run started by the morning login re-read the "evening-before" straddle at the strike nearest
+  yesterday's close, after SENSEX had opened about 1.9% higher. That is a deep in-the-money option: 1.44% against the
+  evening's 0.85%. Fix: never read it on the expiry day itself (`hub/tracker.py`). Today's stored figure and logged
+  morning entry were put back to the evening's values. Earlier expiry days' logged entries were normal.
+
 ## 2026-11-04
 
 ### NVIDIA checked: the key is fine, the models had gone (Wed 4 Nov 2026, 21:05)
