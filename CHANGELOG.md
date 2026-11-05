@@ -9,7 +9,7 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   But the "fixed" call was not fixed: it should have read Up, about 9 in 10, 77,425 - 79,057; after 09:27 it read Up, about
   8 in 10, 76,537 - 79,974.
 - **Cause:** the daily run started by the morning login re-read the "evening-before" straddle at the strike nearest
-  yesterday's close, after SENSEX had opened about 1.9% higher. That is a deep in-the-money option: 1.44% against the
+  yesterday's close, after SENSEX had opened about 1.9% higher. That is a deep in-the-money option: 1.80% against the
   evening's 0.85%. Fix: never read it on the expiry day itself (`hub/tracker.py`). Today's stored figure and logged
   morning entry were put back to the evening's values. Earlier expiry days' logged entries were normal.
 
