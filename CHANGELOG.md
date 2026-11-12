@@ -2,6 +2,19 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-11-12
+
+### GitHub keys expired: private data unreadable Fri 6 - Thu 12 Nov 2026 (Thu 12 Nov 2026, 17:50)
+- **What happened:** both keys to the private data repo (fine-grained, GitHub's 30-day default, made 7 Oct 2026) expired
+  on Fri 6 Nov 2026. Every job that reads or saves private data failed with 401: the daily forecasts, morning calls, expiry
+  meter (no call on the SENSEX expiry, Thu 12 Nov), library, AI summaries, insights; the dashboard showed "Could not load
+  the library (401)". Live quotes and the Kite login kept working. The record has no forecasts or meter for those days.
+- **Fixed:** both keys renewed until Thu 11 Nov 2027 (relay `ADMIN_READ_TOKEN`, GitHub secret `PRIVATE_REPO_TOKEN`);
+  daily job re-run (success), the other failed jobs re-run; dashboard library loads again.
+- **Warning:** the daily source check did email each day, but as 33 symptoms with the cause buried. `hub/source_health.py`
+  now checks the key first: a refused key is one clear problem naming the two keys to renew, and GitHub's expiry header
+  gives a warning 14 days before they run out (from Fri 29 Oct 2027).
+
 ## 2026-11-05
 
 ### Expiry meter: the morning call's range and chance changed after the morning run (Thu 5 Nov 2026, 12:00)

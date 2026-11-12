@@ -356,16 +356,49 @@ def _save_state(st, sha):
     _request("PUT", f"{API}/repos/{PRIVATE_REPO}/contents/{STATE}", headers=_headers(), json=body)
 
 
+KEY_WARN_DAYS = 14
+
+
+def check_key(now: datetime) -> list:
+    """12 Nov 2026: both GitHub keys (fine-grained, 30-day default) expired on 6 Nov 2026 and every private read failed
+    for six days; the daily email listed 33 symptoms instead of the one cause. Now: a rejected key is one clear problem
+    (and the other checks are skipped), and GitHub's expiry header gives a warning 14 days ahead. The relay's reader key
+    was renewed the same day with the same end date (Thu 11 Nov 2027), so this warning covers both."""
+    r = _request("GET", f"{API}/repos/{PRIVATE_REPO}", headers=_headers())
+    if r.status_code in (401, 403, 404):
+        return [{"id": "key:rejected", "what": "GitHub key",
+                 "text": f"the private data key was refused (HTTP {r.status_code}). Renew market-hub-private-writer "
+                         "(GitHub secret PRIVATE_REPO_TOKEN) and market-hub-private-reader (relay ADMIN_READ_TOKEN)"}]
+    exp = r.headers.get("github-authentication-token-expiration", "")   # e.g. "2027-11-11 00:00:00 UTC"
+    try:
+        end = datetime.strptime(exp[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).astimezone(config.IST)
+    except ValueError:
+        return []
+    left = (end - now).days
+    if left <= KEY_WARN_DAYS:
+        return [{"id": "key:expiring", "what": "GitHub keys",
+                 "text": f"expire on {end:%a %d %b %Y} ({max(left, 0)} days). Renew market-hub-private-writer and "
+                         "market-hub-private-reader on GitHub, then paste them into PRIVATE_REPO_TOKEN and ADMIN_READ_TOKEN"}]
+    return []
+
+
 def main() -> dict:
     now = _now()
-    problems = []
+    problems = check_key(now)
+    if problems and problems[0]["id"] == "key:rejected":
+        return _report(now, problems, private=False)
     for part in (check_files, check_sections, check_contents, check_forecasts, check_progress):
         try:
             problems += part(now)
         except Exception as e:                     # one broken check must not hide the others
             problems.append({"id": "check:" + part.__name__, "what": "the check itself", "text": f"{part.__name__}: {e}"[:160]})
     problems += check_jobs()
-    st, sha = _state()
+    return _report(now, problems)
+
+
+def _report(now, problems, private=True) -> dict:
+    # private=False: the key is refused, so state can't be read or saved; mail every run until it is fixed
+    st, sha = _state() if private else ({}, None)
     ids = sorted(p["id"] for p in problems)
     last_ids, last_sent = st.get("ids") or [], st.get("sent")
     changed = ids != last_ids
@@ -384,7 +417,8 @@ def main() -> dict:
         if mail.get("ok"):
             st["sent"] = now.isoformat(timespec="minutes")
     st.update({"ids": ids, "checked": now.isoformat(timespec="minutes"), "problems": problems})
-    _save_state(st, sha)
+    if private:
+        _save_state(st, sha)
     return {"checked": st["checked"], "problems": len(problems), "new": len([i for i in ids if i not in last_ids]), "fixed": len(fixed),
             "mailed": bool(mail.get("ok")), "list": [p["what"] + ": " + p["text"] for p in problems]}
 

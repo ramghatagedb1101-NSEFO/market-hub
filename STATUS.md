@@ -3,6 +3,9 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Thu 12 Nov 2026
+- GitHub keys expired 6 Nov 2026 (6 days of failed jobs). Renewed to Thu 11 Nov 2027; source check now warns 14 days ahead.
+
 ## Thu 5 Nov 2026
 - First live expiry-meter check done. Fixed: the morning login's run overwrote the evening straddle (see CHANGELOG).
 
