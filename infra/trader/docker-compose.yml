@@ -1,0 +1,32 @@
+# IBKR paper trading on market-hub-trader (Oracle Arm, Ubuntu 24.04), 13 Nov 2026.
+# gnzsnz/ib-gateway: IB Gateway + IBC (keeps it signed in, restarts it daily); publishes arm64 images.
+# The API port is bound to 127.0.0.1 only: nothing outside this machine can reach the account.
+# Login: TWS_USERID in .env and the password in secrets/tws_password.txt, both written by set-login.sh
+# (the owner types them; never committed, never printed).
+name: market-hub-trader
+services:
+  ib-gateway:
+    image: ghcr.io/gnzsnz/ib-gateway:stable
+    restart: always
+    env_file: .env
+    environment:
+      TRADING_MODE: paper
+      TWS_PASSWORD_FILE: /run/secrets/tws_password
+      READ_ONLY_API: "no"
+      TIME_ZONE: Asia/Kolkata
+      TZ: Asia/Kolkata
+      AUTO_RESTART_TIME: "06:30 AM"
+      TWOFA_TIMEOUT_ACTION: restart
+      RELOGIN_AFTER_TWOFA_TIMEOUT: "yes"
+      EXISTING_SESSION_DETECTED_ACTION: primary
+      ALLOW_BLIND_TRADING: "no"
+      TWS_SETTINGS_PATH: /home/ibgateway/tws_settings
+    secrets:
+      - tws_password
+    volumes:
+      - ./tws_settings:/home/ibgateway/tws_settings
+    ports:
+      - "127.0.0.1:4002:4004"
+secrets:
+  tws_password:
+    file: ./secrets/tws_password.txt

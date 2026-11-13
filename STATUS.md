@@ -29,7 +29,11 @@ first) and `CLAUDE.md`.
   machine (`market-hub-trader`, Ubuntu 24.04, 4 cores / 24 GB) running the `gnzsnz/ib-gateway` Docker image (arm64,
   IBC). Mumbai has no A1 capacity (4/24, 2/12, 1/6 all refused), so `oci-launch.yml` asks every 5 minutes and
   switches itself off once the machine exists. Pay-as-you-go only if no machine after about a week (owner to decide,
-  card needed). Then: Docker + IB Gateway (owner types the paper login on the machine), then the paper trading program.
+  card needed). Ready for when it exists (`infra/trader/`): `bootstrap.sh` (Docker, gateway image, Python, India time),
+  `set-login.sh` (owner types the paper username/password once, hidden), `check.py` (paper-only connection check and
+  how IBKR names NIFTY / BANK NIFTY / SENSEX options; no orders). Then the paper trading program.
+  Unverified until the first check: NSE index options and their prices on an IBKR India paper account; whether paper
+  login asks for a second factor.
   Proposal pending: move fixed address 130.210.31.37 to the new machine and retire `market-hub-ip`.
   Any strategy search on the ICICI data keeps rule_review's discipline (walk-forward, bar raised for settings tried,
   full costs); paper trading is the final out-of-sample test.

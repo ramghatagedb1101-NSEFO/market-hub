@@ -65,6 +65,11 @@ closing prices, and the review notes that closes of far strikes can be stale.
   set from the console's preview.
 - IB Gateway on Arm: the community `gnzsnz/ib-gateway` Docker image publishes arm64 builds (from IBKR's own Linux Arm
   installer) with IBC for unattended daily restarts; paper mode by default, API reachable only from the same machine.
+- Prepared while waiting for capacity, `infra/trader/`: `docker-compose.yml` (paper mode, India time, daily restart
+  06:30, API on 127.0.0.1 only), `bootstrap.sh` (Docker, the gateway image, Python with ib_async, India time zone),
+  `set-login.sh` (the owner types the paper username and password once; hidden, saved readable by that user only,
+  never in git), `check.py` (refuses anything but a paper "DU" account; lists how IBKR names the three indices and
+  their option expiries and strikes; places no orders).
 
 ### METHOD.md: blank lines doubling on every edit since 27 Oct 2026 (Fri 13 Nov 2026, late night)
 Found while starting the ICICI back-test work. My own bug, from the 27 Oct rewrite of `hub/method_check.py`.
