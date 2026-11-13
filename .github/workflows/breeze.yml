@@ -12,6 +12,10 @@ on:
         description: "hub module to run (e.g. diag_breeze)"
         required: true
         default: "diag_breeze"
+      budget:
+        description: "most ICICI requests this run (breeze_history)"
+        required: false
+        default: "4000"
 
 permissions:
   contents: read
@@ -66,3 +70,4 @@ jobs:
           BREEZE_API_KEY: ${{ secrets.BREEZE_API_KEY }}
           BREEZE_API_SECRET: ${{ secrets.BREEZE_API_SECRET }}
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          BUDGET: ${{ inputs.budget }}
