@@ -30,6 +30,10 @@ real data after the close.
   shareholding quarter and shown only while that quarter is the latest (about four months).
 - **Companies list led by near-empty rows** (sorted by rules met, an 11%-data company with 7 of 8 came first). Opens on
   "Data 40%+" now.
+- **Titan's 1-year return: +26.5% at the top of its page, +30.4% in its Peers table.** The library counted 252 sessions
+  back (about four sessions more than a year) and from the morning's prices. `ret_12m` now counts back 365 days, as the
+  header, NSE and Kite do (Titan on Thursday's close: +27.8%, was +30.4%), and the Peers row of the company being viewed
+  shows the header's live figure. METHOD.md updated first. Every company's 12M changes slightly from the next run.
 - **"Last quote · 19:58 IST" for VIX, the indices, USD/INR and the portfolio** hours after they stopped trading. After
   each market's close they now say "Close · day" (phone and dashboard); MCX gold and crude keep their time.
 

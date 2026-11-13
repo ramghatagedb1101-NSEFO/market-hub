@@ -1880,6 +1880,7 @@ function pageStock(sym){
   const chg = last && prev ? (last[1] / prev[1] - 1) * 100 : null;
   const yAgo = last ? px.find(p => p[0] >= isoShift(last[0], -365)) : null;
   const r1y = last && yAgo ? (last[1] / yAgo[1] - 1) * 100 : val(s,'ret_12m');
+  if (last && yAgo) (S.liveR1y = S.liveR1y || {})[sym] = r1y;   // the Peers row of this company shows the same figure (13 Nov 2026)
   // 26 Oct 2026 audit: the range came from closes (NTPC ₹298–410 against NSE's ₹292.05–414.40); intraday highs and lows
   // now, as NSE and Kite show it, with the close only where a candle has no high/low (BharatStock fallback).
   const y52c = last ? (D5.candles || []).filter(c => c[0] >= isoShift(last[0], -365)) : [];
@@ -3061,11 +3062,14 @@ function peersPanel(sym){
   const p = peersOf(sym);
   if (!p.list.length) return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Peers</h3></div><div class="panel-b muted">No other listed company in the same business.</div></div>';
   const rows = [S.bySym[sym], ...p.list];
+  // 13 Nov 2026: the company being viewed shows its live 1-year return, the one in the page header (Titan: header +26.5%,
+  // this table +30.4% from the morning's scoring on a different base).
+  const pv = (s, k) => k === 'ret_12m' && s.symbol === sym && S.liveR1y && S.liveR1y[sym] != null ? S.liveR1y[sym] : val(s, k);
   const cols = [['market_value_bucket', 'Mkt cap'], ['pe', 'P/E'], ['rev_yoy', 'Revenue gr.'], ['profit_yoy', 'Profit gr.'], ['net_margin', 'Net margin'], ['roe', 'ROE'], ['ret_12m', '12M']];
-  const best = {}; cols.forEach(([k]) => { const d = dirOf(k); const xs = rows.map(s => val(s, k)).filter(x => x != null && (k !== 'pe' || x > 0)); if (xs.length > 1 && k !== 'market_value_bucket') best[k] = d < 0 ? Math.min(...xs) : Math.max(...xs); });
+  const best = {}; cols.forEach(([k]) => { const d = dirOf(k); const xs = rows.map(s => pv(s, k)).filter(x => x != null && (k !== 'pe' || x > 0)); if (xs.length > 1 && k !== 'market_value_bucket') best[k] = d < 0 ? Math.min(...xs) : Math.max(...xs); });
   return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Peers</h3><span class="muted" style="font-size:12px">' + esc(p.basis) + ' · bold = best in group</span></div><div class="tbl-wrap" style="border:0;box-shadow:none;border-radius:0;max-height:none"><table class="t"><tr><th class="l">Company</th>' + cols.map(([, l]) => '<th>' + l + '</th>').join('') + '<th>Composite</th></tr>' +
     rows.map((s, i) => '<tr class="' + (i ? 'click' : '') + '"' + (i ? ' onclick="openStock(\'' + esc(s.symbol) + '\')"' : ' style="background:var(--brand-soft)"') + '><td class="l">' + companyCell(s.symbol) + '</td>' +
-      cols.map(([k]) => { const x = val(s, k); return '<td class="num' + (best[k] != null && x === best[k] ? '" style="font-weight:800' : '') + '">' + (k === 'pe' && !(x > 0) ? '–' : fmtMeasure(k, x)) + '</td>'; }).join('') + '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td></tr>').join('') + '</table></div></div>';
+      cols.map(([k]) => { const x = pv(s, k); return '<td class="num' + (best[k] != null && x === best[k] ? '" style="font-weight:800' : '') + '">' + (k === 'pe' && !(x > 0) ? '–' : fmtMeasure(k, x)) + '</td>'; }).join('') + '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td></tr>').join('') + '</table></div></div>';
 }
 function drawRadar(sym){
   const el = $('cRadar'); const f = S.fac && S.fac[sym];

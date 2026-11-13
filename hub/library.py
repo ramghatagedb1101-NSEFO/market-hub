@@ -392,8 +392,17 @@ def price_values(series: list[tuple[date, float]], delivery: list[float], volume
         out["ret_3m"] = (last / closes[-64] - 1) * 100
     if len(closes) > 126 and closes[-127]:
         out["ret_6m"] = (last / closes[-127] - 1) * 100
-    if back(252) is not None or back(200) is not None:
-        out["ret_12m"] = (last / closes[-253] - 1) * 100 if len(closes) > 252 and closes[-253] else None
+    # 13 Nov 2026: a year by the calendar (the first close on or after the same date a year back), as NSE, Kite and the
+    # stock page's header count it. It was 252 sessions back, about four sessions further: Titan read +30.4% in the
+    # Peers table against +26.5% in the header.
+    if back(200) is not None:
+        last_day = series[-1][0]
+        year_ago = last_day - timedelta(days=365)
+        if series[0][0] <= year_ago:
+            base = next((c for d, c in series if d >= year_ago), None)
+            out["ret_12m"] = (last / base - 1) * 100 if base else None
+        else:
+            out["ret_12m"] = None
     if len(closes) >= 252:
         hi = max(closes[-252:])
         lo = min(closes[-252:])

@@ -13,8 +13,7 @@ first) and `CLAUDE.md`.
 - Live audit (evening, Kite logged in): every phone tab and every dashboard page checked on real data, plus stock
   reports (Coal India, HDFC Bank, Antelopus, Titan). 12 faults fixed (CHANGELOG 13 Nov, evening).
 - To do: confirm after tonight's library run + insights rebuild: insider totals (Coal India -5,549 cr), option-price
-  panel dates, Screens list growth (Antelopus +116%), Dhanlaxmi/Metro Brands growth. Open question: Titan's 1Y return
-  reads +26.5% in the header and +30.4% in the Peers table (two price bases); align them.
+  panel dates, Screens list growth (Antelopus +116%), Dhanlaxmi/Metro Brands growth. Titan's 1Y return aligned (fixed, night).
 - To do:
   recount companies with implausible figures after the v6 re-check (129 above +150% / below -70% before it, most genuine).
 
