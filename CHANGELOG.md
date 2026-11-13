@@ -2,6 +2,15 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-11-14
+
+### ICICI download: 34 more expiries; Oracle retry schedule re-registered (Sat 14 Nov 2026, 02:35)
+- Owner-started ICICI run: 34 expiries (SENSEX 5 Nov back to NIFTY / BANK NIFTY 28 Jul 2026), 3,889 requests, 0 errors,
+  every listed contract except a few untraded far strikes. 36 of 409 saved, 373 to go; the 16:00 / 21:00 IST runs
+  carry on whenever that day's ICICI sign-in is done.
+- `oci-launch.yml`: GitHub never started the every-5-minutes schedule (no run in 2.5 hours; only the hand-started
+  ones). Changed to minutes 7, 22, 37 and 52 of every hour; changing the line makes GitHub register it again.
+
 ## 2026-11-13
 
 ### ICICI sign-in no longer lands on "405 Not Allowed" (Fri 13 Nov 2026, 23:55)

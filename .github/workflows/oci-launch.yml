@@ -5,7 +5,9 @@ name: oci-launch
 # Secrets: OCI_API_KEY (the owner's API private key), OCI_TENANCY, OCI_USER, OCI_FINGERPRINT, OCI_SSH_PUBKEY.
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # Off-peak minutes: GitHub never started the "*/5" schedule (13 Nov 2026, none in 2.5 hours); a fresh
+    # schedule line re-registers it.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
 
 permissions:

@@ -21,13 +21,15 @@ first) and `CLAUDE.md`.
   27 Oct, file 116,691 lines). Rebuilt file (1,845 lines, same text) pushed to the private repo (`db24d5c`) and
   checked.
 - ICICI download (`hub/breeze_history.py`: whole day before + expiry day, every stored strike, 409 expiries): working,
-  2 expiries saved (12 Nov SENSEX, 9 Nov NIFTY), sense-checked. ~53,000 requests in all, ~14 runs of 4,000. Each run
+  36 of 409 expiries saved (back to 28 Jul 2026; run of Sat 14 Nov: 34 expiries, 3,889 requests, 0 errors), 373 to
+  go, ~10 more runs of 4,000. Each run
   needs that day's ICICI sign-in. `breeze.yml` now runs it by itself at 16:00 and 21:00 IST (owner approved); without
   a sign-in that day it skips quietly. Once `_done.json` covers all 409: `diag.yml -f module=rule_real_fill`.
   `market-hub-ip` restarted and its `dnf-makecache.timer` disabled after it froze.
 - IBKR paper trading (owner, 13 Nov night): IBKR India account, NSE index options first, on an Oracle free Arm
   machine (`market-hub-trader`, Ubuntu 24.04, 4 cores / 24 GB) running the `gnzsnz/ib-gateway` Docker image (arm64,
-  IBC). Mumbai has no A1 capacity (4/24, 2/12, 1/6 all refused), so `oci-launch.yml` asks every 5 minutes and
+  IBC). Mumbai has no A1 capacity (4/24, 2/12, 1/6 all refused), so `oci-launch.yml` asks four times an hour (schedule
+  changed 14 Nov: GitHub never started the every-5-minutes one) and
   switches itself off once the machine exists. Pay-as-you-go only if no machine after about a week (owner to decide,
   card needed). Ready for when it exists (`infra/trader/`): `bootstrap.sh` (Docker, gateway image, Python, India time),
   `set-login.sh` (owner types the paper username/password once, hidden), `check.py` (paper-only connection check and
