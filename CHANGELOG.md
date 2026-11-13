@@ -4,6 +4,18 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-13
 
+### Live audit with the Kite login, phone first (Fri 13 Nov 2026, evening)
+Owner asked for every screen to show correct data. Checked the phone app signed in (Home, Brief, F&O, Ideas, Desk) on
+real data after the close.
+- **Index option prices dated 27 and 29 Oct.** The weekly expiry-history run failed on Sat 7 Nov (the expired GitHub
+  key), so the panel stopped a fortnight back. Re-run by hand; it runs again each Saturday.
+- **Bank Nifty's 23 Nov expiry shown twice, with two different trades.** Bank Nifty has only monthly expiries, so
+  "nearest" and "monthly" were the same contract, priced on two different bands. Shown once now (`hub/fno.py`).
+- **FII/DII flows a day behind.** NSE posts the day's flows after 18:00; the 18:07 run read Thursday's, and over a
+  weekend that stays until Monday. `daily.yml` runs again at 20:30 IST (a second run changes nothing else).
+- **"Last quote · 19:58 IST" for VIX, the indices, USD/INR and the portfolio** hours after they stopped trading. After
+  each market's close they now say "Close · day" (phone and dashboard); MCX gold and crude keep their time.
+
 ### Results reader, second pass: mislabelled quarters and wrong-scale filings (Fri 13 Nov 2026)
 The 07:00 fix (below) re-checked every company once. A scan of the results for impossible figures then found 129
 companies with revenue growth above +150% or below -70%; most are genuine (small bases, acquisitions), but four came

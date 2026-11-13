@@ -170,7 +170,15 @@ def main() -> dict:
             rows = [{"strike": s, "ce_ltp": v["CE"], "ce_oi": v["ce_oi"], "pe_ltp": v["PE"], "pe_oi": v["pe_oi"]}
                     for s, v in sorted(chain.items()) if abs(s / spot - 1) * 100 <= 3.0]
             block["expiring_today"] = {"expiry": todays.isoformat(), "pcr": _pcr(chain), "rows": rows}
-        for label, expiry, hz in (("Nearest expiry", nearest, "expiry"), ("Monthly expiry", monthly, "month")):
+        # 13 Nov 2026: Bank Nifty has only monthly expiries, so its nearest expiry IS the monthly one; it was shown twice
+        # with two different bands (next-expiry and month-close horizons) and two different trades for the same contract.
+        # Shown once now, on the next-expiry band.
+        pairs = [("Nearest expiry", nearest, "expiry")]
+        if monthly != nearest:
+            pairs.append(("Monthly expiry", monthly, "month"))
+        else:
+            pairs[0] = ("Nearest and monthly expiry", nearest, "expiry")
+        for label, expiry, hz in pairs:
             if expiry is None:
                 continue
             band = feed["indices"][name]["horizons"][hz]["forecast"]

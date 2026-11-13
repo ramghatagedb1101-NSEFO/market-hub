@@ -3,6 +3,8 @@ name: daily-forecast
 on:
   schedule:
     - cron: "30 12 * * 1-5"       # 12:30 UTC = 18:00 IST, weekdays (after the close, NSE bhavcopy and bulk deals)
+    - cron: "0 15 * * 1-5"        # 20:30 IST: NSE posts the day's FII/DII flows after 18:00 (13 Nov 2026: Friday's were
+                                  # missing at 18:07, so the weekend showed Thursday's). A second run changes nothing else.
   workflow_dispatch:              # "Run workflow" button for a manual run, free
 
 permissions:

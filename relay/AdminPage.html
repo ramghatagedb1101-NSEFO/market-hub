@@ -761,15 +761,15 @@ function briefParts(){
     return a == null ? pct(p, 2) : (a > 0 ? '+' : a < 0 ? '−' : '') + fmt(Math.abs(a), dp == null ? 2 : dp); };
   const tile = (k, v, c, when, p) => '<div><div class="k">' + esc(k) + '</div><div class="v">' + v + '</div><div class="c ' + cls(p) + '">' + c + '</div><div class="w">' + esc(when || '') + '</div></div>';
   const idxTile = (k, name) => { const q = LQ && LQ.indices && LQ.indices[k];
-    return tile(name, q ? fmt(q.last, 2) : '–', q ? chg(q.change_pct, q.last, q.change) : 'no quote', q ? bQuote(LQ.ts) : '', q && q.change_pct); };
+    return tile(name, q ? fmt(q.last, 2) : '–', q ? chg(q.change_pct, q.last, q.change) : 'no quote', q ? bQuote(LQ.ts, 930) : '', q && q.change_pct); };
   const yr = new Date(Date.now() + 5.5 * 3600e3).getUTCFullYear();
   const ovs = ovsItems().filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym));
   const tiles = [
     idxTile('NIFTY', 'NIFTY 50'), idxTile('SENSEX', 'SENSEX'), idxTile('BANKNIFTY', 'Bank NIFTY'),
-    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct, vixNow.last, vixNow.change) : '–', vixNow ? (LQ && LQ.india_vix ? bQuote(LQ.ts) : bSnap(C.ts)) : '', vixNow && vixNow.change_pct),
+    tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct, vixNow.last, vixNow.change) : '–', vixNow ? (LQ && LQ.india_vix ? bQuote(LQ.ts, 930) : bSnap(C.ts)) : '', vixNow && vixNow.change_pct),
     // Kite's CDS front-month futures when live, not the spot rate (live audit, 26 Oct 2026): say so
     tile(ex.usd_inr ? 'USD/INR fut' : 'USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'), usd ? chg(usd.change_pct, usd.last, usd.change, 3) : (C.fx ? 'ECB rate' : '–'),
-         usd ? (ex.usd_inr ? bQuote(LQ.ts) : bSnap(C.ts)) : (C.fx ? bClose(C.fx.date) : ''), usd && usd.change_pct),
+         usd ? (ex.usd_inr ? bQuote(LQ.ts, 1020) : bSnap(C.ts)) : (C.fx ? bClose(C.fx.date) : ''), usd && usd.change_pct),
     tile('Gold ₹/10g', goldRaw ? fmt(goldRaw.last, 0) : '–', goldRaw ? chg(goldRaw.change_pct, goldRaw.last, goldRaw.change, 0) : '–', goldRaw ? (ex.gold ? bQuote(LQ.ts) : bSnap(C.ts)) : '', goldRaw && goldRaw.change_pct),
     tile('Crude US$', crudeUsd ? fmt(crudeUsd.last, 2) : '–', crudeUsd ? chg(crudeUsd.change_pct, crudeUsd.last) : '–', crudeUsd ? (ex.crude ? bQuote(LQ.ts) : bSnap(C.ts)) : '', crudeUsd && crudeUsd.change_pct),
     spL ? tile('S&P 500', fmt(spL.last, 0), chg(spL.change_pct, spL.last), usWhen(spL), spL.change_pct)
@@ -942,9 +942,12 @@ function closeDayOf(d){
   while (x.getUTCDay() === 0 || x.getUTCDay() === 6) x.setUTCDate(x.getUTCDate() - 1);
   return x;
 }
-function bQuote(ts){
+// closeMin (13 Nov 2026): when that market closes, in minutes IST (NSE 930, NSE currency 1020). After it, "Close · day":
+// VIX, the indices and USD/INR said "Last quote · 19:58 IST" hours after trading stopped. Without it (MCX) the time stays.
+function bQuote(ts, closeMin){
   const d = istOf(ts); if (!d) return '';
   const cd = closeDayOf(d); if (cd) return 'Close · ' + bDay(cd);
+  if (closeMin && d.getUTCHours() * 60 + d.getUTCMinutes() >= closeMin) return 'Close · ' + bDay(d);
   const now = new Date(Date.now() + 5.5 * 3600e3), m = now.getUTCHours() * 60 + now.getUTCMinutes();
   const open = now.getUTCDay() >= 1 && now.getUTCDay() <= 5 && m >= 555 && m <= 930;
   return open && bDay(d) === bDay(now) ? 'Live · ' + bTime(d) : 'Last quote · ' + bTime(d) + ' · ' + bDay(d);

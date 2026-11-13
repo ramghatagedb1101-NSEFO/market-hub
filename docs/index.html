@@ -300,7 +300,10 @@
   const timeTxt = d => d ? pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + " IST" : "";
   const asClose = day => day ? "Close · " + dayTxt(parseDay(day)) : "Close";
   const asSnap = ts => { const d = toIst(ts); return d ? "As of " + timeTxt(d) + " · " + dayTxt(d) : ""; };
-  function asQuote(ts){
+  // closeMin: minutes after midnight IST when that market closes (NSE 930 = 15:30, NSE currency 1020 = 17:00). 13 Nov 2026:
+  // VIX, the indices and USD/INR said "Last quote · 19:58 IST" hours after they stopped trading; after the close they
+  // now say "Close · day". Without closeMin (MCX gold and crude, until 23:30) the time stays.
+  function asQuote(ts, closeMin){
     const d = toIst(ts); if (!d) return "";
     const now = toIst(new Date().toISOString());
     // 25 Oct 2026: Kite still answers at weekends with Friday's prices, stamped with the time asked ("Last quote · 14:48
@@ -313,6 +316,7 @@
       while (x.getUTCDay() === 0 || x.getUTCDay() === 6) x.setUTCDate(x.getUTCDate() - 1);
       return "Close · " + dayTxt(x);
     }
+    if (closeMin && m >= closeMin) return "Close · " + dayTxt(d);
     return marketOpenIst() && dayTxt(d) === dayTxt(now) ? "Live · " + timeTxt(d) : "Last quote · " + timeTxt(d) + " · " + dayTxt(d);
   }
   const as24h = ts => { const d = toIst(ts); return "24 h · " + timeTxt(d); };
@@ -767,8 +771,8 @@
       tile("CRUDE US$", crudeUsd ? f(crudeUsd.last, 2) : "–", crudeUsd ? chgTxt(crudeUsd.change_pct) + "<br>" + (ex.crude ? asQuote(LIVE.ts) : asSnap(C.ts)) : "no data", cls(crudeUsd && crudeUsd.change_pct)),
       // Kite's CDS front-month futures when live, not the spot rate (live audit, 26 Oct 2026): say so
       tile(ex.usd_inr ? "USD/INR fut" : "USD/INR", usd ? f(usd.last, 2) : (C.fx ? f(C.fx.usd_inr, 2) : "–"),
-           usd ? chgTxt(usd.change_pct) + "<br>" + (ex.usd_inr ? asQuote(LIVE.ts) : asSnap(C.ts)) : (C.fx ? "ECB rate<br>" + asClose(C.fx.date) : "no data"), cls(usd && usd.change_pct)),
-      tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) + "<br>" + (LIVE && LIVE.india_vix ? asQuote(LIVE.ts) : asSnap(C.ts)) : "no data", cls(vixNow && vixNow.change_pct)),
+           usd ? chgTxt(usd.change_pct) + "<br>" + (ex.usd_inr ? asQuote(LIVE.ts, 1020) : asSnap(C.ts)) : (C.fx ? "ECB rate<br>" + asClose(C.fx.date) : "no data"), cls(usd && usd.change_pct)),
+      tile("INDIA VIX", vixNow ? f(vixNow.last, 2) : "–", vixNow ? chgTxt(vixNow.change_pct) + "<br>" + (LIVE && LIVE.india_vix ? asQuote(LIVE.ts, 930) : asSnap(C.ts)) : "no data", cls(vixNow && vixNow.change_pct)),
       spL ? tile("S&P 500", f(spL.last, 0), chgTxt(spL.change_pct) + "<br>" + usWhen(spL), cls(spL.change_pct))
           : tile("S&P 500", sp ? f(sp.last, 0) : "–", sp ? chgTxt(sp.change_pct) + "<br>" + asClose(sp.date) : "no data", cls(sp && sp.change_pct)),
       tile("BITCOIN US$", BTC ? f(BTC.usd, 0) : "–", BTC ? chgTxt(BTC.chg) + "<br>" + as24h(BTC.ts) : "no data", cls(BTC && BTC.chg))
@@ -1181,7 +1185,7 @@
       const ind = s => (I && I.industries && I.industries[s]) || "Other", bySec = {};
       H.forEach(h => bySec[ind(h.s)] = (bySec[ind(h.s)] || 0) + h.value);
       const warn = H.filter(h => h.value / tot > 0.5).map(h => h.s).concat(Object.keys(bySec).filter(k => bySec[k] / tot > 0.5));
-      html += `<div class="sec">My portfolio · ${esc(asQuote(P.ts))}</div><div class="panel"><div class="pb">
+      html += `<div class="sec">My portfolio · ${esc(asQuote(P.ts, 930))}</div><div class="panel"><div class="pb">
         ${warn.length ? `<div class="amb" style="margin-bottom:6px">Over half your portfolio is in ${esc(warn.join(", "))}.</div>` : ""}
         <div class="row"><span class="l">Value</span><span class="r">₹${f(tot, 0)}</span></div>
         <div class="row"><span class="l">Gain on cost</span><span class="r ${cls(tot - cost)}">${rupee(tot - cost)} · ${pct((tot / cost - 1) * 100, 1)}</span></div>
@@ -1877,7 +1881,7 @@
       $("#dot").classList.toggle("stale", (ageMin(L.ts) > 15 && open) || !!alarm);
       // 13 Oct 2026: the alarm used to be overwritten here by the fallback quote's time, so it flashed and vanished.
       if (alarm) kiteAlarm(alarm);
-      else { KITE_ALARM = null; $("#status").style.color = ""; $("#status").onclick = null; $("#status").style.cursor = ""; $("#status").textContent = asQuote(L.ts); }
+      else { KITE_ALARM = null; $("#status").style.color = ""; $("#status").onclick = null; $("#status").style.cursor = ""; $("#status").textContent = asQuote(L.ts, 930); }
       renderTape(); renderHome(); drawBrief();
       const xb = $("#exp-box"); if (xb && xb.offsetParent) expiryPanel().then(h => { if (h) xb.innerHTML = h; });
     }catch(e){

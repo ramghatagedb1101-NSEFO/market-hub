@@ -10,7 +10,8 @@ first) and `CLAUDE.md`.
   login). Every candidate rejected (results in the private repo, `state/rule_test/`), so no paper trading is set up.
 - Second results-reader fix on `main` (evening): quarters tagged as year to date (Ingersoll-Rand, Dhanlaxmi Bank,
   Oswal Pumps) and a filing in the wrong scale (Metro Brands). Every company re-checked once more from NSE (free).
-- To do: live/phone audit pass with the owner's Chrome;
+- Live audit (evening): phone checked signed in; four faults fixed (see CHANGELOG). Dashboard and stock reports next.
+- To do:
   recount companies with implausible figures after the v6 re-check (129 above +150% / below -70% before it, most genuine).
 
 ## Thu 12 Nov 2026
