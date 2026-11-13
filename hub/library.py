@@ -704,6 +704,26 @@ def fetch_industries() -> dict:
             if (row.get("Symbol") or "").strip() and (row.get("Industry") or "").strip()}
 
 
+def _norm(name: str) -> str:
+    return "".join(ch for ch in name.lower().replace(" and ", " ").replace("&", " ") if ch.isalnum())
+
+
+def with_classification(industries: dict) -> tuple[dict, dict]:
+    """Fills the industry of every company NSE's list leaves out, from BSE's classification (state/classification.json,
+    hub/classify.py), in NSE's spelling: BSE's "Oil, Gas & Consumable Fuels" is NSE's "Oil Gas & Consumable Fuels" (the
+    same level of the shared scheme). Returns (industries, {symbol: [industry, group, basic industry]})."""
+    from .expiry_history import load
+    raw = load("state/classification.json") or {}
+    nse_names = {_norm(v): v for v in industries.values()}
+    out = dict(industries)
+    for sym, c in raw.items():
+        i = c.get("i") or ""
+        if sym not in out and i:
+            out[sym] = nse_names.get(_norm(i), i)
+    cls = {sym: [c.get("i") or "", c.get("g") or "", c.get("b") or ""] for sym, c in raw.items() if c.get("b") or c.get("g")}
+    return out, cls
+
+
 def snapshot(prior_entry: dict, prior_mb_row: dict | None) -> dict | None:
     """The key figures from a company's previous library entry, for the dashboard's change feed.
     Never nests (only the listed values are copied), so it stays small."""
@@ -1273,6 +1293,11 @@ def main() -> dict:
         industries.update(fetch_industries())
     except Exception:
         pass   # same: sector analytics fall back to the last good map
+    cls = {}
+    try:      # 13 Nov 2026: BSE's four-level classification for every company (hub/classify.py) -- peers and sectors
+        industries, cls = with_classification(industries)
+    except Exception as exc:
+        print(f"classification not applied: {exc}")
     prior_stocks = {s["symbol"]: s for s in existing.get("stocks", []) if isinstance(s, dict) and s.get("symbol")}
     prior_matches = dict(existing.get("investor_matches") or {})
     already_alerted = dict(existing.get("alerted") or {})
@@ -1524,8 +1549,11 @@ def main() -> dict:
         "stocks": merged_stocks,
         # Symbol -> company name from NSE's EQUITY_L list, for the admin stock report.
         "names": company_names,
-        # Symbol -> NSE industry (NIFTY Total Market constituents), for sector analytics and peers.
+        # Symbol -> NSE industry (NIFTY Total Market constituents; others from BSE's classification, same names),
+        # for sector analytics.
         "industries": industries,
+        # Symbol -> [industry, group, basic industry] from BSE (hub/classify.py), for peers.
+        "cls": cls,
         # Review list, every name-alias match regardless of registry status -- the owner confirms an
         # investor in hub/registry.json before it counts toward registry_holders/registry_new_entrants.
         "investor_matches": prior_matches,
@@ -1539,7 +1567,7 @@ def main() -> dict:
     except Exception as exc:
         print(f"compact copy not published: {exc}")
     return {k: v for k, v in payload.items()
-            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted", "names", "industries")} | {
+            if k not in ("stocks", "rules", "not_yet_implemented", "investor_matches", "alerted", "names", "industries", "cls")} | {
         "more_work": more_work, "stocks_written": len(merged_stocks), "shortlist": shortlist_summary,
         "symbols_with_matches": len(prior_matches),
         "multibagger_stocks_written": mb_total, "multibagger_batch_written": len(ctx["mb_new"]),

@@ -53,6 +53,13 @@ jobs:
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
         run: python -m hub.site_data pull
+      # Industry of every company from BSE (hub/classify.py, 13 Nov 2026): only new companies, or ones not checked in
+      # 180 days, so this is usually a few seconds. Never stops the batch.
+      - name: Update the industry classification
+        continue-on-error: true
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.classify --budget 300
       # Reads NSE's free filing lists, works out what each company needs (state/library_state.json),
       # fetches that -- most-needed first, within the 70-minute time budget and the BharatStock
       # daily budget -- then rescores every company from stored figures and today's prices.

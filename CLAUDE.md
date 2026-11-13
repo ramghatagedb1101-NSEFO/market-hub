@@ -80,6 +80,14 @@ ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
   old page. Test at phone width (375 px) before publishing.
 - Verify on real data where possible (private repo files via `gh api`), not only on samples.
 
+## Audits: check sense, not just that it loads (owner, 13 Nov 2026)
+Two bugs passed every earlier audit because the checks asked "does it render?" (peers were a same-size list from any
+business; the chart's range buttons did nothing before the Kite login). Every audit of a screen now also:
+- tests its fallback states: before the morning Kite login, with a source down or a key refused, on a holiday;
+- sense-checks the content against reality: peers in the same business, a chart's span matching its button, dates and
+  "as of" labels current, figures plausible for that company, every control actually changing what it should;
+- covers every screen of the dashboard and the phone, and says what was covered.
+
 ## How the owner wants things
 - Analyse like a seasoned analyst, not a yes-man: say when something is wrong, including your own work.
 - Plain language, short; reasons with every change. The owner reads on the phone.

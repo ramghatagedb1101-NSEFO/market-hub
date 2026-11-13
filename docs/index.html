@@ -1763,7 +1763,8 @@
     let c = C.candles;
     if (C.interval === "day" && ST_RANGE !== "5Y") {
       const lastDay = parseDay(c[c.length - 1][0]);
-      const cut = new Date(lastDay.getTime() - (ST_RANGE === "6M" ? 183 : 365) * 86400e3).toISOString().slice(0, 10);
+      // 13 Nov 2026: 1M fell through to a year here before the Kite login (daily closes only)
+      const cut = new Date(lastDay.getTime() - ({ "1M": 31, "6M": 183, "1Y": 365 }[ST_RANGE] || 365) * 86400e3).toISOString().slice(0, 10);
       c = c.filter(r => r[0] >= cut);
     }
     const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
