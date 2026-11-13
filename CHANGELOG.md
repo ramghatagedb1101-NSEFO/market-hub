@@ -19,6 +19,10 @@ real data after the close.
 - **Results label a quarter behind for 295 companies.** When the exchange filing is newer than BharatStock's, its growth
   is shown, but the label named BharatStock's quarter (Coal India: "Quarter to Jun 2026" over Sep 2026's +46.4%). The
   phone's Results line and the dashboard's "Results to" chip now name the quarter shown.
+- **Dashboard Screens page used the uncorrected figures.** The early-multibagger list kept BharatStock's growth where
+  the company page showed the company's own filing (Antelopus revenue +353.7% vs +116%, InfoBeans +151.9% vs +30.1%).
+  The list now takes the same corrected growth and margin, and its growth gates and rating are re-worked
+  (`hub/library.py` exchange_growth_to_mb; 271 of 2,363 rows on today's data). Live from the next library run.
 - **"Last quote · 19:58 IST" for VIX, the indices, USD/INR and the portfolio** hours after they stopped trading. After
   each market's close they now say "Close · day" (phone and dashboard); MCX gold and crude keep their time.
 

@@ -642,6 +642,30 @@ def _mb_holders(r: dict):
     return mf.get("schemes_holding") if mf.get("schemes_holding") is not None else 10 ** 6
 
 
+def exchange_growth_to_mb(mb: dict | None, chk: dict | None, values: dict) -> None:
+    """13 Nov 2026: the Screens page's early-multibagger list showed BharatStock's growth even where the library had
+    replaced it with the company's own exchange filing (Antelopus revenue +353.7% against its filing's +116%, InfoBeans
+    +151.9% against +30.1%), so the screen and the company page disagreed. Wherever company_values() used the exchange
+    figures, the multibagger row takes the same growth and margin, and its two growth gates and rating are re-worked."""
+    chk = chk or {}
+    nse_newer = chk.get("status") == "period_differs" and (chk.get("period") or "") > (chk.get("bs_period") or "")
+    if not mb or mb.get("score") is None or not (chk.get("status") in ("mismatch", "nse_only", "bse_only") or nse_newer):
+        return
+    m, g = mb.setdefault("measures", {}), mb.setdefault("gates", {})
+    for key, vk in (("revenue_growth_yoy_pct", "rev_yoy"), ("profit_growth_yoy_pct", "profit_yoy"),
+                    ("eps_growth_yoy_pct", "eps_yoy"), ("net_margin_pct", "net_margin")):
+        if values.get(vk) is not None:
+            m[key] = round(values[vk], 1)
+    if values.get("rev_yoy") is not None:
+        g["revenue_growing"] = values["rev_yoy"] > 10
+    if values.get("profit_yoy") is not None:
+        g["profit_growing"] = values["profit_yoy"] > 15
+    mb["gaps"] = [k for k, v in g.items() if v is None]
+    mb["failed_gates"] = [k for k, v in g.items() if v is False]
+    mb["score"] = sum(1 for v in g.values() if v)
+    mb["exchange_figures"] = True
+
+
 def merge_and_write_multibagger(mb_stocks: list[dict], prior_mb: dict, mb_failures: dict,
                                  names: list[str], cycle_complete: bool) -> int:
     """Merges this batch's multi-bagger scores into the prior cumulative set and republishes
@@ -1468,6 +1492,7 @@ def main() -> dict:
         if fl:
             entry["flags"] = fl
         stocks.append(entry)
+        exchange_growth_to_mb(ctx["mb_new"].get(sym) or prior_mb.get(sym), chk, values)
         mb = ctx["mb_new"].get(sym)
         fund = (c.get("basis") or {}).get("fund") or {}
         if mb is not None and mb.get("score") is not None and mb["score"] >= 2 and "_ins" in fund:
