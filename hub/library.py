@@ -916,7 +916,8 @@ def needs(c: dict, mb_row: dict | None, today: date) -> list[str]:
     if not (vretry and vretry > today):
         if (c.get("basis") or {}).get("fin") and fin_period and (
                 not v or v.get("period") != fin_period or due("verify")
-                or (v.get("ver") != nse_results.VERIFY_VERSION and (c.get("check") or {}).get("status") != "ok")):
+                or (v.get("ver") != nse_results.VERIFY_VERSION and ((c.get("check") or {}).get("status") != "ok"
+                                                                   or (v.get("ver") or 0) < nse_results.RECHECK_ALL_FROM))):
             out.append("verify")
         elif src.get("fin") and not fin_period and (not v or due("verify") or v.get("ver") != nse_results.VERIFY_VERSION):
             out.append("verify")       # BharatStock has no results: the NSE filing supplies them (12 Oct 2026)

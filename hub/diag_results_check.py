@@ -1,65 +1,39 @@
 """
-Results plausibility check (13 Nov 2026, owner's audit: "not sure what else is missed"). About 31 of 352 companies above
-Rs 20,000 crore showed figures that cannot be right (Coal India revenue +199.6% a year, Sterlite Tech profit +12,825%),
-yet the library's NSE cross-check said "ok". For a few of them this prints what NSE's own filings say: every results
-filing in the list (quarter, consolidated/standalone, original/revised) and, from each XBRL, every reporting context with
-its period and revenue -- so we can see whether the quarter or the year-to-date column was read. NSE's figures only
-(public filings); nothing from BharatStock is printed.
+Results plausibility check (13 Nov 2026 audit). Coal India's and Coforge's Jul-Sep 2026 filings carry revenue only for
+the year to date, and hub/nse_results.py read that as the quarter (+199.6%, +193.5% "growth"). This runs the corrected
+reader (quarter_facts) on a few companies and prints the quarter it now finds, the year-ago quarter and the growth, from
+NSE's public filings only (nothing from BharatStock).
     gh workflow run diag.yml -f module=diag_results_check
 """
-import re
-
-import requests
-
 from . import nse_results as nr
 from . import shareholding as shp
 
-SYMS = ["COALINDIA", "COFORGE", "STLTECH", "IOB", "NETWEB", "HATSUN"]
-
-
-def contexts(url: str) -> list:
-    t = requests.get(url, headers=nr.UA, timeout=60).text
-    out = []
-    for m in re.finditer(r'<xbrli:context id="([^"]+)">(.*?)</xbrli:context>', t, re.S):
-        cid, body = m.group(1), m.group(2)
-        st = re.search(r"<xbrli:startDate>([^<]+)<", body)
-        en = re.search(r"<xbrli:endDate>([^<]+)<", body) or re.search(r"<xbrli:instant>([^<]+)<", body)
-        rev = nr._fact(t, nr.REVENUE, cid)
-        prof = nr._fact(t, nr.PROFIT, cid)
-        if rev is not None or prof is not None:
-            out.append((cid, st.group(1) if st else None, en.group(1) if en else None, rev, prof))
-    first = re.search(r'<in-capmkt:DateOfEndOfReportingPeriod\b[^>]*contextRef="([^"]+)"', t)
-    return out, first.group(1) if first else None
+SYMS = ["COALINDIA", "COFORGE", "STLTECH", "IOB", "TCS", "RELIANCE", "TITAN", "HATSUN"]
 
 
 def main():
-    s = shp.session() if hasattr(shp, "session") else requests.Session()
+    s = shp.session()
     for sym in SYMS:
         try:
             rows = nr.filings(s, sym)
         except Exception as e:                       # noqa: BLE001
             print(sym, "filings failed:", str(e)[:120])
             continue
-        rows.sort(key=lambda r: (r["quarter"], r["nature"], r["broadcast"]))
-        print(f"== {sym}: {len(rows)} filings; latest 6:")
-        for r in rows[-6:]:
-            print("  ", r["quarter"], r["nature"], "revised" if r["revised"] else "original", r["broadcast"])
-        latest = max(r["quarter"] for r in rows) if rows else None
-        for q in sorted({r["quarter"] for r in rows}, reverse=True)[:5]:
-            for nature in ("consolidated", "standalone"):
-                pick = nr._pick(rows, q, nature)
-                if not pick:
-                    continue
-                try:
-                    ctx, first = contexts(pick["xbrl"])
-                    f = nr.facts(pick["xbrl"])
-                except Exception as e:               # noqa: BLE001
-                    print("   ", q, nature, "read failed", str(e)[:80])
-                    continue
-                print(f"   {q} {nature}: facts() read ctx={first} revenue={f.get('revenue')} profit={f.get('profit')}")
-                for c in ctx:
-                    print(f"      ctx {c[0]} {c[1]} -> {c[2]}  revenue={c[3]}  profit={c[4]}")
-        print("   latest:", latest)
+        if not rows:
+            print(sym, "no filings")
+            continue
+        latest = max(r["quarter"] for r in rows)
+        nature = "consolidated" if any(r["quarter"] == latest and r["nature"] == "consolidated" for r in rows) else "standalone"
+        ago = min((r["quarter"] for r in rows if r["nature"] == nature and abs((latest - r["quarter"]).days - 365) <= 20),
+                  default=None, key=lambda q: abs((latest - q).days - 365))
+        f1 = nr.quarter_facts(rows, latest, nature)
+        f0 = nr.quarter_facts(rows, ago, nature) if ago else {}
+        g = nr._growth(f1.get("revenue"), f0.get("revenue"))
+        gp = nr._growth(f1.get("profit"), f0.get("profit"))
+        cr = lambda v: None if v is None else round(v / 1e7)
+        print(f"{sym} {nature} {latest} (from {f1.get('start')}, ytd={f1.get('ytd')}, derived={f1.get('derived')}): "
+              f"revenue {cr(f1.get('revenue'))} cr vs {cr(f0.get('revenue'))} cr a year ago ({ago}) -> "
+              f"{None if g is None else round(g, 1)}%; profit {cr(f1.get('profit'))} vs {cr(f0.get('profit'))} -> {None if gp is None else round(gp, 1)}%")
 
 
 if __name__ == "__main__":

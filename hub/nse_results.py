@@ -34,7 +34,9 @@ EPS = ("BasicEarningsLossPerShareFromContinuingAndDiscontinuedOperations", "Basi
 # How far apart the two sources may be before it counts as a disagreement (percentage points of growth).
 TOL_REV, TOL_PROFIT = 5.0, 10.0
 TOL_MARGIN = 2.0         # net-margin points, for the level check
-VERIFY_VERSION = 4       # 12 Oct 2026: level check, NSE-only figures, BSE fallback (standalone basis); non-matches re-checked once
+VERIFY_VERSION = 5       # 13 Nov 2026: the quarter, not the year to date (re-checks every company once)
+RECHECK_ALL_FROM = 5     # a company last checked below this version is re-checked even if that check said "ok"
+# 4 (12 Oct 2026): level check, NSE-only figures, BSE fallback (standalone basis); non-matches re-checked once
 
 
 def _day(s):
@@ -69,16 +71,73 @@ def _fact(text: str, names, ctx: str):
     return None
 
 
+_FACTS = {}
+
+
 def facts(url: str) -> dict:
+    """The filing's figures for its own reporting period. 13 Nov 2026: this read the FIRST context naming the period
+    end, which in some filings is the year to date: Coal India's and Coforge's Jul-Sep 2026 filings carry revenue only
+    for 1 Apr - 30 Sep, so "revenue growth" compared six months with one quarter (+199.6%, +193.5%) and, because the
+    NSE figure wins, overrode BharatStock's correct one. Now the three-month context is chosen; when a filing has only
+    the year to date, that is returned with "ytd": True and quarter_facts() works out the quarter."""
+    if url in _FACTS:
+        return _FACTS[url]
     t = requests.get(url, headers=UA, timeout=60).text
     m = re.search(r'<in-capmkt:DateOfEndOfReportingPeriod\b[^>]*contextRef="([^"]+)"[^>]*>([^<]*)<', t)
     if not m:
         return {}
-    ctx = m.group(1)
-    return {"period": m.group(2).strip()[:10], "revenue": _fact(t, REVENUE, ctx), "profit": _fact(t, PROFIT, ctx),
-            "eps": _fact(t, EPS, ctx),
-            "paid_up": _fact(t, ("PaidUpValueOfEquityShareCapital",), ctx),
-            "face": _fact(t, ("FaceValueOfEquityShareCapital",), ctx)}
+    end = m.group(2).strip()[:10]
+    spans = {}
+    for c in re.finditer(r'<xbrli:context id="([^"]+)">(.*?)</xbrli:context>', t, re.S):
+        st = re.search(r"<xbrli:startDate>([^<]+)<", c.group(2))
+        en = re.search(r"<xbrli:endDate>([^<]+)<", c.group(2))
+        if st and en and en.group(1).strip()[:10] == end and "<xbrldi:" not in c.group(2):
+            spans[c.group(1)] = st.group(1).strip()[:10]
+
+    def read(ctx):
+        return {"revenue": _fact(t, REVENUE, ctx), "profit": _fact(t, PROFIT, ctx), "eps": _fact(t, EPS, ctx)}
+
+    def days(start):
+        try:
+            return (date.fromisoformat(end) - date.fromisoformat(start)).days
+        except ValueError:
+            return None
+
+    best = None
+    for ctx, start in sorted(spans.items(), key=lambda kv: days(kv[1]) or 9999):
+        f = read(ctx)
+        if f["revenue"] is not None or f["profit"] is not None:
+            best = (ctx, start, f)
+            break                                     # the shortest period with figures: the quarter when filed
+    if best is None:                                  # no dated contexts: the old reading
+        best = (m.group(1), None, read(m.group(1)))
+    ctx, start, f = best
+    d = days(start) if start else None
+    out = {"period": end, "start": start, **f,
+           "ytd": bool(d and d > 100),
+           "paid_up": _fact(t, ("PaidUpValueOfEquityShareCapital",), m.group(1)),
+           "face": _fact(t, ("FaceValueOfEquityShareCapital",), m.group(1))}
+    _FACTS[url] = out
+    return out
+
+
+def quarter_facts(rows: list, quarter, nature: str) -> dict:
+    """One quarter's figures from the filings list. A year-to-date-only filing is turned into its quarter by taking off
+    the previous filing's year to date (same start date): Jul-Sep = Apr-Sep less Apr-Jun. Nothing is guessed: when the
+    previous filing is missing or not comparable, the figures are left out (None)."""
+    pick = _pick(rows, quarter, nature)
+    if not pick:
+        return {}
+    f = dict(facts(pick["xbrl"]))
+    if not f.get("ytd"):
+        return f
+    prev_q = max((r["quarter"] for r in rows if r["nature"] == nature and 80 <= (quarter - r["quarter"]).days <= 100), default=None)
+    prev = facts(_pick(rows, prev_q, nature)["xbrl"]) if prev_q else {}
+    same_start = bool(prev) and prev.get("start") is not None and prev.get("start") == f.get("start")
+    for k in ("revenue", "profit", "eps"):
+        f[k] = (f[k] - prev[k]) if same_start and f.get(k) is not None and prev.get(k) is not None else None
+    f["derived"] = bool(same_start)
+    return f
 
 
 def _growth(a, b):
@@ -104,11 +163,10 @@ def verify(s, sym: str, bs: dict) -> dict:
         return verify_bse(sym, bs)
     latest = max(r["quarter"] for r in rows)
     nature = "consolidated" if any(r["quarter"] == latest and r["nature"] == "consolidated" for r in rows) else "standalone"
-    cur = _pick(rows, latest, nature)
     ago_q = min((r["quarter"] for r in rows if r["nature"] == nature and abs((latest - r["quarter"]).days - 365) <= 20), default=None,
                 key=lambda q: abs((latest - q).days - 365))
-    f1 = facts(cur["xbrl"])
-    f0 = facts(_pick(rows, ago_q, nature)["xbrl"]) if ago_q else {}
+    f1 = quarter_facts(rows, latest, nature)
+    f0 = quarter_facts(rows, ago_q, nature) if ago_q else {}
     out = {"period": latest.isoformat(), "basis": nature, "nse": {"rev": f1.get("revenue"), "profit": f1.get("profit"), "eps": f1.get("eps"),
            "rev_year_ago": f0.get("revenue"), "profit_year_ago": f0.get("profit"), "eps_year_ago": f0.get("eps"),
            "shares": (f1["paid_up"] / f1["face"]) if f1.get("paid_up") and f1.get("face") else None},
