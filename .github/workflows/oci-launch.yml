@@ -45,7 +45,7 @@ jobs:
           if [ "$code" = 75 ]; then exit 0; fi
           if [ "$code" = 0 ]; then echo "done=yes" >> "$GITHUB_OUTPUT"; fi
           exit $code
-      - name: Machine exists: stop asking
+      - name: "Machine exists: stop asking"
         if: steps.launch.outputs.done == 'yes'
         env:
           GH_TOKEN: ${{ github.token }}
