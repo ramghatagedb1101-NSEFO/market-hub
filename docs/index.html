@@ -239,6 +239,9 @@
       <div><b>Kite login for today</b></div>
       <div class="mut" style="margin-top:4px">Once each morning, 07:35–09:05 IST. Kite opens in a new tab; enter your login there.</div>
       <a class="btn" id="kite-login-btn" href="https://kite.zerodha.com/connect/login?v=3&amp;api_key=t0kjzcu1vcl09fch" target="_blank" rel="noopener">Log in to Kite</a>
+      <div style="margin-top:14px"><b>ICICI sign-in for history</b></div>
+      <div class="mut" id="icici-status" style="margin-top:4px">Only on days a history download runs. ICICI opens in this tab and comes back here.</div>
+      <a class="btn" id="icici-login-btn" href="#" style="margin-top:6px;display:none">Sign in to ICICI</a>
       <div style="margin-top:14px"><b>Notifications</b></div>
       <div class="mut" id="push-status" style="margin-top:4px">Checking…</div>
       <button class="btn" id="push-btn" type="button" style="margin-top:6px">Turn on notifications</button>
@@ -425,7 +428,16 @@
     if (b.dataset.pane === "desk") drawChart();
     if (b.dataset.pane === "mb") renderIdeas();
   });
-  $("#gear").onclick = () => { $("#settings").classList.add("on"); refreshPushUi(); };
+  // ICICI sign-in (13 Nov 2026): the link comes from the relay (it holds the app key); done today -> no button.
+  async function refreshIcici(){
+    try {
+      const r = await relayPost("app_breeze_status", {token: SESSION});
+      const b = $("#icici-login-btn"), s = $("#icici-status");
+      if (r.today) { s.textContent = "Signed in to ICICI today."; b.style.display = "none"; }
+      else if (r.login) { b.href = r.login; b.style.display = ""; }
+    } catch(e) {}
+  }
+  $("#gear").onclick = () => { $("#settings").classList.add("on"); refreshPushUi(); refreshIcici(); };
   // A tapped Kite reminder lands here (sw.js): iOS will not open an outside site from a notification tap,
   // so the app opens on Settings with the usual "Log in to Kite" button highlighted -- one more tap.
   function openKiteLogin(){
@@ -1926,7 +1938,34 @@
 
   // Quotes are public (the relay's mode=quote), so the ticker runs whether or not anyone is signed in.
   let ticking = false;
+  // ICICI Breeze daily sign-in (13 Nov 2026): ICICI's login sends the browser back here with ?apisession=...; the
+  // value is kept until this phone is signed in, then handed to the relay (relay/Breeze.gs) for the download job.
+  const BREEZE_KEY = "mh_breeze";
+  (function(){
+    try {
+      const u = new URL(location.href), s = u.searchParams.get("apisession");
+      if (s) { sessionStorage.setItem(BREEZE_KEY, s); u.searchParams.delete("apisession"); history.replaceState(null, "", u.pathname + u.search + u.hash); }
+    } catch(e){}
+  })();
+  function note(msg, bad){
+    const n = document.createElement("div");
+    n.textContent = msg;
+    n.style.cssText = "position:fixed;left:12px;right:12px;top:12px;z-index:99;padding:12px 14px;border-radius:10px;font-weight:600;text-align:center;" +
+      (bad ? "background:#fde8e8;color:#9b1c1c" : "background:#e6f4ea;color:#1e6b34");
+    document.body.appendChild(n); setTimeout(() => n.remove(), 6000);
+  }
+  async function sendBreeze(){
+    let s = null; try { s = sessionStorage.getItem(BREEZE_KEY); } catch(e){}
+    if (!s || !SESSION) return;
+    note("Connecting ICICI…");
+    try {
+      const r = await relayPost("app_breeze_session", {token: SESSION, apisession: s});
+      if (r.ok) { try { sessionStorage.removeItem(BREEZE_KEY); } catch(e){} note("ICICI connected for today"); }
+      else note("ICICI not connected: " + (r.error || "try the sign-in link again"), true);
+    } catch(e) { note("ICICI not connected: check your connection and try again", true); }
+  }
   function start(){
+    sendBreeze();
     init().then(renderBrief); renderFno(); renderToday(); renderIns();
     if (!ticking) { ticking = true; liveTick(); setInterval(politeTick, 60000); }
     else liveTick();

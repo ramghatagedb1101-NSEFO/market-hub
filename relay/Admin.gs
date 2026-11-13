@@ -188,6 +188,8 @@ function appApi_(mode, body) {
   if (mode === 'app_push_subscribe') return appPushSubscribe_(p.token, p.subscription);
   if (mode === 'app_push_unsubscribe') return appPushUnsubscribe_(p.token, p.endpoint);
   if (mode === 'app_portfolio') return adminPortfolio(p.token);
+  if (mode === 'app_breeze_session') return breezeSave_(p.token, p.apisession);
+  if (mode === 'app_breeze_status') return breezeStatus_(p.token);
   if (mode === 'app_paper') return adminPaper(p.token);
   if (mode === 'app_paper_add') return adminPaperAdd(p.token, p.trade);
   if (mode === 'app_paper_close') return adminPaperClose(p.token, p.id, p.price, p.all);

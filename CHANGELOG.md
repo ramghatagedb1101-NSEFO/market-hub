@@ -4,6 +4,24 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-13
 
+### ICICI Direct Breeze: minute-by-minute F&O history for back-tests (Fri 13 Nov 2026, night)
+Owner: ICICI Direct's API is free and gives per-minute F&O data; use it for back-testing. The rule tests so far had
+daily prices only, and Kite gives no history for expired option contracts.
+- **Fixed address.** ICICI ties an API key to one fixed internet address (SEBI rule from 1 Apr 2026). AWS charges
+  about $3.65 a month per address after its 6-month free plan, so the owner chose Oracle Cloud's Always Free plan:
+  server `market-hub-ip` (VM.Standard.E2.1.Micro, India West Mumbai) with reserved address **130.210.31.37**. Nothing
+  is installed on it; jobs reach ICICI through it over SSH.
+- **ICICI app** "Market Hub backtest" registered with that address. ICICI's form refused the relay's long address as
+  the return link ("Resource not available.", twice); the phone app's short address works, so ICICI's daily sign-in
+  returns to the phone app, which hands the day's session to the relay (`relay/Breeze.gs`, signed-in phone only).
+  Settings on the phone has a "Sign in to ICICI" button (link built by the relay; needs script property
+  BREEZE_API_KEY).
+- **Download job** `.github/workflows/breeze.yml` (by hand): today's session from the relay, SSH tunnel to the fixed
+  address (checks requests really leave from it), then a `hub/` module. `hub/breeze.py` is a minimal client after the
+  official SDK (customerdetails, historicalcharts v2). `hub/diag_breeze.py` is the first check: spot, current and
+  three-year-old options, Bank Nifty, Sensex, 1-second futures. Logs show counts and dates, never prices.
+- Secrets added by the owner: BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY.
+
 ### Dashboard: Ideas and F&O as on the phone (Fri 13 Nov 2026, night)
 Owner: "I need the Ideas and F&O tab on the dashboard." The phone's F&O suggestions were not on the dashboard at all.
 - New **F&O** section (was "Trading"): **Option ideas** with two tabs, *Index options* (hub/fno.py's trade for each

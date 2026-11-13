@@ -12,6 +12,9 @@ first) and `CLAUDE.md`.
   Oswal Pumps) and a filing in the wrong scale (Metro Brands). Every company re-checked once more from NSE (free).
 - Live audit (evening, Kite logged in): every phone tab and every dashboard page checked on real data, plus stock
   reports (Coal India, HDFC Bank, Antelopus, Titan). 13 faults fixed, listed in CHANGELOG (13 Nov, evening).
+- ICICI Breeze history set up (night): Oracle Always Free server with fixed address 130.210.31.37, ICICI app
+  registered, secrets added. Next: owner adds BREEZE_API_KEY to the relay's script properties, signs in to ICICI from
+  phone Settings, then `breeze.yml` with diag_breeze; then the full option-history download and the rule re-tests.
 - Dashboard has the phone's Ideas and F&O (night): F&O section with Option ideas (index, NIFTY 50 stocks); Watchlist
   under Shortlist.
 - To do, Sat 14 Nov 2026 morning, after the overnight library run and the insights rebuild:

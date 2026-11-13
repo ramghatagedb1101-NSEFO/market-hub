@@ -25,8 +25,8 @@ the day's option-sellers record saved to the private repo's `state/expiry/`), `s
 (run a `hub/diag_*` module on GitHub's servers).
 
 Secret names (values are the owner's): BHARATSTOCK_API_KEY, KITE_API_KEY, GEMINI_API_KEY,
-PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY (GitHub); relay script properties hold the Kite token,
-ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
+PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY, BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY (GitHub); relay script
+properties hold the Kite token, ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY, BREEZE_API_KEY.
 
 ## Data sources and budgets
 - **BharatStock** (paid, the only paid data source): 9,000 requests a day. Budget it: fetch only when
@@ -40,6 +40,9 @@ ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY.
 - **Kite Connect** (owner's plan): live quotes, candles, option chains. One login per day, through the
   relay's login link (the owner uses the Kite mobile-app route). Any other login with the same app cancels
   the relay's token; the relay detects that and emails (`relay/KiteWatch.gs`).
+- **ICICI Breeze** (free, owner's ICICI account, 13 Nov 2026): minute F&O history for back-tests. The API key works only
+  from the fixed address 130.210.31.37 (owner's Oracle Always Free server `market-hub-ip`, Mumbai); `breeze.yml` reaches
+  ICICI through it over SSH. One ICICI sign-in a day (phone Settings button). Prices to the private repo only.
 - **AI summaries**: Google Gemini free tier (`hub/summaries.py`), not Anthropic, unless the owner says so.
 
 ## Making changes
