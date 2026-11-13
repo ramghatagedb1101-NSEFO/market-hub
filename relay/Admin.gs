@@ -223,6 +223,11 @@ function appData_(token, files) {
   return { files: out };
 }
 
+/** F&O option ideas for the dashboard (13 Nov 2026): the index structures and the NIFTY 50 stock option screen, as on the phone. */
+function adminFno(token) {
+  return appData_(token, ['fno', 'stocks']);
+}
+
 /** Insights (16 Oct 2026, hub/insights.py): risk flags, calendar, filings, insider trades, positions, grades, alerts and more. */
 function adminInsights(token) {
   return appData_(token, ['insights']);

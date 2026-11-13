@@ -605,8 +605,10 @@ const ICON = {
 // Menu (design review, 17 Oct 2026): 14 items; an item with several pages shows them as tabs. Page keys and addresses
 // are unchanged, so old links (#multibagger, #heatmap, ...) open the same page under its new item.
 const NAV = [
-  ['', [['today', 'Today', [['overview', 'Today']]], ['portfolio', 'Portfolio', [['portfolio', 'Holdings'], ['watch', 'Watchlist']]]]],
-  ['Ideas', [['shortlist', 'Shortlist', [['shortlist', 'Shortlist']]],
+  ['', [['today', 'Today', [['overview', 'Today']]], ['portfolio', 'Portfolio', [['portfolio', 'Holdings']]]]],
+  // 13 Nov 2026 (owner: "I need the Ideas and F&O tab on the dashboard"): the phone's Ideas (Shortlist and Watchlist)
+  // and F&O (option ideas, expiry meter, positioning, paper trading), grouped as on the phone.
+  ['Ideas', [['shortlist', 'Shortlist', [['shortlist', 'Shortlist'], ['watch', 'Watchlist']]],
              ['screens', 'Screens', [['multibagger', 'Early multibaggers'], ['compounders', 'Proven compounders'], ['screener', 'Build a screen']]],
              ['rankings', 'Rankings', [['factors', 'Factor rankings']]]]],
   ['Explore', [['companies', 'Companies', [['library', 'All companies']]],
@@ -614,13 +616,14 @@ const NAV = [
                ['compare', 'Compare measures', [['explore', 'Scatter']]]]],
   ['Market', [['news', "What's new", [['signals', 'Changes'], ['filings', 'Filings'], ['insider', 'Insider trades'], ['spikes', 'Volume spikes'], ['bulk', 'Bulk deals']]],
               ['calendarg', 'Calendar', [['calendar', 'Results']]]]],
-  ['Trading', [['expiryg', 'Expiry meter', [['expiry', 'Expiry meter']]],
+  ['F&O', [['fnog', 'Option ideas', [['fno', 'Index options'], ['fnostocks', 'NIFTY 50 stocks']]],
+               ['expiryg', 'Expiry meter', [['expiry', 'Expiry meter']]],
                ['positioning', 'Positioning', [['positions', 'Futures and option prices']]],
                ['paperg', 'Paper trading', [['paper', 'Paper trading']]]]]
 ];
 const SETTINGS = ['settings', 'Data and settings', [['health', 'Data health'], ['emails', 'Email alerts'], ['params', 'Measures'], ['tests', 'Back-tests'], ['registry', 'Investor registry']]];
 const NAV_ICON = { today: 'overview', portfolio: 'portfolio', shortlist: 'shortlist', screens: 'screener', rankings: 'factors', companies: 'library',
-                   sectorsg: 'sectors', compare: 'explore', news: 'signals', calendarg: 'calendar', expiryg: 'expiry', positioning: 'positions', paperg: 'paper' };
+                   sectorsg: 'sectors', compare: 'explore', news: 'signals', calendarg: 'calendar', fnog: 'positions', expiryg: 'expiry', positioning: 'positions', paperg: 'paper' };
 const NAV_ITEMS = NAV.flatMap(g => g[1]).concat([SETTINGS]);
 function navItemOf(page){ return NAV_ITEMS.find(it => it[2].some(t => t[0] === page)) || null; }
 const NAV_LAST = {};                                        // last tab opened per item, so the menu returns to it
@@ -679,7 +682,7 @@ function chartTheme(){
 function go(h){ location.hash = h; }
 function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 
-const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', paper:'Paper trades', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
+const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', fno:'Index options', fnostocks:'NIFTY 50 stock options', paper:'Paper trades', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
                  registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report',
                  screener:'Build a screen', factors:'Rankings', explore:'Compare measures', sectors:'Sectors', signals:"What's new", expiry:'Expiry meter' };
 function rerender(){
@@ -688,7 +691,7 @@ function rerender(){
   $('tape').style.display = current.page === 'overview' ? 'none' : '';   // the Overview shows the same quotes as tiles
   const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
-              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, paper: pagePaper, health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
+              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fno: pageFno, fnostocks: pageFnoStocks, paper: pagePaper, health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
   if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
   if (current.page !== 'expiry') stopExpiry();
   f(current.arg);
@@ -1143,6 +1146,78 @@ function pageSpikes(){
 // ---- F&O positions and option prices ----
 let POS_WHO = 'FII';
 let POS_IV = 'NIFTY';
+// F&O option ideas (13 Nov 2026): the phone's F&O suggestions -- hub/fno.py's index structures (site/fno.json) and the
+// NIFTY 50 stock option screen (site/stocks.json) -- through the relay's adminFno.
+function fnoLoad(){
+  if (S.fno) return;
+  S.fno = { loading: true };
+  call('adminFno', token).then(d => { S.fno = (d && d.files) || { error: (d && d.error) || 'not available' }; rerender(); })
+    .catch(e => { S.fno = { error: e.message }; rerender(); });
+}
+function fnoWait(v){
+  fnoLoad();
+  if (S.fno.loading) { v.innerHTML = loadingBlock('Loading…'); return true; }
+  if (S.fno.error) { v.innerHTML = errBlock('Not available yet: ' + S.fno.error); return true; }
+  return false;
+}
+function fnoView(v){
+  const head = '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><b>' + esc(v.label) + ' · ' + esc(bDay(dayOf(v.expiry)) || v.expiry) + '</b>' +
+    '<span class="' + (v.structure ? '' : 'muted') + '">' + esc(v.structure || 'no trade') + '</span></div>';
+  if (!v.structure) return '<div style="padding:10px 0;border-bottom:1px solid var(--line2)">' + head + '<div class="muted" style="font-size:12.5px;margin-top:4px">' + esc(v.reason || '') + '</div></div>';
+  const credit = v.net_per_unit > 0;
+  const legs = (v.legs || []).map(l => '<tr><td class="l">' + esc(l.action + ' ' + l.type) + '</td><td class="num">' + num(l.strike, 0) + '</td><td class="num">' + (l.price == null ? '–' : num(l.price, 2)) + '</td></tr>').join('');
+  return '<div style="padding:10px 0;border-bottom:1px solid var(--line2)">' + head +
+    '<div class="grid g4" style="margin:10px 0">' +
+      [[credit ? 'Credit / unit' : 'Debit / unit', num(Math.abs(v.net_per_unit), 2)], ['Max loss / lot', v.max_loss_per_lot == null ? '–' : '₹' + num(v.max_loss_per_lot, 0)],
+       ['Breakevens', (v.breakevens || []).map(b => num(b, 0)).join(' / ')], ['PCR (OI)', v.pcr == null ? '–' : num(v.pcr, 2)]]
+        .map(([k, x]) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v" style="font-size:18px">' + x + '</div></div>').join('') + '</div>' +
+    '<table class="t"><tr><th class="l">Leg</th><th>Strike</th><th>Premium</th></tr>' + legs + '</table>' +
+    '<div class="muted" style="font-size:12.5px;margin-top:6px">' + esc(v.reason || '') + (v.band ? ' Band ' + num(v.band[0], 0) + ' – ' + num(v.band[1], 0) + '.' : '') + '</div></div>';
+}
+function pageFno(){
+  const v = $('view'); if (fnoWait(v)) return;
+  const D = S.fno.fno || {};
+  if (D.error || !D.underlyings) { v.innerHTML = errBlock('No index option ideas yet' + (D.error ? ': ' + D.error : '.')); return; }
+  const names = { NIFTY: 'NIFTY 50', BANKNIFTY: 'BANK NIFTY', SENSEX: 'SENSEX' };
+  v.innerHTML = '<div class="page-head"><div><p class="sub">A trade for each index\'s next expiries, built around the forecast\'s 80% band. Premiums are last traded prices.' +
+    (D.ts ? ' ' + esc(bSnap(D.ts)) + '.' : '') + '</p></div></div>' +
+    Object.keys(D.underlyings).map(u => { const b = D.underlyings[u];
+      const chain = b.expiring_today ? '<details style="margin-top:10px"><summary>Chain expiring today (data only)</summary><table class="t"><tr><th>Strike</th><th>CE</th><th>PE</th></tr>' +
+        b.expiring_today.rows.map(r => '<tr><td class="num">' + num(r.strike, 0) + '</td><td class="num">' + (r.ce_ltp == null ? '–' : num(r.ce_ltp, 2)) + '</td><td class="num">' + (r.pe_ltp == null ? '–' : num(r.pe_ltp, 2)) + '</td></tr>').join('') + '</table></details>' : '';
+      return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>' + esc(names[u] || u) + '</h3><span class="muted" style="font-size:12px">spot ' + num(b.spot, 2) + '</span></div><div class="panel-b">' +
+        (b.views || []).map(fnoView).join('') + chain + '</div></div>'; }).join('') +
+    '<div class="muted" style="font-size:12px">' + esc(D.disclaimer || '') + ' Check margin and your own risk limits before placing anything.</div>';
+}
+const FNO_CAT = { earnings: 'Earnings inside the contract window', iv_low: 'IV rank below the 30 gate', iv_unmeasurable: 'IV rank not measurable',
+  delivery: 'Delivery below the 40% gate', zero_credit: 'Pays nothing at worst-case fill', low_reward: 'Credit too thin for the risk',
+  oi_wall: 'Short strike not past the OI wall', wide_spread: 'Bid-ask too wide to trade safely', low_pop: 'Win probability too low', other: 'Other' };
+function fnoClause(c){ const t = c.toLowerCase();
+  return t.includes('earnings') ? 'earnings' : t.includes('iv rank not measurable') ? 'iv_unmeasurable' : t.includes('iv rank') ? 'iv_low' : t.includes('delivery') ? 'delivery'
+    : t.includes('pays nothing') ? 'zero_credit' : t.includes('% of width <') ? 'low_reward' : t.includes('not beyond oi wall') ? 'oi_wall' : t.includes('bid-ask') ? 'wide_spread'
+    : t.startsWith('pop ') ? 'low_pop' : 'other'; }
+function pageFnoStocks(){
+  const v = $('view'); if (fnoWait(v)) return;
+  const d = S.fno.stocks || {};
+  if (d.error) { v.innerHTML = errBlock('No stock option screen yet: ' + d.error); return; }
+  const recs = d.recommendations || [], g = {};
+  (d.diagnostics || []).forEach(x => { if (x.status === 'RECOMMENDED') return; const seen = {};
+    (x.detail || '').split(/;\s*(?=call-side)/i).map(c => c.trim()).filter(Boolean).forEach(c => { const k = fnoClause(c); if (seen[k]) return; seen[k] = 1; (g[k] = g[k] || []).push({ s: x.symbol, c: c }); }); });
+  const order = ['earnings', 'iv_low', 'zero_credit', 'low_reward', 'wide_spread', 'delivery', 'oi_wall', 'low_pop', 'iv_unmeasurable', 'other'].filter(k => (g[k] || []).length);
+  const gen = d.generated_at ? (/[zZ]|[+-]\d{2}:?\d{2}$/.test(d.generated_at) ? d.generated_at : d.generated_at + 'Z') : null;
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Every NIFTY 50 stock screened for a credit spread; a trade shows only when it passes every gate.' +
+    (gen ? ' ' + esc(bSnap(gen)) + '.' : '') + '</p></div></div>' +
+    '<div class="grid g4" style="margin-bottom:14px">' + [['Screened', d.symbol_count || 0], ['Trades', recs.length], ['India VIX', d.india_vix != null ? num(d.india_vix, 2) : '–']]
+      .map(([k, x]) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v">' + x + '</div></div>').join('') + '</div>' +
+    '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Qualifying trades</h3></div>' +
+      (recs.length ? '<table class="t"><tr><th class="l">Stock</th><th class="l">Trade</th><th>Expiry</th><th>Credit</th><th>Win chance</th><th class="l">Exit</th></tr>' +
+        recs.map(r => '<tr><td class="l"><b>' + esc(r.symbol) + '</b></td><td class="l">' + esc(r.strategy || '') + (r.earnings_basis === 'estimated' ? ' · results date not confirmed' : '') + (r.fill_risk ? ' · use a limit order near mid' : '') + '</td><td class="num">' + esc(r.expiry || '') + '</td><td class="num">' + (r.net_credit != null ? num(r.net_credit, 2) : '–') + '</td><td class="num">' + (r.pop_pct != null ? num(r.pop_pct, 1) + '%' : '–') + '</td><td class="l muted">' +
+          (r.stop_loss_debit != null && r.profit_target_debit != null ? 'stop at ' + num(r.stop_loss_debit, 2) + ', target ' + num(r.profit_target_debit, 2) : '') + '</td></tr>').join('') + '</table>'
+        : '<div class="panel-b muted">No trade passes every gate today.</div>') + '</div>' +
+    '<div class="panel"><div class="panel-h"><h3>Why names were rejected</h3><span class="muted" style="font-size:12px">' + (d.symbol_count || 0) + ' names</span></div><div class="panel-b">' +
+      (order.length ? order.map(k => '<details><summary>' + esc(FNO_CAT[k]) + ' · ' + g[k].length + '</summary><table class="t">' +
+        g[k].map(r => '<tr><td class="l"><b>' + esc(r.s) + '</b></td><td class="l" style="white-space:normal">' + esc(r.c) + '</td></tr>').join('') + '</table></details>').join('') : '<div class="muted">None.</div>') + '</div></div>' +
+    '<div class="muted" style="font-size:12px;margin-top:10px">Model suggestions. Premiums are last traded prices. Check margin and your own risk limits before placing anything.</div>';
+}
 function pagePositions(){
   const v = $('view'); if (insWait(v)) return;
   const I = INS(), P = I.positions || {}, days = Object.keys(P).sort();

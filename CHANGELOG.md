@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-13
 
+### Dashboard: Ideas and F&O as on the phone (Fri 13 Nov 2026, night)
+Owner: "I need the Ideas and F&O tab on the dashboard." The phone's F&O suggestions were not on the dashboard at all.
+- New **F&O** section (was "Trading"): **Option ideas** with two tabs, *Index options* (hub/fno.py's trade for each
+  index's next expiries, legs, credit, max loss, breakevens) and *NIFTY 50 stocks* (the stock option screen: qualifying
+  trades and why each name was rejected), then Expiry meter, Positioning and Paper trading. Data through the relay's new
+  `adminFno` (site/fno.json, site/stocks.json), the same files the phone reads.
+- **Ideas** section: the Shortlist item now has the Watchlist as its second tab, as the phone's Ideas tab does (it moved
+  from Portfolio, which keeps Holdings).
+
 ### Live audit with the Kite login: every screen, phone and dashboard (Fri 13 Nov 2026, evening)
 Owner asked for every screen to show correct data. Checked signed in, Kite logged in, on real data after the close: the
 phone (Home, Brief, F&O, Ideas, Desk, stock reports) and every dashboard page (Today, Shortlist, Screens, Rankings,

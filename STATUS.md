@@ -12,6 +12,8 @@ first) and `CLAUDE.md`.
   Oswal Pumps) and a filing in the wrong scale (Metro Brands). Every company re-checked once more from NSE (free).
 - Live audit (evening, Kite logged in): every phone tab and every dashboard page checked on real data, plus stock
   reports (Coal India, HDFC Bank, Antelopus, Titan). 13 faults fixed, listed in CHANGELOG (13 Nov, evening).
+- Dashboard has the phone's Ideas and F&O (night): F&O section with Option ideas (index, NIFTY 50 stocks); Watchlist
+  under Shortlist.
 - To do, Sat 14 Nov 2026 morning, after the overnight library run and the insights rebuild:
   - confirm on screen: Coal India insider total -5,549 cr (was -16,647 cr); option-price panel dated Nov expiries;
     Screens list growth from the filings (Antelopus +116%, InfoBeans +30.1%); Dhanlaxmi Bank and Metro Brands growth
