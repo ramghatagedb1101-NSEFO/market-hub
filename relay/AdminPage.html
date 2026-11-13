@@ -1694,7 +1694,7 @@ function pageLibrary(){
   const v = $('view');
   if (S.libErr) { v.innerHTML = errBlock(S.libErr); return; }
   if (!S.lib) { v.innerHTML = loadingBlock('Loading the stock library…'); return; }
-  const st = tableState('lib', { id: 'lib', sort: 'met', dir: -1, f: { p: '', ps: 'met', dq: 0 } });
+  const st = tableState('lib', { id: 'lib', sort: 'met', dir: -1, f: { p: '', ps: 'met', dq: 40 } });   // 13 Nov 2026: Data 40%+ by default -- sorted by rules met, an 11%-data company with 7 of 8 led the list
   let rows = S.lib.stocks.filter(s => matchQ(s.symbol, st.q) && (s.data_quality_pct || 0) >= (st.f.dq || 0) &&
     (!st.f.p || (s.cells && s.cells[st.f.p] && s.cells[st.f.p].status === st.f.ps)));
   const G = { cs: s => fac(s.symbol, 'composite'), met: s => s.testable ? (s.met || 0) / s.testable : null, dq: s => s.data_quality_pct, mcap: s => val(s,'market_value_bucket'), pe: s => val(s,'pe'), r12: s => val(s,'ret_12m'), pg: s => val(s,'profit_yoy'), sym: s => s.symbol };
@@ -2089,8 +2089,10 @@ function drawPriceChart(sym, s){
   // intraday range show the last week.
   let from = 0;
   const span = { '1D': 0, '5D': 7, '1M': 31, '6M': 183, '1Y': 365, '3Y': 1096, '5Y': 1827 }[pxRange];
-  if (span != null) {
-    const cut = isoShift(String(all[all.length - 1][0]).slice(0, 10), -(daily && span < 7 ? 7 : span));
+  // Only daily bars (dates) are cut here: Kite's intraday bars carry clock times and already cover the range asked for
+  // (13 Nov 2026: cutting them read a clock time as a date, and 1D / 5D / 1M showed "Invalid time value" after the login).
+  if (span != null && daily && /^\d{4}-\d{2}-\d{2}/.test(String(all[all.length - 1][0]))) {
+    const cut = isoShift(String(all[all.length - 1][0]).slice(0, 10), -(span < 7 ? 7 : span));
     from = Math.max(0, all.findIndex(c => String(c[0]) >= cut));
   }
   const c = all.slice(from);
@@ -2930,14 +2932,17 @@ function pageSignals(){
       if (s.prev.met != null && s.met != null && Math.abs(s.met - s.prev.met) >= 5) add(sym, 'results', 'Rules met ' + s.prev.met + ' → ' + s.met, s.met > s.prev.met ? 'up' : 'down', s.scored_on, Math.abs(s.met - s.prev.met) / 2);
     }
     // From the latest quarterly filing (available now) -- only if that filing is recent, so old news stays out.
-    const fresh = s.latest_period && (Date.now() - new Date(s.latest_period)) / 86400000 <= 210;
+    // 13 Nov 2026: dated by the shareholding quarter, not the results quarter, and only when that quarter is the latest one
+    // (about 4 months): "What's new" listed Jun 2026 holding moves in mid-November, and dated moves by the results period.
+    const hq = (s.holding_history || []).reduce((m, r) => r.quarter > m ? r.quarter : m, '');
+    const fresh = hq && (Date.now() - new Date(hq)) / 86400000 <= 135;
     if (fresh) [['promoter_change_qoq', 'Promoter'], ['fii_change_qoq', 'FII'], ['dii_change_qoq', 'DII']].forEach(([k, l]) => {
       if (k === 'fii_change_qoq' && !fiiOk(s)) return;
       const c = val(s, k), lvl = val(s, k.replace('_change_qoq', '_holding'));
-      if (c != null && lvl != null && Math.abs(c) >= 2) add(sym, 'ownership', l + ' ' + num(lvl, 2) + '%, ' + (c > 0 ? 'up ' : 'down ') + num(Math.abs(c), 2) + ' from ' + num(lvl - c, 2) + '% last quarter', c > 0 ? 'up' : 'down', s.latest_period, Math.abs(c));
+      if (c != null && lvl != null && Math.abs(c) >= 2) add(sym, 'ownership', l + ' ' + num(lvl, 2) + '%, ' + (c > 0 ? 'up ' : 'down ') + num(Math.abs(c), 2) + ' from ' + num(lvl - c, 2) + '% last quarter', c > 0 ? 'up' : 'down', hq, Math.abs(c));
     });
     const pl = val(s, 'pledge_pct'), plc = val(s, 'pledge_change');
-    if (pl != null && pl >= 10 && plc != null && plc > 0) add(sym, 'ownership', 'Promoter pledge high and rising: ' + num(pl, 1) + '% of their shares', 'down', s.latest_period, 4);
+    if (pl != null && pl >= 10 && plc != null && plc > 0) add(sym, 'ownership', 'Promoter pledge high and rising: ' + num(pl, 1) + '% of their shares', 'down', hq, 4);
     (s.actions || []).forEach(a => { if (a.upcoming) add(sym, 'action', a.subject + ' — ex-date ' + fmtDate(a.ex_date), 'brand', a.ex_date, 3); });
   });
   const kinds = [['', 'All'], ['screen', 'Screens'], ['ownership', 'Ownership'], ['results', 'Results'], ['action', 'Corporate actions']];

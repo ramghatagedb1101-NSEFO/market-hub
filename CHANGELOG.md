@@ -23,6 +23,13 @@ real data after the close.
   the company page showed the company's own filing (Antelopus revenue +353.7% vs +116%, InfoBeans +151.9% vs +30.1%).
   The list now takes the same corrected growth and margin, and its growth gates and rating are re-worked
   (`hub/library.py` exchange_growth_to_mb; 271 of 2,363 rows on today's data). Live from the next library run.
+- **Dashboard chart 1D / 5D / 1M showed "Invalid time value" after the Kite login.** This morning's range fix cut every
+  series by date, but Kite's intraday bars carry clock times; it was only tested before the login. Only daily bars are
+  cut now. (Found by clicking every range with the login live, as the 13 Nov audit rule asks.)
+- **What's new listed June 2026 shareholding moves** and dated holding moves by the results quarter. Now dated by the
+  shareholding quarter and shown only while that quarter is the latest (about four months).
+- **Companies list led by near-empty rows** (sorted by rules met, an 11%-data company with 7 of 8 came first). Opens on
+  "Data 40%+" now.
 - **"Last quote · 19:58 IST" for VIX, the indices, USD/INR and the portfolio** hours after they stopped trading. After
   each market's close they now say "Close · day" (phone and dashboard); MCX gold and crude keep their time.
 
