@@ -14,9 +14,12 @@ post (checked live: HTTP 405), so the owner had to reload the page by hand.
 - Tested locally with a server that refuses posts like GitHub Pages (501) and a stand-in return page on another
   address: session in the address and session in the form body both land on Market Hub with the value saved and the
   address cleaned; the server saw only a normal page load (GET 200); no console errors; checked at 375 px.
+- Live check after publishing (sw.js v61 served): a form post to the live app from another page landed on Market Hub,
+  value picked up and address cleaned. The test value ("TEST-live-405") is refused by the relay's format check, so the
+  real ICICI session was never overwritten; the test value was then cleared from that tab.
 - Limit: works in any browser that has opened the app once (the phone has; the ICICI button is in the app). A browser
   that never opened the app still sees the 405, and a reload still works there. First real check: the next ICICI
-  sign-in.
+  sign-in (the phone picks up v61 the next time the app is opened).
 
 ### ICICI download for the expiry rule tests (Fri 13 Nov 2026, late night)
 Owner: "go ahead with the ICICI download". The expiry rule tests price the evening-before entry at the exchange's
