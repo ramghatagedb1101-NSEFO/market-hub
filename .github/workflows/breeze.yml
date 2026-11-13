@@ -65,7 +65,7 @@ jobs:
           echo "Requests leave from: $IP"
           [ "$IP" = "130.210.31.37" ] || { echo "::error title=Tunnel::requests do not leave from the fixed address"; exit 1; }
           echo "BREEZE_PROXY=socks5h://127.0.0.1:1080" >> "$GITHUB_ENV"
-      - run: python -m "hub.${{ inputs.module }}"
+      - run: python -u -m "hub.${{ inputs.module }}"
         env:
           BREEZE_API_KEY: ${{ secrets.BREEZE_API_KEY }}
           BREEZE_API_SECRET: ${{ secrets.BREEZE_API_SECRET }}

@@ -61,12 +61,18 @@ class Breeze:
             params["strike_price"] = str(strike)
         if right:
             params["right"] = right
-        time.sleep(PAUSE)
-        self.calls += 1
-        r = self.http.get(V2_URL + "historicalcharts", params=params,
-                          headers={"Content-Type": "application/json", "X-SessionToken": self.token, "apikey": self.api_key},
-                          timeout=60)
-        j = r.json()
+        headers = {"Content-Type": "application/json", "X-SessionToken": self.token, "apikey": self.api_key}
+        for attempt in range(4):
+            time.sleep(PAUSE if not attempt else 5 * attempt)
+            self.calls += 1
+            try:
+                r = self.http.get(V2_URL + "historicalcharts", params=params, headers=headers, timeout=60)
+                j = r.json()
+                break
+            except (requests.RequestException, ValueError) as e:
+                # 13 Nov 2026: a connection through the tunnel dropped mid-download ("SSL: UNEXPECTED_EOF")
+                if attempt == 3:
+                    raise RuntimeError(f"ICICI history: connection failed 4 times ({type(e).__name__})") from None
         if j.get("Status") not in (200, None) or j.get("Error"):
             raise RuntimeError(f"ICICI history: {j.get('Error') or j.get('Status')}")
         return j.get("Success") or []
