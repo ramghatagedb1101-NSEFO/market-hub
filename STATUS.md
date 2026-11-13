@@ -6,10 +6,11 @@ first) and `CLAUDE.md`.
 ## Fri 13 Nov 2026
 - Figures fixed: year-to-date read as a quarter (Coal India, Coforge, Hatsun...), P/E checked against profit. Library
   re-checks and re-fetches every company once over the next runs. Peers by BSE classification; chart range fix.
-- Trading rules: reviewed (results private); gap-follow test to run after a Kite login.
+- Trading rules: both families tested and reviewed (expiry option selling; GIFT gap-follow, run after the 13 Nov Kite
+  login). Every candidate rejected (results in the private repo, `state/rule_test/`), so no paper trading is set up.
 - Second results-reader fix on `main` (evening): quarters tagged as year to date (Ingersoll-Rand, Dhanlaxmi Bank,
   Oswal Pumps) and a filing in the wrong scale (Metro Brands). Every company re-checked once more from NSE (free).
-- To do: gap-follow test result (run after today's Kite login) to review; live/phone audit pass with the owner's Chrome;
+- To do: live/phone audit pass with the owner's Chrome;
   recount companies with implausible figures after the v6 re-check (129 above +150% / below -70% before it, most genuine).
 
 ## Thu 12 Nov 2026
