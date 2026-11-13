@@ -10,7 +10,11 @@ first) and `CLAUDE.md`.
   login). Every candidate rejected (results in the private repo, `state/rule_test/`), so no paper trading is set up.
 - Second results-reader fix on `main` (evening): quarters tagged as year to date (Ingersoll-Rand, Dhanlaxmi Bank,
   Oswal Pumps) and a filing in the wrong scale (Metro Brands). Every company re-checked once more from NSE (free).
-- Live audit (evening): phone checked signed in; four faults fixed (see CHANGELOG). Dashboard and stock reports next.
+- Live audit (evening, Kite logged in): every phone tab and every dashboard page checked on real data, plus stock
+  reports (Coal India, HDFC Bank, Antelopus, Titan). 12 faults fixed (CHANGELOG 13 Nov, evening).
+- To do: confirm after tonight's library run + insights rebuild: insider totals (Coal India -5,549 cr), option-price
+  panel dates, Screens list growth (Antelopus +116%), Dhanlaxmi/Metro Brands growth. Open question: Titan's 1Y return
+  reads +26.5% in the header and +30.4% in the Peers table (two price bases); align them.
 - To do:
   recount companies with implausible figures after the v6 re-check (129 above +150% / below -70% before it, most genuine).
 
