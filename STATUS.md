@@ -7,6 +7,13 @@ first) and `CLAUDE.md`.
 - Figures fixed: year-to-date read as a quarter (Coal India, Coforge, Hatsun...), P/E checked against profit. Library
   re-checks and re-fetches every company once over the next runs. Peers by BSE classification; chart range fix.
 - Trading rules: reviewed (results private); gap-follow test to run after a Kite login.
+- **Second results-reader fix ready, not yet on `main`.** Branch `fix-scale`: catches a plain quarter mistagged as
+  year-to-date (Ingersoll-Rand, Dhanlaxmi Bank, Oswal Pumps) and a filing in the wrong scale (Metro Brands) -- see
+  CHANGELOG. Live-verified today against real NSE filings via `diag.yml`, both runs clean. `extras/METHOD.md` is
+  already drafted with the matching write-up.
+  **To do (owner, one-time, needs your token -- I can't run this):**
+  `python -m hub.method_check --push extras/METHOD.md "NSE results: mislabelled quarters and wrong-scale filings (VERIFY_VERSION 6)"`
+  Once that's pushed, say "merge it" (or "go ahead") and the `fix-scale` branch goes onto `main`.
 - To do: live/phone audit pass after the Kite login; recount companies with implausible figures once re-checks finish.
 
 ## Thu 12 Nov 2026
