@@ -21,7 +21,9 @@ concurrency:
 jobs:
   launch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # One run keeps asking every 2 minutes for 5.5 hours, then starts the next run itself (14 Nov 2026): GitHub did
+    # not start the scheduled runs at all, so the schedule above is only a backup.
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -41,12 +43,25 @@ jobs:
           printf '%s\n' "$OCI_API_KEY" > "$RUNNER_TEMP/oci.pem"
           chmod 600 "$RUNNER_TEMP/oci.pem"
           set +e
-          OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python infra/oci_launch.py
-          code=$?
+          end=$(( $(date +%s) + 19800 ))
+          tries=0
+          while :; do
+            tries=$((tries + 1))
+            OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python infra/oci_launch.py
+            code=$?
+            if [ "$code" != 75 ] || [ "$(date +%s)" -ge "$end" ]; then break; fi
+            sleep 120
+          done
           rm -f "$RUNNER_TEMP/oci.pem"
-          if [ "$code" = 75 ]; then exit 0; fi
+          echo "asked $tries times"
+          if [ "$code" = 75 ]; then echo "again=yes" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$code" = 0 ]; then echo "done=yes" >> "$GITHUB_OUTPUT"; fi
           exit $code
+      - name: "Still no room: start the next run"
+        if: steps.launch.outputs.again == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run oci-launch.yml --repo "${{ github.repository }}" --ref main
       - name: "Machine exists: stop asking"
         if: steps.launch.outputs.done == 'yes'
         env:

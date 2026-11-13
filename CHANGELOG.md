@@ -10,6 +10,9 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   carry on whenever that day's ICICI sign-in is done.
 - `oci-launch.yml`: GitHub never started the every-5-minutes schedule (no run in 2.5 hours; only the hand-started
   ones). Changed to minutes 7, 22, 37 and 52 of every hour; changing the line makes GitHub register it again.
+- That did not start either (02:57 IST, none at :07 or :22). Now one run asks every 2 minutes for 5.5 hours and then
+  starts the next run itself (`gh workflow run` with the job's own token), so it no longer depends on GitHub's
+  schedule; the schedule stays as a backup. Free (public repo). Still switches itself off once the machine exists.
 
 ## 2026-11-13
 

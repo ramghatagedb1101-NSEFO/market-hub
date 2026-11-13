@@ -28,8 +28,8 @@ first) and `CLAUDE.md`.
   `market-hub-ip` restarted and its `dnf-makecache.timer` disabled after it froze.
 - IBKR paper trading (owner, 13 Nov night): IBKR India account, NSE index options first, on an Oracle free Arm
   machine (`market-hub-trader`, Ubuntu 24.04, 4 cores / 24 GB) running the `gnzsnz/ib-gateway` Docker image (arm64,
-  IBC). Mumbai has no A1 capacity (4/24, 2/12, 1/6 all refused), so `oci-launch.yml` asks four times an hour (schedule
-  changed 14 Nov: GitHub never started the every-5-minutes one) and
+  IBC). Mumbai has no A1 capacity (4/24, 2/12, 1/6 all refused), so `oci-launch.yml` asks every 2 minutes: each run lasts 5.5 hours
+  and starts the next one itself (14 Nov: GitHub never started its scheduled runs) and
   switches itself off once the machine exists. Pay-as-you-go only if no machine after about a week (owner to decide,
   card needed). Ready for when it exists (`infra/trader/`): `bootstrap.sh` (Docker, gateway image, Python, India time),
   `set-login.sh` (owner types the paper username/password once, hidden), `check.py` (paper-only connection check and
