@@ -1,0 +1,52 @@
+name: oci-launch
+
+# Keeps asking Oracle for the free Arm machine (market-hub-trader, 4 OCPU / 24 GB) until Mumbai has room, then switches
+# itself off (13 Nov 2026; infra/oci_launch.py). "No capacity" ends the run green; only real errors are red.
+# Secrets: OCI_API_KEY (the owner's API private key), OCI_TENANCY, OCI_USER, OCI_FINGERPRINT, OCI_SSH_PUBKEY.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: oci-launch
+  cancel-in-progress: false
+
+jobs:
+  launch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet "oci>=2.130"
+      - name: Ask Oracle for the machine
+        id: launch
+        env:
+          OCI_API_KEY: ${{ secrets.OCI_API_KEY }}
+          OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_SSH_PUBKEY: ${{ secrets.OCI_SSH_PUBKEY }}
+          OCI_REGION: ap-mumbai-1
+        run: |
+          printf '%s\n' "$OCI_API_KEY" > "$RUNNER_TEMP/oci.pem"
+          chmod 600 "$RUNNER_TEMP/oci.pem"
+          set +e
+          OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python infra/oci_launch.py
+          code=$?
+          rm -f "$RUNNER_TEMP/oci.pem"
+          if [ "$code" = 75 ]; then exit 0; fi
+          if [ "$code" = 0 ]; then echo "done=yes" >> "$GITHUB_OUTPUT"; fi
+          exit $code
+      - name: Machine exists: stop asking
+        if: steps.launch.outputs.done == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow disable oci-launch.yml --repo "${{ github.repository }}"
