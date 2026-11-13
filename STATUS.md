@@ -3,6 +3,12 @@
 As of Thu 15 Oct 2026, ~07:45 IST. Read the 15 Oct notes first, then the 14 Oct HANDOVER below them, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
+## Fri 13 Nov 2026
+- Figures fixed: year-to-date read as a quarter (Coal India, Coforge, Hatsun...), P/E checked against profit. Library
+  re-checks and re-fetches every company once over the next runs. Peers by BSE classification; chart range fix.
+- Trading rules: reviewed (results private); gap-follow test to run after a Kite login.
+- To do: live/phone audit pass after the Kite login; recount companies with implausible figures once re-checks finish.
+
 ## Thu 12 Nov 2026
 - GitHub keys expired 6 Nov 2026 (6 days of failed jobs). Renewed to Thu 11 Nov 2027; source check now warns 14 days ahead.
 

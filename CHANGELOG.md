@@ -2,6 +2,38 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-11-13
+
+### Audit for sense, not just loading: four faults fixed (Fri 13 Nov 2026, 07:00)
+Owner found two faults earlier audits missed (peers, chart range) and asked what else was missed. A screen-by-screen
+audit on today's real data, checking content against reality, found two more, worse ones in the figures themselves.
+- **Six-month figures read as one quarter.** NSE's Jul-Sep 2026 filings for some companies carry revenue only for the
+  year to date. `hub/nse_results.py` read the first period it found, so Coal India showed revenue +199.6% (really
+  +46.4%) and Coforge +193.5% (really +54.8%); because the company's own filing wins over BharatStock, these replaced
+  the correct figures, and the cross-check said "ok". Now the three-month period is read, or the quarter is worked out
+  as the year to date less the previous filing's. Every company is re-checked once (a version change used to re-check
+  only failed checks, which would never have reached Coal India). Checked on GitHub on real filings.
+- **P/E from EPS that did not match the profit.** IOB's EPS added up to about 5x its filed profit (P/E 1.6, really
+  about 8). P/E is now checked against the last four quarters' profit and uses market value / profit when they are more
+  than 30% apart. Every company's results are re-fetched once for this (about 2,600 BharatStock requests, inside the
+  daily allowance, lowest priority so new filings come first).
+- **Peers were "any company of the same size".** NSE's industry list covers ~760 of ~2,600 companies; Antelopus Selan
+  (oil producer) was shown next to a microlender and a property developer. BSE's four-level classification is now read
+  for every BSE-listed company (`hub/classify.py`, free); peers are the same basic industry first, then group, then
+  industry, then closest in size. The same classification now fills the industry for sectors, the Shortlist's
+  2-per-industry cap and the industry P/E check (METHOD.md updated first).
+- **Chart range buttons did nothing before the Kite login** (dashboard; phone 1M showed a year). The fallback daily
+  series is now cut to the chosen range, with a line saying minute charts appear after the login.
+- Also: multibagger list column "Promoter" renamed "Promoter trades" (it shows buying/selling, not the stake).
+- Checked and genuine (not faults): EPL promoter 26% to 0% (promoter sold out; funds' share rose 28% to 48%), Sterlite
+  Tech profit +12,825% (from a Rs 4 cr base), Netweb revenue x4.
+- `CLAUDE.md`: audits now test fallback states and sense-check content.
+
+### Trading rules reviewed like a risk desk (Fri 13 Nov 2026)
+- `hub/rule_test.py`, `hub/rule_review.py`, `hub/diag_gap_rule.py`: rules tested walk-forward with full costs, tail
+  risk and the bar raised for the number of settings tried. Results are in the private repo only (state/rule_test/).
+  The gap-rule test now refuses to save an empty result (its first run was before the Kite login).
+
 ## 2026-11-12
 
 ### GitHub keys expired: private data unreadable Fri 6 - Thu 12 Nov 2026 (Thu 12 Nov 2026, 17:50)
