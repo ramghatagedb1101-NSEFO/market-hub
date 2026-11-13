@@ -1,6 +1,6 @@
 // Network-first everywhere: the phone always gets the latest page and feed when online.
 // The cache is only a fallback for when the network is unavailable.
-const CACHE = "market-hub-v60";
+const CACHE = "market-hub-v61";
 const SHELL = ["./", "index.html", "manifest.json", "icon.svg"];
 
 self.addEventListener("install", (e) => {
@@ -15,6 +15,22 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  // ICICI's daily sign-in comes back as a form POST, which GitHub Pages refuses ("405 Not Allowed", 13 Nov 2026).
+  // Answer it here as a normal load of the same address; index.html then picks up ?apisession= as before.
+  if (e.request.method === "POST" && e.request.mode === "navigate") {
+    e.respondWith((async () => {
+      const url = new URL(e.request.url);
+      if (!url.searchParams.get("apisession")) {
+        try {
+          for (const [k, v] of await e.request.clone().formData()) {
+            if (k.toLowerCase().replace(/_/g, "") === "apisession" && v) url.searchParams.set("apisession", String(v));
+          }
+        } catch (err) { /* no form body: the address alone */ }
+      }
+      return Response.redirect(url.href, 303);
+    })());
+    return;
+  }
   if (e.request.method !== "GET") return;
   e.respondWith(
     fetch(e.request, { cache: "no-store" })

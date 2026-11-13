@@ -4,6 +4,20 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-13
 
+### ICICI sign-in no longer lands on "405 Not Allowed" (Fri 13 Nov 2026, 23:55)
+Owner: "fix the 405 issue". ICICI's daily sign-in returns to the phone app with a form post; GitHub Pages refuses any
+post (checked live: HTTP 405), so the owner had to reload the page by hand.
+- `docs/sw.js` (cache v61): the app's service worker now answers a form-post page load itself with a redirect to the
+  same address (session value carried in the address, or copied from the form body if ICICI sends it there), so the
+  page loads normally and `index.html` picks up `?apisession=` exactly as after the manual reload. No new service or
+  account.
+- Tested locally with a server that refuses posts like GitHub Pages (501) and a stand-in return page on another
+  address: session in the address and session in the form body both land on Market Hub with the value saved and the
+  address cleaned; the server saw only a normal page load (GET 200); no console errors; checked at 375 px.
+- Limit: works in any browser that has opened the app once (the phone has; the ICICI button is in the app). A browser
+  that never opened the app still sees the 405, and a reload still works there. First real check: the next ICICI
+  sign-in.
+
 ### ICICI download for the expiry rule tests (Fri 13 Nov 2026, late night)
 Owner: "go ahead with the ICICI download". The expiry rule tests price the evening-before entry at the exchange's
 closing prices, and the review notes that closes of far strikes can be stale.

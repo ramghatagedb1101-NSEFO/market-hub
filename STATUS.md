@@ -14,7 +14,7 @@ first) and `CLAUDE.md`.
   reports (Coal India, HDFC Bank, Antelopus, Titan). 13 faults fixed, listed in CHANGELOG (13 Nov, evening).
 - ICICI Breeze history working (night): Oracle Always Free server, fixed address 130.210.31.37, ICICI app registered,
   secrets and relay property added; first check passed (one-minute F&O candles back to Dec 2023 at least).
-  Next: (1) fix the sign-in landing on "405 Not Allowed" (ICICI posts back; GitHub Pages refuses posts);
+  Next: (1) fixed 23:55 in `docs/sw.js` v61 (sign-in landing on "405 Not Allowed"; confirm on the next real sign-in);
   (2) the full download of expiry-week option history to the private repo; (3) re-run the rule tests on real option
   prices.
 - METHOD.md line-break bug fixed in `hub/method_check.py` (late night; blank lines had doubled on most edits since
