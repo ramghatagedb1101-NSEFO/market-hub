@@ -19,9 +19,32 @@ closing prices, and the review notes that closes of far strikes can be stale.
   skipped), plus how far the closes were from what traded. Private repo only (`state/rule_test/real_fill.json`).
 - `hub/breeze.py`: a dropped connection is retried 3 times (5, 10, 15 s) before counting as an error. The first test
   run stopped after ~2.5 minutes on one dropped connection ("SSL: UNEXPECTED_EOF") and saved nothing.
-- **Not run yet.** The second test run never reached ICICI: the small Oracle server (`market-hub-ip`, 1 GB) accepts
-  connections but no longer answers SSH ("Connection timed out during banner exchange"), so the tunnel step failed.
-  Needs a restart from Oracle's console (owner's OK asked) before the first real run, after the next ICICI sign-in.
+- **Small Oracle server froze** (`market-hub-ip`, Oracle Linux, ~500 MB usable): it accepted connections but stopped
+  answering SSH ("Connection timed out during banner exchange"), so the second test run failed at the tunnel. Restarted
+  from Oracle's console (owner's OK, 23:28 IST) and its package-list refresh timer (`dnf-makecache.timer`, a known cause
+  of multi-minute freezes on this size) switched off; the server never installs software.
+- **First real download (23:35 IST, test budget 300):** SENSEX expiry 12 Nov 2026, all 162 contracts, 90,375 candles
+  (984 KB compressed); NIFTY expiry 9 Nov 2026, all 100 contracts, 63,375 candles (955 KB); no errors. About 130
+  requests and 1 MB per expiry, so the whole download is ~53,000 requests (~14 runs) and ~400 MB.
+- Sense-checked NIFTY 9 Nov: both days present (Fri 6 Nov and Mon 9 Nov), up to 376 minutes a session; on expiry
+  day each option's last trade is a median Rs 0.10 from its value at the index close (the largest gaps are deep
+  in-the-money puts that last traded hours earlier). The at-the-money straddle at 15:25 the day before cost Rs 335.20
+  on ICICI against Rs 345.00 at the exchange close: the entry-price gap the comparison is built to measure.
+
+### Oracle Arm machine for IBKR paper trading: automatic retry (Fri 13 Nov 2026, late night)
+- Owner chose IBKR India, NSE index options first, on Oracle's free Arm machine (Ubuntu 24.04). Create failed with
+  "Out of capacity for shape VM.Standard.A1.Flex in availability domain AD-1" at 4 OCPU / 24 GB, 2 / 12 and 1 / 6
+  (Mumbai has one zone; a free account cannot use other regions). Nothing in the settings was wrong: the shape was
+  marked Always Free-eligible with no limit warning.
+- `infra/oci_launch.py` + `.github/workflows/oci-launch.yml` (owner: "Automatic retry"): every 5 minutes asks Oracle
+  for `market-hub-trader`, 4 OCPU / 24 GB, Ubuntu 24.04 Arm, `market-hub-ip`'s subnet, the same SSH key. "Out of host
+  capacity" ends the run green; once the machine exists the workflow switches itself off. First run: authenticated,
+  "500: Out of host capacity", green.
+- Oracle API key added by the owner (Profile > Tokens and keys); its private key is the GitHub secret `OCI_API_KEY`
+  (set by the owner). `OCI_TENANCY`, `OCI_USER`, `OCI_FINGERPRINT` (checked against the key file), `OCI_SSH_PUBKEY`
+  set from the console's preview.
+- IB Gateway on Arm: the community `gnzsnz/ib-gateway` Docker image publishes arm64 builds (from IBKR's own Linux Arm
+  installer) with IBC for unattended daily restarts; paper mode by default, API reachable only from the same machine.
 
 ### METHOD.md: blank lines doubling on every edit since 27 Oct 2026 (Fri 13 Nov 2026, late night)
 Found while starting the ICICI back-test work. My own bug, from the 27 Oct rewrite of `hub/method_check.py`.
