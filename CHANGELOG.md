@@ -4,6 +4,25 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-13
 
+### ICICI download for the expiry rule tests (Fri 13 Nov 2026, late night)
+Owner: "go ahead with the ICICI download". The expiry rule tests price the evening-before entry at the exchange's
+closing prices, and the review notes that closes of far strikes can be stale.
+- `hub/breeze_history.py` (run with `breeze.yml`, module `breeze_history`): for each of the 409 recorded expiries
+  (Oct 2023 - Nov 2026), every strike in its stored day-before chain, call and put, one-minute candles for the whole
+  day before expiry and the whole expiry day. One request per contract covers both days (ICICI returns up to 1,000
+  candles a request), so this costs no more requests than a half-hour window: about 40,000 in all at ~85 a minute.
+  One compressed file per expiry, private repo only (`state/breeze/expiry_days/<INDEX>/<expiry>.json.gz`, about
+  200 MB in all). Newest first; each run stops at a request budget (new `budget` input, default 4,000) and the next
+  carries on.
+- `hub/rule_real_fill.py` (run with `diag.yml`): rule_test's grid and walk-forward on the same expiries twice, at the
+  closes and at the real 15:25 price (last trade 15:15-15:25; none means no price to deal at, so the trade is
+  skipped), plus how far the closes were from what traded. Private repo only (`state/rule_test/real_fill.json`).
+- `hub/breeze.py`: a dropped connection is retried 3 times (5, 10, 15 s) before counting as an error. The first test
+  run stopped after ~2.5 minutes on one dropped connection ("SSL: UNEXPECTED_EOF") and saved nothing.
+- **Not run yet.** The second test run never reached ICICI: the small Oracle server (`market-hub-ip`, 1 GB) accepts
+  connections but no longer answers SSH ("Connection timed out during banner exchange"), so the tunnel step failed.
+  Needs a restart from Oracle's console (owner's OK asked) before the first real run, after the next ICICI sign-in.
+
 ### METHOD.md: blank lines doubling on every edit since 27 Oct 2026 (Fri 13 Nov 2026, late night)
 Found while starting the ICICI back-test work. My own bug, from the 27 Oct rewrite of `hub/method_check.py`.
 - **What happened:** `--pull` saved the file with Windows line endings, so a line break already stored as "\r\n" became

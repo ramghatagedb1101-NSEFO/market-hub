@@ -20,9 +20,17 @@ first) and `CLAUDE.md`.
 - METHOD.md line-break bug fixed in `hub/method_check.py` (late night; blank lines had doubled on most edits since
   27 Oct, file 116,691 lines). Rebuilt file (1,845 lines, same text) pushed to the private repo (`db24d5c`) and
   checked.
-- Owner wants algorithmic trading on his IBKR paper account later, as its own project. To write up as a plan after
-  the ICICI back-test: always-on machine for IB Gateway (Oracle free larger machine, AWS only if Oracle has no
-  capacity, cost stated first).
+- ICICI download job ready (`hub/breeze_history.py`: whole day before + expiry day, every stored strike, 409
+  expiries) and the comparison at real 15:25 prices (`hub/rule_real_fill.py`). Not run yet: the small Oracle server
+  `market-hub-ip` has stopped answering SSH. Next: restart it (owner's OK asked), ICICI sign-in, then
+  `gh workflow run breeze.yml -f module=breeze_history` daily until `_done.json` covers all 409 (~10 runs).
+- IBKR paper trading (owner, 13 Nov night): IBKR India account, NSE index options first, on an Oracle free Arm
+  machine (Ubuntu 24.04, 4 cores / 24 GB, `market-hub-trader`) running the `gnzsnz/ib-gateway` Docker image (arm64,
+  IBC for daily restarts). First Create failed: "Out of capacity for shape VM.Standard.A1.Flex" (Mumbai has one
+  zone). Next: smaller slice (2 cores / 12 GB, then 1 / 6) or retry (owner's OK asked); pay-as-you-go only if both
+  fail. Proposal pending: move fixed address 130.210.31.37 to the new machine and retire `market-hub-ip`.
+  Any strategy search on the ICICI data keeps rule_review's discipline (walk-forward, bar raised for settings tried,
+  full costs); paper trading is the final out-of-sample test.
 - Dashboard has the phone's Ideas and F&O (night): F&O section with Option ideas (index, NIFTY 50 stocks); Watchlist
   under Shortlist.
 - To do, Sat 14 Nov 2026 morning, after the overnight library run and the insights rebuild:

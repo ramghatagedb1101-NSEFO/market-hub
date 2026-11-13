@@ -20,25 +20,27 @@ import sys
 from collections import defaultdict
 
 from . import rule_test as rt
+from .breeze_history import DIR, INDEX, load_gz
 from .expiry_history import load, save
 
-DIR = "state/breeze/day_before"
-FROM_MIN, AT_MIN = 15, 25                       # minutes after 15:00
+FROM_MIN, AT_MIN = 360, 370                     # 15:15 and 15:25, as minutes after 09:15
 OUT = "state/rule_test/real_fill.json"
 
 
 def real_price(candles: list):
-    xs = [c for c in candles or [] if FROM_MIN <= c[0] <= AT_MIN and c[4]]
-    return xs[-1][4] if xs else None
+    """Last trade 15:15-15:25 on the day before expiry (day 0); fields [day, min, o, h, l, c, v, oi]."""
+    xs = [c for c in candles or [] if c[0] == 0 and FROM_MIN <= c[1] <= AT_MIN and c[5]]
+    return xs[-1][5] if xs else None
 
 
 def icici() -> dict:
     """{record key: entry} for every expiry downloaded so far."""
-    done = load(f"{DIR}/_done.json") or {}
-    files = sorted({f"{DIR}/{k.split('_')[0]}_{k.split('_')[1][:7]}.json" for k in done})
     out = {}
-    for f in files:
-        out.update(load(f) or {})
+    for key in sorted(load(INDEX) or {}):
+        sym, exp = key.split("_", 1)
+        e = load_gz(f"{DIR}/{sym}/{exp}.json.gz")
+        if e:
+            out[key] = e
     return out
 
 
