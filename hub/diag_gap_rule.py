@@ -153,9 +153,14 @@ def main():
         xs = [v for mm, v in sorted(bars.get(day, {}).items()) if mm <= m]
         return xs[-1] if xs else None
 
+    if len(bars) < 200:      # 13 Nov 2026: a run before the Kite login got no candles and saved an empty review
+        raise SystemExit("No GIFT Nifty history from Kite (no login yet today?): nothing saved; run again after the login")
     out = {"made": datetime.now(config.IST).isoformat(timespec="minutes"), "by_index": {}}
     for name in IDX:
-        out["by_index"][name] = review(days_for(k, name, start, end, gift), LOT[name])
+        days = days_for(k, name, start, end, gift)
+        if len(days) < 250:
+            raise SystemExit(f"Only {len(days)} days for {name}: nothing saved")
+        out["by_index"][name] = review(days, LOT[name])
     save("state/rule_test/gap_review.json", out, "gap rule review")
     print("saved state/rule_test/gap_review.json (private)")
 
