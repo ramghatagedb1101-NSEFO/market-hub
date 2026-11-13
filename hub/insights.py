@@ -199,10 +199,17 @@ def insider(syms: list, today: date) -> dict:
         return next(i for i, h in enumerate(head) if h.startswith(prefix))
     i_code, i_who, i_cat, i_val, i_day, i_mode = (col("security code"), col("name of person"), col("category of person"),
                                                   col("value of securities"), col("date of acquisition"), col("mode of acquisition"))
-    per = {}
+    per, seen = {}, set()
     for row in lines[1:]:
         if len(row) < len(head):
             continue
+        # 13 Nov 2026: BSE's file repeats one disclosure (the person's and the company's filing, revisions): Coal India's
+        # single 2% government sale on 27 May 2026 (Rs 5,549 cr) appeared three times, so "promoters net" read -16,647 cr.
+        key = (row[i_code].strip(), row[i_day].strip(), " ".join(row[i_who].split()).lower(), row[i_mode].strip().lower(),
+               row[i_val].strip())
+        if key in seen:
+            continue
+        seen.add(key)
         sym = sym_of.get(row[i_code].strip())
         mode = row[i_mode].strip().lower()
         if not sym or not mode.startswith("market"):

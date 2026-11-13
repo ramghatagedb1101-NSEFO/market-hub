@@ -1904,7 +1904,7 @@ function pageStock(sym){
 
   let html = '<button class="back" onclick="history.length > 1 ? history.back() : go(\'overview\')">← Back</button>' +
     '<div class="rep-head"><div><h1 class="rep-title">' + esc(name || sym) + '</h1><div class="rep-meta"><span class="chip num">NSE: ' + esc(sym) + '</span>' +
-    (sectorOf(sym) ? '<span class="chip">' + esc(sectorOf(sym)) + '</span>' : '') + (s && s.latest_period ? '<span class="chip">Results to ' + esc(fmtDate(s.latest_period)) + '</span>' : '') + badges.join('') + '</div></div>' +
+    (sectorOf(sym) ? '<span class="chip">' + esc(sectorOf(sym)) + '</span>' : '') + (s && s.latest_period ? '<span class="chip">Results to ' + esc(fmtDate(((s.check || {}).status === 'period_differs' && (s.check.period || '') > s.latest_period) ? s.check.period : s.latest_period)) + '</span>' : '') + badges.join('') + '</div></div>' +
     '<div class="price"><div style="display:flex;gap:6px;justify-content:flex-end;margin-bottom:8px"><button class="btn sm" onclick="paperFrom(\'' + esc(sym) + '\')">Paper trade</button><button class="btn sm" onclick="toggleStar(\'' + esc(sym) + '\')">' + (isStarred(sym) ? '★ Starred' : '☆ Star') + '</button></div>' + (last ? '<div class="p">₹' + num(last[1], 2) + '</div><div class="c ' + cls(chg) + '">' + pct(chg, 2) + ' <span class="muted" style="font-weight:400">· ' + (marketHoursIst() && String(last[0]).slice(0, 10) === new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10) ? 'Live' : 'Close · ' + esc(bDay(dayOf(last[0])))) + '</span></div>'
                             : D5.loading ? '<div class="skel" style="width:140px;height:26px"></div>' : '') + '</div></div>';
 

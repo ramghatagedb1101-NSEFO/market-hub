@@ -13,6 +13,12 @@ real data after the close.
   "nearest" and "monthly" were the same contract, priced on two different bands. Shown once now (`hub/fno.py`).
 - **FII/DII flows a day behind.** NSE posts the day's flows after 18:00; the 18:07 run read Thursday's, and over a
   weekend that stays until Monday. `daily.yml` runs again at 20:30 IST (a second run changes nothing else).
+- **Insider trades counted three times.** BSE's insider file repeats one disclosure; Coal India's single government
+  sale on 27 May 2026 (Rs 5,549 cr, the 2% stake drop in its shareholding) read as -16,647 cr. Repeats are dropped
+  (`hub/insights.py`); every company's insider totals and the Desk's "Promoters buying" list were affected.
+- **Results label a quarter behind for 295 companies.** When the exchange filing is newer than BharatStock's, its growth
+  is shown, but the label named BharatStock's quarter (Coal India: "Quarter to Jun 2026" over Sep 2026's +46.4%). The
+  phone's Results line and the dashboard's "Results to" chip now name the quarter shown.
 - **"Last quote · 19:58 IST" for VIX, the indices, USD/INR and the portfolio** hours after they stopped trading. After
   each market's close they now say "Close · day" (phone and dashboard); MCX gold and crude keep their time.
 

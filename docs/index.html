@@ -1698,7 +1698,10 @@
 
     // 5 results (loaded on tap)
     const rq = [pv("rev_yoy") != null ? "Revenue " + pct(pv("rev_yoy"), 1) : "", pv("profit_yoy") != null ? "profit " + pct(pv("profit_yoy"), 1) : ""].filter(Boolean).join(", ");
-    html += sect("results", "Results", (P.latest_period ? "Quarter to " + esc(monYr(P.latest_period)) + (rq ? ": " + esc(rq) + " on a year ago" : "") : "") + " · tap for 40 quarters and 10 years", `<div class="mut">Loading…</div>`);
+    // 13 Nov 2026: when the exchange filing is a newer quarter than BharatStock's, its growth figures are shown, so name
+    // its quarter (Coal India said "Quarter to Jun 2026" over Sep 2026's +46.4%; 295 companies).
+    const ck = P.check || {}, resP = ck.status === "period_differs" && ck.period && (!P.latest_period || ck.period > P.latest_period) ? ck.period : P.latest_period;
+    html += sect("results", "Results", (resP ? "Quarter to " + esc(monYr(resP)) + (rq ? ": " + esc(rq) + " on a year ago" : "") : "") + " · tap for 40 quarters and 10 years", `<div class="mut">Loading…</div>`);
 
     // 6 AI summaries: the latest call and the latest annual report, each its own section (owner, 12 Oct:
     // the annual report's summary was never shown when a call summary existed).
@@ -1749,7 +1752,7 @@
       html += sect("data", "Data checks", esc(st),
         `<div class="mrow"><div class="ml"><div>NSE cross-check</div><div>${esc(chk.why || (chk.diffs || []).join("; ") || "")}</div></div><div class="mv">${esc(chk.status || "–")}</div></div>` +
         (P.flags || []).map(fl => `<div class="mrow"><div class="ml"><div>${esc(fl.text)}</div></div><div class="mv ${fl.level === "severe" ? "dn" : "amb"}">${esc(fl.level)}</div></div>`).join("") +
-        `<div class="mrow"><div class="ml"><div>Latest results on file</div></div><div class="mv">${esc(P.latest_period ? dayTxt(parseDay(P.latest_period)) : "–")}</div></div>` +
+        `<div class="mrow"><div class="ml"><div>Latest results on file</div></div><div class="mv">${esc(((P.check || {}).status === "period_differs" && (P.check.period || "") > (P.latest_period || "")) ? dayTxt(parseDay(P.check.period)) : P.latest_period ? dayTxt(parseDay(P.latest_period)) : "–")}</div></div>` +
         `<div class="mrow"><div class="ml"><div>Measures available</div></div><div class="mv">${f(P.data_quality_pct, 0)}%</div></div>`);
     }
 
