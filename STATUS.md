@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Fri 13 Nov 2026, ~22:30 IST. Read the dated notes below (newest first), then the 14 Oct HANDOVER, `CHANGELOG.md` (newest
+As of Fri 13 Nov 2026, ~23:05 IST. Read the dated notes below (newest first), then the 14 Oct HANDOVER, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
 ## Fri 13 Nov 2026
@@ -20,11 +20,14 @@ first) and `CLAUDE.md`.
 - Dashboard has the phone's Ideas and F&O (night): F&O section with Option ideas (index, NIFTY 50 stocks); Watchlist
   under Shortlist.
 - To do, Sat 14 Nov 2026 morning, after the overnight library run and the insights rebuild:
-  - confirm on screen: Coal India insider total -5,549 cr (was -16,647 cr); option-price panel dated Nov expiries;
-    Screens list growth from the filings (Antelopus +116%, InfoBeans +30.1%); Dhanlaxmi Bank and Metro Brands growth
+  - already confirmed (22:40): Coal India insider total -5,549 cr (was -16,647 cr); option-price panel dated Nov expiries.
+  - confirm on screen: Screens list growth from the filings (Antelopus +116%, InfoBeans +30.1%); Dhanlaxmi Bank and Metro Brands growth
     no longer in the thousands; 12M returns on the 365-day count.
   - recount companies with implausible growth after the v6 re-check (129 above +150% / below -70% before it, most
     genuine: small bases, acquisitions).
+- Notes for the next session: ICICI reads request times as Indian clock time even with a trailing Z; ICICI's app
+  form rejects long return links ("Resource not available."); Chrome's default Google account is the wrong one
+  (ramghatage@gmail.com): switch to ramghatagedb1101 before any Apps Script page.
 - Left alone: an old unfinished stash in the local clone ("WIP: GIFT rolling WF + job-progress check, based on stale
   main"), from another session; not merged, not deleted.
 
