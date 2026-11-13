@@ -15,7 +15,8 @@ Found while starting the ICICI back-test work. My own bug, from the 27 Oct rewri
   a file with two blank lines in a row. 4 new tests (27 in all, pass).
 - **Repaired file:** rebuilt by replaying all 15 commits since the last clean version (26 Oct), keeping each line's
   real spacing. Same text as live, 1,845 lines, 241 KB, settings check passes. Local `extras/METHOD.md` replaced
-  with it. **Not yet pushed to the private repo** (waiting for the owner's OK).
+  with it. Pushed to the private repo with the owner's OK (commit `db24d5c`); read back: 1,845 lines, no "\r",
+  identical to the rebuilt copy, settings check passes.
 - **Correction:** I said earlier tonight that the results-check v6 write-up still had to be pushed to METHOD.md. It
   had already been pushed at 09:01 IST (private repo commit `200343a`). The token steps I asked the owner to do were
   not needed.

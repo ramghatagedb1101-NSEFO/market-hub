@@ -18,9 +18,8 @@ first) and `CLAUDE.md`.
   (2) the full download of expiry-week option history to the private repo; (3) re-run the rule tests on real option
   prices.
 - METHOD.md line-break bug fixed in `hub/method_check.py` (late night; blank lines had doubled on most edits since
-  27 Oct, file 116,691 lines). Rebuilt file ready (1,845 lines, same text) and in local `extras/METHOD.md`.
-  **Waiting: owner's OK to push it to the private repo.** Until then `--push` refuses the live file's doubled
-  blank lines, so pull, then replace with the rebuilt copy before any METHOD.md edit.
+  27 Oct, file 116,691 lines). Rebuilt file (1,845 lines, same text) pushed to the private repo (`db24d5c`) and
+  checked.
 - Owner wants algorithmic trading on his IBKR paper account later, as its own project. To write up as a plan after
   the ICICI back-test: always-on machine for IB Gateway (Oracle free larger machine, AWS only if Oracle has no
   capacity, cost stated first).
