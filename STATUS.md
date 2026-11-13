@@ -17,6 +17,13 @@ first) and `CLAUDE.md`.
   Next: (1) fix the sign-in landing on "405 Not Allowed" (ICICI posts back; GitHub Pages refuses posts);
   (2) the full download of expiry-week option history to the private repo; (3) re-run the rule tests on real option
   prices.
+- METHOD.md line-break bug fixed in `hub/method_check.py` (late night; blank lines had doubled on most edits since
+  27 Oct, file 116,691 lines). Rebuilt file ready (1,845 lines, same text) and in local `extras/METHOD.md`.
+  **Waiting: owner's OK to push it to the private repo.** Until then `--push` refuses the live file's doubled
+  blank lines, so pull, then replace with the rebuilt copy before any METHOD.md edit.
+- Owner wants algorithmic trading on his IBKR paper account later, as its own project. To write up as a plan after
+  the ICICI back-test: always-on machine for IB Gateway (Oracle free larger machine, AWS only if Oracle has no
+  capacity, cost stated first).
 - Dashboard has the phone's Ideas and F&O (night): F&O section with Option ideas (index, NIFTY 50 stocks); Watchlist
   under Shortlist.
 - To do, Sat 14 Nov 2026 morning, after the overnight library run and the insights rebuild:

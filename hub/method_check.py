@@ -179,9 +179,27 @@ def doc_last_commit_ts() -> int | None:
     return int(datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp())
 
 
+def _lf(text: str) -> str:
+    # 27 Oct - 13 Nov 2026: Windows text-mode writes turned "\r\n" into "\r\r\n", which editors read as two line
+    # breaks, so every pull/edit/push doubled the blank lines (1,819 -> 116,691 lines). METHOD.md is LF only.
+    return text.replace("\r\n", "\n").replace("\r", "")
+
+
+def read_local(path: Path) -> str:
+    return _lf(path.read_bytes().decode("utf-8"))
+
+
+def write_local(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(_lf(text).encode("utf-8"))
+
+
 def push_doc(path: Path, message: str) -> str:
     """Commit a local edited copy to the private repo. Retries once on a sha race (someone else pushed first)."""
-    data = path.read_bytes()
+    text = read_local(path)
+    if "\n\n\n" in text:
+        raise SystemExit(f"{path}: two or more blank lines in a row -- line breaks look doubled; not pushed")
+    data = text.encode("utf-8")
     for attempt in range(2):
         _, sha = fetch_doc()
         r = site_data._request("PUT", f"{API}/contents/{DOC}", headers=site_data._headers(),
@@ -196,8 +214,7 @@ def push_doc(path: Path, message: str) -> str:
 
 def pull_doc(path: Path) -> None:
     text, _ = fetch_doc()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    write_local(path, text)
 
 
 # ---- check 1: settings table ------------------------------------------------------------------------------------
@@ -296,13 +313,13 @@ def main(argv: list[str] | None = None) -> int:
     if doc_path:
         if not doc_path.exists():
             raise SystemExit(f"{doc_path}: not found (use --pull first)")
-        text = doc_path.read_text(encoding="utf-8")
+        text = read_local(doc_path)
     else:
         text, _ = fetch_doc()
 
     problems, new = check_settings(text, write=a.write)
     if a.write and new != text:
-        doc_path.write_text(new, encoding="utf-8")
+        write_local(doc_path, new)
         print(f"{DOC}: settings table synced from the code ({len(problems)} value(s) changed or missing) -- "
               f"now review {doc_path} and push it: python -m hub.method_check --push {doc_path} \"sync settings\"")
         problems = [p for p in problems if "not found" in p or "no rows" in p]

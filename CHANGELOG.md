@@ -4,6 +4,24 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-13
 
+### METHOD.md: blank lines doubling on every edit since 27 Oct 2026 (Fri 13 Nov 2026, late night)
+Found while starting the ICICI back-test work. My own bug, from the 27 Oct rewrite of `hub/method_check.py`.
+- **What happened:** `--pull` saved the file with Windows line endings, so a line break already stored as "\r\n" became
+  "\r\r\n". Editors read that as two line breaks, and the next push saved them. Most edits since then doubled the
+  blank lines: 1,819 lines on 26 Oct, 116,691 lines (473 KB) now. The text itself is intact (1,550 non-blank lines,
+  every change kept). Two more doublings would pass GitHub's 1 MB limit for the read `method_check` uses, and the
+  METHOD.md check would fail on every push.
+- **Fixed in code:** METHOD.md is read and written with "\n" line breaks only; `--push` strips stray "\r" and refuses
+  a file with two blank lines in a row. 4 new tests (27 in all, pass).
+- **Repaired file:** rebuilt by replaying all 15 commits since the last clean version (26 Oct), keeping each line's
+  real spacing. Same text as live, 1,845 lines, 241 KB, settings check passes. Local `extras/METHOD.md` replaced
+  with it. **Not yet pushed to the private repo** (waiting for the owner's OK).
+- **Correction:** I said earlier tonight that the results-check v6 write-up still had to be pushed to METHOD.md. It
+  had already been pushed at 09:01 IST (private repo commit `200343a`). The token steps I asked the owner to do were
+  not needed.
+- Not changed: the "Change history" list at the end of METHOD.md has the three 13 Nov items after the oldest
+  (15 Oct) item, though the list is newest first. Left as is so the repair changes nothing but line breaks.
+
 ### ICICI Direct Breeze: minute-by-minute F&O history for back-tests (Fri 13 Nov 2026, night)
 Owner: ICICI Direct's API is free and gives per-minute F&O data; use it for back-testing. The rule tests so far had
 daily prices only, and Kite gives no history for expired option contracts.

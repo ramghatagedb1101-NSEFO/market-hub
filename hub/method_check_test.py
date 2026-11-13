@@ -124,6 +124,37 @@ def _boom(url):
 mc._api_get = _boom
 R.append(('network error: None, not a crash', mc.doc_last_commit_ts() is None))
 
+# ---- line breaks: pull writes LF only, push strips CR and refuses doubled blank lines (27 Oct - 13 Nov 2026 bug) ---
+_real_fetch_doc, _real_request, _real_headers = mc.fetch_doc, mc.site_data._request, mc.site_data._headers
+mc.site_data._headers = lambda *a: {}
+with tempfile.TemporaryDirectory() as d:
+    p = pathlib.Path(d) / 'm.md'
+    mc.fetch_doc = lambda: ('# A\r\nline\r\n\r\npara\r\n', 'sha0')
+    mc.pull_doc(p)
+    R.append(('pull writes LF only, never CR', p.read_bytes() == b'# A\nline\n\npara\n'))
+    p.write_bytes(b'# A\r\r\nline\r\r\n\r\r\npara\r\r\n')          # the corrupted shape a Windows text write made
+    R.append(('read_local collapses CR CR LF to one line break', mc.read_local(p) == '# A\nline\n\npara\n'))
+    sent = []
+
+    class _Ok:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {'commit': {'sha': 'abcdef123'}}
+
+    mc.site_data._request = lambda method, url, **kw: (sent.append(kw['json']), _Ok())[1]
+    mc.push_doc(p, 'msg')
+    import base64 as _b64
+    R.append(('push sends LF-only bytes', _b64.b64decode(sent[0]['content']) == b'# A\nline\n\npara\n'))
+    p.write_bytes(b'# A\n\n\n\nline\n')
+    try:
+        mc.push_doc(p, 'msg'); refused = False
+    except SystemExit:
+        refused = True
+    R.append(('push refuses a file with doubled blank lines', refused and len(sent) == 1))
+mc.fetch_doc, mc.site_data._request, mc.site_data._headers = _real_fetch_doc, _real_request, _real_headers
+
 # ---- main(): --pull / --push / --write plumbing, fetch_doc/pull_doc/push_doc all monkeypatched -------------------
 calls = []
 mc.pull_doc = lambda path: calls.append(('pull', path))
