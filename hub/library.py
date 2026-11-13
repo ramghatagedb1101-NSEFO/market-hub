@@ -684,6 +684,7 @@ def merge_and_write_multibagger(mb_stocks: list[dict], prior_mb: dict, mb_failur
 
 
 SHP_VERSION = 3   # 3 (26 Oct 2026): re-read every company's filings after the percent-scale fix in shareholding.py
+VAL_VERSION = 2   # 2 (13 Nov 2026): last-four-quarters profit stored beside EPS, for the P/E check; every company re-fetched once
 INDUSTRY_LIST = "https://nsearchives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv"
 
 # The measures the admin dashboard compares between batches for its "What changed" feed: the six
@@ -892,6 +893,8 @@ def needs(c: dict, mb_row: dict | None, today: date) -> list[str]:
             return True
         if stage == "shp" and (s.get("v") or 0) < SHP_VERSION:
             return True
+        if stage == "fin" and (s.get("vv") or 0) < VAL_VERSION:
+            return True
         want, have = s.get("want"), s.get("quarter" if stage == "shp" else "period")
         # A company BharatStock holds no results for gets one try per filed quarter, not three.
         if want and (not have or want > str(have)[:10]) and s.get("tries", 0) < (1 if s.get("empty") else MAX_TRIES):
@@ -986,6 +989,7 @@ def valuation_basis(q: list[dict]) -> dict:
     face, paid_up = latest.get("face_value_per_share"), latest.get("paid_up_equity_capital")
     return {"shares": paid_up / face if face and paid_up else None,
             "ttm_eps": _sum4([x.get("eps") for x in q]),
+            "ttm_profit": _sum4([x.get("net_profit") for x in q]),
             "equity": latest.get("total_equity") or latest.get("equity_attributable_to_owners"),
             "ttm_rev": _sum4([x.get("revenue") for x in q])}
 
@@ -999,6 +1003,16 @@ def valuation_from_basis(vb: dict, price_last: float | None) -> dict:
     out["market_value_bucket"] = market_cap / 1e7   # INR crore
     if vb.get("ttm_eps") and vb["ttm_eps"] > 0:
         out["pe"] = price_last / vb["ttm_eps"]
+    # 13 Nov 2026: the EPS figures must square with the profit. IOB's added up to about Rs 37,700 cr a year against
+    # filed profits of about Rs 1,900 cr a quarter (P/E 1.6 instead of about 8). When EPS x shares is more than 30%
+    # away from the last four quarters' profit, the P/E is market value / that profit instead.
+    tp = vb.get("ttm_profit")
+    if tp is not None:
+        implied = vb["ttm_eps"] * shares if vb.get("ttm_eps") is not None else None
+        if tp <= 0:
+            out.pop("pe", None)
+        elif implied is None or implied <= 0 or not (0.7 <= implied / tp <= 1 / 0.7):
+            out["pe"] = market_cap / tp
     if vb.get("equity"):
         out["pb"] = market_cap / vb["equity"]
     if vb.get("ttm_rev"):
@@ -1049,6 +1063,7 @@ def refresh_company(sym: str, c: dict, stages: list[str], ctx: dict) -> list[str
                 basis.pop("val_cells", None)
                 period = basis["fin"].get("_latest_period")
                 _after_fetch(src.setdefault("fin", {}), period, today)
+                src["fin"]["vv"] = VAL_VERSION
                 src["fin"]["period"] = period
                 src["fin"]["empty"] = not rows
                 try:
