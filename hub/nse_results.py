@@ -34,8 +34,9 @@ EPS = ("BasicEarningsLossPerShareFromContinuingAndDiscontinuedOperations", "Basi
 # How far apart the two sources may be before it counts as a disagreement (percentage points of growth).
 TOL_REV, TOL_PROFIT = 5.0, 10.0
 TOL_MARGIN = 2.0         # net-margin points, for the level check
-VERIFY_VERSION = 5       # 13 Nov 2026: the quarter, not the year to date (re-checks every company once)
-RECHECK_ALL_FROM = 5     # a company last checked below this version is re-checked even if that check said "ok"
+VERIFY_VERSION = 6       # 13 Nov 2026 (2nd): quarters tagged as year to date, figures filed in the wrong scale
+# 5 (13 Nov 2026): the quarter, not the year to date (re-checks every company once)
+RECHECK_ALL_FROM = 6     # a company last checked below this version is re-checked even if that check said "ok"
 # 4 (12 Oct 2026): level check, NSE-only figures, BSE fallback (standalone basis); non-matches re-checked once
 
 
@@ -121,22 +122,59 @@ def facts(url: str) -> dict:
     return out
 
 
+def _months(f: dict):
+    """How many quarters a filing's figures cover (1 for a quarter, 2 for Apr-Sep, 3 for Apr-Dec)."""
+    try:
+        return max(1, round((date.fromisoformat(f["period"]) - date.fromisoformat(f["start"])).days / 91.3))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _size(f: dict):
+    return f.get("revenue") if f.get("revenue") not in (None, 0) else f.get("profit")
+
+
 def quarter_facts(rows: list, quarter, nature: str) -> dict:
-    """One quarter's figures from the filings list. A year-to-date-only filing is turned into its quarter by taking off
-    the previous filing's year to date (same start date): Jul-Sep = Apr-Sep less Apr-Jun. Nothing is guessed: when the
-    previous filing is missing or not comparable, the figures are left out (None)."""
-    pick = _pick(rows, quarter, nature)
-    if not pick:
+    """One quarter's figures from the filings list. Nothing is guessed: figures that cannot be trusted are left out (None)
+    and the BharatStock figures stand.
+    - A year-to-date-only filing is turned into its quarter by taking off the previous filing's year to date (same
+      start date): Jul-Sep = Apr-Sep less Apr-Jun.
+    - 13 Nov 2026 (second pass): some companies tag a plain quarter with year-to-date dates (Ingersoll-Rand, Dhanlaxmi
+      Bank and Oswal Pumps, Jul-Sep 2025: "Apr-Sep" figures barely above Apr-Jun's), so the subtraction left a sliver
+      and growth read +5,904%, +4,572%, +1,871%. A revised filing with a proper quarter is now preferred; failing
+      that, a "year to date" that is not clearly bigger than the previous one is the quarter itself.
+    - 13 Nov 2026: a company can file its figures in the wrong scale (Metro Brands' consolidated Jul-Sep 2025: Rs 6.5
+      cr against Rs 636 cr standalone the same quarter, so growth read +11,115%). A quarter more than 50 times off every
+      neighbouring quarter of the same basis is left out."""
+    same = [r for r in rows if r["quarter"] == quarter and r["nature"] == nature]
+    if not same:
         return {}
-    f = dict(facts(pick["xbrl"]))
-    if not f.get("ytd"):
-        return f
+    cands = [dict(facts(r["xbrl"])) for r in sorted(same, key=lambda r: r["broadcast"], reverse=True)]
+    f = next((c for c in cands if c and not c.get("ytd") and (c.get("revenue") is not None or c.get("profit") is not None)),
+             cands[0])
     prev_q = max((r["quarter"] for r in rows if r["nature"] == nature and 80 <= (quarter - r["quarter"]).days <= 100), default=None)
-    prev = facts(_pick(rows, prev_q, nature)["xbrl"]) if prev_q else {}
-    same_start = bool(prev) and prev.get("start") is not None and prev.get("start") == f.get("start")
-    for k in ("revenue", "profit", "eps"):
-        f[k] = (f[k] - prev[k]) if same_start and f.get(k) is not None and prev.get(k) is not None else None
-    f["derived"] = bool(same_start)
+    prev_pick = _pick(rows, prev_q, nature) if prev_q else None
+    if f.get("ytd"):
+        prev = facts(prev_pick["xbrl"]) if prev_pick else {}
+        same_start = bool(prev) and prev.get("start") is not None and prev.get("start") == f.get("start")
+        n, n0 = _months(f), _months(prev) if prev else None
+        a, b = _size(f), _size(prev) if prev else None
+        if same_start and n and n0 and n > n0 and a and b and b > 0 and a / b < 1 + (n / n0 - 1) / 2:
+            f["relabelled"] = True                    # a quarter tagged with year-to-date dates: use it as it is
+        else:
+            for k in ("revenue", "profit", "eps"):
+                f[k] = (f[k] - prev[k]) if same_start and f.get(k) is not None and prev.get(k) is not None else None
+            f["derived"] = bool(same_start)
+    # scale check: against the same basis's neighbouring quarters (up to two before, one after). Not against the other
+    # basis: a holding company's standalone revenue is a sliver of its group's (Coal India).
+    near = sorted({r["quarter"] for r in rows if r["nature"] == nature and r["quarter"] != quarter
+                   and -100 <= (quarter - r["quarter"]).days <= 190}, key=lambda q: abs((quarter - q).days))[:3]
+    refs = [x for x in (facts(_pick(rows, q, nature)["xbrl"]) for q in near) if x and not x.get("ytd") and (x.get("revenue") or 0) > 0]
+    f_rev = f.get("revenue")
+    if refs and f_rev and f_rev > 0 and all(not 1 / 50 <= f_rev / x["revenue"] <= 50 for x in refs):
+        for k in ("revenue", "profit", "eps"):
+            f[k] = None
+        f["doubtful"] = True
     return f
 
 

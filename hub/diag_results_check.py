@@ -8,7 +8,7 @@ NSE's public filings only (nothing from BharatStock).
 from . import nse_results as nr
 from . import shareholding as shp
 
-SYMS = ["COALINDIA", "COFORGE", "STLTECH", "IOB", "TCS", "RELIANCE", "TITAN", "HATSUN"]
+SYMS = ["METROBRAND", "INGERRAND", "DHANBANK", "OSWALPUMPS", "TI", "COALINDIA", "COFORGE", "HATSUN", "TCS", "RELIANCE", "TITAN", "BAJAJHLDNG", "TATAINVEST", "MTARTECH", "RAILTEL"]
 
 
 def main():
@@ -31,7 +31,7 @@ def main():
         g = nr._growth(f1.get("revenue"), f0.get("revenue"))
         gp = nr._growth(f1.get("profit"), f0.get("profit"))
         cr = lambda v: None if v is None else round(v / 1e7)
-        print(f"{sym} {nature} {latest} (from {f1.get('start')}, ytd={f1.get('ytd')}, derived={f1.get('derived')}): "
+        print(f"{sym} {nature} {latest} (from {f1.get("start")}, ytd={f1.get("ytd")}, derived={f1.get("derived")}, relabelled={f1.get("relabelled")}, doubtful={f1.get("doubtful")}/{f0.get("doubtful")}, ago relabelled={f0.get("relabelled")}): "
               f"revenue {cr(f1.get('revenue'))} cr vs {cr(f0.get('revenue'))} cr a year ago ({ago}) -> "
               f"{None if g is None else round(g, 1)}%; profit {cr(f1.get('profit'))} vs {cr(f0.get('profit'))} -> {None if gp is None else round(gp, 1)}%")
 

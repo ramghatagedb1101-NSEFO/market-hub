@@ -4,27 +4,25 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-13
 
-### Results reader, second pass: mislabelled quarters and wrong-scale filings (Fri 13 Nov 2026, late)
-The 07:00 fix (below) re-checked every company once; three more real faults turned up in that re-check, all in
-`hub/nse_results.py`.
-- **A plain quarter tagged with year-to-date dates.** Ingersoll-Rand, Dhanlaxmi Bank and Oswal Pumps' Jul-Sep 2026
-  filings carry a "from" date six months back even though the figure is a single quarter, not six months of it. Read
-  as year-to-date and reduced by subtracting the previous filing, almost all of the figure was subtracted away:
-  Ingersoll-Rand read as +5,904% growth, Dhanlaxmi Bank +4,572%, Oswal Pumps +1,871%. A filing is now checked against
-  its neighbours before any subtraction: if it is close to the size a single quarter should be, it is used as filed
-  instead. Checked on GitHub against real filings: Ingersoll-Rand now reads +23.5%, Dhanlaxmi Bank +24.0%, Oswal
-  Pumps -6.2%.
-- **A filing in the wrong scale.** Metro Brands' Jul-Sep 2026 consolidated filing reads revenue 730 cr against the
-  group's usual ~636 cr/quarter -- wrong-currency or wrong-units mistakes like this read as +11,115% growth and
-  would have passed every other check. Each quarter's size is now compared against its two nearest same-basis
-  neighbours; more than 50x off every one of them marks the figure doubtful and blanks it rather than show a
-  fabricated number. Checked live: Metro Brands now reads `doubtful`, revenue/profit blank, instead of the false spike.
-- `VERIFY_VERSION` 5 -> 6, so every company is re-checked once more over the next few daily runs (same free-tier
-  BharatStock budget as the 07:00 fix, lowest priority).
-- `METHOD.md` describes these two new rules already (drafted alongside the code); it still needs pushing to the
-  private repo with the owner's token before this lands on `main` -- see STATUS.md.
-- Built on a branch (`fix-scale`), not `main` yet. Live-verified today via `diag.yml` (two real runs, 03:27 and
-  03:29 UTC) against actual NSE filings -- the numbers above are from that run, not a sample.
+### Results reader, second pass: mislabelled quarters and wrong-scale filings (Fri 13 Nov 2026)
+The 07:00 fix (below) re-checked every company once. A scan of the results for impossible figures then found 129
+companies with revenue growth above +150% or below -70%; most are genuine (small bases, acquisitions), but four came
+from two more reading faults in `hub/nse_results.py`, and because the exchange figure wins, they replaced BharatStock's
+correct ones.
+- **A plain quarter tagged with year-to-date dates.** Ingersoll-Rand's and Dhanlaxmi Bank's Jul-Sep 2025 filings (and
+  Oswal Pumps') give a "from" date of 1 Apr although the figures are one quarter. Taking off Apr-Jun left a sliver, so
+  growth read +5,904%, +4,572% and +1,871%. Now a revised filing with a proper quarter is preferred, and a "year to
+  date" that is not clearly bigger than the previous filing's is used as the quarter. Now +23.5%, +24.0%, -6.2%.
+- **A filing in the wrong scale.** Metro Brands' consolidated Jul-Sep 2025 filing says revenue Rs 6.5 cr (standalone the
+  same quarter: Rs 636 cr), so growth read +11,115%. A quarter more than 50 times off every neighbouring quarter of the
+  same basis is now left out; that company's figures fall back to the margin check and BharatStock's growth stands.
+  (Comparing with the other basis was tried first and wrongly flagged Coal India, a holding company whose standalone
+  revenue is a sliver of the group's.)
+- Checked on GitHub (`diag_results_check`) on 15 companies' real filings: the four above fixed; Coal India +46.4%,
+  Coforge +54.8%, Hatsun +21.7%, TCS, Reliance, Titan, Bajaj Holdings, Tata Investment unchanged. Tilaknagar +166% and
+  MTAR +200% are what the filings say (Tilaknagar bought Imperial Blue).
+- `VERIFY_VERSION` and `RECHECK_ALL_FROM` 5 -> 6: every company is re-checked once more. This uses NSE's free filings,
+  not BharatStock. METHOD.md updated first (private repo, 200343a).
 
 ### Audit for sense, not just loading: four faults fixed (Fri 13 Nov 2026, 07:00)
 Owner found two faults earlier audits missed (peers, chart range) and asked what else was missed. A screen-by-screen
