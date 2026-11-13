@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Fri 13 Nov 2026, ~20:00 IST. Read the dated notes below (newest first), then the 14 Oct HANDOVER, `CHANGELOG.md` (newest
+As of Fri 13 Nov 2026, ~22:30 IST. Read the dated notes below (newest first), then the 14 Oct HANDOVER, `CHANGELOG.md` (newest
 first) and `CLAUDE.md`.
 
 ## Fri 13 Nov 2026
@@ -11,11 +11,15 @@ first) and `CLAUDE.md`.
 - Second results-reader fix on `main` (evening): quarters tagged as year to date (Ingersoll-Rand, Dhanlaxmi Bank,
   Oswal Pumps) and a filing in the wrong scale (Metro Brands). Every company re-checked once more from NSE (free).
 - Live audit (evening, Kite logged in): every phone tab and every dashboard page checked on real data, plus stock
-  reports (Coal India, HDFC Bank, Antelopus, Titan). 12 faults fixed (CHANGELOG 13 Nov, evening).
-- To do: confirm after tonight's library run + insights rebuild: insider totals (Coal India -5,549 cr), option-price
-  panel dates, Screens list growth (Antelopus +116%), Dhanlaxmi/Metro Brands growth. Titan's 1Y return aligned (fixed, night).
-- To do:
-  recount companies with implausible figures after the v6 re-check (129 above +150% / below -70% before it, most genuine).
+  reports (Coal India, HDFC Bank, Antelopus, Titan). 13 faults fixed, listed in CHANGELOG (13 Nov, evening).
+- To do, Sat 14 Nov 2026 morning, after the overnight library run and the insights rebuild:
+  - confirm on screen: Coal India insider total -5,549 cr (was -16,647 cr); option-price panel dated Nov expiries;
+    Screens list growth from the filings (Antelopus +116%, InfoBeans +30.1%); Dhanlaxmi Bank and Metro Brands growth
+    no longer in the thousands; 12M returns on the 365-day count.
+  - recount companies with implausible growth after the v6 re-check (129 above +150% / below -70% before it, most
+    genuine: small bases, acquisitions).
+- Left alone: an old unfinished stash in the local clone ("WIP: GIFT rolling WF + job-progress check, based on stale
+  main"), from another session; not merged, not deleted.
 
 ## Thu 12 Nov 2026
 - GitHub keys expired 6 Nov 2026 (6 days of failed jobs). Renewed to Thu 11 Nov 2027; source check now warns 14 days ahead.

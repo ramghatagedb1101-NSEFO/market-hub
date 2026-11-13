@@ -87,6 +87,9 @@ business; the chart's range buttons did nothing before the Kite login). Every au
 - sense-checks the content against reality: peers in the same business, a chart's span matching its button, dates and
   "as of" labels current, figures plausible for that company, every control actually changing what it should;
 - covers every screen of the dashboard and the phone, and says what was covered.
+- tests a fix in BOTH states, before and after the morning Kite login (13 Nov 2026: a chart-range fix tested only before
+  the login broke 1D / 5D / 1M after it), and checks the same figure agrees wherever it is shown (Titan's 1-year return
+  differed between the page header and its Peers table; the Screens list kept figures the company page had corrected).
 
 ## How the owner wants things
 - Analyse like a seasoned analyst, not a yes-man: say when something is wrong, including your own work.

@@ -4,9 +4,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-13
 
-### Live audit with the Kite login, phone first (Fri 13 Nov 2026, evening)
-Owner asked for every screen to show correct data. Checked the phone app signed in (Home, Brief, F&O, Ideas, Desk) on
-real data after the close.
+### Live audit with the Kite login: every screen, phone and dashboard (Fri 13 Nov 2026, evening)
+Owner asked for every screen to show correct data. Checked signed in, Kite logged in, on real data after the close: the
+phone (Home, Brief, F&O, Ideas, Desk, stock reports) and every dashboard page (Today, Shortlist, Screens, Rankings,
+Companies, Sectors, What's new, Calendar, Expiry meter, Positioning, Paper trading, stock reports with every chart range
+and the Peers tab). Stock reports checked against reality: Coal India, HDFC Bank, Antelopus, Titan. 13 faults:
 - **Index option prices dated 27 and 29 Oct.** The weekly expiry-history run failed on Sat 7 Nov (the expired GitHub
   key), so the panel stopped a fortnight back. Re-run by hand; it runs again each Saturday.
 - **Bank Nifty's 23 Nov expiry shown twice, with two different trades.** Bank Nifty has only monthly expiries, so
