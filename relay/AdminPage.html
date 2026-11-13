@@ -1073,7 +1073,7 @@ function pageHeatmap(){
     inner.forEach(c => { const big = c.w > 44 && c.h > 22, vv = HM_BY === 'dd' ? c.dd : c[HM_BY];
       cells += '<div title="' + esc(c.s + ' · ' + (vv == null ? '–' : num(vv, 1) + '%')) + '" onclick="openStock(\'' + esc(c.s) + '\')" style="cursor:pointer;position:absolute;left:' + (c.x / W * 100) + '%;top:' + (c.y / Hh * 100) + '%;width:' + (c.w / W * 100) + '%;height:' + (c.h / Hh * 100) + '%;background:' + heatColor(val(c), range) + ';border:1px solid var(--panel);box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.2;padding:2px 3px;color:#fff">' + (big ? '<b>' + esc(c.s) + '</b><br>' + (vv == null ? '' : num(vv, 1) + '%') : '') + '</div>'; });
   });
-  v.innerHTML = '<div class="toolbar">' + seg2('HM_BY', HM_BY, [['d1', 'Today'], ['m1', '1 month'], ['dd', 'From 52-week high']]) + '<span class="muted" style="margin-left:auto;font-size:12px">' + num(rows.length, 0) + ' NIFTY Total Market companies · size = market cap · ' + esc(fmtTs(I.generated)) + '</span></div>' +
+  v.innerHTML = '<div class="toolbar">' + seg2('HM_BY', HM_BY, [['d1', 'Today'], ['m1', '1 month'], ['dd', 'From 52-week high']]) + '<span class="muted" style="margin-left:auto;font-size:12px">' + num(rows.length, 0) + ' largest companies · size = market cap · ' + esc(fmtTs(I.generated)) + '</span></div>' +
     '<div class="panel"><div style="position:relative;width:100%;aspect-ratio:1000/620">' + cells + '</div></div>' +
     (HM_BY === 'dd' ? '<div class="muted" style="font-size:12px;margin-top:6px">Green: within 20% of the 52-week high; red: further below.</div>' : '');
 }
@@ -1574,7 +1574,7 @@ function pageMultibagger(){
     '<div class="seg">' + [0, 2, 3, 4].map(n => '<button class="' + ((st.f.min || 0) === n ? 'on' : '') + '" onclick="setF(\'mb\',\'min\',' + n + ')">' + (n ? n + '+ gates' : 'All') + '</button>').join('') + '</div>' +
     '<div class="seg"><button class="' + (st.f.turn ? 'on' : '') + '" onclick="setF(\'mb\',\'turn\',' + !st.f.turn + ')">Turnarounds only</button></div>' +
     '<span class="muted" style="margin-left:auto;font-size:12.5px">Updated ' + esc(fmtTs(S.mb.ts)) + (S.mb.partial ? ' · updating' : '') + '</span></div>' +
-    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th>' + th('score', 'Gates', st) + '<th>Turnaround</th>' + th('rev', 'Revenue gr.', st) + th('pg', 'Profit gr.', st) + th('nm', 'Net margin', st) + th('cons', 'Consistency', st) + th('funds', 'Fund schemes', st) + th('mcap', 'Mkt cap', st) + '<th>Promoter</th></tr></thead><tbody>' +
+    '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th>' + th('score', 'Gates', st) + '<th>Turnaround</th>' + th('rev', 'Revenue gr.', st) + th('pg', 'Profit gr.', st) + th('nm', 'Net margin', st) + th('cons', 'Consistency', st) + th('funds', 'Fund schemes', st) + th('mcap', 'Mkt cap', st) + '<th>Promoter trades</th></tr></thead><tbody>' +
     (body || '<tr><td colspan="10" class="empty">No companies match.</td></tr>') + '</tbody></table></div>' + pg.html;
 }
 
@@ -1925,7 +1925,8 @@ function pageStock(sym){
     '<div class="seg">' + [['vol', 'Volume'], ['rsi', 'RSI'], ['macd', 'MACD'], ['none', 'No panel']].map(([k, l]) => segBtn(pxLower === k, l, 'pxLower=\'' + k + '\'')).join('') + '</div></div></div><div class="panel-b">' +
     (DK.loading ? '<div class="lwc"><div class="skel" style="height:100%"></div></div>'
       : DK.error ? '<div class="notice"><b>' + esc(DK.error) + '</b>' + (DK.fix ? '<div><b>What to do:</b> ' + esc(DK.fix) + '</div>' : '') + '</div>'
-      : '<div class="lwc" id="lwc"><div class="lwc-legend" id="lwcLegend"></div></div><div class="lwc-credit">' +
+      : (DK.note && intraday ? '<div class="muted" style="font-size:12px;margin-bottom:6px">Daily closes only: today’s minute-by-minute chart appears after the morning Kite login.</div>' : '') +
+        '<div class="lwc" id="lwc"><div class="lwc-legend" id="lwcLegend"></div></div><div class="lwc-credit">' +
         'Markers: D dividend, S split/bonus, B buyback, R results call · chart: <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView</a></div>') + '</div></div>';
 
   const finErr = (R.errors || {}).financials;
@@ -2080,10 +2081,14 @@ function drawPriceChart(sym, s){
   let all = D.candles;
   const closes = all.map(c => c[4]);
   const ma50 = sma(closes, 50), ma200 = sma(closes, 200);
+  // Cut to the chosen range whatever the source (13 Nov 2026: before the morning Kite login every range came back as
+  // the same long series of daily closes and was drawn whole, so 1D / 5D / 1M looked identical). Daily closes for an
+  // intraday range show the last week.
   let from = 0;
-  if (pxKey(pxRange) === '5Y' && pxRange !== '5Y') {
-    const cut = isoShift(all[all.length - 1][0], pxRange === '6M' ? -183 : pxRange === '1Y' ? -365 : -1096);
-    from = Math.max(0, all.findIndex(c => c[0] >= cut));
+  const span = { '1D': 0, '5D': 7, '1M': 31, '6M': 183, '1Y': 365, '3Y': 1096, '5Y': 1827 }[pxRange];
+  if (span != null) {
+    const cut = isoShift(String(all[all.length - 1][0]).slice(0, 10), -(daily && span < 7 ? 7 : span));
+    from = Math.max(0, all.findIndex(c => String(c[0]) >= cut));
   }
   const c = all.slice(from);
   const text = cssVar('--muted'), grid = cssVar('--line2'), brand = cssVar('--brand'), up = cssVar('--up'), down = cssVar('--down'), warn = cssVar('--warn'), faint = cssVar('--faint');
@@ -2163,7 +2168,8 @@ function drawPriceChart(sym, s){
   if (daily) {
     // Event markers snap to the first trading day on or after the event.
     const times = c.map(x => x[0]);
-    const snap = d => { const t0 = times.find(x => x >= d); return t0 || null; };
+    // an event before the first bar shown is left out (13 Nov 2026: they all piled up on the first bar)
+    const snap = d => { if (!d || String(d) < String(times[0]).slice(0, 10)) return null; const t0 = times.find(x => x >= d); return t0 || null; };
     const marks = [];
     ((s && s.actions) || []).forEach(a => {
       const subj = (a.subject || '').toLowerCase();
@@ -2177,6 +2183,12 @@ function drawPriceChart(sym, s){
     if (marks.length) main.setMarkers(marks);
   }
   chart.timeScale().fitContent();
+  // 13 Nov 2026: drawn while the page was out of view (a background tab), the chart had no width yet, so the fit above
+  // did nothing and every long range showed only the last ~117 bars. Fit again once it has its real width.
+  if (typeof ResizeObserver !== 'undefined') {     // autoSize sizes the chart a moment later, even on a visible page
+    const ro = new ResizeObserver(() => { if (el.clientWidth) requestAnimationFrame(() => { try { chart.timeScale().fitContent(); } catch (e) {} ro.disconnect(); }); });
+    ro.observe(el);
+  }
   const lg = $('lwcLegend');
   const show = x => { if (!lg || !x) return; lg.textContent = pxRel ? '' : (x[1] != null ? 'O ' + num(x[1], 2) + '  H ' + num(x[2], 2) + '  L ' + num(x[3], 2) + '  ' : '') + 'C ' + num(x[4], 2) + (x[5] ? '  Vol ' + num(x[5], 0) : '') + indText(c.indexOf(x)); };
   const indText = i => { const k = from + i;
@@ -2976,7 +2988,7 @@ function pageSectors(){
   const cols = [['n', 'Companies', 0, v => num(v, 0)], ['mcap', 'Total mkt cap', 0, v => crore(v)], ['rev', 'Revenue gr.', 1, v => pct(v)], ['profit', 'Profit gr.', 1, v => pct(v)], ['margin', 'Net margin', 1, v => v == null ? '–' : num(v, 1) + '%'],
                 ['roe', 'ROE', 1, v => v == null ? '–' : num(v, 1) + '%'], ['pe', 'P/E', -1, v => v == null ? '–' : num(v, 1) + '×'], ['r12', '12M return', 1, v => pct(v)], ['composite', 'Composite', 1, v => v == null ? '–' : String(v)], ['comp', 'Compounders', 0, v => v || '–'], ['mb', 'Multibaggers 3+', 0, v => v || '–']];
   const covered = rows.reduce((a, r) => a + r.n, 0);
-  let html = '<div class="page-head"><div><p class="sub">Medians by industry for ' + num(covered, 0) + ' NIFTY Total Market companies. Industries with fewer than 5 companies are faded. Click an industry for its companies.</p></div></div>' +
+  let html = '<div class="page-head"><div><p class="sub">Medians by industry for ' + num(covered, 0) + ' companies. Industries with fewer than 5 companies are faded. Click an industry for its companies.</p></div></div>' +
     '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Median 12-month return by industry</h3></div><div class="panel-b"><div style="position:relative;height:' + Math.max(260, rows.length * 22 + 40) + 'px"><canvas id="cSec"></canvas></div></div></div>' +
     '<div class="tbl-wrap" style="max-height:none;margin-bottom:14px"><table class="t"><thead><tr><th class="l sortable" onclick="secSort(\'ind\')">Industry</th>' + cols.map(([k, l]) => '<th class="sortable" onclick="secSort(\'' + k + '\')">' + l + (SEC.sort === k ? (SEC.dir < 0 ? ' ↓' : ' ↑') : '') + '</th>').join('') + '</tr></thead><tbody>' +
     rows.map(r => '<tr class="click"' + (r.n < SMALL ? ' title="Fewer than ' + SMALL + ' companies: medians are not reliable" style="opacity:.55"' : '') + ' onclick="secPick(\'' + esc(r.ind).replace(/'/g, '\\\'') + '\')"' + (SEC.sel === r.ind ? ' style="outline:2px solid var(--brand);outline-offset:-2px"' : '') + '><td class="l"><b>' + esc(r.ind) + '</b></td>' +
@@ -3000,12 +3012,32 @@ function pageSectors(){
 }
 
 // ---------------- Stock report additions: factor profile and peers ----------------
+// Peers (13 Nov 2026, owner: "peer selection is totally bad"): same business first, then closest in size. BSE's
+// four-level classification (hub/classify.py, S.lib.cls = [industry, group, basic industry]): companies in the same
+// basic industry come first, then the same group, then the same industry; never "any company of the same size".
 function peersOf(sym){
-  const ind = industryOf(sym), me = S.bySym[sym], mc = val(me, 'market_value_bucket');
+  const me = S.bySym[sym], mc = val(me, 'market_value_bucket');
   if (!me || !me.cells || !mc) return { basis: null, list: [] };
-  const pool = S.lib.stocks.filter(s => s.cells && s.symbol !== sym && val(s, 'market_value_bucket') > 0 && (ind ? industryOf(s.symbol) === ind : !industryOf(s.symbol)));
-  pool.sort((a, b) => Math.abs(Math.log(val(a, 'market_value_bucket') / mc)) - Math.abs(Math.log(val(b, 'market_value_bucket') / mc)));
-  return { basis: ind ? 'same industry (' + ind + '), closest in size' : 'closest in size', list: pool.slice(0, 6) };
+  const C = (S.lib && S.lib.cls) || {}, mine = C[sym];
+  const scored = s => s.cells && s.symbol !== sym && val(s, 'market_value_bucket') > 0;
+  const size = s => Math.abs(Math.log(val(s, 'market_value_bucket') / mc));
+  let pool = [], basis = '', depth = () => 0;
+  if (mine) {
+    const lv = [2, 1, 0].filter(l => mine[l]);
+    const pick = lv.find(l => S.lib.stocks.filter(s => scored(s) && C[s.symbol] && C[s.symbol][l] === mine[l]).length >= 3);
+    const l = pick != null ? pick : lv[lv.length - 1];
+    if (l != null) {
+      pool = S.lib.stocks.filter(s => scored(s) && C[s.symbol] && C[s.symbol][l] === mine[l]);
+      basis = mine[lv[0]] === mine[l] || l === 2 ? mine[l] : mine[lv[0]] + ' (widened to ' + mine[l] + ')';
+      depth = s => lv.findIndex(x => C[s.symbol][x] === mine[x]);
+    }
+  }
+  if (!pool.length) {
+    const ind = industryOf(sym);
+    if (ind) { pool = S.lib.stocks.filter(s => scored(s) && industryOf(s.symbol) === ind); basis = ind; }
+  }
+  pool.sort((a, b) => depth(a) - depth(b) || size(a) - size(b));
+  return { basis: pool.length ? basis + ' · same business first, then closest in size' : null, list: pool.slice(0, 6) };
 }
 function factorPanel(sym){
   const f = S.fac && S.fac[sym];
@@ -3019,7 +3051,7 @@ function factorPanel(sym){
 function peersPanel(sym){
   if (!S.lib) return '';
   const p = peersOf(sym);
-  if (!p.list.length) return '';
+  if (!p.list.length) return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Peers</h3></div><div class="panel-b muted">No other listed company in the same business.</div></div>';
   const rows = [S.bySym[sym], ...p.list];
   const cols = [['market_value_bucket', 'Mkt cap'], ['pe', 'P/E'], ['rev_yoy', 'Revenue gr.'], ['profit_yoy', 'Profit gr.'], ['net_margin', 'Net margin'], ['roe', 'ROE'], ['ret_12m', '12M']];
   const best = {}; cols.forEach(([k]) => { const d = dirOf(k); const xs = rows.map(s => val(s, k)).filter(x => x != null && (k !== 'pe' || x > 0)); if (xs.length > 1 && k !== 'market_value_bucket') best[k] = d < 0 ? Math.min(...xs) : Math.max(...xs); });

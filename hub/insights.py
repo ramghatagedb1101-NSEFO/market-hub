@@ -10,7 +10,7 @@ the morning library run (library.yml step) into ONE file, docs/data/insights.jso
   insider     promoter / director market buys and sells over 180 days, per followed company   BSE insider file (PIT)
   positions   FII, DII, Pro and Client index futures and options positions, last 60 days  NSE participant-wise OI
   spikes      volume 3x its 20-day average with high delivery                             NSE daily price file
-  heatmap     NIFTY Total Market stocks: industry, size, day / 1-month / from 52-week high   library + price file
+  heatmap     750 largest companies: industry, size, day / 1-month / from 52-week high   library + price file
   grades      A+ to F per factor within the company's industry                            library (same factors as the dashboard)
   valuation   P/E against its industry's quartiles and its own stored history             library
   superstars  registry investors' holdings by investor                                    library's filing matches
@@ -391,6 +391,9 @@ def valuation(stocks: list, industries: dict, today: date, hist: dict) -> tuple[
     return out, new_hist
 
 
+HEATMAP_N = 750
+
+
 def heatmap(stocks: list, industries: dict, prices: dict) -> list:
     out = []
     for s in stocks:
@@ -402,7 +405,9 @@ def heatmap(stocks: list, industries: dict, prices: dict) -> list:
         ser = (prices.get(sym) or ([], [], []))[0]
         d1 = round((ser[-1][1] / ser[-2][1] - 1) * 100, 2) if len(ser) >= 2 and ser[-2][1] else None
         out.append({"s": sym, "i": ind, "m": round(mcap), "d1": d1, "m1": _val(s, "ret_1m"), "dd": _val(s, "from_52w_high")})
-    return out
+    # 13 Nov 2026: every company now has an industry (BSE's classification); the map stays the 750 largest, the size of
+    # the NIFTY Total Market it was drawn from before, so the tiles stay readable.
+    return sorted(out, key=lambda x: -x["m"])[:HEATMAP_N]
 
 
 def spikes(prices: dict, universe: set) -> list:

@@ -25,6 +25,9 @@ audit on today's real data, checking content against reality, found two more, wo
 - **Chart range buttons did nothing before the Kite login** (dashboard; phone 1M showed a year). The fallback daily
   series is now cut to the chosen range, with a line saying minute charts appear after the login.
 - Also: multibagger list column "Promoter" renamed "Promoter trades" (it shows buying/selling, not the stake).
+- Chart: fitted again once it has its real width (drawn in a background tab it showed only the last ~117 bars on every
+  long range); dividend/results markers before the first bar shown are left out (they piled up on the first bar).
+- Heatmap kept to the 750 largest companies now that every company has an industry; Sectors says "N companies".
 - Checked and genuine (not faults): EPL promoter 26% to 0% (promoter sold out; funds' share rose 28% to 48%), Sterlite
   Tech profit +12,825% (from a Rs 4 cr base), Netweb revenue x4.
 - `CLAUDE.md`: audits now test fallback states and sense-check content.
