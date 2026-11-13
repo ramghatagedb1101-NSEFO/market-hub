@@ -6,6 +6,9 @@ name: breeze
 # Secrets: BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY, RELAY_URL, RELAY_KEY, PRIVATE_REPO_TOKEN.
 # Public log: counts and dates only, never prices or keys.
 on:
+  schedule:                          # the history download runs itself after the day's ICICI sign-in (owner, 13 Nov 2026)
+    - cron: "30 10 * * *"            # 16:00 IST
+    - cron: "30 15 * * *"            # 21:00 IST
   workflow_dispatch:
     inputs:
       module:
@@ -35,6 +38,7 @@ jobs:
           python-version: "3.12"
       - run: pip install "requests[socks]>=2.31"
       - name: Today's ICICI sign-in from the relay
+        id: session
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
@@ -45,6 +49,11 @@ jobs:
             [ -n "$S" ] && break
             sleep $((attempt * 5))
           done
+          if [ -z "$S" ] && [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "::notice title=ICICI sign-in::No ICICI sign-in today; skipped until the next scheduled run."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -z "$S" ]; then
             echo "::error title=ICICI sign-in::No ICICI sign-in today. Open the ICICI login link, sign in, and run this again."
             printf '%s' "$R" | python -c 'import sys,json; d=json.load(sys.stdin); print({k: d.get(k) for k in ("error","day","today")})' 2>/dev/null || true
@@ -53,6 +62,7 @@ jobs:
           echo "::add-mask::$S"
           echo "BREEZE_SESSION=$S" >> "$GITHUB_ENV"
       - name: Tunnel to the fixed address (Oracle server)
+        if: steps.session.outputs.skip != 'true'
         env:
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
         run: |
@@ -65,9 +75,10 @@ jobs:
           echo "Requests leave from: $IP"
           [ "$IP" = "130.210.31.37" ] || { echo "::error title=Tunnel::requests do not leave from the fixed address"; exit 1; }
           echo "BREEZE_PROXY=socks5h://127.0.0.1:1080" >> "$GITHUB_ENV"
-      - run: python -u -m "hub.${{ inputs.module }}"
+      - run: python -u -m "hub.${{ inputs.module || 'breeze_history' }}"
+        if: steps.session.outputs.skip != 'true'
         env:
           BREEZE_API_KEY: ${{ secrets.BREEZE_API_KEY }}
           BREEZE_API_SECRET: ${{ secrets.BREEZE_API_SECRET }}
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          BUDGET: ${{ inputs.budget }}
+          BUDGET: ${{ inputs.budget || '4000' }}

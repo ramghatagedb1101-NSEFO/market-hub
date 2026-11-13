@@ -30,6 +30,9 @@ closing prices, and the review notes that closes of far strikes can be stale.
   day each option's last trade is a median Rs 0.10 from its value at the index close (the largest gaps are deep
   in-the-money puts that last traded hours earlier). The at-the-money straddle at 15:25 the day before cost Rs 335.20
   on ICICI against Rs 345.00 at the exchange close: the entry-price gap the comparison is built to measure.
+- **Runs by itself** (owner approved): `breeze.yml` is scheduled at 16:00 and 21:00 IST and downloads the next 4,000
+  requests' worth; the owner's only step is the day's ICICI sign-in. Without one, the scheduled run skips with a
+  notice (green), not an error. Started by hand, it still fails loudly without a sign-in.
 
 ### Oracle Arm machine for IBKR paper trading: automatic retry (Fri 13 Nov 2026, late night)
 - Owner chose IBKR India, NSE index options first, on Oracle's free Arm machine (Ubuntu 24.04). Create failed with

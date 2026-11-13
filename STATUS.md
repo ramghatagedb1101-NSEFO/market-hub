@@ -22,8 +22,8 @@ first) and `CLAUDE.md`.
   checked.
 - ICICI download (`hub/breeze_history.py`: whole day before + expiry day, every stored strike, 409 expiries): working,
   2 expiries saved (12 Nov SENSEX, 9 Nov NIFTY), sense-checked. ~53,000 requests in all, ~14 runs of 4,000. Each run
-  needs that day's ICICI sign-in: `gh workflow run breeze.yml -f module=breeze_history`. Asked the owner whether to
-  schedule it twice a day (skips quietly without a sign-in). Then `diag.yml -f module=rule_real_fill`.
+  needs that day's ICICI sign-in. `breeze.yml` now runs it by itself at 16:00 and 21:00 IST (owner approved); without
+  a sign-in that day it skips quietly. Once `_done.json` covers all 409: `diag.yml -f module=rule_real_fill`.
   `market-hub-ip` restarted and its `dnf-makecache.timer` disabled after it froze.
 - IBKR paper trading (owner, 13 Nov night): IBKR India account, NSE index options first, on an Oracle free Arm
   machine (`market-hub-trader`, Ubuntu 24.04, 4 cores / 24 GB) running the `gnzsnz/ib-gateway` Docker image (arm64,
