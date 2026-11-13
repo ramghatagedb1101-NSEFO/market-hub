@@ -21,6 +21,13 @@ daily prices only, and Kite gives no history for expired option contracts.
   official SDK (customerdetails, historicalcharts v2). `hub/diag_breeze.py` is the first check: spot, current and
   three-year-old options, Bank Nifty, Sensex, 1-second futures. Logs show counts and dates, never prices.
 - Secrets added by the owner: BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY.
+- **First check passed (22:55 IST).** Requests left from 130.210.31.37; ICICI accepted the sign-in; one-minute candles
+  (open, high, low, close, volume, open interest) came back for NIFTY spot, a NIFTY option expiring 17 Nov 2026, a NIFTY
+  option that expired **28 Dec 2023** (so expired contracts about three years back are there), a Bank Nifty option and
+  a Sensex option. ICICI reads the times in a request as Indian clock time even when they end in "Z".
+- **Open: the daily sign-in lands on "405 Not Allowed".** ICICI sends the browser back with a form post, which GitHub
+  Pages refuses; the session value is in the address, so loading the same address again works (done by hand tonight).
+  Needs a permanent fix before routine use.
 
 ### Dashboard: Ideas and F&O as on the phone (Fri 13 Nov 2026, night)
 Owner: "I need the Ideas and F&O tab on the dashboard." The phone's F&O suggestions were not on the dashboard at all.

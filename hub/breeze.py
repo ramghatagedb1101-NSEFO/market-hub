@@ -49,7 +49,9 @@ class Breeze:
         self.calls = 0
 
     def history(self, stock_code, exch, interval, start, end, product=None, expiry=None, right=None, strike=None):
-        """Candles between start and end (ISO 'YYYY-MM-DDTHH:MM:SS.000Z'). Returns ICICI's rows (list of dicts)."""
+        """Candles between start and end, written 'YYYY-MM-DDTHH:MM:SS.000Z' but read by ICICI as INDIAN clock time
+        despite the Z (first check, 13 Nov 2026: 03:45Z-10:00Z returned 09:15-10:00 IST candles). Returns ICICI's rows:
+        datetime (IST), open, high, low, close, volume, and open_interest for F&O."""
         params = {"interval": interval, "from_date": start, "to_date": end, "stock_code": stock_code, "exch_code": exch}
         if product:
             params["product_type"] = product
