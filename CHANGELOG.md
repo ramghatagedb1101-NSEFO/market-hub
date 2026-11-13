@@ -18,8 +18,8 @@ post (checked live: HTTP 405), so the owner had to reload the page by hand.
   value picked up and address cleaned. The test value ("TEST-live-405") is refused by the relay's format check, so the
   real ICICI session was never overwritten; the test value was then cleared from that tab.
 - Limit: works in any browser that has opened the app once (the phone has; the ICICI button is in the app). A browser
-  that never opened the app still sees the 405, and a reload still works there. First real check: the next ICICI
-  sign-in (the phone picks up v61 the next time the app is opened).
+  that never opened the app still sees the 405, and a reload still works there.
+- **Confirmed on the owner's phone, Sat 14 Nov 2026:** "connected without 405"; the day's download started at once.
 
 ### ICICI download for the expiry rule tests (Fri 13 Nov 2026, late night)
 Owner: "go ahead with the ICICI download". The expiry rule tests price the evening-before entry at the exchange's
