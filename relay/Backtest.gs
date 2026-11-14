@@ -12,7 +12,9 @@ const BT_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];   // the same f
 function adminGeminiKeySave(token, key) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
   const k = String(key || '').trim();
-  if (!/^[A-Za-z0-9_\-]{20,100}$/.test(k)) return { error: 'That does not look like a Gemini key.' };
+  // 14 Nov 2026: newer Google keys are not only the old "AIza..." 39 characters (one with a dot was refused); accept any
+  // single word of key characters, and let Google itself judge it on the first sentence.
+  if (/\s/.test(k) || !/^[A-Za-z0-9_\-.~+\/=]{20,300}$/.test(k)) return { error: 'That does not look like a Gemini key: copy it again with the copy icon in AI Studio.' };
   PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', k);
   return { ok: true };
 }
