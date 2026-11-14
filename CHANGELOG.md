@@ -4,6 +4,24 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Chart buy / sell labels; colours without pink; lower-panel fix (Sat 14 Nov 2026)
+Owner: "put a label of buy or sell based on chart type and indicator. for example in super trend when it changes the
+direction. also use different color. pink is confusing with red bars on the chart"; "line is green when its buy signal".
+- Each indicator that gives signals has a "B/S" switch on its pill (on by default for Supertrend). When on: buy /
+  sell labels where its rule fires ("Buy" / "Sell"; "B·ST", "S·EMA 20" when several are on, so they do not pile up),
+  and one-line indicators drawn green while the rule says buy, red while it says sell. Rules: Supertrend flips;
+  price crosses SMA / EMA; close back inside a Bollinger band; Donchian breakout; RSI up through 30 / down through 70;
+  MACD crosses its signal; Stochastic %K crosses %D below 20 / above 80; +DI crosses -DI while ADX is 20 or more.
+  Supertrend's line is always green / red; ADX's +DI / -DI and MACD's histogram use the same green / red.
+- Fixed line colours: four validated colours with no pink and none near the candles' red / green (light blue, amber,
+  violet, cyan; dark the same steps for the dark surface); saved set-ups are moved onto them. Back-test trades are
+  blue circles, apart from the buy / sell arrows.
+- Bug fixed (found while checking): a lower panel (RSI, MACD, ADX...) drew over the candles, because its position was
+  set before its lines existed and the chart library ignored it. Same fault in the stock page's MACD panel; both fixed.
+- Checked in the preview: daily NIFTY with Supertrend (green / red, labels at each flip) and DMA 200 in violet; 5-minute
+  6 Nov 2026 with Supertrend, EMA 20 (B/S) and ADX (B/S); ADX and the stock page's MACD in their own panels under
+  the candles; no console errors.
+
 ### ADX (Sat 14 Nov 2026)
 Owner: "add ADX indicator".
 - Chart: "ADX (+DI / -DI)" in the lower-panel list (period adjustable, default 14; dashed line at 25).

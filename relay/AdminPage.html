@@ -1924,8 +1924,9 @@ const STC_CAT = {
 const STC_SOON = ['VWAP (needs futures volume)'];
 const STC = (() => {
   const base = { view: 'daily', day: null, strat: true, trades: true,
-    ind: { daily: [{ t: 'sma', n: 20, c: 0 }, { t: 'sma', n: 50, c: 1 }, { t: 'sma', n: 200, c: 3 }], intra: [{ t: 'pdh', c: 0 }] } };
+    ind: { daily: [{ t: 'sma', n: 20, c: 0 }, { t: 'sma', n: 50, c: 1 }, { t: 'sma', n: 200, c: 2 }], intra: [{ t: 'pdh', c: 0 }] } };
   try { const s = JSON.parse(localStorage.getItem('mh_stc_v1') || 'null'); if (s && s.ind) base.ind = s.ind; } catch (e) {}
+  ['daily', 'intra'].forEach(k => (base.ind[k] || []).forEach(it => { if (it.c > 3) it.c = it.c % 4; }));   // 5 colours -> 4
   return base;
 })();
 const STD = { daily: {}, month: {}, bt: {} };
@@ -1933,7 +1934,15 @@ function stcSave(){ try { localStorage.setItem('mh_stc_v1', JSON.stringify({ ind
 function stcPal(){
   const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
     (document.documentElement.getAttribute('data-theme') !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-  return dark ? ['#3987e5', '#c98500', '#d55181', '#9085e9', '#199e70'] : ['#2a78d6', '#eda100', '#e87ba4', '#6250d6', '#1baf7a'];
+  // owner, 14 Nov 2026: "pink is confusing with red bars": four validated colours, none near the candles' red / green
+  return dark ? ['#3987e5', '#c98500', '#9478ee', '#1495b3'] : ['#2a78d6', '#eda100', '#6250d6', '#0e9fbf'];
+}
+// Buy / sell colours for signal-coloured lines and labels (owner: "line is green when its buy signal, [red when sell]"):
+// the validated profit / loss pair of the profit charts
+function stcBS(){
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (document.documentElement.getAttribute('data-theme') !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  return dark ? { buy: '#1f9a8e', sell: '#e06a36' } : { buy: '#067647', sell: '#c4320a' };
 }
 const stcKind = () => STC.view === 'daily' ? 'daily' : 'intra';
 function stcSet(k, v){ STC[k] = v; rerender(); }
@@ -1942,14 +1951,16 @@ function stcAdd(t){
   if (!def) return;
   if (def.low) { for (let i = L.length - 1; i >= 0; i--) if (STC_CAT[L[i].t].low) L.splice(i, 1); }   // one lower panel
   else {
-    const used = new Set(L.filter(x => !STC_CAT[x.t].low).map(x => x.c));
-    if (used.size >= 5) { ST_MSG = 'At most five lines on the price: remove one first.'; rerender(); return; }
-    var c = [0, 1, 2, 3, 4].find(i => !used.has(i));
+    const used = new Set(L.filter(x => !STC_CAT[x.t].low && x.c >= 0).map(x => x.c));
+    if (t !== 'st' && used.size >= 4) { ST_MSG = 'At most four coloured lines on the price: remove one first.'; rerender(); return; }
+    var c = t === 'st' ? -1 : [0, 1, 2, 3].find(i => !used.has(i));
   }
-  const it = { t, c: def.low ? 3 : c };
+  const it = { t, c: def.low ? 2 : c, sig: t === 'st' };
   Object.keys(def.p).forEach(k => { it[k] = def.p[k][0]; });
   L.push(it); stcSave(); rerender();
 }
+const STC_SIGS = { sma: 'MA', ema: 'EMA', bb: 'BB', st: 'ST', dc: 'DC', rsi: 'RSI', macd: 'MACD', sto: 'STO', adx: 'ADX' };
+function stcSig(i){ const it = STC.ind[stcKind()][i]; it.sig = !it.sig; stcSave(); rerender(); }
 function stcDel(i){ STC.ind[stcKind()].splice(i, 1); stcSave(); rerender(); }
 function stcPar(i, k, v){ const n = Number(v); if (!isFinite(n) || n <= 0) return; STC.ind[stcKind()][i][k] = n; stcSave(); rerender(); }
 function stcLoad(idx, month){
@@ -1986,10 +1997,11 @@ function stcPanel(E){
   ctl += '</div>';
   // the indicators added: a pill each (colour, name, its settings, remove)
   const pills = L.map((it, i) => {
-    const def = STC_CAT[it.t], col = def.low ? P[3] : P[it.c];
+    const def = STC_CAT[it.t], BS = stcBS(), col = def.low ? P[2] : it.t === 'st' ? 'linear-gradient(to right,' + BS.buy + ' 50%,' + BS.sell + ' 50%)' : P[it.c];
     const pars = Object.keys(def.p).map(k => '<input class="field num" title="' + def.p[k][1] + '" aria-label="' + def.p[k][1] + '" style="width:46px;height:24px;padding:0 4px" value="' + it[k] + '" onchange="stcPar(' + i + ', \'' + k + '\', this.value)">').join('');
     return '<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:2px 4px 2px 10px;font-size:12px;background:var(--surface)">' +
       '<span style="width:12px;height:3px;border-radius:2px;background:' + col + '"></span>' + esc(it.t === 'sma' ? (kind === 'daily' ? 'DMA' : 'SMA') : def.l) + (def.low ? ' <span class="faint">(lower panel)</span>' : '') + pars +
+      (STC_SIGS[it.t] ? '<button type="button" title="Buy / sell labels on the chart' + (it.t === 'st' ? '' : ' (and the line green / red)') + '" onclick="stcSig(' + i + ')" style="border:1px solid ' + (it.sig ? 'var(--accent)' : 'var(--border)') + ';background:' + (it.sig ? 'var(--accent-soft)' : 'none') + ';color:' + (it.sig ? 'var(--accent-text)' : 'var(--text-3)') + ';border-radius:999px;font-size:11px;font-weight:600;padding:1px 7px;cursor:pointer">' + (it.sig ? '✓ ' : '') + 'B/S</button>' : '') +
       '<button type="button" title="Remove" aria-label="Remove ' + esc(def.l) + '" onclick="stcDel(' + i + ')" style="border:0;background:none;cursor:pointer;color:var(--text-3);font-size:14px;padding:0 4px">×</button></span>';
   }).join('');
   const groups = {};
@@ -2021,7 +2033,7 @@ function stcAtr(bars, n){
   return out;
 }
 function stcSupertrend(bars, n, k){
-  const atr = stcAtr(bars, n), line = new Array(bars.length).fill(null);
+  const atr = stcAtr(bars, n), line = new Array(bars.length).fill(null), dirs = new Array(bars.length).fill(null);
   let fu = null, fl = null, up = true;
   bars.forEach((b, i) => {
     if (atr[i] == null) return;
@@ -2029,8 +2041,9 @@ function stcSupertrend(bars, n, k){
     fu = fu == null || bu < fu || pc > fu ? bu : fu;
     fl = fl == null || bl > fl || pc < fl ? bl : fl;
     if (up && b.close < fl) up = false; else if (!up && b.close > fu) up = true;
-    line[i] = up ? fl : fu;
+    line[i] = up ? fl : fu; dirs[i] = up;
   });
+  line.up = dirs;
   return line;
 }
 // Wilder's ADX with +DI / -DI (owner, 14 Nov 2026: "add ADX indicator"); the same sums as trader/indicators.py adx()
@@ -2103,15 +2116,38 @@ function stcDraw(){
   const name = it => { const def = STC_CAT[it.t]; return (it.t === 'sma' ? (daily ? 'DMA' : 'SMA') : def.l.replace(' (classic)', '')) + (Object.keys(def.p).length ? ' ' + Object.keys(def.p).map(k => it[k]).join(', ') : ''); };
   // a level per bar, from the previous week / month (daily view: steps)
   const stepLevels = (kind2, pick) => bars.map(b => { const pp = stcPrevPeriod(D.days, b.time, kind2); return pp ? pick(pp) : null; });
+  // Buy / sell (owner, 14 Nov 2026: "put a label of buy or sell based on chart type and indicator. for example in
+  // super trend when it changes the direction"; "line is green when its buy signal"). Per indicator, when its B/S
+  // switch is on: labels where its rule fires, and (one-line indicators) the line green while the rule says buy, red
+  // while it says sell. Rules: Supertrend flips; price crosses SMA / EMA; close back inside a Bollinger band; Donchian
+  // breakout; RSI up through 30 / down through 70; MACD crosses its signal; Stochastic %K crosses %D below 20 / above
+  // 80; +DI crosses -DI while ADX is 20 or more.
+  const BS = stcBS(), mk = [];
+  // one indicator with labels: "Buy" / "Sell"; several: short "B·ST" / "S·EMA 20" so they do not pile up
+  const many = L.filter(x => x.sig && STC_SIGS[x.t]).length > 1;
+  const mark = (i, buy, code) => { if (i > 0 && i < bars.length && (!daily ? i >= (bars.warmN || 0) : true)) mk.push({ time: bars[i].time, position: buy ? 'belowBar' : 'aboveBar', color: buy ? BS.buy : BS.sell, shape: buy ? 'arrowUp' : 'arrowDown', text: many ? (buy ? 'B·' : 'S·') + code : (buy ? 'Buy' : 'Sell') }); };
+  const crosses = (a, b, code, cond) => { for (let i = 1; i < bars.length; i++) { if ([a[i], a[i - 1], b[i], b[i - 1]].some(v => v == null)) continue;
+    if (a[i - 1] <= b[i - 1] && a[i] > b[i] && (!cond || cond(i, true))) mark(i, true, code);
+    else if (a[i - 1] >= b[i - 1] && a[i] < b[i] && (!cond || cond(i, false))) mark(i, false, code); } };
+  const stateLine = (vals, state, title) => {                // a line in buy / sell colour, point by point
+    const pts = bars.map((b, i) => vals[i] == null || !isFinite(vals[i]) ? null : { time: b.time, value: vals[i], color: state(i) ? BS.buy : BS.sell }).filter(Boolean);
+    if (pts.length) chart.addLineSeries({ color: BS.buy, lineWidth: 2, title, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }).setData(pts);
+  };
   L.forEach(it => {
     const def = STC_CAT[it.t];
     if (def.low) return;
-    const col = P[it.c], nm = name(it);
-    if (it.t === 'sma') line(sma(closes, it.n), col, (daily ? 'DMA ' : 'SMA ') + it.n);
-    else if (it.t === 'ema') line(ema(closes, it.n), col, 'EMA ' + it.n);
-    else if (it.t === 'bb') { const b = bollinger(closes, it.n, it.k); line(b.up, col, 'BB upper', { lineWidth: 1 }); line(b.mid, col, 'BB ' + it.n + ', ' + it.k, { lineWidth: 1, lineStyle: 2 }); line(b.lo, col, 'BB lower', { lineWidth: 1 }); }
-    else if (it.t === 'st') line(stcSupertrend(bars, it.n, it.k), col, 'Supertrend ' + it.n + ', ' + it.k);
-    else if (it.t === 'dc') { const hi = [], lo = []; bars.forEach((b, i) => { if (i < it.n - 1) { hi.push(null); lo.push(null); return; } const w = bars.slice(i - it.n + 1, i + 1); hi.push(Math.max(...w.map(x => x.high))); lo.push(Math.min(...w.map(x => x.low))); }); line(hi, col, 'Donchian high ' + it.n, { lineWidth: 1 }); line(lo, col, 'Donchian low ' + it.n, { lineWidth: 1 }); }
+    const col = P[it.c] || P[0], nm = name(it), code = STC_SIGS[it.t] + (it.n && it.t !== 'st' ? ' ' + it.n : '');
+    if (it.t === 'sma' || it.t === 'ema') {
+      const m = (it.t === 'sma' ? sma : ema)(closes, it.n), title = (it.t === 'ema' ? 'EMA ' : daily ? 'DMA ' : 'SMA ') + it.n;
+      if (it.sig) { stateLine(m, i => closes[i] >= m[i], title); crosses(closes, m, code); } else line(m, col, title);
+    }
+    else if (it.t === 'bb') { const b = bollinger(closes, it.n, it.k); line(b.up, col, 'BB upper', { lineWidth: 1 }); line(b.mid, col, 'BB ' + it.n + ', ' + it.k, { lineWidth: 1, lineStyle: 2 }); line(b.lo, col, 'BB lower', { lineWidth: 1 });
+      if (it.sig) for (let i = 1; i < bars.length; i++) { if (b.lo[i - 1] != null && closes[i - 1] < b.lo[i - 1] && closes[i] >= b.lo[i]) mark(i, true, 'BB'); else if (b.up[i - 1] != null && closes[i - 1] > b.up[i - 1] && closes[i] <= b.up[i]) mark(i, false, 'BB'); } }
+    else if (it.t === 'st') { const st = stcSupertrend(bars, it.n, it.k);
+      stateLine(st, i => st.up[i], 'Supertrend ' + it.n + ', ' + it.k);
+      if (it.sig) for (let i = 1; i < bars.length; i++) if (st.up[i] != null && st.up[i - 1] != null && st.up[i] !== st.up[i - 1]) mark(i, st.up[i], 'ST'); }
+    else if (it.t === 'dc') { const hi = [], lo = []; bars.forEach((b, i) => { if (i < it.n - 1) { hi.push(null); lo.push(null); return; } const w = bars.slice(i - it.n + 1, i + 1); hi.push(Math.max(...w.map(x => x.high))); lo.push(Math.min(...w.map(x => x.low))); }); line(hi, col, 'Donchian high ' + it.n, { lineWidth: 1 }); line(lo, col, 'Donchian low ' + it.n, { lineWidth: 1 });
+      if (it.sig) for (let i = 1; i < bars.length; i++) { if (hi[i - 1] != null && closes[i] > hi[i - 1]) mark(i, true, 'DC'); else if (lo[i - 1] != null && closes[i] < lo[i - 1]) mark(i, false, 'DC'); } }
     else if (it.t === 'piv') {
       if (daily) { const pv = stepLevels('week', pp => stcPivots(pp.h, pp.l, pp.c)); ['R2', 'R1', 'P', 'S1', 'S2'].forEach(k => line(pv.map(x => x && x[k]), col, 'Weekly ' + k, { lineWidth: 1, lineStyle: k === 'P' ? 0 : 2, lineType: 1 })); }
       else if (prevDay) { const pv = stcPivots(prevDay[2], prevDay[3], prevDay[4]); ['R3', 'R2', 'R1', 'P', 'S1', 'S2', 'S3'].forEach(k => level(pv[k], col, k)); }
@@ -2123,7 +2159,7 @@ function stcDraw(){
       else { const pp = stcPrevPeriod(D.days, day, k2); if (pp) { level(pp.h, col, w + ' high'); level(pp.l, col, w + ' low'); } }
     }
     else if (it.t === 'orb' && today.length) { const r = orb(it.n); if (r) { level(r[0], col, 'Opening ' + it.n + ' min high'); level(r[1], col, 'Opening ' + it.n + ' min low'); } }
-    legend.push([col, nm]);
+    legend.push([it.t === 'st' || ((it.t === 'sma' || it.t === 'ema') && it.sig) ? BS.buy : col, nm + (it.sig ? ' · buy / sell shown' : '')]);
   });
   if (!daily) {
     if (STC.strat) {
@@ -2144,32 +2180,37 @@ function stcDraw(){
     const bt = E.id && STD.bt[E.id];
     if (STC.trades && bt && bt.summary && t0 != null) {
       const toT = s => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], Math.floor(+m[5] / STC.view) * STC.view) / 1000 : null; };
-      const mk = [];
+      let n0 = 0;
       (bt.summary.trades || []).filter(t => String(t.entry_t).slice(0, 10) === day || String(t.exit_t).slice(0, 10) === day).forEach(t => {
         const a = toT(t.entry_t), z = toT(t.exit_t);
-        if (String(t.entry_t).slice(0, 10) === day && a) mk.push({ time: a, position: 'belowBar', color: P[0], shape: 'arrowUp', text: (t.dir === 'long' ? 'Buy ' : 'Sell ') + num(t.entry, 2) });
-        if (String(t.exit_t).slice(0, 10) === day && z) mk.push({ time: z, position: 'aboveBar', color: t.pnl >= 0 ? up : down, shape: 'arrowDown', text: t.why + ' ' + (t.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(t.pnl), 0) });
+        if (String(t.entry_t).slice(0, 10) === day && a) { mk.push({ time: a, position: 'belowBar', color: P[0], shape: 'circle', text: 'Back-test ' + (t.dir === 'long' ? 'buy ' : 'sell ') + num(t.entry, 2) }); n0++; }
+        if (String(t.exit_t).slice(0, 10) === day && z) mk.push({ time: z, position: 'aboveBar', color: P[0], shape: 'circle', text: t.why + ' ' + (t.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(t.pnl), 0) });
       });
-      if (mk.length) { main.setMarkers(mk.sort((x, y) => x.time - y.time)); legend.push([P[0], 'Back-test trades that day']); }
+      if (n0) legend.push([P[0], 'Back-test trades that day (circles)']);
     }
   }
   if (lowItem) {
-    chart.priceScale('ind').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
-    const it = lowItem, cA = P[3], cB = P[1];
+    const it = lowItem, cA = P[2], cB = P[1];
     const low = (vals, color, title) => { const s = chart.addLineSeries({ priceScaleId: 'ind', color, lineWidth: 1.5, title, priceLineVisible: false, lastValueVisible: true }); s.setData(bars.map((b, i) => ({ time: b.time, value: vals[i] })).filter(p => p.value != null && isFinite(p.value))); return s; };
-    if (it.t === 'rsi') { const s = low(rsi(closes, it.n), cA, 'RSI ' + it.n); [70, 30].forEach(v => s.createPriceLine({ price: v, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: String(v) })); }
+    if (it.t === 'rsi') { const r = rsi(closes, it.n), s = low(r, cA, 'RSI ' + it.n); [70, 30].forEach(v => s.createPriceLine({ price: v, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: String(v) }));
+      if (it.sig) for (let i = 1; i < bars.length; i++) { if (r[i - 1] != null && r[i - 1] < 30 && r[i] >= 30) mark(i, true, 'RSI'); else if (r[i - 1] != null && r[i - 1] > 70 && r[i] <= 70) mark(i, false, 'RSI'); } }
     else if (it.t === 'macd') { const m = macd(closes, it.f, it.s, it.g);
-      chart.addHistogramSeries({ priceScaleId: 'ind', priceLineVisible: false, lastValueVisible: false }).setData(bars.map((b, i) => ({ time: b.time, value: m.hist[i], color: (m.hist[i] >= 0 ? up : down) + '88' })).filter(p => p.value != null));
-      low(m.macd, cA, 'MACD'); low(m.signal, cB, 'Signal'); }
+      chart.addHistogramSeries({ priceScaleId: 'ind', priceLineVisible: false, lastValueVisible: false }).setData(bars.map((b, i) => ({ time: b.time, value: m.hist[i], color: (m.hist[i] >= 0 ? BS.buy : BS.sell) + '88' })).filter(p => p.value != null));
+      low(m.macd, P[0], 'MACD'); low(m.signal, cB, 'Signal'); if (it.sig) crosses(m.macd, m.signal, 'MACD'); }
     else if (it.t === 'sto') { const k = bars.map((b, i) => { if (i < it.n - 1) return null; const w = bars.slice(i - it.n + 1, i + 1), hh = Math.max(...w.map(x => x.high)), ll = Math.min(...w.map(x => x.low)); return hh > ll ? (b.close - ll) / (hh - ll) * 100 : 50; });
       const kk = k.map(v => v == null ? 0 : v), d = sma(kk, it.d).map((v, i) => k[i] == null || i < it.n + it.d - 2 ? null : v);
-      const s = low(k, cA, '%K ' + it.n); low(d, cB, '%D ' + it.d); [80, 20].forEach(v => s.createPriceLine({ price: v, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: String(v) })); }
+      const s = low(k, P[0], '%K ' + it.n); low(d, cB, '%D ' + it.d); [80, 20].forEach(v => s.createPriceLine({ price: v, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: String(v) }));
+      if (it.sig) crosses(k, d, 'STO', (i, buy) => buy ? k[i - 1] <= 20 : k[i - 1] >= 80); }
     else if (it.t === 'atr') low(stcAtr(bars, it.n), cA, 'ATR ' + it.n);
     else if (it.t === 'adx') { const x = stcAdx(bars, it.n), s = low(x.adx, cA, 'ADX ' + it.n);
-      low(x.pdi, P[4], '+DI'); low(x.mdi, P[1], '−DI');
-      s.createPriceLine({ price: 25, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '25' }); }
-    legend.push([cA, name(it) + ' (lower panel)']);
+      low(x.pdi, BS.buy, '+DI'); low(x.mdi, BS.sell, '−DI');
+      s.createPriceLine({ price: 25, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '25' });
+      if (it.sig) crosses(x.pdi, x.mdi, 'ADX', i => x.adx[i] != null && x.adx[i] >= 20); }
+    legend.push([cA, name(it) + ' (lower panel)' + (it.sig ? ' · buy / sell shown' : '')]);
+    // the panel's place is set after its lines exist (set before, the library ignores it and draws over the candles)
+    chart.priceScale('ind').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
   }
+  if (mk.length) main.setMarkers(mk.sort((x, y) => (x.time < y.time ? -1 : x.time > y.time ? 1 : 0)));
   const n = bars.length;
   if (daily) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 260), to: n + 2 });
   else chart.timeScale().setVisibleLogicalRange({ from: bars.warmN || 0, to: n + 1 });
@@ -3175,13 +3216,14 @@ function drawPriceChart(sym, s){
   }
   if (lower === 'macd') {
     const m = macdV = macd(closes, 12, 26, 9);
-    chart.priceScale('ind').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
     chart.addHistogramSeries({ priceScaleId: 'ind', priceLineVisible: false, lastValueVisible: false })
       .setData(c.map((x, i) => ({ time: x[0], value: m.hist[from + i], color: (m.hist[from + i] >= 0 ? up : down) + '88' })).filter(p => p.value != null));
     chart.addLineSeries({ priceScaleId: 'ind', color: brand, lineWidth: 1.3, title: 'MACD', priceLineVisible: false, lastValueVisible: false })
       .setData(c.map((x, i) => ({ time: x[0], value: m.macd[from + i] })).filter(p => p.value != null));
     chart.addLineSeries({ priceScaleId: 'ind', color: warn, lineWidth: 1.1, title: 'Signal', priceLineVisible: false, lastValueVisible: false })
       .setData(c.map((x, i) => ({ time: x[0], value: m.signal[from + i] })).filter(p => p.value != null));
+    // set after the panel's series exist (14 Nov 2026: set before, the library ignored it and MACD drew over the candles)
+    chart.priceScale('ind').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
   }
   if (daily) {
     // Event markers snap to the first trading day on or after the event.
