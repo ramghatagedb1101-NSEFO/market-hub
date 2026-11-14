@@ -634,6 +634,23 @@ def test_packages():
     ok("condor: too short a chain gives none", legs_of(structure({"kind": "iron_condor", "width": 5, "wing": 5}), ks, 6) is None)
 
 
+def test_session_rules():
+    """SEBI 15 Oct 2026 circular (from 7 Dec 2026): index options to 15:45 on normal days, 15:30 on their expiry day."""
+    from .session import busy_until, exit_cap, last_minute, option_close
+    ok("session: 15:30 before 7 Dec 2026", option_close("2026-12-04") == "15:30" and last_minute("2026-12-04") == 375)
+    ok("session: 15:45 from 7 Dec 2026", option_close("2026-12-07") == "15:45" and last_minute("2026-12-09") == 390)
+    ok("session: 15:30 on the contract's expiry day", option_close("2026-12-08", True) == "15:30")
+    ok("session: worker and bot keep clear to 15:50", busy_until("2026-12-09") == "15:50" and busy_until("2026-11-16") == "15:35")
+    ok("session: exit capped only on expiry day", exit_cap("2026-12-08", "2026-12-08") == "15:28" and exit_cap("2026-12-07", "2026-12-08") is None)
+    # an exit time of 15:40 on the expiry day closes at 15:28 instead of never
+    late = {"sl_type": "pct", "sl": 50, "target_type": "pct", "target": 0, "trail": 0, "exit_by": "15:40", "validity": "DAY"}
+    e = entry({"25000": walk(1, 30, [100] * 346)})
+    eng, j = go(e, {(1, 30): [buy(exits=late)]}, {C})
+    closes = [r for r in j.lines if r["kind"] == "fill" and r["side"] == "SELL"]
+    ok("session: a 15:40 exit on expiry day closes at 15:28", closes and closes[0]["tag"] == "time-exit" and closes[0]["t"][11:16] <= "15:29",
+       [(c["t"], c["tag"]) for c in closes])
+
+
 def test_kicker_matches_crons():
     """The trading machine's on-time starts (trader/kicker.py, 14 Nov 2026) use the same times as each workflow's own
     GitHub schedule (kept as the backup), so the two never drift apart."""
@@ -686,7 +703,7 @@ def test_kicker_matches_crons():
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages]:
+              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

@@ -255,8 +255,10 @@ def run(index: str, entry: dict, index_close: float | None, strategy, settings: 
     feed = ReplayFeed(index, entry, index_days, market)
     broker = ReplayBroker(feed)
     eng = Engine(feed, broker, strategy, settings, journal)
+    from .session import last_minute
     for day in range(len(feed.days)):
-        for m in range(MINUTES):
+        # 09:15-15:30, or to 15:45 from 7 Dec 2026 on days that are not this contract's expiry (SEBI, 15 Oct 2026)
+        for m in range(last_minute(feed.days[day], feed.days[day] == entry["expiry"]) + 1):
             feed.move(day, m)
             eng.step(feed.now())
         if broker.end_of_day():

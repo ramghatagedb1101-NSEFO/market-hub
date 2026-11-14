@@ -32,6 +32,7 @@ from .book import Book
 from .journal import Journal
 from .model import Contract, OrderRequest, Quote, Settings
 from .risk import Guard
+from .session import exit_cap
 
 
 class View:
@@ -161,8 +162,11 @@ class Engine:
                 continue
             close = lambda why, tag: out.append(OrderRequest(c, "SELL" if held > 0 else "BUY", abs(held) // c.lot,
                                                              None, why, closing=True, tag=tag))
-            if ex.get("exit_by") and hhmm >= ex["exit_by"]:
-                close(f"exit time {ex['exit_by']}", "time-exit")
+            # an exit time after 15:30 cannot happen on the contract's own expiry day (it stops at 15:30 from 7 Dec 2026):
+            # brought forward to 15:28; with no exit time the position is held to settlement, as intended
+            ex_by = min([t for t in (ex.get("exit_by"), exit_cap(now.date(), c.expiry)) if t]) if ex.get("exit_by") else None
+            if ex_by and hhmm >= ex_by:
+                close(f"exit time {ex_by}", "time-exit")
                 continue
             if not q or not q.mid:
                 continue
@@ -248,8 +252,9 @@ class Engine:
                     return basis * float(size) / 100 if kind == "pct" else float(size)
                 if any(held[c] == 0 for c in g["legs"]):
                     g["state"], g["why"], g["tagx"] = "closing", "a leg left early: closing the rest", "stop"
-                elif ex.get("exit_by") and hhmm >= ex["exit_by"]:
-                    g["state"], g["why"], g["tagx"] = "closing", f"exit time {ex['exit_by']}", "time-exit"
+                elif (ex_by := (min([t for t in [ex.get("exit_by")] + [exit_cap(now.date(), c.expiry) for c in g["legs"]] if t])
+                                if ex.get("exit_by") else None)) and hhmm >= ex_by:
+                    g["state"], g["why"], g["tagx"] = "closing", f"exit time {ex_by}", "time-exit"
                 else:
                     mids = {c: (quotes.get(c).mid if quotes.get(c) else None) for c in g["legs"]}
                     if all(mids.values()):

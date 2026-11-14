@@ -52,6 +52,20 @@ from .strategies.rules import clean
 IST = timezone(timedelta(hours=5, minutes=30))
 DEV_FROM, DEV_TO, VAULT_FROM = "2024-12-01", "2026-04-30", "2026-05-01"
 PRE_FROM, PRE_TO = "2024-01-01", "2024-11-19"
+# Rule changes the bot must respect (owner, 14 Nov 2026). The development period starts after the first. The last
+# (SEBI circular HO/47/11/11(3)2025-MRD-POD2/I/23843/2026 of 15 Oct 2026, paras 4.2.4 and 4.9.1, in force Mon 7 Dec
+# 2026; read from SEBI's own PDF 14 Nov 2026): index options trade to 15:45 on normal days, to 15:30 on their
+# expiry day, and expiring contracts settle at a price built from the cash market's last 30 minutes (15:00-15:30)
+# instead of the closing price. No history exists after it yet, so an idea whose trades are alive in that last half
+# hour of an expiry day, or held to settlement, is "on probation" until POST_RULE_MIN sessions after it show it still
+# makes money; every recommendation is re-checked on the sessions after it as they arrive.
+RULE_CHANGES = [("2024-11-20", "SEBI F&O rules: one weekly expiry per exchange, bigger lots, extra expiry-day margin"),
+                ("2026-08-03", "Closing auction in the cash market; expiry settled on the auction's closing prices (SEBI "
+                               "circular 16 Jan 2026, in force 3 Aug 2026 per SEBI's annual report)"),
+                ("2026-12-07", "Index options trade to 15:45 (15:30 on expiry day); expiry settles on the 15:00-15:30 "
+                               "average price, not the close")]
+SETTLE_RULE_FROM = "2026-12-07"
+POST_RULE_MIN = 20
 LEDGER, REPORT = "state/bot/ledger.json", "state/bot/report.json"
 MIN_TRADES, MIN_PF, DAY_LIMIT = 30, 1.2, 10000.0
 VAULT_MIN_TRADES = 8
@@ -63,8 +77,8 @@ def bar(n_tested: int) -> float:
 
 
 def market_hours(now: datetime) -> bool:
-    m = now.hour * 60 + now.minute
-    return now.weekday() < 5 and 9 * 60 + 5 <= m <= 15 * 60 + 35
+    from .session import busy_until
+    return now.weekday() < 5 and "09:05" <= now.strftime("%H:%M") <= busy_until(now.date())
 
 
 # ---- ideas -------------------------------------------------------------------------------------------------------
@@ -366,7 +380,11 @@ SIG = {"type":"compare","left":{"src":A},"op":">"|"<"|">="|"<=","right":{"src":"
  | {"type":"change","from":"prev_close"|"open","op":"above"|"below","pct":x}
  | {"type":"event","when":"today"|"not_today","kinds":["rbi","budget","election"]}
  | {"type":"supertrend","period":10,"mult":3,"tf":5,"dir":"buy"|"sell"|"up"|"down"}
-Data: Dec 2024 - Apr 2026 for testing; NIFTY strikes are 50 apart, BANKNIFTY 100 (BANKNIFTY has monthly expiries only)."""
+Data: Dec 2024 - Apr 2026 for testing; NIFTY strikes are 50 apart, BANKNIFTY 100 (BANKNIFTY has monthly expiries only).
+Rules: from 7 Dec 2026 index options trade to 15:45 on normal days and to 15:30 on their expiry day, and expiring
+contracts settle on the average price of 15:00-15:30 (no longer the close). Ideas that depend on the closing minutes of
+an expiry day or on settlement at the close will behave differently after that date: prefer ideas that do not, and
+say so in "why" when one does."""
 
 
 def relay_ask(system: str, prompt: str) -> dict | None:
@@ -494,6 +512,8 @@ def evaluate(fam: str, defn: dict, p: dict | None, why: str, ledger: dict, deadl
         rec["bars"] = [key_of(nd) for nd in nbs]
         return rec
     rec["stage"] = "recommended"
+    rec["settle_sensitive"] = settle_sensitive(defn)
+    rec["probation"] = rec["settle_sensitive"]                  # until POST_RULE_MIN sessions after 7 Dec 2026
     rec["normal"] = normal_range([x for _, x in dev["days"]] + [x for _, x in v["days"]])
     rec["strategy"] = {k2: v2 for k2, v2 in defn.items() if k2 not in ("id", "from", "until")}
     return rec
@@ -512,6 +532,15 @@ def recheck(ledger: dict, deadline: float, log=print) -> None:
             continue
         r["vault_now"], r["fading"] = v, v["profit"] <= 0
         r["checked"] = datetime.now(IST).isoformat(timespec="minutes")
+        try:
+            post = stats(run_bt(r["strategy"], SETTLE_RULE_FROM, None))
+        except Exception:                                        # noqa: BLE001 -- no sessions after it yet
+            post = None
+        if post and post["days"]:
+            r["after_rules"] = post
+            if post["days"] >= POST_RULE_MIN and post["profit"] <= 0:
+                r["fading"] = True
+        r["probation"] = bool(r.get("settle_sensitive")) and not (post and post["days"] >= POST_RULE_MIN and post["profit"] > 0)
         log(f"  recheck: {r['name']} -- {v['trades']} trades, ₹{v['profit']:,.0f}{' (fading)' if r['fading'] else ''}")
 
 
@@ -522,6 +551,17 @@ def _weekdays(a: str, b: str) -> list[str]:
             out.append(d.isoformat())
         d += timedelta(days=1)
     return out
+
+
+def settle_sensitive(defn: dict) -> bool:
+    """Trades still open in the last half hour of an expiry day, or held to settlement: what the 7 Dec 2026 rules change."""
+    st = clean(dict(defn, id="x"))
+    if st["style"] == "carry":
+        return True
+    sig = [x for g in st["groups"] + st["put_groups"] for x in g["signals"]]
+    on_expiry = any(x.get("type") == "dte" and x.get("op", "<=") == "<=" and int(x.get("days", 9)) <= 0 for x in sig) or \
+        not any(x.get("type") == "dte" for x in sig)
+    return on_expiry and (st["exits"].get("exit_by") or "15:30") > "15:00"
 
 
 def report(ledger: dict, waiting: dict | None = None) -> dict:
@@ -540,7 +580,8 @@ def report(ledger: dict, waiting: dict | None = None) -> dict:
         f["recommended"] += r["stage"] == "recommended"
     return {"asof": datetime.now(IST).isoformat(timespec="minutes"), "tested": len(rows), "stages": stages,
             "bar": round(bar(len(rows)), 2), "periods": {"dev": [DEV_FROM, DEV_TO], "vault_from": VAULT_FROM},
-            "families": fams, "recommended": rec, "near_misses": near, "waiting": waiting or {}}
+            "families": fams, "recommended": rec, "near_misses": near, "waiting": waiting or {},
+            "rule_changes": [{"from": d, "what": w} for d, w in RULE_CHANGES], "post_rule_min": POST_RULE_MIN}
 
 
 def main() -> int:

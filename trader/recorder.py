@@ -47,8 +47,10 @@ def minute_of(dt: datetime) -> int:
 
 
 def end_utc(day: str) -> str:
-    """15:31 IST of that day, in IBKR's UTC form (unambiguous whatever the gateway's own time zone)."""
-    return datetime.strptime(day, "%Y-%m-%d").strftime("%Y%m%d") + "-10:01:00"
+    """One minute after the day's last option trade (15:31 IST, or 15:46 from 7 Dec 2026), in IBKR's UTC form."""
+    from .session import last_minute
+    m = 555 + last_minute(day) + 1 - 330                     # IST minutes -> UTC minutes
+    return datetime.strptime(day, "%Y-%m-%d").strftime("%Y%m%d") + f"-{m // 60:02d}:{m % 60:02d}:00"
 
 
 class Recorder:
@@ -77,17 +79,19 @@ class Recorder:
         und = Index(IB_SYMBOL[index], "NSE", "INR")
         self.k.ib.qualifyContracts(und)
         return [[minute_of(b.date), b.open, b.high, b.low, b.close, int(b.volume or 0)]
-                for b in self.bars(und, day) if 0 <= minute_of(b.date) <= 375]
+                for b in self.bars(und, day) if 0 <= minute_of(b.date) <= 375]      # the index: cash session to 15:30
 
     def option_rows(self, index: str, expiry: str, strike: float, right: str, day: str, what: str) -> list:
         from .model import Contract
         o = self.k._ib(Contract(index, expiry, strike, right))
         if o is None:
             return []
+        from .session import last_minute
+        last = last_minute(day, expiry == day)
         out = []
         for b in self.bars(o, day, what):
             m = minute_of(b.date)
-            if not 0 <= m <= 375:
+            if not 0 <= m <= last:
                 continue
             if what == "TRADES":
                 if b.close and b.close > 0:
@@ -226,8 +230,9 @@ def main() -> int:
         if "--probe" in sys.argv:
             return probe(rec)
         now = datetime.now(IST)
-        if not args and (now.hour, now.minute) < (15, 35):
-            print("the session is still open: run after 15:35 IST")
+        from .session import busy_until
+        if not args and now.strftime("%H:%M") < busy_until(now.date()):
+            print(f"the session is still open: run after {busy_until(now.date())} IST")
             return 1
         bad = tried = 0
         for d in args or [now.date().isoformat()]:

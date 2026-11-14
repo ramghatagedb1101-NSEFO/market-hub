@@ -1738,7 +1738,7 @@ function stDo(fn, args, msg, after){
   call(fn, token, ...args).then(d => { if (d.error) { ST_MSG = d.error; } else { S.strat = d; ST_MSG = after(d); } rerender(); })
     .catch(e => { ST_MSG = e.message; rerender(); });
 }
-const ST_TIMES = (() => { const out = []; for (let m = 555; m <= 930; m += 5) out.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0')); return out; })();
+const ST_TIMES = (() => { const out = []; for (let m = 555; m <= 945; m += 5) out.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0')); return out; })();
 function stSet(path, v, redraw){
   if (path === 'strike.dist') { stNum(path, v); if (redraw) rerender(); return; }   // keeps ITM / OTM
   const ks = path.split('.'); let o = ST_EDIT;
@@ -2834,6 +2834,7 @@ function botPanel(){
         : '<button class="btn sm primary" type="button" ' + (BOT.busy[i] ? 'disabled' : '') + ' onclick="botAdd(' + i + ')">' + (BOT.busy[i] ? 'Adding…' : 'Add to my strategies') + '</button>') + '</div>' +
       (typeof BOT.added[i] === 'string' ? '<div style="color:var(--down);font-size:12.5px">' + esc(BOT.added[i]) + '</div>' : '') +
       (x.fading ? '<div style="color:var(--down);font-size:12.5px;margin-top:4px">Losing money on the latest days (₹' + num((x.vault_now || {}).profit || 0, 0) + ' since ' + esc(bDay(dayOf((R.periods || {}).vault_from || ''))) + ')</div>' : '') +
+      (x.probation && !x.fading ? '<div style="color:var(--warn, #b45309);font-size:12.5px;margin-top:4px">It trades into expiry-day settlement, which SEBI changes on Mon 7 Dec 2026: proven only after ' + (R.post_rule_min || 20) + ' sessions under the new rules' + (x.after_rules ? ' (' + x.after_rules.days + ' so far)' : '') + '.</div>' : '') +
       '<div class="muted" style="font-size:12.5px;margin:4px 0 8px">' + esc(x.why) + '</div>' +
       '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:12.5px">' +
       '<div><div class="faint">While choosing</div><b style="color:' + (d.profit >= 0 ? 'var(--up)' : 'var(--down)') + '">' + rupee(d.profit || 0) + '</b> · ' + (d.trades || 0) + ' trades · ' + won(d) + '</div>' +

@@ -138,7 +138,8 @@ def keep_protect(eng: Engine, last: str) -> str:
 
 
 def market_open(now: datetime) -> bool:
-    return is_session(now.date()) and OPEN <= now.strftime("%H:%M") <= CLOSE
+    from .session import session_close            # 15:45 from 7 Dec 2026 (SEBI, 15 Oct 2026 circular)
+    return is_session(now.date()) and OPEN <= now.strftime("%H:%M") <= session_close(now.date())
 
 
 def start(br: IBKR, s: Settings, day: date) -> Engine:

@@ -24,8 +24,8 @@ POLL = 4
 
 
 def market_hours(now: datetime) -> bool:
-    m = now.hour * 60 + now.minute
-    return now.weekday() < 5 and 9 * 60 + 10 <= m <= 15 * 60 + 35
+    from .session import busy_until             # 15:35, or 15:50 from 7 Dec 2026 (options trade to 15:45)
+    return now.weekday() < 5 and "09:10" <= now.strftime("%H:%M") <= busy_until(now.date())
 
 
 def relay(mode: str, **extra) -> dict:

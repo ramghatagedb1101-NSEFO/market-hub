@@ -33,7 +33,7 @@ function stratLimits_() {
   return { max_lots_per_order: Number(l.max_lots_per_order) || 1, max_daily_loss: Number(l.max_daily_loss) || 10000 };
 }
 function stratNum_(x, lo, hi, d) { const v = Number(x); return isFinite(v) ? Math.min(Math.max(v, lo), hi) : d; }
-function stratTime_(x, d) { x = String(x || ''); return /^\d\d:\d\d$/.test(x) && x >= '09:15' && x <= '15:30' ? x : d; }
+function stratTime_(x, d) { x = String(x || ''); return /^\d\d:\d\d$/.test(x) && x >= '09:15' && x <= '15:45' ? x : d; }   // 15:45: SEBI, from 7 Dec 2026
 const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday', 'compare', 'range_filter', 'supertrend', 'event'];
 // 14 Nov 2026: the market figures (trader/market.py MARKET) and event days (trader/market.py EVENT_KINDS); without
 // them here a saved strategy silently lost those signals.

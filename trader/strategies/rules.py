@@ -38,7 +38,7 @@ def _num(x, lo, hi, default):
 
 def _hhmm(x, default):
     x = str(x or "")
-    return x if len(x) == 5 and x[2] == ":" and x[:2].isdigit() and x[3:].isdigit() and "09:15" <= x <= "15:30" else default
+    return x if len(x) == 5 and x[2] == ":" and x[:2].isdigit() and x[3:].isdigit() and "09:15" <= x <= "15:45" else default
 
 
 def clean(d: dict) -> dict:
