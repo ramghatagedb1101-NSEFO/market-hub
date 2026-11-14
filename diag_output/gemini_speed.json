@@ -1,0 +1,104 @@
+{
+ "ran": "2026-11-14T12:22:18Z",
+ "prompt_chars": 4253,
+ "runs": [
+  {
+   "code": "timeout",
+   "s": 100.1,
+   "model": "gemini-3.8-flash",
+   "config": "default",
+   "round": 1
+  },
+  {
+   "code": 429,
+   "s": 0.2,
+   "msg": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-",
+   "model": "gemini-3.8-flash",
+   "config": "thinking low",
+   "round": 1
+  },
+  {
+   "code": 429,
+   "s": 0.1,
+   "msg": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-",
+   "model": "gemini-3.8-flash",
+   "config": "thinking off",
+   "round": 1
+  },
+  {
+   "code": 503,
+   "s": 0.9,
+   "msg": "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+   "model": "gemini-3.5-flash-lite",
+   "config": "default",
+   "round": 1
+  },
+  {
+   "code": 429,
+   "s": 0.1,
+   "msg": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-",
+   "model": "gemini-3.8-flash",
+   "config": "default",
+   "round": 2
+  },
+  {
+   "code": "timeout",
+   "s": 100.1,
+   "model": "gemini-3.8-flash",
+   "config": "thinking low",
+   "round": 2
+  },
+  {
+   "code": 429,
+   "s": 0.1,
+   "msg": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-",
+   "model": "gemini-3.8-flash",
+   "config": "thinking off",
+   "round": 2
+  },
+  {
+   "code": 200,
+   "s": 3.5,
+   "thoughts": null,
+   "answer": 589,
+   "put_side": true,
+   "model": "gemini-3.5-flash-lite",
+   "config": "default",
+   "round": 2
+  },
+  {
+   "code": 429,
+   "s": 0.1,
+   "msg": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-",
+   "model": "gemini-3.8-flash",
+   "config": "default",
+   "round": 3
+  },
+  {
+   "code": 429,
+   "s": 0.1,
+   "msg": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-",
+   "model": "gemini-3.8-flash",
+   "config": "thinking low",
+   "round": 3
+  },
+  {
+   "code": 429,
+   "s": 0.1,
+   "msg": "You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://aistudio.google.com/docs/rate-",
+   "model": "gemini-3.8-flash",
+   "config": "thinking off",
+   "round": 3
+  },
+  {
+   "code": 200,
+   "s": 8.7,
+   "thoughts": null,
+   "answer": 583,
+   "put_side": true,
+   "model": "gemini-3.5-flash-lite",
+   "config": "default",
+   "round": 3
+  }
+ ]
+}
