@@ -1,6 +1,7 @@
 name: bt-worker-setup
 
-# Installs / updates the back-test worker on market-hub-trader (14 Nov 2026; trader/bt_worker.py): pulls the code,
+# Installs / updates the back-test worker on market-hub-trader (14 Nov 2026; trader/bt_worker.py) and the on-time starts
+# for the GitHub jobs (kicker.timer, trader/kicker.py): pulls the code,
 # writes /opt/trader/secrets/bt.env (PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY; owner-approved 14 Nov 2026, never
 # printed), installs bt-worker.service and (re)starts it. The trading program (trader.service) is not restarted.
 # Run by hand, outside market hours. Public log: steps only, never addresses or secrets.
@@ -51,12 +52,15 @@ jobs:
           SSH="ssh -i $RUNNER_TEMP/k -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o BatchMode=yes ubuntu@$HOST"
           if [ "${{ inputs.log_only }}" = "true" ]; then
             $SSH 'systemctl is-active bt-worker.service; journalctl -u bt-worker.service -n 40 --no-pager -o short-iso'
+            $SSH 'systemctl is-active kicker.timer; journalctl -u kicker.service -n 30 --no-pager -o cat | grep -v -e Starting -e Finished -e Deactivated || true'
             rm -f "$RUNNER_TEMP/k"; exit 0
           fi
           $SSH 'cd /opt/trader/app && git pull -q --ff-only && git log --oneline -1 | cut -c1-7'
           printf 'PRIVATE_REPO_TOKEN=%s\nRELAY_URL=%s\nRELAY_KEY=%s\n' "$PRIVATE_REPO_TOKEN" "$RELAY_URL" "$RELAY_KEY" | \
             $SSH 'mkdir -p /opt/trader/secrets /opt/trader/btcache && umask 077 && cat > /opt/trader/secrets/bt.env && chmod 600 /opt/trader/secrets/bt.env'
           $SSH 'sudo cp /opt/trader/app/infra/trader/bt-worker.service /etc/systemd/system/bt-worker.service && sudo systemctl daemon-reload && sudo systemctl enable -q bt-worker.service && sudo systemctl restart bt-worker.service && sleep 5 && systemctl is-active bt-worker.service && journalctl -u bt-worker.service -n 5 --no-pager -o cat'
+          # On-time starts for the GitHub jobs (14 Nov 2026, trader/kicker.py): a once-a-minute timer, same secrets file.
+          $SSH 'sudo cp /opt/trader/app/infra/trader/kicker.service /opt/trader/app/infra/trader/kicker.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now kicker.timer && systemctl is-active kicker.timer && systemctl list-timers kicker.timer --no-pager | head -2'
           if [ "${{ inputs.restart_trader }}" = "true" ]; then
             H=$(TZ=Asia/Kolkata date +%H%M); D=$(TZ=Asia/Kolkata date +%u)
             if [ "$D" -le 5 ] && [ "$H" -ge 0910 ] && [ "$H" -le 1535 ]; then echo "::warning::market hours: trading program not restarted"

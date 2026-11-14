@@ -10,18 +10,38 @@ on:
   schedule:
     - cron: "30 4 * * 1-2"    # 04:30 UTC = 10:00 IST: entry decision, after the opening session settles
     - cron: "0 7 * * 1-2"     # 07:00 UTC = 12:30 IST: midday hold/exit check
-    - cron: "15 9 * * 1-2"    # 09:15 UTC = 14:45 IST: final hold/exit check, ~45 min before the close (backup: market-loop.yml starts it at 14:45)
+    - cron: "15 9 * * 1-2"    # 09:15 UTC = 14:45 IST: final hold/exit check, ~45 min before the close
   workflow_dispatch:        # manual run any day, for testing -- the script no-ops if NIFTY has no expiry today
 
 permissions:
   contents: read
 
-concurrency:
-  group: expiry-theta
-  cancel-in-progress: false
-
 jobs:
+  # 14 Nov 2026: GitHub started scheduled runs 6-9 hours late from 6 Nov. The trading machine starts this job on time
+  # through the relay (trader/kicker.py); the schedule above is the backup and stops here when the machine did it.
+  gate:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      skip: ${{ steps.g.outputs.skip }}
+    steps:
+      - id: g
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          r=$(curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=kick_seen" --data-urlencode "wf=expiry-theta.yml" --data-urlencode "key=$RELAY_KEY" || true)
+          skip=$(printf '%s' "$r" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("yes" if d.get("alive") and d.get("last_ok") else "no")' 2>/dev/null || echo no)
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = yes ]; then echo "::notice title=late schedule skipped::the trading machine started this job on time"; else echo "machine clock not confirmed: running as scheduled"; fi
+
   run:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.skip != 'yes' }}
+    concurrency:                # on the job, not the workflow: a late schedule skipped above never touches it
+      group: expiry-theta
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -13,12 +13,32 @@ on:
     - cron: "5,40 10 * * 1-5"         # 15:35 and 16:10 IST: the day's last word
   workflow_dispatch:
 
-concurrency:
-  group: algo-sync
-  cancel-in-progress: false
-
 jobs:
+  # 14 Nov 2026: GitHub started scheduled runs 6-9 hours late from 6 Nov. The trading machine starts this job on time
+  # through the relay (trader/kicker.py); the schedule above is the backup and stops here when the machine did it.
+  gate:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      skip: ${{ steps.g.outputs.skip }}
+    steps:
+      - id: g
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          r=$(curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=kick_seen" --data-urlencode "wf=algo-sync.yml" --data-urlencode "key=$RELAY_KEY" || true)
+          skip=$(printf '%s' "$r" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("yes" if d.get("alive") and d.get("last_ok") else "no")' 2>/dev/null || echo no)
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = yes ]; then echo "::notice title=late schedule skipped::the trading machine started this job on time"; else echo "machine clock not confirmed: running as scheduled"; fi
+
   sync:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.skip != 'yes' }}
+    concurrency:                # on the job, not the workflow: a late schedule skipped above never touches it
+      group: algo-sync
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

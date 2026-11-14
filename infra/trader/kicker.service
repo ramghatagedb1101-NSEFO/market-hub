@@ -1,0 +1,13 @@
+[Unit]
+Description=Market Hub on-time starts (trader/kicker.py): starts the GitHub jobs at their times through the relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/trader/app
+EnvironmentFile=/opt/trader/secrets/bt.env
+Environment=TZ=Asia/Kolkata
+ExecStart=/usr/bin/python3 -u -m trader.kicker
+TimeoutStartSec=100

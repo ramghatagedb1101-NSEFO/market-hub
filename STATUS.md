@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
+As of Sat 14 Nov 2026, ~18:45 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
 `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
@@ -47,6 +47,7 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
 | ICICI download | `hub/breeze_history.py`, `hub/breeze_index.py`, `breeze.yml` (SSH tunnel via `market-hub-ip`, fixed address) | 16:00 / 21:00 IST, needs the day's ICICI sign-in |
 | Trading program | `trader/` on `market-hub-trader`, `trader.service` | always; steps in market hours |
 | Strategies to the machine, journals back | `algo-sync.yml` (relay `?mode=strategies`; machine address via `infra/oci_ip.py`) | every 10 min 08:30-15:20 weekdays, 15:35, 16:10, and at once after any switch on the page |
+| On-time starts | `trader/kicker.py`, `kicker.timer` on `market-hub-trader` -> relay `?mode=kick` (`relay/Kick.gs`) | every minute; starts each scheduled job at its time |
 | Back-tests | `trader/backtest.py`, `strategy-backtest.yml` (started by the page) | on request; results `state/backtests/` |
 | Strategy storage, switches | `relay/Strategy.gs` (script properties STRAT_*) | relay |
 | Screens | `relay/AdminPage.html` (Auto trading, Strategies), `docs/index.html` (phone) | relay / GitHub Pages |
@@ -60,8 +61,8 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
 
 ### Monday 16 Nov 2026 (first market session with the program running)
 1. From 09:15: live bid / ask arrive on the paper account (journal "mark" lines, Auto trading screen).
-2. `algo-sync.yml` scheduled runs fire every 10 minutes (GitHub's schedule has failed before: `oci-launch.yml` never
-   ran on its timer). If they do not, add a relay time trigger or a machine-side push.
+2. Jobs start on time (item 6): `gh run list` shows `workflow_dispatch` runs at 08:30, 08:40 ... (algo-sync, live),
+   08:45 (market-loop), 09:08 (expiry-tape), 09:20 (close-estimate), with the late scheduled copies skipped.
 3. The gateway's daily restart at 06:30 and the program reconnecting afterwards.
 
 ### Back-tests page, Range Filter, chart settings (14 Nov 2026, afternoon/evening)
@@ -98,10 +99,10 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
 4. Options-data signals (put-call ratio, open interest change; futures VWAP) for the placeholders.
 5. Decided (owner, 14 Nov): keep the current paper password; no change needed. (A separate paper password was
    offered as extra safety for the copy stored on the machine; `set-login.sh` changes it any time.)
-6. GitHub schedules started 7-9 hours late all week (9-13 Nov 2026): close-estimate's 09:20 run at 17:06 IST,
-   market-loop's 08:45 run at 16:26 (no 14:45 start, no paper/watch checks in market hours), live.yml twice on 13 Nov.
-   The news score now records on a late run (14 Nov); the close estimate's live entries and the market-hours jobs need
-   a trigger GitHub does not delay (e.g. the trading machine or the relay starting them).
+6. GitHub schedules 6-9 hours late since 6 Nov 2026: fixed 14 Nov by `trader/kicker.py` (`kicker.timer` on
+   `market-hub-trader` starts every scheduled job on time through the relay; late GitHub copies stop themselves).
+   Check Mon 16 Nov: runs listed as `workflow_dispatch` at 08:30 (live, algo-sync), 08:45 (market-loop), 09:08, 09:20 ...
+   and scheduled runs ending after the "gate" job. Machine log: `bt-worker-setup.yml -f log_only=true`.
 7. Proposal pending: move the fixed address 130.210.31.37 to `market-hub-trader` and retire `market-hub-ip`.
 
 ### Notes for the next session

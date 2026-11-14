@@ -14,14 +14,33 @@ on:
 
 permissions:
   contents: read
-  actions: write          # the afternoon run starts daily.yml at 18:05 (see the last step)
-
-concurrency:
-  group: market-loop
-  cancel-in-progress: false
 
 jobs:
+  # 14 Nov 2026: GitHub started scheduled runs 6-9 hours late from 6 Nov. The trading machine starts this job on time
+  # through the relay (trader/kicker.py); the schedule above is the backup and stops here when the machine did it.
+  gate:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      skip: ${{ steps.g.outputs.skip }}
+    steps:
+      - id: g
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          r=$(curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=kick_seen" --data-urlencode "wf=market-loop.yml" --data-urlencode "key=$RELAY_KEY" || true)
+          skip=$(printf '%s' "$r" | python3 -c 'import sys,json; d=json.load(sys.stdin); print("yes" if d.get("alive") and d.get("last_ok") else "no")' 2>/dev/null || echo no)
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          if [ "$skip" = yes ]; then echo "::notice title=late schedule skipped::the trading machine started this job on time"; else echo "machine clock not confirmed: running as scheduled"; fi
+
   loop:
+    needs: gate
+    if: ${{ !cancelled() && needs.gate.outputs.skip != 'yes' }}
+    concurrency:                # on the job, not the workflow: a late schedule skipped above never touches it
+      group: market-loop
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 358
     steps:
@@ -29,16 +48,13 @@ jobs:
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
-          GH_TOKEN: ${{ github.token }}
         run: |
           start=$(date +%s)
-          echo "LOOP_START=$start" >> "$GITHUB_ENV"
           end_ist=$(TZ=Asia/Kolkata date +%Y-%m-%d)" 15:35"
           end=$(TZ=Asia/Kolkata date -d "$end_ist" +%s)
           limit=$(( start + 210 * 60 ))
           [ "$end" -lt "$limit" ] && stop=$end || stop=$limit
           n=0
-          est=0
           while [ "$(date +%s)" -lt "$stop" ]; do
             hm=$(TZ=Asia/Kolkata date +%H%M)
             if [ "$hm" -ge 0915 ] && [ "$hm" -le 1530 ]; then
@@ -46,36 +62,8 @@ jobs:
               curl -s -L -G --max-time 60 "$RELAY_URL" --data-urlencode "mode=watch_check" --data-urlencode "key=$RELAY_KEY" > /dev/null || true
               n=$((n + 1))
             fi
-            # 29 Oct 2026: the 14:45 schedules start 35-45 minutes late (close-estimate 15:28/15:30 on 28/29 Oct, after the
-            # close; expiry-theta's "final check" 15:21/15:26 on 26/27 Oct). This loop is running then: it starts them itself
-            # (their schedules stay as backups). expiry-theta runs Mon/Tue and no-ops when NIFTY has no expiry today.
-            if [ "$est" = 0 ] && [ "$hm" -ge 1445 ] && [ "$hm" -le 1515 ]; then
-              est=1
-              wfs="close-estimate.yml"
-              [ "$(TZ=Asia/Kolkata date +%u)" -le 2 ] && wfs="$wfs expiry-theta.yml"
-              for wf in $wfs; do
-                code=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${{ github.repository }}/actions/workflows/$wf/dispatches" -d '{"ref":"main"}' || true)
-                echo "started $wf at $(TZ=Asia/Kolkata date +%H:%M) IST (HTTP $code)"
-                [ "$code" = "204" ] || echo "::warning title=14:45 runs::starting $wf failed (HTTP $code)"
-              done
-            fi
+            # 29 Oct - 14 Nov 2026 this loop also started close-estimate / expiry-theta at 14:45 and daily.yml at 18:05 (GitHub
+            # delayed their schedules). Since 14 Nov 2026 the trading machine starts them on time (trader/kicker.py).
             sleep 300
           done
           echo "::notice title=market loop::$n checks between $(TZ=Asia/Kolkata date -d @$start +%H:%M) and $(TZ=Asia/Kolkata date +%H:%M) IST"
-      # 27 Oct 2026: daily.yml's own 18:00 schedule started at 20:31 on 26 Oct (GitHub delays scheduled starts, not running
-      # jobs), so the phone moved to the next session 2.5 hours late. The afternoon run is already running at 15:35: it
-      # waits until 18:05 IST and starts daily.yml itself (its schedule stays as a backup; a second run changes nothing).
-      # Free on a public repo; a job may run 6 hours, so it gives up if 18:05 is out of reach.
-      - name: Start the evening daily run at 18:05 IST
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          now_hm=$(TZ=Asia/Kolkata date +%H%M)
-          if [ "$now_hm" -lt 1530 ]; then echo "morning run: nothing to do"; exit 0; fi
-          go=$(TZ=Asia/Kolkata date -d "$(TZ=Asia/Kolkata date +%Y-%m-%d) 18:05" +%s)
-          last=$(( LOOP_START + 352 * 60 ))
-          if [ "$go" -gt "$last" ]; then echo "::warning title=evening run::18:05 IST is past this job's 6-hour limit; daily.yml's own schedule will run it"; exit 0; fi
-          sleep $(( go - $(date +%s) > 0 ? go - $(date +%s) : 0 ))
-          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "https://api.github.com/repos/${{ github.repository }}/actions/workflows/daily.yml/dispatches" -d '{"ref":"main"}')
-          if [ "$code" != "204" ]; then echo "::error title=evening run::starting daily.yml failed (HTTP $code)"; exit 1; fi
-          echo "::notice title=evening run::daily.yml started at $(TZ=Asia/Kolkata date +%H:%M) IST"

@@ -4,6 +4,28 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Jobs start on time again: the trading machine keeps the clock (Sat 14 Nov 2026)
+Evidence (`gh run list`, every scheduled job, 26 Oct - 14 Nov 2026, IST): until Thu 5 Nov GitHub started schedules
+20-50 minutes late (live quotes about hourly, not every 5 minutes). From Fri 6 Nov every scheduled run started 6-9 hours
+late: close-estimate 09:20 -> 17:06-17:39, market loop 08:45 -> 16:26-17:00 (so no paper / watchlist checks in market
+hours and no 14:45 starts), expiry tape 09:08 -> ~17:00, expiry theta 10:00 -> 18:24 (Tue 10 Nov), live quotes twice a
+day (~15:40 and ~23:00), stock library 06:15 -> 12:30-13:15, daily 18:00 -> 19:50-22:40 and 20:30 -> ~01:30 the next day.
+`algo-sync.yml` (new 14 Nov) and `breeze.yml` never ran from their schedules at all. Runs started by hand or by the relay
+(`workflow_dispatch`) started within seconds the whole time (the 18:05 evening run, the 14:45 starts while the loop ran).
+- `trader/kicker.py` on `market-hub-trader` (`kicker.timer`, once a minute): at each job's time it calls the relay
+  (`?mode=kick`), which starts the job with its existing GitHub key. Covers all 14 scheduled jobs: library, expiry
+  history, Kite reminder, insights, summaries, source check, live quotes, market loop, expiry tape, close estimate,
+  expiry theta, algo-sync, ICICI download, daily. Same times as their cron lines (daily at 18:05); `python -m
+  trader.selftest` fails if the two drift apart. A relay time trigger was not used: it needs a new Google permission.
+- The GitHub schedules stay as backups: a scheduled run first asks the relay (`?mode=kick_seen`) and stops when the
+  machine's clock called in the last 30 minutes and started that job without error. If the machine stops, the schedules
+  run as before. Each job's "one at a time" rule moved onto the job itself, so a late copy that stops can no longer
+  cancel or bump the on-time run (e.g. the queued 11:45 market loop).
+- `market-loop.yml` no longer starts close-estimate / expiry-theta at 14:45 or daily.yml at 18:05 (the machine does;
+  this also ends the extra evening daily run a late afternoon loop started around 20:00).
+- If GitHub refuses a start, the relay emails (at most once every 6 hours) and that job's late schedule runs it.
+- Installed by `bt-worker-setup.yml` (pull, worker restart, timer). Free: machine and relay already exist.
+
 ### Daily news score: recorded whenever the day's run starts (Sat 14 Nov 2026)
 No score for 6, 9, 10, 11 and 13 Nov 2026. Evidence (every close-estimate run's log, the feed's history in the private repo):
 - **6-11 Nov:** the private-data key had expired (see 12 Nov): the feed came back as a 401 message, read as data, and the

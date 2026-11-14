@@ -1,0 +1,10 @@
+[Unit]
+Description=Market Hub on-time starts, once a minute (14 Nov 2026: GitHub started scheduled runs 6-9 hours late)
+
+[Timer]
+OnCalendar=*-*-* *:*:02
+AccuracySec=1s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

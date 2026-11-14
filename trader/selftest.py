@@ -475,9 +475,59 @@ def test_both_directions():
     ok("both ways: put closed at the exit time", sides[-1:] == [("P", "SELL", True)] and eng.book.open_legs() == 0, sides)
 
 
+def test_kicker_matches_crons():
+    """The trading machine's on-time starts (trader/kicker.py, 14 Nov 2026) use the same times as each workflow's own
+    GitHub schedule (kept as the backup), so the two never drift apart."""
+    import pathlib
+    import re as _re
+    from trader import kicker
+    wf_dir = pathlib.Path(__file__).resolve().parent.parent / ".github" / "workflows"
+
+    def expand(field, lo, hi):
+        out = set()
+        for part in field.split(","):
+            step = 1
+            if "/" in part:
+                part, step = part.split("/")
+                step = int(step)
+            if part == "*":
+                a, b = lo, hi
+            elif "-" in part:
+                a, b = map(int, part.split("-"))
+            else:
+                a = b = int(part)
+            out.update(range(a, b + 1, step))
+        return out
+
+    for wf, rules in kicker.SCHEDULE.items():
+        text = (wf_dir / wf).read_text(encoding="utf-8")
+        ok(f"kicker: {wf} can be started by hand", "workflow_dispatch" in text)
+        ok(f"kicker: {wf} skips a late schedule", "mode=kick_seen" in text)
+        crons = set()
+        for line in _re.findall(r'cron:\s*"([^"]+)"', text):
+            mi, hr, _, _, dw = line.split()
+            for h in expand(hr, 0, 23):
+                for m in expand(mi, 0, 59):
+                    for d in expand(dw.replace("7", "0"), 0, 6):     # cron: 0 = Sunday; UTC -> IST
+                        t = h * 60 + m + 330
+                        dd = (d + t // 1440) % 7
+                        t %= 1440
+                        crons.add(((dd + 6) % 7, f"{t // 60:02d}:{t % 60:02d}"))
+        mine = {(d, t) for days, times in rules for d in days for t in times}
+        if wf == "daily.yml":                                       # 18:05 by design (see kicker.SCHEDULE)
+            crons = {(d, "18:05" if t == "18:00" else t) for d, t in crons}
+        ok(f"kicker: {wf} same times as its cron", mine == crons, sorted(mine ^ crons)[:6])
+    from datetime import datetime as _dt
+    ok("kicker: Mon 09:20 IST starts close-estimate and algo-sync and live",
+       kicker.due(_dt(2026, 11, 16, 9, 20, tzinfo=kicker.IST)) == ["algo-sync.yml", "close-estimate.yml", "live.yml"],
+       kicker.due(_dt(2026, 11, 16, 9, 20, tzinfo=kicker.IST)))
+    ok("kicker: Sat 09:20 IST starts nothing", kicker.due(_dt(2026, 11, 14, 9, 20, tzinfo=kicker.IST)) == [])
+
+
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
-              test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions]:
+              test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
+              test_kicker_matches_crons]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

@@ -27,7 +27,9 @@ Key workflows: `library.yml` (stock library, daily 06:15 IST, chains itself), `d
 trading machine, its journals back, `site/algo.json`; every 10 min in market hours and on every switch from the
 dashboard), `strategy-backtest.yml` (a builder strategy's back-test, started from the dashboard), `oci-launch.yml`
 (switched off; makes / sizes the Oracle machine, never above the Always Free 2 cores / 12 GB),
-`live.yml` (live quotes every 5 min in market hours), `expiry-tape.yml` (expiry days: relay called every minute,
+`live.yml` (live quotes every 5 min in market hours),
+(GitHub has started schedules 6-9 hours late since 6 Nov 2026: `trader/kicker.py` on `market-hub-trader` starts all of these
+on time through the relay's `?mode=kick`; keep its table in step with any cron change, `trader.selftest` checks it), `expiry-tape.yml` (expiry days: relay called every minute,
 the day's option-sellers record saved to the private repo's `state/expiry/`), `summaries.yml` (AI summaries), `diag.yml`
 (run a `hub/diag_*` module on GitHub's servers).
 
