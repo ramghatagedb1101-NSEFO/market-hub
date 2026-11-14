@@ -20,7 +20,7 @@ top of `CHANGELOG.md` (what changed recently and why) before changing anything.
 | Relay: Kite login, phone/dashboard API, emails, research dashboard page | Google Apps Script, source in `relay/` |
 | Daily batch | GitHub Actions (`.github/workflows/`) |
 | Trading program (paper) | `trader/` (this repo), running on the Oracle machine `market-hub-trader` as `trader.service`; set-up files `infra/trader/` |
-| ICICI fixed-address hop | Oracle machine `market-hub-ip` (130.210.31.37), used by `breeze.yml` over SSH |
+| ICICI fixed address | 130.210.31.37, a reserved Oracle address on `market-hub-trader` since 14 Nov 2026 (`breeze.yml` tunnels through it as `ubuntu`; `oci-ip.yml` checks / moves it). `market-hub-ip` no longer has it |
 
 Key workflows: `library.yml` (stock library, daily 06:15 IST, chains itself), `daily.yml` (forecasts),
 `breeze.yml` (ICICI minute history, 16:00 / 21:00 IST, needs the day's ICICI sign-in), `algo-sync.yml` (strategies to the
@@ -55,7 +55,7 @@ through `set-login.sh`.
   relay's login link (the owner uses the Kite mobile-app route). Any other login with the same app cancels
   the relay's token; the relay detects that and emails (`relay/KiteWatch.gs`).
 - **ICICI Breeze** (free, owner's ICICI account, 13 Nov 2026): minute F&O history for back-tests. The API key works only
-  from the fixed address 130.210.31.37 (owner's Oracle Always Free server `market-hub-ip`, Mumbai); `breeze.yml` reaches
+  from the fixed address 130.210.31.37 (owner's reserved Oracle address, on `market-hub-trader` since 14 Nov 2026); `breeze.yml` reaches
   ICICI through it over SSH. One ICICI sign-in a day (phone Settings button). Prices to the private repo only.
   The owner's own ICICI files (laptop `D:\ICICI data historic\NSEData`: NIFTY and BANK NIFTY options, every session
   1 Jan 2024 - 30 Oct 2026, each session under its nearest expiry) were imported on 14 Nov 2026 by

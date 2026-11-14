@@ -44,7 +44,7 @@ As of Sat 14 Nov 2026, ~21:15 IST. Start with the 14 Nov HANDOVER just below, th
 ### How it fits together
 | Piece | Where | Runs |
 |---|---|---|
-| ICICI download | `hub/breeze_history.py`, `hub/breeze_index.py`, `breeze.yml` (SSH tunnel via `market-hub-ip`, fixed address) | 16:00 / 21:00 IST, needs the day's ICICI sign-in |
+| ICICI download | `hub/breeze_history.py`, `hub/breeze_index.py`, `breeze.yml` (SSH tunnel via `market-hub-trader`, fixed address) | 16:00 / 21:00 IST, needs the day's ICICI sign-in |
 | Trading program | `trader/` on `market-hub-trader`, `trader.service` | always; steps in market hours |
 | Strategies to the machine, journals back | `algo-sync.yml` (relay `?mode=strategies`; machine address via `infra/oci_ip.py`) | every 10 min 08:30-15:20 weekdays, 15:35, 16:10, and at once after any switch on the page |
 | On-time starts | `trader/kicker.py`, `kicker.timer` on `market-hub-trader` -> relay `?mode=kick` (`relay/Kick.gs`) | every minute; starts each scheduled job at its time |
@@ -109,7 +109,8 @@ As of Sat 14 Nov 2026, ~21:15 IST. Start with the 14 Nov HANDOVER just below, th
    `market-hub-trader` starts every scheduled job on time through the relay; late GitHub copies stop themselves).
    Check Mon 16 Nov: runs listed as `workflow_dispatch` at 08:30 (live, algo-sync), 08:45 (market-loop), 09:08, 09:20 ...
    and scheduled runs ending after the "gate" job. Machine log: `bt-worker-setup.yml -f log_only=true`.
-7. Proposal pending: move the fixed address 130.210.31.37 to `market-hub-trader` and retire `market-hub-ip`.
+7. Done 14 Nov 21:44: 130.210.31.37 moved to `market-hub-trader` (`oci-ip.yml`); ICICI checked through it. `market-hub-ip`
+   is still running with no public address: owner to decide whether to delete it (free either way).
 
 ### Notes for the next session
 - SSH to both Oracle machines with the owner's Oracle SSH key (the same key as the ORACLE_SSH_KEY secret); users

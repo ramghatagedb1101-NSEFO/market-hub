@@ -4,6 +4,17 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Fixed ICICI address now on the trading machine (Sat 14 Nov 2026, 21:44 IST)
+130.210.31.37 (the only address ICICI accepts the API key from) was a reserved Oracle address on `market-hub-ip`; it is
+now `market-hub-trader`'s address, so one machine does everything (owner). `infra/oci_move_ip.py` / `oci-ip.yml`
+(check / move): released the trader's temporary address, attached the fixed one. The first try stopped between the two
+steps (a 404 while waiting for the release), leaving the trader without an address for ~2 minutes (bt-worker logged one
+timeout at 21:43); fixed and rerun. Checked after: `oci-ip` check = on market-hub-trader; `breeze.yml` diag: requests
+leave from 130.210.31.37, ICICI sign-in and candles fine; bt-worker and kicker timer active. Jobs that SSH to the trader
+look its address up each run (`infra/oci_ip.py`), so nothing else changed. `breeze.yml` tunnels as `ubuntu@` now.
+Also: the old back-test "Supertrend ATM Options Intraday" (698 trades, before the 14 Nov fixes) deleted from the
+private repo (owner).
+
 ### ICICI download: on-time runs now download (Sat 14 Nov 2026, 21:15 IST)
 The trading machine's clock (`trader/kicker.py`) starts `breeze.yml` as a manual run, and a manual run took the input
 default `diag_breeze` (sign-in test only): the 21:00 run signed in, read four test prices and downloaded nothing. Default
