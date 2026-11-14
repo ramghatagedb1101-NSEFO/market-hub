@@ -294,8 +294,49 @@ def test_rules():
        and 140 <= fills[-1]["price"] <= 150, [(f["price"], f["tag"]) for f in fills])
 
 
+def test_compare_and_groups():
+    from datetime import datetime as dt, timedelta as td
+    from .indicators import check
+    t0 = dt(2026, 11, 2, 9, 15)
+    y = [(dt(2026, 10, 30, 9, 15) + td(minutes=i), 100, 102, 98, 100) for i in range(376)]
+    today = [(t0 + td(minutes=i), 100 + i * 0.1, 100.2 + i * 0.1, 99.9 + i * 0.1, 100.1 + i * 0.1) for i in range(60)]
+    bars = y + today
+    now = t0 + td(minutes=60)
+    cmp = lambda left, op, right, tf=1, ctx=None: check({"type": "compare", "left": left, "op": op, "right": right, "tf": tf},
+                                                         bars, now, None, "2026-11-03", ctx)
+    ok("compare: index above yesterday's high", cmp({"src": "price"}, ">", {"src": "prev_high"})[0])
+    ok("compare: index crosses above yesterday's high on the right bar", not cmp({"src": "price"}, "crosses_above", {"src": "prev_high"})[0])
+    ok("compare: today's low vs a number", cmp({"src": "day_low"}, "<", {"src": "value", "value": 100})[0])
+    ok("compare: % from yesterday's close", cmp({"src": "chg_prev"}, ">", {"src": "value", "value": 5})[0], cmp({"src": "chg_prev"}, ">", {"src": "value", "value": 5})[1])
+    ok("compare: EMA 9 above EMA 21 in a rise", cmp({"src": "ema", "n": 9}, ">", {"src": "ema", "n": 21})[0])
+    ok("compare: ATR is positive", cmp({"src": "atr", "n": 14}, ">", {"src": "value", "value": 0})[0])
+    ok("compare: option price under a level", cmp({"src": "opt_price"}, "<", {"src": "value", "value": 150}, ctx={"opt_price": 120})[0])
+    ok("compare: option price over a level is false", not cmp({"src": "opt_price"}, ">", {"src": "value", "value": 150}, ctx={"opt_price": 120})[0])
+    ok("compare: days to expiry", cmp({"src": "dte"}, "<=", {"src": "value", "value": 1})[0])
+    ok("compare: opening-range high known after 15 minutes", cmp({"src": "price"}, ">", {"src": "orb_high", "n": 15})[0])
+    # groups in a full replay: (breakdown) or (option price under 150) -> trades; with "all" -> no trade
+    strikes = range(24800, 25300, 50)
+    flatcall = {str(k): walk(0, 0, [100] * 376) for k in strikes}
+    base = {"id": "g1", "name": "groups", "index": "NIFTY", "side": "BUY", "right": "C", "strike": {"mode": "atm", "steps": 0},
+            "expiry": "nearest", "lots": 1, "window": {"from": "09:30", "until": "14:30"}, "exits": {"sl": 25, "target": 0, "trail": 0},
+            "style": "intraday", "max_trades_day": 1,
+            "groups": [{"match": "all", "signals": [{"type": "orb", "minutes": 15, "dir": "down"}]},
+                       {"match": "all", "signals": [{"type": "compare", "left": {"src": "opt_price"}, "op": "<", "right": {"src": "value", "value": 150}}]}],
+            "groups_match": "any"}
+    eng, j = _rules_case(base, call=flatcall)
+    o = [r for r in j.lines if r["kind"] == "order"]
+    ok("groups: any group true -> trades", len(o) >= 1 and "option price" in o[0]["reason"], o[:1])
+    eng, j = _rules_case(dict(base, groups_match="all"), call=flatcall)
+    ok("groups: all groups needed -> no trade", j.count("order") == 0)
+    from .strategies.rules import clean
+    c = clean({"groups": [{"signals": [{"type": "compare", "left": {"src": "opt_price"}, "op": "crosses_above", "right": {"src": "value", "value": 1}},
+                                       {"type": "compare", "left": {"src": "nonsense"}, "op": ">", "right": {"src": "value"}}]}]})
+    ok("clean: option-price cross turned into a plain comparison, unknown data dropped",
+       len(c["groups"][0]["signals"]) == 1 and c["groups"][0]["signals"][0]["op"] == ">", c["groups"])
+
+
 def main() -> int:
-    for t in [test_indicators, test_rules, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_indicators, test_rules, test_compare_and_groups, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor]:
         t()
     bad = [n for n, good in R if not good]

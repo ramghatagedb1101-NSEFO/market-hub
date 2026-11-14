@@ -21,7 +21,8 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-WHY = {"stop": "Stop-loss", "trail": "Trailing stop", "close-all": "Closed: day stopped", "settle": "Expiry"}
+WHY = {"stop": "Stop-loss", "trail": "Trailing stop", "close-all": "Closed: day stopped", "settle": "Expiry",
+       "target": "Target", "time-exit": "Exit time"}
 
 
 def read(dirpath: str) -> list[dict]:

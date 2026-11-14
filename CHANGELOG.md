@@ -4,6 +4,26 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy builder: compare any two data points, and groups (Sat 14 Nov 2026)
+Owner: "Add a signal is a very good idea ... pick and choose the existing data points that I have give all possible
+combinations".
+- New signal "Compare any two data points": any data point against a number or another data point, with above,
+  below, at or above, at or below, crosses above, crosses below, on 1 / 3 / 5 / 15-minute bars. Data points (all
+  already in the program, live and in back-tests): index price; the last bar's open / high / low / close; today's
+  open / high / low; yesterday's close / high / low; opening-range high / low (any number of minutes); EMA, SMA, RSI,
+  ATR (any period); % move from yesterday's close or today's open; the price of the option the strategy trades; days
+  to expiry; a number. "Crosses" is not offered on the option price (no history kept for it).
+- Groups: each group is true when all / any of its signals are; the strategy enters when any / all groups are true
+  ("(A and B) or (C and D)"). Older strategies open as one group; nothing changes for them.
+- "Option price above / below a level" left the placeholders (the program streams the option's price already);
+  put-call ratio, open interest change and futures VWAP stay greyed out until their data is in.
+- Trades closed by a target or the exit-by time now say so on the Auto trading screens and in back-tests (they
+  showed "Strategy exit").
+- `trader/indicators.py` (compare, ATR, data points), `trader/strategies/rules.py` (groups, checks), relay
+  `Strategy.gs`, dashboard page. Tests 79 of 79 (13 new). Back-test with two groups of comparisons on real data:
+  32 sessions in 37 seconds. Page checked in the preview: an old strategy opens as Group 1, a second group of
+  comparisons saves in the right shape, the list reads "(...) or (...)"; no console errors.
+
 ### Strategy builder: placeholders for signals waiting on data (Sat 14 Nov 2026)
 Owner: "Just keep the placeholder on the dashboard. The moment the data is available, we can make enable."
 - The page's "Add a signal" list now ends with a greyed-out group "Coming when the data is ready": put-call ratio,

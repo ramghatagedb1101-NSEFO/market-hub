@@ -1491,6 +1491,7 @@ function pageAlgo(){
 // (trader/strategies/rules.py). Back-tests run on GitHub (strategy-backtest.yml) on the ICICI minute history.
 let ST_EDIT = null, ST_MSG = '', ST_BT = null;
 const ST_SIG = {
+  compare: { l: 'Compare any two data points', d: { type: 'compare', left: { src: 'price' }, op: '>', right: { src: 'ema', n: 20 }, tf: 5 } },
   price_ma: { l: 'Index vs its average', d: { type: 'price_ma', ma: 'ema', period: 20, tf: 5, op: 'above' } },
   ma_cross: { l: 'Average crossover', d: { type: 'ma_cross', ma: 'ema', fast: 9, slow: 21, tf: 5, dir: 'up' } },
   rsi: { l: 'RSI', d: { type: 'rsi', period: 14, tf: 5, op: 'above', level: 60 } },
@@ -1499,10 +1500,21 @@ const ST_SIG = {
   dte: { l: 'Days to expiry', d: { type: 'dte', op: '<=', days: 2 } },
   weekday: { l: 'Day of week', d: { type: 'weekday', days: [1, 2, 3, 4, 5] } }
 };
-const ST_SOON = ['Put-call ratio', 'Change in open interest', 'Option price above / below a level', 'VWAP (from futures volume)'];
+const ST_SOON = ['Put-call ratio', 'Change in open interest', 'VWAP (from futures volume)'];
+// Data points for "Compare any two data points" (trader/indicators.py OPERANDS), grouped as on the page.
+const ST_OPS = [['Index', [['price', 'Index price'], ['open', 'Bar open'], ['high', 'Bar high'], ['low', 'Bar low'], ['close', 'Bar close']]],
+  ['Today', [['day_open', "Today's open"], ['day_high', "Today's high"], ['day_low', "Today's low"], ['chg_open', '% move from today\'s open']]],
+  ['Yesterday', [['prev_close', "Yesterday's close"], ['prev_high', "Yesterday's high"], ['prev_low', "Yesterday's low"], ['chg_prev', '% move from yesterday\'s close']]],
+  ['Opening range', [['orb_high', 'Opening-range high'], ['orb_low', 'Opening-range low']]],
+  ['Indicators', [['ema', 'EMA'], ['sma', 'SMA'], ['rsi', 'RSI'], ['atr', 'ATR (average range)']]],
+  ['Option', [['opt_price', 'Option price (the one this strategy trades)']]],
+  ['Calendar', [['dte', 'Days to expiry']]],
+  ['Number', [['value', 'A number']]]];
+const ST_OPNAME = Object.fromEntries(ST_OPS.flatMap(g => g[1]));
+const ST_HASN = { ema: 'period', sma: 'period', rsi: 'period', atr: 'period', orb_high: 'minutes', orb_low: 'minutes' };
 function stNew(){
   return { name: 'New strategy', notes: '', index: 'NIFTY', side: 'BUY', right: 'C', strike: { mode: 'atm', steps: 0 }, expiry: 'nearest', lots: 1,
-    window: { from: '09:30', until: '14:30' }, match: 'all', signals: [JSON.parse(JSON.stringify(ST_SIG.orb.d))],
+    window: { from: '09:30', until: '14:30' }, groups_match: 'any', groups: [{ match: 'all', signals: [JSON.parse(JSON.stringify(ST_SIG.orb.d))] }],
     exits: { sl_type: 'pct', sl: 25, target_type: 'pct', target: 0, trail_after_type: 'pct', trail_after: 20, trail_type: 'pct', trail: 10, exit_by: '15:15' },
     style: 'intraday', max_trades_day: 2, max_loss_day: 5000, reentry_gap: 15 };
 }
@@ -1523,11 +1535,14 @@ function stEdit(id){
   const s = id ? (S.strat.items || []).find(x => x.id === id) : null;
   ST_EDIT = s ? JSON.parse(JSON.stringify(s)) : stNew();
   if (!ST_EDIT.exits.exit_by) ST_EDIT.exits.exit_by = '15:15';
+  stGroups(ST_EDIT);
   ST_MSG = ''; rerender(); window.scrollTo({ top: 0 });
 }
-function stCopy(id){ const s = (S.strat.items || []).find(x => x.id === id); if (!s) return; ST_EDIT = JSON.parse(JSON.stringify(s)); delete ST_EDIT.id; ST_EDIT.name = s.name + ' (copy)'; ST_MSG = ''; rerender(); window.scrollTo({ top: 0 }); }
+function stGroups(E){ if (!Array.isArray(E.groups) || !E.groups.length) { E.groups = [{ match: E.match || 'all', signals: E.signals || [] }]; E.groups_match = 'any'; } delete E.signals; delete E.match; return E; }
+function stCopy(id){ const s = (S.strat.items || []).find(x => x.id === id); if (!s) return; ST_EDIT = stGroups(JSON.parse(JSON.stringify(s))); delete ST_EDIT.id; ST_EDIT.name = s.name + ' (copy)'; ST_MSG = ''; rerender(); window.scrollTo({ top: 0 }); }
 function stSave(){
-  if (!ST_EDIT.signals.length) { ST_MSG = 'Add at least one signal: without one the strategy never trades.'; rerender(); return; }
+  ST_EDIT.groups = ST_EDIT.groups.filter(g => g.signals.length);
+  if (!ST_EDIT.groups.length) { ST_EDIT.groups = [{ match: 'all', signals: [] }]; ST_MSG = 'Add at least one signal: without one the strategy never trades.'; rerender(); return; }
   stDo('adminStrategySave', [ST_EDIT], 'Saving…', d => { ST_EDIT = null; return 'Saved.' + (d.sent ? ' The trading machine gets it in a minute or two.' : ''); });
 }
 function stDelete(id){ const s = (S.strat.items || []).find(x => x.id === id); if (!s || !confirm('Delete "' + s.name + '"? This cannot be undone.')) return; stDo('adminStrategyDelete', [id], 'Deleting…', () => 'Deleted.'); }
@@ -1564,6 +1579,10 @@ function stSigText(g){
   if (g.type === 'change') return 'Index ' + g.op + ' ' + (g.pct > 0 ? '+' : '') + g.pct + '% from ' + (g.from === 'open' ? "today's open" : "yesterday's close");
   if (g.type === 'dte') return (g.op === '>=' ? 'At least ' : 'At most ') + g.days + ' days to expiry';
   if (g.type === 'weekday') return 'On ' + (g.days || []).map(d => DOW3[d]).join(', ');
+  if (g.type === 'compare') {
+    const w = o => !o ? '?' : o.src === 'value' ? String(o.value) : (ST_OPNAME[o.src] || o.src).replace(' (the one this strategy trades)', '') + (ST_HASN[o.src] ? ' ' + (o.n || (o.src.indexOf('orb') === 0 ? 15 : 14)) + (o.src.indexOf('orb') === 0 ? ' min' : '') : '');
+    return w(g.left) + ' ' + { '>': 'above', '<': 'below', '>=': 'at or above', '<=': 'at or below', crosses_above: 'crosses above', crosses_below: 'crosses below' }[g.op] + ' ' + w(g.right) + ([g.left, g.right].some(o => o && ['value', 'dte', 'opt_price'].indexOf(o.src) < 0) ? ' (' + (g.tf || 5) + '-min bars)' : '');
+  }
   return g.type;
 }
 function stLine(s){
@@ -1589,26 +1608,38 @@ function stForm(){
     lbl('Strike') + row(seg('strike.mode', E.strike.mode, [['atm', 'From the money'], ['premium', 'By price']]),
       E.strike.mode === 'premium' ? 'price nearest ₹ ' + numIn('strike.near', E.strike.near) : numIn('strike.steps', E.strike.steps || 0, 70) + '<span class="muted" style="font-size:12px">strikes out of the money (0 = at the money, negative = in the money)</span>') +
     lbl('Expiry and size') + row(sel('expiry', E.expiry, [['nearest', 'Nearest expiry'], ['next', 'Next expiry'], ['monthly', 'Monthly expiry']]), numIn('lots', E.lots, 70), '<span class="muted" style="font-size:12px">lots</span>'));
-  const sigs = E.signals.map((g, i) => {
-    const p = 'signals.' + i + '.';
+  const tfSel = p => sel(p + 'tf', String((ST_EDIT_GET(p + 'tf')) || 5), [[1, '1'], [3, '3'], [5, '5'], [15, '15']]);
+  const opIn = (p, o) => {
+    const opts = ST_OPS.map(([g, xs]) => '<optgroup label="' + g + '">' + xs.map(([k, l]) => '<option value="' + k + '"' + (k === o.src ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</optgroup>').join('');
+    return '<select class="field" style="width:auto" onchange="stOperand(\'' + p + '\', this.value)">' + opts + '</select>' +
+      (o.src === 'value' ? numIn(p + 'value', o.value == null ? 0 : o.value, 80) : ST_HASN[o.src] ? numIn(p + 'n', o.n || (o.src.indexOf('orb') === 0 ? 15 : 14), 56) + '<span class="muted" style="font-size:12px">' + (ST_HASN[o.src] === 'minutes' ? 'min' : '') + '</span>' : '');
+  };
+  const sigRow = (g, gi, i) => {
+    const p = 'groups.' + gi + '.signals.' + i + '.';
     let f = '';
-    if (g.type === 'price_ma') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + ' its ' + sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + numIn(p + 'period', g.period, 60) + ' on ' + sel(p + 'tf', g.tf, [[1, '1'], [3, '3'], [5, '5'], [15, '15']]) + '-min bars';
-    else if (g.type === 'ma_cross') f = sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + numIn(p + 'fast', g.fast, 60) + ' crosses ' + sel(p + 'dir', g.dir, [['up', 'above'], ['down', 'below']]) + numIn(p + 'slow', g.slow, 60) + ' on ' + sel(p + 'tf', g.tf, [[1, '1'], [3, '3'], [5, '5'], [15, '15']]) + '-min bars';
-    else if (g.type === 'rsi') f = 'RSI' + numIn(p + 'period', g.period, 60) + ' on ' + sel(p + 'tf', g.tf, [[1, '1'], [3, '3'], [5, '5'], [15, '15']]) + '-min bars ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + numIn(p + 'level', g.level, 60);
+    if (g.type === 'compare') f = opIn(p + 'left.', g.left || { src: 'price' }) + sel(p + 'op', g.op, [['>', 'above'], ['<', 'below'], ['>=', 'at or above'], ['<=', 'at or below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + opIn(p + 'right.', g.right || { src: 'value', value: 0 }) + 'on ' + tfSel(p) + '-min bars';
+    else if (g.type === 'price_ma') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + ' its ' + sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + numIn(p + 'period', g.period, 60) + ' on ' + tfSel(p) + '-min bars';
+    else if (g.type === 'ma_cross') f = sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + numIn(p + 'fast', g.fast, 60) + ' crosses ' + sel(p + 'dir', g.dir, [['up', 'above'], ['down', 'below']]) + numIn(p + 'slow', g.slow, 60) + ' on ' + tfSel(p) + '-min bars';
+    else if (g.type === 'rsi') f = 'RSI' + numIn(p + 'period', g.period, 60) + ' on ' + tfSel(p) + '-min bars ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + numIn(p + 'level', g.level, 60);
     else if (g.type === 'orb') f = 'Index breaks the first' + numIn(p + 'minutes', g.minutes, 60) + 'minutes\' ' + sel(p + 'dir', g.dir, [['up', 'high'], ['down', 'low']]);
     else if (g.type === 'change') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + numIn(p + 'pct', g.pct, 70) + '% from ' + sel(p + 'from', g.from, [['prev_close', "yesterday's close"], ['open', "today's open"]]);
     else if (g.type === 'dte') f = sel(p + 'op', g.op, [['<=', 'At most'], ['>=', 'At least']]) + numIn(p + 'days', g.days, 60) + 'days to expiry';
-    else if (g.type === 'weekday') f = 'On ' + [1, 2, 3, 4, 5].map(d => '<label style="margin-right:8px;font-size:13px"><input type="checkbox"' + ((g.days || []).indexOf(d) >= 0 ? ' checked' : '') + ' onchange="stDay(' + i + ',' + d + ',this.checked)"> ' + DOW3[d] + '</label>').join('');
+    else if (g.type === 'weekday') f = 'On ' + [1, 2, 3, 4, 5].map(d => '<label style="margin-right:8px;font-size:13px"><input type="checkbox"' + ((g.days || []).indexOf(d) >= 0 ? ' checked' : '') + ' onchange="stDay(' + gi + ',' + i + ',' + d + ',this.checked)"> ' + DOW3[d] + '</label>').join('');
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle)">' + row(f) +
-      '<button class="btn sm" type="button" title="Remove this signal" onclick="ST_EDIT.signals.splice(' + i + ',1);rerender()">×</button></div>';
-  }).join('');
+      '<button class="btn sm" type="button" title="Remove this signal" onclick="ST_EDIT.groups[' + gi + '].signals.splice(' + i + ',1);rerender()">×</button></div>';
+  };
+  const addSel = gi => '<select class="field" style="width:auto;margin-top:8px" onchange="if(this.value){ST_EDIT.groups[' + gi + '].signals.push(JSON.parse(JSON.stringify(ST_SIG[this.value].d)));rerender()}"><option value="">+ Add a signal…</option>' +
+    Object.keys(ST_SIG).map(k => '<option value="' + k + '">' + ST_SIG[k].l + '</option>').join('') +
+    // Placeholders (owner, 14 Nov 2026: "keep the placeholder on the dashboard. The moment the data is available, we can
+    // make enable"): shown greyed out until the program has the data; enabling one = add it to ST_SIG and indicators.py.
+    '<optgroup label="Coming when the data is ready">' + ST_SOON.map(l => '<option disabled>' + l + '</option>').join('') + '</optgroup></select>';
+  const groups = E.groups.map((g, gi) => '<div style="border:1px solid var(--border-subtle);border-radius:8px;padding:8px 12px;margin-top:10px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' + row('<b>Group ' + (gi + 1) + '</b>', 'true when', seg('groups.' + gi + '.match', g.match, [['all', 'all'], ['any', 'any']]), 'of its signals are true') +
+    (E.groups.length > 1 ? '<button class="btn sm" type="button" title="Remove this group" onclick="ST_EDIT.groups.splice(' + gi + ',1);rerender()">Remove group</button>' : '') + '</div>' +
+    (g.signals.map((x, i) => sigRow(x, gi, i)).join('') || '<div class="muted" style="margin-top:8px">No signals in this group yet.</div>') + addSel(gi) + '</div>').join('');
   h += sec('When to enter',
-    row('Between', timeIn('window.from', E.window.from), 'and', timeIn('window.until', E.window.until), ', when', seg('match', E.match, [['all', 'all'], ['any', 'any']]), 'of these are true:') +
-    (sigs || '<div class="muted" style="margin-top:8px">No signals yet: the strategy never trades without one.</div>') +
-    '<div style="margin-top:10px">' + '<select class="field" style="width:auto" onchange="if(this.value){ST_EDIT.signals.push(JSON.parse(JSON.stringify(ST_SIG[this.value].d)));rerender()}"><option value="">+ Add a signal…</option>' + Object.keys(ST_SIG).map(k => '<option value="' + k + '">' + ST_SIG[k].l + '</option>').join('') +
-      // Placeholders (owner, 14 Nov 2026: "keep the placeholder on the dashboard. The moment the data is available, we can
-      // make enable"): shown greyed out until the program has the data; enabling one = add it to ST_SIG and indicators.py.
-      '<optgroup label="Coming when the data is ready">' + ST_SOON.map(l => '<option disabled>' + l + '</option>').join('') + '</optgroup></select></div>');
+    row('Between', timeIn('window.from', E.window.from), 'and', timeIn('window.until', E.window.until), (E.groups.length > 1 ? ', when ' + seg('groups_match', E.groups_match || 'any', [['any', 'any'], ['all', 'all']]) + ' of these groups are true:' : ', when:')) +
+    groups + '<button class="btn sm" type="button" style="margin-top:10px" onclick="ST_EDIT.groups.push({match:\'all\',signals:[]});ST_EDIT.groups_match=ST_EDIT.groups_match||\'any\';rerender()">+ Add a group (an "or" choice)</button>');
   h += sec('Exits',
     lbl('Stop-loss (sent with the order, held by IBKR)') + row(numIn('exits.sl', X.sl), unit('exits.sl_type', X.sl_type), '<span class="muted" style="font-size:12px">' + (E.side === 'BUY' ? 'below' : 'above') + ' the entry · 0 = none</span>') +
     lbl('Target') + row(numIn('exits.target', X.target), unit('exits.target_type', X.target_type), '<span class="muted" style="font-size:12px">in profit · 0 = none</span>') +
@@ -1620,7 +1651,9 @@ function stForm(){
     (ST_MSG ? '<span class="muted" style="font-size:12.5px">' + esc(ST_MSG) + '</span>' : '') + '</div>';
   return h;
 }
-function stDay(i, d, on){ const g = ST_EDIT.signals[i]; g.days = (g.days || []).filter(x => x !== d); if (on) g.days.push(d); g.days.sort(); }
+function stDay(gi, i, d, on){ const g = ST_EDIT.groups[gi].signals[i]; g.days = (g.days || []).filter(x => x !== d); if (on) g.days.push(d); g.days.sort(); }
+function ST_EDIT_GET(path){ return path.split('.').reduce((o, k) => o == null ? o : o[k], ST_EDIT); }
+function stOperand(path, src){ const o = { src }; if (src === 'value') o.value = 0; if (ST_HASN[src]) o.n = src.indexOf('orb') === 0 ? 15 : src === 'rsi' || src === 'atr' ? 14 : 20; stSet(path.replace(/\.$/, ''), o, true); }
 function stBtPanel(){
   if (!ST_BT) return '';
   const s = (S.strat.items || []).find(x => x.id === ST_BT.id) || {};
@@ -1660,7 +1693,7 @@ function pageStrategies(){
       '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><div><b>' + esc(s.name) + '</b>' + (on ? ' <span class="chip up">Trading</span>' : '') + (s.notes ? ' <span class="muted" style="font-size:12.5px">· ' + esc(s.notes) + '</span>' : '') + '</div>' +
       '<span class="faint" style="font-size:11px">Saved ' + esc(algoWhen(s.updated)) + '</span></div>' +
       '<div class="muted" style="font-size:12.5px;margin:4px 0">' + esc(stLine(s)) + '</div>' +
-      '<div class="muted" style="font-size:12.5px">Enter ' + s.window.from + '-' + s.window.until + ' when ' + (s.match === 'any' ? 'any' : 'all') + ' of: ' + esc((s.signals || []).map(stSigText).join('; ') || 'no signals') + '</div>' +
+      '<div class="muted" style="font-size:12.5px">Enter ' + s.window.from + '-' + s.window.until + ' when ' + esc(stGroups(JSON.parse(JSON.stringify(s))).groups.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of (' : 'all of (') : '(') + g.signals.map(stSigText).join('; ') + ')').join(s.groups_match === 'all' ? ' and ' : ' or ') || 'no signals') + '</div>' +
       '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap"><div style="display:flex;gap:6px;flex-wrap:wrap">' +
         (on ? '<button class="btn sm" type="button" onclick="stOn(\'\')">Switch off</button>' : '<button class="btn sm primary" type="button" onclick="stOn(\'' + s.id + '\')">Trade this</button>') +
         '<button class="btn sm" type="button" onclick="stEdit(\'' + s.id + '\')">Edit</button>' +

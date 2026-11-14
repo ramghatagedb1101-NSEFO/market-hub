@@ -23,28 +23,52 @@ function stratLimits_() {
 }
 function stratNum_(x, lo, hi, d) { const v = Number(x); return isFinite(v) ? Math.min(Math.max(v, lo), hi) : d; }
 function stratTime_(x, d) { x = String(x || ''); return /^\d\d:\d\d$/.test(x) && x >= '09:15' && x <= '15:30' ? x : d; }
-const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday'];
+const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday', 'compare'];
+// The general comparison's data points (trader/indicators.py OPERANDS) and comparisons.
+const STRAT_OPERANDS = ['price', 'open', 'high', 'low', 'close', 'day_open', 'day_high', 'day_low', 'prev_close', 'prev_high',
+  'prev_low', 'orb_high', 'orb_low', 'ema', 'sma', 'rsi', 'atr', 'chg_prev', 'chg_open', 'opt_price', 'dte', 'value'];
+const STRAT_OPS = ['>', '<', '>=', '<=', 'crosses_above', 'crosses_below'];
+function stratOperand_(o) {
+  if (!o || STRAT_OPERANDS.indexOf(o.src) < 0) return null;
+  const out = { src: o.src };
+  if (o.src === 'value') out.value = stratNum_(o.value, -1e9, 1e9, 0);
+  if (['ema', 'sma', 'rsi', 'atr', 'orb_high', 'orb_low'].indexOf(o.src) >= 0) out.n = Math.round(stratNum_(o.n, 1, 500, /^orb/.test(o.src) ? 15 : 14));
+  return out;
+}
+function stratSignal_(x) {
+  if (!x || STRAT_SIGNALS.indexOf(x.type) < 0) return null;
+  if (x.type === 'compare') {
+    const l = stratOperand_(x.left), r = stratOperand_(x.right);
+    if (!l || !r) return null;
+    let op = STRAT_OPS.indexOf(x.op) >= 0 ? x.op : '>';
+    if (/^crosses/.test(op) && (l.src === 'opt_price' || r.src === 'opt_price')) op = op === 'crosses_above' ? '>' : '<';
+    return { type: 'compare', left: l, op: op, right: r, tf: [1, 3, 5, 15].indexOf(Number(x.tf)) >= 0 ? Number(x.tf) : 5 };
+  }
+  const o = { type: x.type };
+  ['ma', 'op', 'dir', 'from'].forEach(k => { if (x[k] != null) o[k] = String(x[k]).slice(0, 20); });
+  ['period', 'tf', 'fast', 'slow', 'level', 'minutes', 'pct', 'days'].forEach(k => { if (x[k] != null && x[k] !== '' && isFinite(Number(x[k]))) o[k] = Number(x[k]); });
+  if (Array.isArray(x.days)) o.days = x.days.map(Number).filter(d => d >= 1 && d <= 5);
+  return o;
+}
 
 function stratClean_(s) {
   s = s || {};
   const st = s.strike || {}, ex = s.exits || {}, w = s.window || {};
   const style = s.style === 'carry' ? 'carry' : 'intraday';
   const pick = (v, ok, d) => ok.indexOf(v) >= 0 ? v : d;
-  const sigs = (Array.isArray(s.signals) ? s.signals : []).filter(x => x && STRAT_SIGNALS.indexOf(x.type) >= 0).slice(0, 8).map(x => {
-    const o = { type: x.type };
-    ['ma', 'op', 'dir', 'from'].forEach(k => { if (x[k] != null) o[k] = String(x[k]).slice(0, 20); });
-    ['period', 'tf', 'fast', 'slow', 'level', 'minutes', 'pct', 'days'].forEach(k => { if (x[k] != null && x[k] !== '' && isFinite(Number(x[k]))) o[k] = Number(x[k]); });
-    if (Array.isArray(x.days)) o.days = x.days.map(Number).filter(d => d >= 1 && d <= 5);
-    return o;
-  });
+  // Groups (14 Nov 2026): enter when any / all groups are true, each group all / any of its signals. Older strategies
+  // ("match" + "signals") become one group.
+  const raw = Array.isArray(s.groups) && s.groups.length ? s.groups : [{ match: s.match, signals: s.signals }];
+  const groups = raw.slice(0, 5).map(g => ({ match: (g && g.match) === 'any' ? 'any' : 'all',
+    signals: ((g && g.signals) || []).map(stratSignal_).filter(Boolean).slice(0, 8) })).filter(g => g.signals.length);
   return {
     id: /^s_[a-z0-9]{6,20}$/.test(s.id || '') ? s.id : 's_' + Utilities.getUuid().replace(/-/g, '').slice(0, 10),
     name: String(s.name || 'Unnamed strategy').slice(0, 80), notes: String(s.notes || '').slice(0, 500),
     index: pick(s.index, ['NIFTY', 'BANKNIFTY'], 'NIFTY'), side: pick(s.side, ['BUY', 'SELL'], 'BUY'), right: pick(s.right, ['C', 'P'], 'C'),
     strike: st.mode === 'premium' ? { mode: 'premium', near: stratNum_(st.near, 1, 5000, 100) } : { mode: 'atm', steps: Math.round(stratNum_(st.steps, -10, 20, 0)) },
     expiry: pick(s.expiry, ['nearest', 'next', 'monthly'], 'nearest'), lots: Math.round(stratNum_(s.lots, 1, 50, 1)),
-    window: { from: stratTime_(w.from, '09:30'), until: stratTime_(w.until, '14:30') }, match: s.match === 'any' ? 'any' : 'all',
-    signals: sigs,
+    window: { from: stratTime_(w.from, '09:30'), until: stratTime_(w.until, '14:30') },
+    groups: groups, groups_match: s.groups_match === 'all' ? 'all' : 'any',
     exits: { sl_type: ex.sl_type === 'points' ? 'points' : 'pct', sl: stratNum_(ex.sl, 0, 1000, 25),
              target_type: ex.target_type === 'points' ? 'points' : 'pct', target: stratNum_(ex.target, 0, 5000, 0),
              trail_after_type: ex.trail_after_type === 'points' ? 'points' : 'pct', trail_after: stratNum_(ex.trail_after, 0, 5000, 20),
