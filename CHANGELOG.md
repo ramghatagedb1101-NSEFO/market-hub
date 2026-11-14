@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Back-tests reader: the fast Gemini model first (Sat 14 Nov 2026)
+Owner: "fix the Gemini read stalling". Evidence (`hub/diag_gemini_speed.py` on GitHub, 12 timed calls with the page's own
+prompt and the owner's Supertrend sentence): gemini-3.8-flash never answered (two waits past 100 s, ten "quota
+exceeded"); gemini-3.5-flash-lite answered in 3.5 and 8.7 s with both sides read correctly (once "busy"). The reader
+asked 3.8-flash first, three times, and Apps Script cannot put a time limit on a call, so one read could sit for minutes.
+- Now: flash-lite up to three times (2 and 5 s apart when busy), then 3.8-flash once, only if under 20 s have passed.
+  A model that says its free allowance is used up is not asked again in that read.
+- Same slow model in the daily AI summaries (`hub/summaries.py`): 8-11 minutes a document on 14 Nov, one failed after
+  10 minutes. Not changed (owner's call: summaries read whole filings, where the bigger model's quality may matter).
+
 ### Strategy form: put side editing (Sat 14 Nov 2026)
 Owner: "add put side editing to the strategy form". A both-ways strategy could only be made on the Back-tests page.
 - What to trade > Direction: "One option" / "Trade both ways". Both ways fixes Buy and shows "Buy · call and put";

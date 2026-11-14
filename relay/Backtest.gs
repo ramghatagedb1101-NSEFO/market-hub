@@ -7,7 +7,10 @@
  * dashboard (Data and settings > Gemini key) and adminGeminiKeySave stores it. Never returned to any page.
  */
 
-const BT_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];   // the same free models as hub/summaries.py
+// 14 Nov 2026 (hub/diag_gemini_speed.py, 12 timed calls with this page's prompt): gemini-3.5-flash-lite answered in
+// 3.5-9 s and read both sides correctly; gemini-3.8-flash never answered (two waits past 100 s, ten "quota exceeded").
+// Calls from Apps Script cannot be given a time limit, so the slow model is only tried last, and only early enough.
+const BT_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash'];
 
 function adminGeminiKeySave(token, key) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
@@ -87,13 +90,14 @@ function adminBtParse(token, text) {
                  contents: [{ role: 'user', parts: [{ text: q }] }],
                  generationConfig: { responseMimeType: 'application/json', temperature: 0 } };
   let last = '';
-  // 14 Nov 2026: Google answered 503 (busy) on both free models for a few minutes; each model is now tried three
-  // times, 2 and 5 s apart, before giving up with a plain message.
-  const tries = [];
-  BT_MODELS.forEach(m => { tries.push([m, 0], [m, 2000], [m, 5000]); });
-  const t0 = Date.now();
+  // 14 Nov 2026: the fast model three times (2 and 5 s apart, for "busy"), then the slow one once if time allows;
+  // a model whose free allowance is used up (429) is not asked again.
+  const tries = [[BT_MODELS[0], 0], [BT_MODELS[0], 2000], [BT_MODELS[0], 5000], [BT_MODELS[1], 0]];
+  const t0 = Date.now(), spent = {};
   for (let i = 0; i < tries.length; i++) {
-    if (Date.now() - t0 > 60000) break;                // the page gives up at 90 s
+    if (spent[tries[i][0]]) continue;                   // that model's free allowance is used up for now
+    // the slow model can take a minute or more: only start it while the page (90 s) can still wait for it
+    if (Date.now() - t0 > (tries[i][0] === BT_MODELS[1] ? 20000 : 60000)) break;
     if (tries[i][1]) Utilities.sleep(tries[i][1]);
     const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + tries[i][0] + ':generateContent',
       { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key },
@@ -106,11 +110,12 @@ function adminBtParse(token, text) {
         if (!out || !out.strategy) throw new Error('no strategy');
         out.query = q;
         return out;
-      } catch (e) { last = 'the AI answer could not be read'; continue; }
+      } catch (e) { last = "The AI's answer could not be read. Try again."; continue; }
     }
     last = code === 400 || code === 403 ? 'Google refused the Gemini key; paste it again under Data and settings'
          : code === 429 || code >= 500 ? "Google's free AI is busy right now. Try again in a minute." : "Google's AI did not answer (" + code + '). Try again in a minute.';
     if (code === 400 || code === 403) break;
+    if (code === 429) spent[tries[i][0]] = true;
   }
   return { error: last || "Google's AI did not answer in time. Try again." };
 }
