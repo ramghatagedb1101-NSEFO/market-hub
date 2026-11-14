@@ -4,6 +4,30 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Paper trading program, first version (Sat 14 Nov 2026)
+Owner: "start the paper trading program while we wait"; "every order to buy options should go with an attached child
+stop loss ... once ... I make a decent amount of profit this stop loss order should cancel and a new trailing stop loss
+should be activated"; checks every 2-3 seconds, trades in real time.
+- New `trader/` package, one engine for live and replay: `book.py` (positions and money from fills only), `risk.py`
+  (limits on every order: entry window 09:20-15:25, 1 lot an order, 4 open legs, 20 orders a day, ₹10,000 day's loss
+  then close everything and stop; price older than 10 s or bid-ask gap over 25% refused; one entry per contract; a
+  STOP file on the machine does the same), `engine.py` (one step every 2 s), `journal.py` (every decision, refusal,
+  order and fill), `replay.py` (ICICI minute history), `ibkr.py` (IBKR gateway), `live.py` + `infra/trader/trader.service`.
+- Stop-loss on every option buy: sent with the buy as a bracket, held on IBKR's servers (works if the machine is down).
+  At +20% on the entry it is replaced by a trailing stop 10% under the highest price since: the trailing stop goes in
+  first, in the same one-cancels-other group, then the fixed stop is cancelled, so the two can never both sell. If IBKR
+  refuses a trailing stop on a contract, the fixed stop is kept and moved up by the program instead, never down. Any
+  other exit cancels the stop first. Not on bought wings that cap a sold leg (a stop would remove the cap).
+  25% / 20% / 10% are starting values in `trader/model.py` Settings, to be tuned on the ICICI minute history.
+- First strategy plug-in: the expiry condor of `hub/rule_test.py` (rejected by the back-tests; there to exercise the
+  program end to end). Nothing trades unless the machine's settings file names a strategy; default is watch only.
+- Real accounts cannot be reached: the program refuses any account not starting "DU" (paper) and sends nothing.
+- Tests: `python -m trader.selftest`, 32 checks on made-up prices (stop hit near the stop, trailing switch only after
+  +20%, exit near 10% under the peak, kill switch sells once and never goes short, every refusal, settlement, condor).
+  Replay on real ICICI minutes (4 expiries): orders, fills and settlement as expected; NIFTY 3 Nov 2026 checked by hand.
+- Not yet tested against IBKR (paper login pending): the IBKR names of NIFTY / BANK NIFTY options, contracts vs units,
+  whether NSE options take stop and trailing orders. `check.py` and the first paper session settle these.
+
 ### Oracle trading machine made, set up, and shrunk to the free size (Sat 14 Nov 2026)
 - The self-continuing retry got `market-hub-trader` on its first ask (4 cores / 24 GB, Mumbai) and switched itself off.
   `bootstrap.sh` run on it: Docker, the IBKR gateway image (arm64, built 11 Nov 2026), Python with `ib_async` 2.1.0,

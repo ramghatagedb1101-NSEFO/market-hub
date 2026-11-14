@@ -19,7 +19,15 @@ for f in docker-compose.yml set-login.sh check.py; do curl -fsSL "$RAW/$f" -o "/
 chmod +x /opt/trader/set-login.sh
 
 python3 -m venv /opt/trader/venv
-/opt/trader/venv/bin/pip install --quiet "ib_async>=1.0"
+/opt/trader/venv/bin/pip install --quiet "ib_async>=1.0" "requests>=2.31"
+
+# The program itself (trader/ and the hub/ pieces it reuses): a copy of this public repo, refreshed with git pull.
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq git
+if [ -d /opt/trader/app/.git ]; then git -C /opt/trader/app pull -q --ff-only; else
+  git clone -q --depth 1 https://github.com/ramghatagedb1101-NSEFO/market-hub.git /opt/trader/app; fi
+mkdir -p /opt/trader/journal
+curl -fsSL "$RAW/trader.service" | sudo tee /etc/systemd/system/trader.service >/dev/null
+sudo systemctl daemon-reload            # installed, not started: it starts once the paper login works
 sudo docker compose -f /opt/trader/docker-compose.yml pull --quiet
 
 echo "Ready. Next (owner, once): /opt/trader/set-login.sh"

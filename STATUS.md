@@ -35,7 +35,9 @@ first) and `CLAUDE.md`.
   `set-login.sh` (owner types the paper username/password once, hidden), `check.py` (paper-only connection check and
   how IBKR names NIFTY / BANK NIFTY / SENSEX options; no orders). Waiting on: the owner's paper login in
   `set-login.sh` (paper login fails while the main IBKR account is signed in: IBKR allows one session across the two).
-  Then the paper trading program. IBKR side (14 Nov): NSE shares and F&O live data are on the account, "Fee Waived"
+  Paper trading program built (`trader/`, 14 Nov; CHANGELOG): stop-loss with every buy, trailing after +20%, limits,
+  kill switch, replay on ICICI minutes, 32 self-tests pass. Installed on the machine as `trader.service`, not started.
+  Untested against IBKR until the paper login works. IBKR side (14 Nov): NSE shares and F&O live data are on the account, "Fee Waived"
   (total ₹0); no BSE, so no SENSEX options data. Owner signed the Market Data API form and set "share market data with
   paper" to Yes (not read back: IBKR session had ended; the first connection check will show whether prices arrive).
   Paper password reset fails with IBKR error PREC100 (code not documented): retry Monday, else IBKR chat.

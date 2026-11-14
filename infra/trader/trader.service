@@ -1,0 +1,15 @@
+[Unit]
+Description=Market Hub paper trading program (IBKR paper account only)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/trader/app
+ExecStart=/opt/trader/venv/bin/python -u -m trader.live
+Restart=always
+RestartSec=30
+Environment=TZ=Asia/Kolkata
+
+[Install]
+WantedBy=multi-user.target
