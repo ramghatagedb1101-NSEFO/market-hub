@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Trading program switched on, watch only (Sat 14 Nov 2026, 10:13 IST)
+Owner: "Go ahead". `trader.service` enabled and started on market-hub-trader (restarts itself, starts on boot).
+Connected to the paper account; mode manual, no strategy on, so it watches and places no orders until a strategy or
+autopilot is switched on from the dashboard. It steps only in market hours (first session Mon 16 Nov 2026, 09:15).
+- Dry run of the live paths on the real connection, no orders: three sessions of NIFTY minute bars (11-13 Nov, 1,125),
+  18 expiries (nearest 17 Nov), strikes, option subscriptions (no bid / ask at the weekend), no open orders or
+  positions; the market-condition reader called Fri 13 Nov at 11:00 range-bound (index -0.01% since the open).
+- Still to see on Monday: live bid / ask on the paper account, and the first 10-minute sync with a running program.
+
 ### Autopilot and strategy-wise profit (Sat 14 Nov 2026)
 Owner: "an auto pilot mode for the strategies based on market conditions the engine should be able to take a call and
 decide which is the best strategy"; "a strategy wise profit and loss as to which strategy made the maximum profit and

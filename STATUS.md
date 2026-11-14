@@ -35,6 +35,9 @@ first) and `CLAUDE.md`.
   `set-login.sh` (owner types the paper username/password once, hidden), `check.py` (paper-only connection check and
   how IBKR names NIFTY / BANK NIFTY / SENSEX options; no orders). Waiting on: the owner's paper login in
   `set-login.sh` (paper login fails while the main IBKR account is signed in: IBKR allows one session across the two).
+  Trading program RUNNING since Sat 14 Nov 10:13 IST (`trader.service`), watch only until a strategy or autopilot is
+  switched on (dashboard F&O > Paper trading > Strategies). First market session Mon 16 Nov: check live bid / ask and
+  the 10-minute sync. Autopilot and strategy-wise profit built (CHANGELOG 14 Nov).
   Strategy builder (14 Nov): dashboard F&O > Paper trading > Strategies; one strategy trades at a time, switched from
   the page; back-tests on the ICICI minutes (expiry days only until the every-day option download: owner approved the
   plan, to start after the expiry download). Greyed-out placeholders on the page for put-call ratio,
