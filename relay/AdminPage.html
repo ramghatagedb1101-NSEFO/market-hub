@@ -2298,11 +2298,16 @@ function stcDraw(){
   const mainLeg = legBox(mainDiv), lowLegs = lowCharts.map(x => legBox(x.div));
   const fmt = v => v == null || !isFinite(v) ? '–' : num(v, Number.isInteger(v) && Math.abs(v) >= 1000 ? 0 : 2);
   const tf = daily ? 'D' : STC.view + ' min';
+  // 14 Nov 2026 (owner): the date and time of the bar under the cursor, as any chart shows. Intraday bar times are
+  // seconds already shifted to Indian time, so they are read as UTC; daily bars are 'YYYY-MM-DD'.
+  const whenOf = t => { if (t == null) return '';
+    if (typeof t !== 'number') { const d = dayOf(typeof t === 'object' && t.year ? t.year + '-' + String(t.month).padStart(2, '0') + '-' + String(t.day).padStart(2, '0') : String(t)); return d ? bDay(d) : ''; }
+    const d = new Date(t * 1000); return bDay(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))) + ' · ' + String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
   const paint = i => {
     const b = bars[i];
     mainLeg.textContent = '';
     const head = document.createElement('div'); head.style.fontWeight = '600'; head.style.color = 'var(--text)';
-    head.textContent = (idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + (OPT ? ' ' + num(Number(O.k), 0) + (O.right === 'put' ? ' PE' : ' CE') : '') + ' · ' + tf + '   O ' + fmt(b.open) + '  H ' + fmt(b.high) + '  L ' + fmt(b.low) + '  C ' + fmt(b.close);
+    head.textContent = (idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + (OPT ? ' ' + num(Number(O.k), 0) + (O.right === 'put' ? ' PE' : ' CE') : '') + ' · ' + tf + '   ' + whenOf(b.time) + '   O ' + fmt(b.open) + '  H ' + fmt(b.high) + '  L ' + fmt(b.low) + '  C ' + fmt(b.close);
     mainLeg.append(head);
     legendMain.filter(x => x[1]).forEach(([c, nm, vals]) => { const r = document.createElement('div'); r.style.cssText = 'display:flex;gap:6px;align-items:center';
       const k = document.createElement('span'); k.style.cssText = 'width:12px;height:2px;background:' + c; r.append(k, document.createTextNode(nm + '  ' + fmt(vals[i]))); mainLeg.append(r); });

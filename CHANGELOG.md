@@ -4,6 +4,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy chart: date and time under the cursor (Sat 14 Nov 2026)
+Owner: "it must show the date and time when I put the cursor on the chart... basic for any charts". The legend at the
+top left now reads e.g. "BANK NIFTY 57,600 CE · 5 min   Fri 11 Sep 2026 · 10:45   O ... H ... L ... C ...", for the bar
+under the cursor (the last bar when the cursor is off the chart); daily bars show the date only.
+
 ### Option prices on the strategy chart (Sat 14 Nov 2026)
 Owner: "a chart for the option prices is better, just give that as an option".
 - The strategy chart has an **Index / Option** switch. Option: pick the expiry (every stored one, with its number of
