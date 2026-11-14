@@ -12,9 +12,11 @@ on:
   workflow_dispatch:
     inputs:
       module:
-        description: "hub module to run (e.g. diag_breeze)"
+        description: "hub module to run (breeze_history = the download; diag_breeze = sign-in test only)"
         required: true
-        default: "diag_breeze"
+        # 14 Nov 2026: the trading machine starts the 16:00 / 21:00 runs as manual runs (trader/kicker.py), which take
+        # this default; it was diag_breeze, so the 21:00 run only tested the sign-in and downloaded nothing.
+        default: "breeze_history"
       budget:
         description: "most ICICI requests this run (breeze_history)"
         required: false

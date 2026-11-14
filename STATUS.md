@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Sat 14 Nov 2026, ~18:45 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
+As of Sat 14 Nov 2026, ~21:15 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
 `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
@@ -68,7 +68,7 @@ As of Sat 14 Nov 2026, ~18:45 IST. Start with the 14 Nov HANDOVER just below, th
 ### Back-tests page, Range Filter, chart settings (14 Nov 2026, afternoon/evening)
 - F&O > Back-tests: plain English -> Gemini (GEMINI_API_KEY saved via the page) -> five cards -> run. Runs on
   `market-hub-trader` (`bt-worker.service`, relay queue `?mode=bt_next`) outside 09:10-15:35 IST weekdays, else GitHub.
-  First machine run ~1.5 min (filling its disk cache); repeat runs not timed yet. `bt-worker-setup.yml` updates the
+  Owner's both-ways Supertrend test: 21 s on the machine (was 245 s). `bt-worker-setup.yml` updates the
   machine (pull, worker restart; optional trading-program restart, refused in market hours).
 - Range Filter (owner's TradingView script) in strategies, back-tests, chart and the English reader; chart and program
   give identical signals. Live program keeps 6 sessions of minute bars, back-tests 5 sessions before each expiry.
@@ -78,7 +78,7 @@ As of Sat 14 Nov 2026, ~18:45 IST. Start with the 14 Nov HANDOVER just below, th
 - Both directions (14 Nov evening): one strategy buys the call on its call-side signals and the put on its put-side
   signals (`put_groups`); the opposite signal reverses. Checked on the owner's Supertrend sentence since Aug 2026: 92
   trades (46 calls, 46 puts, 37 reversals), 29% won, -Rs 17,638 after charges, 3 Aug - 9 Nov 2026; one day (9 Nov) hit the
-  Rs 10,000 day's loss limit and closed. Exits show 15:01: the 15:00 decision fills on the next minute's price.
+  Rs 10,000 day's loss limit and closed. Exits now show 15:00 (fills stamped at their own minute, same prices).
   The strategy form edits both sides (Direction: One option / Trade both ways), 14 Nov 2026.
 - Back-tests reader: gemini-3.5-flash-lite first (3.8-flash hung or was out of allowance in every timed call, 14 Nov);
   three live reads after the change answered in 10-20 s. AI summaries: 3.8-flash
@@ -93,6 +93,10 @@ As of Sat 14 Nov 2026, ~18:45 IST. Start with the 14 Nov HANDOVER just below, th
   sessions; VWAP (futures data) and IV percentile.
 
 ### Open items, in order
+0. Fixed 21:15 14 Nov: the machine starts `breeze.yml` as a manual run, whose default was the sign-in test
+   (`diag_breeze`), so the 21:00 run downloaded nothing (no loss: the day's allowance was used, 5,140). Default is now
+   `breeze_history`. Check Sun 15 Nov 16:00 run logs real downloads. Owner may delete the old back-test
+   "Supertrend ATM Options Intraday" (pre-fix, no start date).
 1. Monday checks above.
 2. ICICI expiry download to finish (~5 sign-in days, mostly SENSEX), then `rule_real_fill` and the first serious
    strategy search (keep rule_review's discipline: walk-forward, full costs). Every session from 31 Oct 2026 on is not

@@ -25,7 +25,8 @@ top of `CHANGELOG.md` (what changed recently and why) before changing anything.
 Key workflows: `library.yml` (stock library, daily 06:15 IST, chains itself), `daily.yml` (forecasts),
 `breeze.yml` (ICICI minute history, 16:00 / 21:00 IST, needs the day's ICICI sign-in), `algo-sync.yml` (strategies to the
 trading machine, its journals back, `site/algo.json`; every 10 min in market hours and on every switch from the
-dashboard), `strategy-backtest.yml` (a builder strategy's back-test, started from the dashboard), `oci-launch.yml`
+dashboard), `strategy-backtest.yml` (a builder strategy's back-test, started from the dashboard; normally run on the trading machine's
+`bt-worker.service`), `bt-worker-setup.yml` (updates the trading machine; `-f log_only=true` shows its log), `oci-launch.yml`
 (switched off; makes / sizes the Oracle machine, never above the Always Free 2 cores / 12 GB),
 `live.yml` (live quotes every 5 min in market hours),
 (GitHub has started schedules 6-9 hours late since 6 Nov 2026: `trader/kicker.py` on `market-hub-trader` starts all of these

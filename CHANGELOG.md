@@ -4,6 +4,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### ICICI download: on-time runs now download (Sat 14 Nov 2026, 21:15 IST)
+The trading machine's clock (`trader/kicker.py`) starts `breeze.yml` as a manual run, and a manual run took the input
+default `diag_breeze` (sign-in test only): the 21:00 run signed in, read four test prices and downloaded nothing. Default
+is now `breeze_history` (the download); the sign-in test needs `-f module=diag_breeze`. Checked every other scheduled job
+with manual inputs (expiry-history, kite-reminder, close-estimate, summaries): their defaults already match the schedule.
+
 ### Jobs start on time again: the trading machine keeps the clock (Sat 14 Nov 2026)
 Evidence (`gh run list`, every scheduled job, 26 Oct - 14 Nov 2026, IST): until Thu 5 Nov GitHub started schedules
 20-50 minutes late (live quotes about hourly, not every 5 minutes). From Fri 6 Nov every scheduled run started 6-9 hours
