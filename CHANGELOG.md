@@ -4,6 +4,25 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy chart: add any indicator; ITM / ATM / OTM; 3-minute view (Sat 14 Nov 2026)
+Owner: "give me a option to add various parameters"; "ITM, ATM and OTM can also be selected?"; "need 3 min option also
+on the chart".
+- Chart: "+ Add indicator" with a catalogue. On the price: SMA (DMA on the daily view), EMA, Bollinger Bands (period,
+  std dev), Supertrend (ATR period, multiplier), Donchian channel. Levels: pivot points (classic; previous day's on
+  intraday, previous week's as steps on daily), previous day's high / low / close, previous week's and month's high
+  / low, opening range (minutes). Lower panel (one at a time): RSI, MACD (fast, slow, signal), Stochastic (%K, %D),
+  ATR. Each added one is a pill with its colour, its settings to type over, and ×; the same kind can be added more
+  than once. Up to five lines on the price, each keeping its validated colour when others are removed; the strategy's
+  own lines move to neutral ink so they never clash. Daily and intraday views keep separate lists; the set-up is
+  remembered in this browser. VWAP greyed out until futures volume is downloaded.
+- Views: daily, 15, 5, 3 and 1 minute.
+- Strike: "By moneyness" with ITM / ATM / OTM and, for ITM / OTM, a "strikes away" slider (1-10, presets 1, 2, 3,
+  5); stored as the same signed number the program already reads (minus = in the money), so nothing changes for
+  saved strategies or the trading machine.
+- Checked in the preview: ITM 1 -> 3 (stored -3), OTM 3 (+3), ATM (0); daily chart with DMA 20 / 50 / 200, Bollinger
+  Bands, Supertrend and MACD; 3-minute 6 Nov 2026 with pivots R1-R3 / S1-S3, previous day's high / low / close, the
+  strategy's lines and its back-test trade; no console errors.
+
 ### Strategy form: sliders, risk style, chart (Sat 14 Nov 2026)
 Owner: "a dragging bar where I can just drag it based on preset numbers, or even type my own"; "mimic ... whether this
 is a defensive or aggressive or balanced type of selection"; "a chart should appear there with various option to mark
