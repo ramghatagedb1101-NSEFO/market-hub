@@ -2260,9 +2260,9 @@ async function stMode(mode){
   if (mode === S.strat.mode || (mode === 'manual' && S.strat.mode !== 'autopilot')) return;
   const ok = await mhDialog(mode === 'autopilot'
     ? { title: 'Turn on autopilot?', body: 'At 09:30, 11:00 and 13:00 the program reads the market and picks, from the strategies tagged for that condition, the one with the best record there (at least 10 trades, in profit after charges). If none qualifies it runs your fallback, or watches. The safety limits stay.', ok: 'Turn on' }
-    : { title: 'Back to manual?', body: 'Nothing trades until you press Trade this on a strategy. Open trades keep their stops.', ok: 'Manual' });
+    : { title: 'Turn autopilot off?', body: 'No new trades until you press Trade this on a strategy. Open trades keep their stops.', ok: 'Turn off' });
   if (!ok) return;
-  stDo('adminStrategyMode', [mode, S.strat.fallback || ''], 'Switching…', d => (mode === 'autopilot' ? 'Autopilot on.' : 'Manual.') + (d.sent ? ' The trading machine follows in a minute or two.' : ''));
+  stDo('adminStrategyMode', [mode, S.strat.fallback || ''], 'Switching…', d => (mode === 'autopilot' ? 'Autopilot on.' : 'Autopilot off: nothing trades until you press Trade this.') + (d.sent ? ' The trading machine follows in a minute or two.' : ''));
 }
 function stFallback(id){ stDo('adminStrategyMode', ['autopilot', id], 'Saving…', () => id ? 'Fallback saved.' : 'No fallback: autopilot watches when nothing qualifies.'); }
 function stAutoPanel(items){
@@ -2297,15 +2297,18 @@ function pageStrategies(){
   // Trading mode (owner, 14 Nov 2026: "The autopilot switch, make it more explicit"): two cards, the one in force
   // marked ON with what it is doing now; pressing the other asks first.
   const apNow = ((S.algo && !S.algo.error && S.algo.status) || {}).autopilot;
-  const card = (k, title, line, on, state) => '<button type="button" class="mode-card' + (on ? ' on' : '') + '" ' + (on ? 'aria-pressed="true"' : 'onclick="stMode(\'' + k + '\')"') + '>' +
+  // owner: "off button is absent": the card in force carries its own Off button
+  const card = (k, title, line, on, state, off) => '<div class="mode-card' + (on ? ' on' : '') + '"' + (on ? ' aria-current="true"' : ' role="button" tabindex="0" onclick="stMode(\'' + k + '\')" onkeydown="if(event.key===\'Enter\')stMode(\'' + k + '\')"') + '>' +
     '<span class="mode-top"><span class="mode-title">' + title + '</span>' + (on ? '<span class="mode-badge">● ON</span>' : '<span class="mode-off">Switch to ' + title.toLowerCase() + '</span>') + '</span>' +
-    '<span class="mode-line">' + line + '</span><span class="mode-state">' + state + '</span></button>';
+    '<span class="mode-line">' + line + '</span><span class="mode-state">' + state + '</span>' + (on && off ? '<span style="margin-top:6px">' + off + '</span>' : '') + '</div>';
   let h = '<div class="mode-wrap">' +
     card('manual', 'Manual', 'You choose the strategy: press Trade this on one.', !auto,
-      !auto ? (act ? 'Trading now: <b>' + esc(act.name) + '</b> · <a href="javascript:void 0" onclick="event.stopPropagation();stOn(\'\')">Switch off</a>' : 'Nothing switched on: watching only') : '&nbsp;') +
+      !auto ? (act ? 'Trading now: <b>' + esc(act.name) + '</b>' : 'Nothing switched on: watching only') : '&nbsp;',
+      act ? '<button class="btn sm" type="button" onclick="stOn(\'\')">Stop trading</button>' : '') +
     card('autopilot', 'Autopilot', 'The program picks a strategy by market condition at 09:30, 11:00 and 13:00.', auto,
       auto ? (apNow ? 'Market: <b>' + esc(COND[apNow.regime] || 'not read yet') + '</b> · running: <b>' + esc(apNow.strategy || 'nothing (watching)') + '</b>' : 'On · first check at 09:30 on a market day') +
-        ' · fallback: <b>' + esc(((items.find(x => x.id === S.strat.fallback) || {}).name) || 'none') + '</b>' : '&nbsp;') +
+        ' · fallback: <b>' + esc(((items.find(x => x.id === S.strat.fallback) || {}).name) || 'none') + '</b>' : '&nbsp;',
+      '<button class="btn sm" type="button" onclick="stMode(\'manual\')">Turn autopilot off</button>') +
     '</div><div class="muted" style="font-size:12px;margin:-4px 0 12px">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div>';
   if (ST_MSG) h += '<div class="notice" style="margin-bottom:12px">' + esc(ST_MSG) + '</div>';
   if (auto) h += stAutoPanel(items);

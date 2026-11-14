@@ -10,6 +10,9 @@ now two cards side by side. The one in force has a coloured border and an "● O
 Manual "Trading now: <strategy> · Switch off" or "Nothing switched on: watching only"; Autopilot the market condition,
 the strategy running and the fallback. The other card reads "Switch to ..." and asks first (the same confirmation as
 before). Checked in the preview in both modes; Cancel leaves the mode unchanged; no console errors.
+- Owner: "off button is absent". The card in force now carries its own button: "Turn autopilot off" on Autopilot
+  (asks "Turn autopilot off? No new trades until you press Trade this ..."), "Stop trading" on Manual while a strategy
+  is trading. Checked in the preview: autopilot off -> manual, watching only; Stop trading shown when one is on.
 
 ### Strategy chart: add any indicator; ITM / ATM / OTM; 3-minute view (Sat 14 Nov 2026)
 Owner: "give me a option to add various parameters"; "ITM, ATM and OTM can also be selected?"; "need 3 min option also
