@@ -183,6 +183,10 @@
   .gate .btn:disabled{opacity:.5;cursor:default}
   .gate .msg{min-height:18px;margin-top:8px;font-size:12px}
   .gate .msg.err{color:var(--red)}
+
+  /* Auto trading charts (design pass, 14 Nov 2026) */
+  .pnlc{position:relative;height:150px}
+  .pnl-tip{position:absolute;pointer-events:none;background:var(--pnl);border:1px solid var(--ln2);border-radius:4px;padding:5px 7px;font:11px var(--sans);white-space:nowrap;z-index:5}
 </style>
 </head>
 <body>
@@ -1299,7 +1303,70 @@
   function closeAlgo(){ $("#algo").classList.remove("on"); document.body.style.overflow = ""; drawAlgoCard(); }
   function algoTab(k){ ALGO_TAB = k; ALGO_ALL = false; drawAlgoP(); }
   function algoAll(){ ALGO_ALL = true; drawAlgoP(); }
-  function drawAlgoP(){ const b = $("#algo-body"); if (b) b.innerHTML = algoPage(); }
+  function drawAlgoP(){ const b = $("#algo-body"); if (b) { b.innerHTML = algoPage(); pnlDrawP(); } }
+  // ---- Profit charts (design pass, 14 Nov 2026): "Profit so far" (running total) and "Profit by day" (bars from zero),
+  // two charts, never two scales on one. Colours validated for colour-blind readers (dataviz validator): light #067647 /
+  // #c4320a (the phone's own green / red fail at 4.6), dark #1f9a8e / #e06a36. Tap or hover for a day's figures; the
+  // Daily tab carries every value.
+  const PNLD = {};
+  function pnlBlockP(id, days){
+    PNLD[id] = (days || []).filter(d => d && d.date);
+    if (PNLD[id].length < 2) return "";
+    return `<div class="sec">Profit so far</div><div class="panel"><div class="pb"><div class="pnlc" data-id="${id}" data-kind="cum"></div></div></div>` +
+      `<div class="sec">Profit by day</div><div class="panel"><div class="pb"><div class="pnlc" data-id="${id}" data-kind="day"></div></div></div>`;
+  }
+  function pnlDrawP(){
+    const cs = getComputedStyle(document.documentElement), v = k => cs.getPropertyValue(k).trim();
+    const bg = v("--bg"), dark = bg && parseInt(bg.slice(1, 3), 16) < 128;
+    const C = { pos: dark ? "#1f9a8e" : "#067647", neg: dark ? "#e06a36" : "#c4320a", line: v("--blu"), grid: v("--ln"), axis: v("--ln2"), text: v("--mut"), surface: v("--pnl") };
+    document.querySelectorAll("#algo-body .pnlc").forEach(el => {
+      const days = PNLD[el.dataset.id] || [], kind = el.dataset.kind, W = el.clientWidth, H = el.clientHeight;
+      if (!W || days.length < 2) return;
+      const padL = 40, padR = 8, padT = 16, padB = 20, w = W - padL - padR, h = H - padT - padB;
+      let run = 0; const cum = days.map(d => (run += d.pnl));
+      const vals = (kind === "cum" ? cum : days.map(d => d.pnl)).concat([0]);
+      let lo = Math.min(...vals), hi = Math.max(...vals); const span = Math.max(hi - lo, 1), mag = Math.pow(10, Math.floor(Math.log10(span / 3)));
+      const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(x => x >= span / 3); lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+      const ticks = []; for (let t = lo; t <= hi + 1e-9; t += step) ticks.push(t);
+      const Y = x => padT + h - (x - lo) / ((hi - lo) || 1) * h, n = days.length;
+      const X = i => padL + (kind === "cum" ? i / (n - 1) * w : (i + .5) * w / n);
+      const ax = x => { const a = Math.abs(x); return (x < 0 ? "−" : "") + (a >= 1e5 ? (a / 1e5).toFixed(1) + "L" : a >= 1e3 ? Math.round(a / 1e3) + "K" : Math.round(a)); };
+      let s = `<svg width="${W}" height="${H}" style="display:block" role="img" aria-label="${kind === "cum" ? "Profit so far" : "Profit by day"}">`;
+      ticks.forEach(t => s += `<line x1="${padL}" x2="${W - padR}" y1="${Y(t)}" y2="${Y(t)}" stroke="${t === 0 ? C.axis : C.grid}" stroke-width="1"/><text x="${padL - 5}" y="${Y(t) + 3}" text-anchor="end" font-size="10" fill="${C.text}">${ax(t)}</text>`);
+      const lab = i => { const d = parseDay(days[i].date); return d.getUTCDate() + " " + MON[d.getUTCMonth()]; };
+      s += `<text x="${X(0)}" y="${H - 5}" font-size="10" fill="${C.text}">${lab(0)}</text><text x="${X(n - 1)}" y="${H - 5}" text-anchor="end" font-size="10" fill="${C.text}">${lab(n - 1)}</text>`;
+      const base = Y(Math.max(lo, Math.min(0, hi)));
+      if (kind === "cum") {
+        const pts = cum.map((c, i) => X(i).toFixed(1) + "," + Y(c).toFixed(1)).join(" ");
+        s += `<polygon points="${X(0)},${base} ${pts} ${X(n - 1)},${base}" fill="${C.line}" opacity=".1"/><polyline points="${pts}" fill="none" stroke="${C.line}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` +
+          `<circle cx="${X(n - 1)}" cy="${Y(cum[n - 1])}" r="4" fill="${C.line}" stroke="${C.surface}" stroke-width="2"/><line class="pnl-x" y1="${padT}" y2="${padT + h}" stroke="${C.text}" stroke-width="1" opacity="0"/>`;
+      } else {
+        const slot = w / n, bw = Math.max(1, Math.min(24, slot - (slot >= 6 ? 2 : .5)));
+        days.forEach((d, i) => {
+          const y = Y(d.pnl), x = X(i) - bw / 2, top = Math.min(y, base), ht = Math.max(Math.abs(base - y), 1), r = Math.min(4, bw / 2, ht), up = d.pnl >= 0;
+          const path = up ? `M${x},${top + ht}V${top + r}Q${x},${top} ${x + r},${top}H${x + bw - r}Q${x + bw},${top} ${x + bw},${top + r}V${top + ht}Z`
+                          : `M${x},${top}V${top + ht - r}Q${x},${top + ht} ${x + r},${top + ht}H${x + bw - r}Q${x + bw},${top + ht} ${x + bw},${top + ht - r}V${top}Z`;
+          s += `<path d="${path}" fill="${up ? C.pos : C.neg}"/>`;
+        });
+      }
+      s += `</svg><div class="pnl-tip" style="display:none"></div>`;
+      if (kind === "cum") s += `<div style="position:absolute;right:${padR}px;top:0;font:600 12px var(--sans)">${pSigned(cum[n - 1])}</div>`;
+      el.innerHTML = s;
+      const tip = el.querySelector(".pnl-tip"), xl = el.querySelector(".pnl-x");
+      const show = ev => {
+        const r = el.getBoundingClientRect(), px = ev.clientX - r.left;
+        const i = Math.max(0, Math.min(n - 1, kind === "cum" ? Math.round((px - padL) / (w / (n - 1))) : Math.floor((px - padL) / (w / n))));
+        const d = days[i];
+        tip.innerHTML = `<b>${kind === "cum" ? pSigned(cum[i]) : pSigned(d.pnl)}</b> <span class="mut"></span>`;
+        tip.querySelector(".mut").textContent = dayTxt(parseDay(d.date)) + (kind === "cum" ? "" : " · " + d.trades + " trade" + (d.trades === 1 ? "" : "s"));
+        tip.style.display = "block";
+        tip.style.left = Math.min(Math.max(X(i) - tip.offsetWidth / 2, 0), W - tip.offsetWidth) + "px"; tip.style.top = "-4px";
+        if (xl) { xl.setAttribute("x1", X(i)); xl.setAttribute("x2", X(i)); xl.setAttribute("opacity", .4); }
+      };
+      el.onpointermove = show; el.onpointerdown = show;
+      el.onpointerleave = () => { tip.style.display = "none"; if (xl) xl.setAttribute("opacity", 0); };
+    });
+  }
   function algoPage(){
     const A = ALGO;
     if (!A) return `<div class="mut" style="padding:12px">Loading…</div>`;
@@ -1315,16 +1382,21 @@
       stat("Won", T.trades ? Math.round(100 * T.wins / T.trades) + "%" : "–", (T.wins || 0) + " of " + (T.trades || 0)) +
       stat("Avg win / loss", `<span style="white-space:nowrap;font-size:12px">${T.avg_win != null ? pSigned(T.avg_win) : "–"} / ${T.avg_loss != null ? pSigned(T.avg_loss) : "–"}</span>`, "per trade") +
       stat("Worst fall", pSigned(T.worst_drop || 0), "from a high") + `</div></div></div>`;
-    const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length, pending: P.length };
-    h += `<div class="seg" style="margin:12px 0 6px">${[["daily", "Daily"], ["monthly", "Month"], ["trades", "Trades"], ["open", "Open"], ["pending", "Orders"]].map(([k, l]) =>
+    if (!T.trades && !O.length && !P.length) {
+      return h + `<div class="panel" style="margin-top:12px"><div class="pb" style="text-align:center;padding:28px 12px"><div style="font-weight:700">No trades yet</div>` +
+        `<div class="mut" style="margin-top:6px">They appear here once a strategy is switched on (dashboard › Paper trading › Strategies).</div></div></div>`;
+    }
+    h += pnlBlockP("algo", A.days);
+    if (ALGO_TAB === "pending") ALGO_TAB = "open";
+    const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length + P.length };
+    h += `<div class="seg" style="margin:12px 0 6px">${[["daily", "Daily"], ["monthly", "Monthly"], ["trades", "Trades"], ["open", "Open"]].map(([k, l]) =>
       `<button type="button" class="${ALGO_TAB === k ? "on" : ""}" onclick="algoTab('${k}')">${l}${n[k] ? " · " + n[k] : ""}</button>`).join("")}</div><div class="panel"><div class="pb">`;
     const SHOW = 20, cut = list => ALGO_ALL ? list : list.slice(0, SHOW);
     const more = list => !ALGO_ALL && list.length > SHOW ? `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="algoAll()">Show all ${list.length}</button>` : "";
     if (ALGO_TAB === "daily") h += D.length ? cut(D).map(d => `<div class="row"><span class="l">${esc(dayTxt(parseDay(d.date)))}<br><span class="mut" style="font-size:11px">${d.trades} trade${d.trades === 1 ? "" : "s"} · ${d.wins} won · ${d.losses} lost</span></span><span class="r">${pSigned(d.pnl)}</span></div>`).join("") + more(D) : `<div class="mut">No closed trades yet.</div>`;
     else if (ALGO_TAB === "monthly") h += M.length ? M.map(m => { const d = parseDay(m.month + "-01"); return `<div class="row"><span class="l">${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}<br><span class="mut" style="font-size:11px">${m.trades} trade${m.trades === 1 ? "" : "s"} · ${m.days_up} day${m.days_up === 1 ? "" : "s"} up · ${m.days_down} down</span></span><span class="r">${pSigned(m.pnl)}</span></div>`; }).join("") : `<div class="mut">No closed trades yet.</div>`;
     else if (ALGO_TAB === "trades") h += TR.length ? cut(TR).map(t => `<div class="row"><span class="l">${algoName(t.contract)}<br><span class="mut" style="font-size:11px">${t.dir === "long" ? "Bought" : "Sold"} ${f(t.qty)} · ${f(t.entry, 2)} → ${f(t.exit, 2)} · ${esc(t.why)}<br>${esc(algoWhen(t.exit_t))}</span></span><span class="r">${pSigned(t.pnl)}</span></div>`).join("") + more(TR) : `<div class="mut">No closed trades yet.</div>`;
-    else if (ALGO_TAB === "pending") h += P.length ? P.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${esc(o.type)} · ${o.side === "BUY" ? "Buy" : "Sell"} ${f(o.qty)}${o.waiting_for_entry ? " · after the buy fills" : ""}</span></span><span class="r">${o.price != null ? f(o.price, 2) : o.trail_pct ? o.trail_pct + "% trail" : "–"}</span></div>`).join("") + (A.pending_at ? `<div class="mut" style="font-size:11px;margin-top:6px">As of ${esc(algoWhen(A.pending_at))}</div>` : "") : `<div class="mut">No pending orders.</div>`;
-    else h += O.length ? O.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${o.qty > 0 ? "Bought" : "Sold"} ${f(Math.abs(o.qty))} at ${f(o.entry, 2)} · now ${o.mark != null ? f(o.mark, 2) : "–"}<br>${esc(o.protection || (o.qty < 0 ? "Loss capped by a bought option" : ""))}</span></span><span class="r">${pSigned(o.pnl)}</span></div>`).join("") : `<div class="mut">No open positions.</div>`;
+    else h += (O.length ? `<div class="mut" style="font-size:11px;font-weight:600;letter-spacing:.04em;margin-bottom:2px">POSITIONS</div>` : "") + (O.length ? O.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${o.qty > 0 ? "Bought" : "Sold"} ${f(Math.abs(o.qty))} at ${f(o.entry, 2)} · now ${o.mark != null ? f(o.mark, 2) : "–"}<br>${esc(o.protection || (o.qty < 0 ? "Loss capped by a bought option" : ""))}</span></span><span class="r">${pSigned(o.pnl)}</span></div>`).join("") : "") + (P.length ? `<div class="mut" style="font-size:11px;font-weight:600;letter-spacing:.04em;margin:${O.length ? 12 : 0}px 0 2px">WORKING ORDERS</div>` + P.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${esc(o.type)} · ${o.side === "BUY" ? "Buy" : "Sell"} ${f(o.qty)}${o.waiting_for_entry ? " · after the buy fills" : ""}</span></span><span class="r">${o.price != null ? f(o.price, 2) : o.trail_pct ? o.trail_pct + "% trail" : "–"}</span></div>`).join("") + (A.pending_at ? `<div class="mut" style="font-size:11px;margin-top:6px">Orders as of ${esc(algoWhen(A.pending_at))}</div>` : "") : "") + (!O.length && !P.length ? `<div class="mut">No open positions or working orders.</div>` : "");
     h += `</div></div><div class="note" style="margin:8px 2px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A trade counts on the day it closes.</div>`;
     return h;
   }

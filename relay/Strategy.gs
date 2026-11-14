@@ -97,7 +97,11 @@ function stratView_() {
   const cache = CacheService.getScriptCache();
   const items = stratList_();
   const bt = {}; items.forEach(s => { const v = cache.get('bt_' + s.id); if (v) bt[s.id] = v; });
-  return { items: items, active: stratActive_(), limits: stratLimits_(), backtest_started: bt };
+  // the latest back-test of each strategy (trader/backtest.py keeps state/backtests/_index.json), for the cards
+  let backtests = {};
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (readToken) { try { const r = privateRaw_(readToken, 'state/backtests/_index.json'); if (r.getResponseCode() === 200) backtests = JSON.parse(r.getContentText()); } catch (e) {} }
+  return { items: items, active: stratActive_(), limits: stratLimits_(), backtest_started: bt, backtests: backtests };
 }
 
 function adminStrategies(token) {

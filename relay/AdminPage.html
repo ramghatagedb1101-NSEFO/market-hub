@@ -256,6 +256,32 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
   .content{padding:16px 16px 48px} .top{padding:0 16px} .search{flex:1;width:auto}
   .g3,.g2{grid-template-columns:1fr} .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Auto trading and Strategies (design pass, 14 Nov 2026) */
+.pnl-tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 4px 12px rgba(16,24,40,.12);white-space:nowrap;z-index:5}
+.mdl-bg{position:fixed;inset:0;background:rgba(16,24,40,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.mdl{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;width:100%;max-width:420px;box-shadow:0 20px 40px rgba(16,24,40,.25)}
+.mdl h3{margin:0;font-size:16px}
+.st-card{margin-bottom:10px}
+.st-card.on{border-color:var(--up);box-shadow:0 0 0 1px var(--up)}
+.st-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 6px}
+.st-chips .chip{font-weight:500}
+.st-sig{font-size:12.5px;color:var(--text-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.st-bt{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;font-size:12.5px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border-subtle)}
+.st-bt b{font-variant-numeric:tabular-nums}
+.st-more{position:relative;display:inline-block}
+.st-more>summary{list-style:none;cursor:pointer}
+.st-more>summary::-webkit-details-marker{display:none}
+.st-more .menu{position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(16,24,40,.15);padding:4px;min-width:150px;z-index:10}
+.st-more .menu button{display:block;width:100%;text-align:left;background:none;border:0;padding:8px 10px;border-radius:6px;font-size:13px;color:var(--text);cursor:pointer}
+.st-more .menu button:hover{background:var(--surface-hover)}
+.st-more .menu button.danger{color:var(--down)}
+.st-form{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+.st-side{position:sticky;top:12px}
+.st-side .panel-b{font-size:13px;line-height:1.55}
+.st-side ul{margin:6px 0 0;padding-left:18px}
+.st-warn{font-size:12.5px;color:var(--warn, #b54708);margin-top:8px}
+@media (max-width:1000px){ .st-form{grid-template-columns:1fr} .st-side{position:static} }
 </style>
 </head>
 <body>
@@ -1437,6 +1463,122 @@ function pagePaper(){
   v.innerHTML = html;
 }
 
+// ---- Profit charts and in-page dialogs (14 Nov 2026, design pass for Auto trading and Strategies; owner: "Go ahead").
+// Two charts, never one with two scales: "Profit so far" (running total, a 2px line over a 10% wash, end value
+// labelled) and "Profit by day" (bars from a zero line, profit up, loss down; <= 24px wide, 4px rounded far end, 2px
+// gap). Colours validated for colour-blind readers (dataviz validator, 14 Nov 2026): light #067647 / #c4320a, dark
+// #1f9a8e / #e06a36; the line is the accent. Hover: a crosshair and readout on the line, a readout per bar. The
+// Daily table below carries every value, so nothing depends on hovering.
+const PNL = {};
+function pnlColors(){
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (document.documentElement.getAttribute('data-theme') !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  const cs = getComputedStyle(document.documentElement);
+  return { pos: dark ? '#1f9a8e' : '#067647', neg: dark ? '#e06a36' : '#c4320a', line: cs.getPropertyValue('--accent').trim() || '#2f5bea',
+           grid: cs.getPropertyValue('--border-subtle').trim() || '#eef0f3', axis: cs.getPropertyValue('--border').trim(),
+           text: cs.getPropertyValue('--text-3').trim(), surface: cs.getPropertyValue('--surface').trim() || '#fff' };
+}
+function pnlBlock(id, days){
+  PNL[id] = (days || []).filter(d => d && d.date);
+  if (PNL[id].length < 2) return '';
+  return '<div class="grid g2 pnl-wrap" style="gap:12px;margin-bottom:16px">' +
+    '<div class="panel"><div class="panel-h"><h3>Profit so far</h3><span class="muted" style="font-size:12px">running total, after charges</span></div><div class="panel-b"><div class="pnlc" data-id="' + id + '" data-kind="cum" style="height:190px;position:relative"></div></div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Profit by day</h3><span class="muted" style="font-size:12px">each day\'s closed trades</span></div><div class="panel-b"><div class="pnlc" data-id="' + id + '" data-kind="day" style="height:190px;position:relative"></div></div></div></div>';
+}
+function pnlTicks(lo, hi){
+  const span = Math.max(hi - lo, 1), raw = span / 4, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw) || raw;
+  const out = []; for (let v = Math.floor(lo / step) * step; v <= hi + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+const pnlAxis = v => { const a = Math.abs(v); return (v < 0 ? '−' : '') + (a >= 1e5 ? (a / 1e5).toFixed(a >= 1e6 ? 0 : 1) + 'L' : a >= 1e4 ? Math.round(a / 1e3) + 'K' : num(a, 0)); };
+function pnlDraw(){
+  const C = pnlColors();
+  document.querySelectorAll('.pnlc').forEach(el => {
+    const days = PNL[el.dataset.id] || [], kind = el.dataset.kind, W = el.clientWidth, H = el.clientHeight;
+    if (!W || days.length < 2) return;
+    const padL = 46, padR = 14, padT = 12, padB = 24, w = W - padL - padR, h = H - padT - padB;
+    let run = 0; const cum = days.map(d => (run += d.pnl));
+    const vals = kind === 'cum' ? cum.concat([0]) : days.map(d => d.pnl).concat([0]);
+    const ticks = pnlTicks(Math.min(...vals), Math.max(...vals)), lo = ticks[0], hi = ticks[ticks.length - 1];
+    const Y = v => padT + h - (v - lo) / ((hi - lo) || 1) * h;
+    const n = days.length, X = i => padL + (kind === 'cum' ? (n === 1 ? w / 2 : i / (n - 1) * w) : (i + 0.5) * w / n);
+    let s = '<svg width="' + W + '" height="' + H + '" style="display:block;overflow:visible" role="img" aria-label="' + (kind === 'cum' ? 'Profit so far' : 'Profit by day') + ', ' + n + ' days">';
+    ticks.forEach(t => { s += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + Y(t) + '" y2="' + Y(t) + '" stroke="' + (t === 0 ? C.axis : C.grid) + '" stroke-width="1"/>' +
+      '<text x="' + (padL - 6) + '" y="' + (Y(t) + 4) + '" text-anchor="end" font-size="11" fill="' + C.text + '" style="font-variant-numeric:tabular-nums">' + pnlAxis(t) + '</text>'; });
+    const lab = i => { const d = dayOf(days[i].date); return d.getUTCDate() + ' ' + MON3[d.getUTCMonth()]; };
+    [0, Math.floor((n - 1) / 2), n - 1].filter((v, i, a) => a.indexOf(v) === i).forEach((i, k, a) =>
+      s += '<text x="' + X(i) + '" y="' + (H - 6) + '" text-anchor="' + (k === 0 ? 'start' : k === a.length - 1 ? 'end' : 'middle') + '" font-size="11" fill="' + C.text + '">' + lab(i) + '</text>');
+    if (kind === 'cum') {
+      const pts = cum.map((v, i) => X(i).toFixed(1) + ',' + Y(v).toFixed(1));
+      s += '<polygon points="' + X(0) + ',' + Y(Math.max(lo, Math.min(0, hi))) + ' ' + pts.join(' ') + ' ' + X(n - 1) + ',' + Y(Math.max(lo, Math.min(0, hi))) + '" fill="' + C.line + '" opacity="0.1"/>' +
+        '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + C.line + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+        '<circle cx="' + X(n - 1) + '" cy="' + Y(cum[n - 1]) + '" r="4" fill="' + C.line + '" stroke="' + C.surface + '" stroke-width="2"/>' +
+        '<line class="pnl-x" x1="0" x2="0" y1="' + padT + '" y2="' + (padT + h) + '" stroke="' + C.text + '" stroke-width="1" opacity="0"/>';
+    } else {
+      const slot = w / n, bw = Math.max(1, Math.min(24, slot - (slot >= 6 ? 2 : 0.5))), base = Y(Math.max(lo, Math.min(0, hi)));
+      days.forEach((d, i) => {
+        const y = Y(d.pnl), x = X(i) - bw / 2, top = Math.min(y, base), ht = Math.max(Math.abs(base - y), 1), r = Math.min(4, bw / 2, ht);
+        const up = d.pnl >= 0, col = up ? C.pos : C.neg;
+        // rounded at the far end only (square at the zero line)
+        const path = up ? 'M' + x + ',' + (top + ht) + 'V' + (top + r) + 'Q' + x + ',' + top + ' ' + (x + r) + ',' + top + 'H' + (x + bw - r) + 'Q' + (x + bw) + ',' + top + ' ' + (x + bw) + ',' + (top + r) + 'V' + (top + ht) + 'Z'
+                        : 'M' + x + ',' + top + 'V' + (top + ht - r) + 'Q' + x + ',' + (top + ht) + ' ' + (x + r) + ',' + (top + ht) + 'H' + (x + bw - r) + 'Q' + (x + bw) + ',' + (top + ht) + ' ' + (x + bw) + ',' + (top + ht - r) + 'V' + top + 'Z';
+        s += '<path d="' + path + '" fill="' + col + '"/>';
+      });
+    }
+    s += '</svg><div class="pnl-tip" style="display:none"></div>';
+    if (kind === 'cum') {                       // end value, labelled once
+      s += '<div style="position:absolute;right:' + padR + 'px;top:0;font-size:12px;font-weight:600;color:var(--text)">' + ppSigned(cum[n - 1]).replace('<span class="', '<span class="num ') + '</div>';
+    }
+    el.innerHTML = s;
+    const tip = el.querySelector('.pnl-tip'), xl = el.querySelector('.pnl-x');
+    const show = ev => {
+      const r = el.getBoundingClientRect(), px = ev.clientX - r.left;
+      let i = kind === 'cum' ? Math.round((px - padL) / (w / Math.max(n - 1, 1))) : Math.floor((px - padL) / (w / n));
+      if (i < 0 || i >= n || px < padL - 8 || px > W - padR + 8) { tip.style.display = 'none'; if (xl) xl.setAttribute('opacity', 0); return; }
+      const d = days[i];
+      tip.textContent = '';
+      const v = document.createElement('div'); v.style.fontWeight = '600'; v.innerHTML = kind === 'cum' ? ppSigned(cum[i]) : ppSigned(d.pnl);
+      const l = document.createElement('div'); l.className = 'muted'; l.textContent = bDay(dayOf(d.date)) + (kind === 'cum' ? ' · that day ' + (d.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(d.pnl), 0) : ' · ' + d.trades + ' trade' + (d.trades === 1 ? '' : 's'));
+      tip.append(v, l);
+      tip.style.display = 'block';
+      const tx = Math.min(Math.max(X(i) - tip.offsetWidth / 2, 0), W - tip.offsetWidth);
+      tip.style.left = tx + 'px'; tip.style.top = '-6px';
+      if (xl) { xl.setAttribute('x1', X(i)); xl.setAttribute('x2', X(i)); xl.setAttribute('opacity', 0.35); }
+    };
+    el.onpointermove = show; el.onpointerdown = show;
+    el.onpointerleave = () => { tip.style.display = 'none'; if (xl) xl.setAttribute('opacity', 0); };
+  });
+}
+window.addEventListener('resize', () => { clearTimeout(window.__pnlT); window.__pnlT = setTimeout(pnlDraw, 150); });
+
+// In-page dialog in place of the browser's prompt / confirm boxes. Resolves to true / the field values, or null.
+function mhDialog(o){
+  return new Promise(res => {
+    const bg = document.createElement('div'); bg.className = 'mdl-bg';
+    const box = document.createElement('div'); box.className = 'mdl'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    const h = document.createElement('h3'); h.textContent = o.title; box.append(h);
+    if (o.body) { const p = document.createElement('div'); p.className = 'muted'; p.style.cssText = 'font-size:13px;margin:6px 0 4px;white-space:pre-line'; p.textContent = o.body; box.append(p); }
+    const ins = (o.fields || []).map(f => {
+      const wrap = document.createElement('label'); wrap.style.cssText = 'display:block;margin-top:12px;font-size:12px;font-weight:500';
+      wrap.textContent = f.label;
+      const i = document.createElement('input'); i.className = 'field num'; i.value = f.value == null ? '' : f.value; i.inputMode = 'decimal'; i.style.marginTop = '4px';
+      wrap.append(i); box.append(wrap); return [f.k, i];
+    });
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:18px';
+    const no = document.createElement('button'); no.className = 'btn'; no.type = 'button'; no.textContent = o.cancel || 'Cancel';
+    const ok = document.createElement('button'); ok.className = 'btn primary'; ok.type = 'button'; ok.textContent = o.ok || 'OK';
+    if (o.danger) ok.style.cssText = 'background:var(--down);border-color:var(--down);color:#fff';
+    row.append(no, ok); box.append(row); bg.append(box); document.body.append(bg);
+    const done = v => { bg.remove(); document.removeEventListener('keydown', key); res(v); };
+    const key = e => { if (e.key === 'Escape') done(null); if (e.key === 'Enter' && ins.length) ok.click(); };
+    no.onclick = () => done(null); bg.onclick = e => { if (e.target === bg) done(null); };
+    ok.onclick = () => done(ins.length ? Object.fromEntries(ins.map(([k, i]) => [k, i.value])) : true);
+    document.addEventListener('keydown', key);
+    (ins.length ? ins[0][1] : ok).focus();
+  });
+}
+
 // ---- Auto trading (14 Nov 2026, owner: "a screen ... to see the trades summary and daily/monthly profit or loss"): the
 // IBKR paper trading program (trader/), from site/algo.json, which GitHub refreshes every 10 minutes in market hours.
 let ALGO_TAB = 'daily';
@@ -1470,8 +1612,16 @@ function pageAlgo(){
     stat('Today', ppSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + ' closed' + (O.length ? ' · ' + O.length + ' open' : '')) +
     stat('This month', ppSigned(MO.booked || 0), (MO.trades || 0) + ' trades') +
     stat('All time', ppSigned(T.booked || 0), (T.trades || 0) + ' trades · ' + wr) +
-    stat('Average win / loss', (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–'), 'per trade, after charges') +
+    stat('Average win / loss', '<span style="white-space:nowrap;font-size:.78em">' + (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–') + '</span>', 'per trade, after charges') +
     stat('Worst fall', ppSigned(T.worst_drop || 0), 'from a high, day by day') + '</div>';
+  if (!T.trades && !O.length && !P.length) {
+    html += '<div class="panel"><div class="panel-b" style="text-align:center;padding:36px 16px"><div style="font-size:15px;font-weight:600">No trades yet</div>' +
+      '<div class="muted" style="margin:6px 0 14px">Pick a strategy and press Trade this. Trades and profit appear here.</div>' +
+      '<button class="btn primary" type="button" onclick="go(\'strategies\')">Open strategies</button></div></div>';
+    v.innerHTML = html;
+    return;
+  }
+  html += pnlBlock('algo', D);
   const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length, pending: P.length };
   html += '<div class="tabs">' + [['daily', 'Daily'], ['monthly', 'Monthly'], ['trades', 'Trades'], ['open', 'Open'], ['pending', 'Pending orders']].map(([k, l]) => '<a href="javascript:void 0" class="' + (ALGO_TAB === k ? 'on' : '') + '" onclick="ALGO_TAB=\'' + k + '\';rerender()">' + l + (n[k] ? ' <span class="faint">' + n[k] + '</span>' : '') + '</a>').join('') + '</div>';
   const none = t => '<div class="panel"><div class="panel-b muted">' + t + '</div></div>';
@@ -1483,6 +1633,7 @@ function pageAlgo(){
   else html += O.length ? tbl(['Option', 'Qty', 'Entry', 'Last', 'Open profit', 'Protection'], O.map(o => '<tr><td class="l">' + algoName(o.contract) + '</td><td class="num">' + num(o.qty, 0) + '</td><td class="num">' + num(o.entry, 2) + '</td><td class="num">' + (o.mark != null ? num(o.mark, 2) : '–') + '</td><td class="num">' + ppSigned(o.pnl) + '</td><td class="num">' + esc(o.protection || (o.qty < 0 ? 'Sold; loss capped by a bought option' : '–')) + '</td></tr>')) : none('No open positions.');
   html += '<div class="faint" style="font-size:11px;margin-top:12px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A trade counts on the day it closes.</div>';
   v.innerHTML = html;
+  pnlDraw();
 }
 
 // ---- Strategy builder (14 Nov 2026, owner: "a strategy builder page also on the admin dashboard. defining signals, SL
@@ -1524,11 +1675,40 @@ function stDo(fn, args, msg, after){
   call(fn, token, ...args).then(d => { if (d.error) { ST_MSG = d.error; } else { S.strat = d; ST_MSG = after(d); } rerender(); })
     .catch(e => { ST_MSG = e.message; rerender(); });
 }
+const ST_TIMES = (() => { const out = []; for (let m = 555; m <= 930; m += 5) out.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0')); return out; })();
 function stSet(path, v, redraw){
   const ks = path.split('.'); let o = ST_EDIT;
   for (let i = 0; i < ks.length - 1; i++) o = o[ks[i]];
   o[ks[ks.length - 1]] = v;
-  if (redraw) rerender();
+  if (redraw) rerender(); else stSideRefresh();
+}
+function stSideRefresh(){ const el = document.getElementById('st-side'); if (el && ST_EDIT) el.innerHTML = stSide(); }
+// The live summary beside the form: what the strategy will do, in words, and anything that needs a look.
+function stSide(){
+  const E = ST_EDIT, X = E.exits, u = (t, v) => t === 'points' ? v + ' points' : v + '%';
+  const gs = (E.groups || []).filter(g => g.signals.length);
+  const what = (E.side === 'BUY' ? 'Buys ' : 'Sells ') + E.lots + ' lot' + (E.lots > 1 ? 's' : '') + ' of the ' + stIdx(E.index) + ' ' +
+    (E.strike.mode === 'premium' ? (E.right === 'P' ? 'put' : 'call') + ' priced nearest ₹' + E.strike.near : (E.strike.steps ? Math.abs(E.strike.steps) + '-strike ' + (E.strike.steps > 0 ? 'out-of' : 'in') + '-the-money ' : 'at-the-money ') + (E.right === 'P' ? 'put' : 'call')) +
+    ', ' + E.expiry + ' expiry.';
+  const when = gs.length ? gs.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of: ' : 'all of: ') : '') + g.signals.map(stSigText).join('; ')).join(E.groups_match === 'all' ? ' — and — ' : ' — or — ') : '';
+  const warn = [];
+  if (!gs.length) warn.push('No signals yet: it will never trade.');
+  if (E.window.from >= E.window.until) warn.push('The entry window ends before it starts.');
+  if (E.style === 'intraday' && X.exit_by <= E.window.from) warn.push('Exit time is before the entry window opens.');
+  if (E.side === 'SELL' && !Number(X.sl)) warn.push('A sold option with no stop-loss has no limit on its loss.');
+  if (E.expiry !== 'nearest') warn.push('Back-tests cover the nearest expiry only, for now.');
+  return '<div class="panel"><div class="panel-h"><h3>Summary</h3></div><div class="panel-b">' +
+    '<b>' + esc(E.name || 'Unnamed') + '</b><ul>' +
+    '<li>' + esc(what) + '</li>' +
+    '<li>Enters ' + E.window.from + '–' + E.window.until + (when ? ' when ' + esc(when) : '') + '.</li>' +
+    '<li>Stop-loss ' + (Number(X.sl) ? u(X.sl_type, X.sl) + (E.side === 'BUY' ? ' below' : ' above') + ' the entry, held by IBKR' : 'none') +
+      (Number(X.target) ? '; target ' + u(X.target_type, X.target) : '') +
+      (Number(X.trail) ? '; once ' + u(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + u(X.trail_type, X.trail) + ' behind the best price' : '') + '.</li>' +
+    '<li>' + (E.style === 'carry' ? 'Carry: the stop stays good till cancelled; held overnight.' : 'Intraday: everything closed by ' + X.exit_by + '; stops are day orders.') + '</li>' +
+    '<li>At most ' + E.max_trades_day + ' trade' + (E.max_trades_day == 1 ? '' : 's') + ' a day; stops for the day after a ₹' + num(Number(E.max_loss_day) || 0, 0) + ' loss; waits ' + E.reentry_gap + ' min between trades.</li></ul>' +
+    warn.map(w => '<div class="st-warn">⚠ ' + esc(w) + '</div>').join('') +
+    '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn primary" type="button" onclick="stSave()">Save</button><button class="btn" type="button" onclick="ST_EDIT=null;ST_MSG=\'\';rerender()">Cancel</button></div>' +
+    (ST_MSG ? '<div class="muted" style="font-size:12.5px;margin-top:8px">' + esc(ST_MSG) + '</div>' : '') + '</div></div>';
 }
 function stNum(path, v){ const n = Number(v); stSet(path, v === '' || !isFinite(n) ? 0 : n); }
 function stEdit(id){
@@ -1545,17 +1725,23 @@ function stSave(){
   if (!ST_EDIT.groups.length) { ST_EDIT.groups = [{ match: 'all', signals: [] }]; ST_MSG = 'Add at least one signal: without one the strategy never trades.'; rerender(); return; }
   stDo('adminStrategySave', [ST_EDIT], 'Saving…', d => { ST_EDIT = null; return 'Saved.' + (d.sent ? ' The trading machine gets it in a minute or two.' : ''); });
 }
-function stDelete(id){ const s = (S.strat.items || []).find(x => x.id === id); if (!s || !confirm('Delete "' + s.name + '"? This cannot be undone.')) return; stDo('adminStrategyDelete', [id], 'Deleting…', () => 'Deleted.'); }
-function stOn(id){
+async function stDelete(id){
+  const s = (S.strat.items || []).find(x => x.id === id); if (!s) return;
+  if (!await mhDialog({ title: 'Delete "' + s.name + '"?', body: 'This cannot be undone.', ok: 'Delete', danger: true })) return;
+  stDo('adminStrategyDelete', [id], 'Deleting…', () => 'Deleted.');
+}
+async function stOn(id){
   const s = (S.strat.items || []).find(x => x.id === id);
-  if (!confirm(id ? 'Trade "' + s.name + '" on the IBKR paper account?\nIt replaces the strategy trading now, for new trades. Open trades keep their stops.' : 'Stop trading? Open trades keep their stops; no new trades.')) return;
+  if (!await mhDialog(id ? { title: 'Trade "' + s.name + '"?', body: 'On the IBKR paper account, in place of the strategy trading now. Open trades keep their stops.', ok: 'Trade this' }
+                         : { title: 'Stop trading?', body: 'No new trades. Open trades keep their stops.', ok: 'Switch off' })) return;
   stDo('adminStrategyActivate', [id || ''], 'Switching…', d => (id ? 'Switched on.' : 'Switched off.') + (d.sent ? ' The trading machine follows in a minute or two.' : ' The trading machine follows within 10 minutes in market hours.'));
 }
-function stLimits(){
+async function stLimits(){
   const L = S.strat.limits || {};
-  const a = prompt('Most lots in one order:', L.max_lots_per_order || 1); if (a === null) return;
-  const b = prompt("Day's loss limit for all trading (₹). Reaching it closes everything for the day:", L.max_daily_loss || 10000); if (b === null) return;
-  stDo('adminStrategyLimits', [{ max_lots_per_order: a, max_daily_loss: b }], 'Saving…', () => 'Limits saved.');
+  const v = await mhDialog({ title: 'Safety limits', body: "For all trading. Reaching the day's loss limit closes everything for the day.", ok: 'Save',
+    fields: [{ k: 'lots', label: 'Most lots in one order', value: L.max_lots_per_order || 1 }, { k: 'loss', label: "Day's loss limit (₹)", value: L.max_daily_loss || 10000 }] });
+  if (!v) return;
+  stDo('adminStrategyLimits', [{ max_lots_per_order: v.lots, max_daily_loss: v.loss }], 'Saving…', () => 'Limits saved.');
 }
 function stBacktest(id){ stDo('adminBacktestStart', [id], 'Starting the back-test…', () => { stBtLoad(id, true); return 'Back-test started: about 1-3 minutes.'; }); }
 function stBtLoad(id, poll){
@@ -1596,7 +1782,7 @@ function stForm(){
   const E = ST_EDIT, X = E.exits;
   const lbl = t => '<div class="muted" style="font-size:12px;font-weight:500;margin:10px 0 4px">' + t + '</div>';
   const numIn = (path, v, w) => '<input class="field num" style="width:' + (w || 90) + 'px" value="' + esc(v) + '" inputmode="decimal" oninput="stNum(\'' + path + '\', this.value)">';
-  const timeIn = (path, v) => '<input class="field" type="time" min="09:15" max="15:30" style="width:120px" value="' + esc(v || '') + '" onchange="stSet(\'' + path + '\', this.value)">';
+  const timeIn = (path, v) => '<select class="field" style="width:auto" onchange="stSet(\'' + path + '\', this.value, true)">' + ST_TIMES.map(t => '<option' + (t === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>';
   const sel = (path, v, opts, redraw) => '<select class="field" style="width:auto" onchange="stSet(\'' + path + '\', this.value' + (redraw ? ', true' : '') + ')">' + opts.map(([k, l]) => '<option value="' + k + '"' + (String(k) === String(v) ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>';
   const seg = (path, v, opts) => '<div class="seg">' + opts.map(([k, l]) => '<button type="button" class="' + (v === k ? 'on' : '') + '" onclick="stSet(\'' + path + '\', \'' + k + '\', true)">' + l + '</button>').join('') + '</div>';
   const unit = (path, v) => seg(path, v || 'pct', [['pct', '%'], ['points', 'pts']]);
@@ -1647,9 +1833,7 @@ function stForm(){
     lbl('Order type') + row(seg('style', E.style, [['intraday', 'Intraday (day order)'], ['carry', 'Carry (good till cancelled)']]),
       E.style === 'intraday' ? 'close everything by ' + timeIn('exits.exit_by', X.exit_by) : '<span class="muted" style="font-size:12px">held overnight; the stop stays at IBKR until hit or expiry</span>'));
   h += sec('Limits for this strategy', row('At most', numIn('max_trades_day', E.max_trades_day, 60), 'trades a day; stop for the day after a loss of ₹', numIn('max_loss_day', E.max_loss_day, 100), '; wait', numIn('reentry_gap', E.reentry_gap, 60), 'minutes between trades'));
-  h += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:16px"><button class="btn primary" type="button" onclick="stSave()">Save</button><button class="btn" type="button" onclick="ST_EDIT=null;ST_MSG=\'\';rerender()">Cancel</button>' +
-    (ST_MSG ? '<span class="muted" style="font-size:12.5px">' + esc(ST_MSG) + '</span>' : '') + '</div>';
-  return h;
+  return '<div class="st-form"><div>' + h + '</div><aside class="st-side" id="st-side">' + stSide() + '</aside></div>';
 }
 function stDay(gi, i, d, on){ const g = ST_EDIT.groups[gi].signals[i]; g.days = (g.days || []).filter(x => x !== d); if (on) g.days.push(d); g.days.sort(); }
 function ST_EDIT_GET(path){ return path.split('.').reduce((o, k) => o == null ? o : o[k], ST_EDIT); }
@@ -1657,7 +1841,7 @@ function stOperand(path, src){ const o = { src }; if (src === 'value') o.value =
 function stBtPanel(){
   if (!ST_BT) return '';
   const s = (S.strat.items || []).find(x => x.id === ST_BT.id) || {};
-  const head = '<div class="panel-h"><h3>Back-test: ' + esc(s.name || '') + '</h3><a href="javascript:void 0" onclick="ST_BT=null;rerender()">Close</a></div>';
+  const head = '<div class="panel-h"><h3>Back-test details</h3><a href="javascript:void 0" onclick="ST_BT=null;rerender()">Close</a></div>';
   if (ST_BT.loading && !ST_BT.res) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">' + (ST_BT.waiting ? 'Running on GitHub… this refreshes by itself.' : 'Loading…') + '</div></div>';
   const R = ST_BT.res || {};
   if (R.error) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + errBlock(R.error) + '</div></div>';
@@ -1667,7 +1851,8 @@ function stBtPanel(){
   let b = '<div class="muted" style="font-size:12.5px;margin-bottom:10px">' + (C.sessions || 0) + ' sessions with option prices (' + esc(bDay(dayOf(C.from))) + ' to ' + esc(bDay(dayOf(C.to))) + '): the day before and the day of each expiry. Ran ' + esc(algoWhen(R.ran)) + (ST_BT.waiting ? ' · a new run is still going' : '') + '.</div>' +
     (R.note ? '<div class="notice" style="margin-bottom:10px">' + esc(R.note) + '</div>' : '') +
     '<div class="strip" style="margin-bottom:12px">' + stat('Profit', ppSigned(T.booked || 0), 'after all charges') + stat('Trades', num(T.trades || 0, 0), T.trades ? Math.round(100 * T.wins / T.trades) + '% won' : '') +
-    stat('Average win / loss', (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–'), 'per trade') + stat('Worst fall', ppSigned(T.worst_drop || 0), 'from a high') + '</div>';
+    stat('Average win / loss', '<span style="white-space:nowrap;font-size:.78em">' + (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–') + '</span>', 'per trade') + stat('Worst fall', ppSigned(T.worst_drop || 0), 'from a high') + '</div>';
+  b += pnlBlock('bt_' + ST_BT.id, (R.summary || {}).days);
   if (M.length) b += '<table class="t" style="margin-bottom:12px"><thead><tr><th>Month</th><th class="num">Profit</th><th class="num">Trades</th></tr></thead><tbody>' + M.slice().reverse().map(m => { const d = dayOf(m.month + '-01'); return '<tr><td class="l">' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + '</td><td class="num">' + ppSigned(m.pnl) + '</td><td class="num">' + m.trades + '</td></tr>'; }).join('') + '</tbody></table>';
   if (TR.length) b += '<details><summary>All ' + TR.length + ' trades</summary><div style="overflow-x:auto"><table class="t" style="margin-top:6px"><thead><tr><th>Option</th><th class="num">Entry</th><th class="num">Exit</th><th class="num">Profit</th><th class="num">Why</th></tr></thead><tbody>' +
     TR.map(t => '<tr><td class="l">' + algoName(t.contract) + '</td><td class="num" style="white-space:nowrap">' + num(t.entry, 2) + ' · ' + esc(algoWhen(t.entry_t)) + '</td><td class="num" style="white-space:nowrap">' + num(t.exit, 2) + ' · ' + esc(String(t.exit_t).slice(11, 16)) + '</td><td class="num">' + ppSigned(t.pnl) + '</td><td class="num">' + esc(t.why) + '</td></tr>').join('') + '</tbody></table></div></details>';
@@ -1684,28 +1869,42 @@ function pageStrategies(){
     (act ? '<span><span class="chip up">Trading: ' + esc(act.name) + '</span> <a href="javascript:void 0" onclick="stOn(\'\')">Switch off</a></span>' : '<span class="chip">No strategy trading: watching only</span>') +
     '<span class="muted" style="font-size:12px">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></span></div>';
   if (ST_MSG) h += '<div class="notice" style="margin-bottom:12px">' + esc(ST_MSG) + '</div>';
-  h += stBtPanel();
-  h += '<div style="margin-bottom:12px"><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div>';
-  if (!items.length) h += '<div class="panel"><div class="panel-b muted">No strategies yet.</div></div>';
+  h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span class="muted" style="font-size:13px">' + items.length + ' strateg' + (items.length === 1 ? 'y' : 'ies') + '</span><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div>';
+  if (!items.length) h += '<div class="panel"><div class="panel-b" style="text-align:center;padding:36px 16px"><div style="font-size:15px;font-weight:600">No strategies yet</div><div class="muted" style="margin:6px 0 14px">Build one from signals, a stop-loss and exits, then back-test it.</div><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div></div>';
+  const BT = S.strat.backtests || {};
   items.forEach(s => {
-    const on = s.id === S.strat.active, running = (S.strat.backtest_started || {})[s.id];
-    h += '<div class="panel" style="margin-bottom:10px' + (on ? ';border-color:var(--up)' : '') + '"><div class="panel-b">' +
-      '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline"><div><b>' + esc(s.name) + '</b>' + (on ? ' <span class="chip up">Trading</span>' : '') + (s.notes ? ' <span class="muted" style="font-size:12.5px">· ' + esc(s.notes) + '</span>' : '') + '</div>' +
-      '<span class="faint" style="font-size:11px">Saved ' + esc(algoWhen(s.updated)) + '</span></div>' +
-      '<div class="muted" style="font-size:12.5px;margin:4px 0">' + esc(stLine(s)) + '</div>' +
-      '<div class="muted" style="font-size:12.5px">Enter ' + s.window.from + '-' + s.window.until + ' when ' + esc(stGroups(JSON.parse(JSON.stringify(s))).groups.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of (' : 'all of (') : '(') + g.signals.map(stSigText).join('; ') + ')').join(s.groups_match === 'all' ? ' and ' : ' or ') || 'no signals') + '</div>' +
-      '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:10px;flex-wrap:wrap"><div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    const on = s.id === S.strat.active, running = (S.strat.backtest_started || {})[s.id], b = BT[s.id], e = s.exits || {};
+    const u = (t, v) => t === 'points' ? v + ' pts' : v + '%';
+    const chips = [(s.side === 'BUY' ? 'Buy' : 'Sell') + ' ' + (s.right === 'P' ? 'PE' : 'CE'), stIdx(s.index),
+      s.strike.mode === 'premium' ? 'Near ₹' + s.strike.near : s.strike.steps ? (s.strike.steps > 0 ? 'OTM ' : 'ITM ') + Math.abs(s.strike.steps) : 'ATM',
+      s.expiry[0].toUpperCase() + s.expiry.slice(1) + ' expiry', s.lots + ' lot' + (s.lots > 1 ? 's' : ''), s.style === 'carry' ? 'Carry' : 'Intraday · out by ' + e.exit_by];
+    const exits = 'Stop ' + (Number(e.sl) ? u(e.sl_type, e.sl) : 'none') + (Number(e.target) ? ' · target ' + u(e.target_type, e.target) : '') + (Number(e.trail) ? ' · trail ' + u(e.trail_type, e.trail) + ' after ' + u(e.trail_after_type, e.trail_after) : '');
+    const sig = stGroups(JSON.parse(JSON.stringify(s))).groups.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of (' : 'all of (') : '(') + g.signals.map(stSigText).join('; ') + ')').join(s.groups_match === 'all' ? ' and ' : ' or ');
+    h += '<div class="panel st-card' + (on ? ' on' : '') + '"><div class="panel-b">' +
+      '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start"><div style="min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:15px">' + esc(s.name) + '</b>' + (on ? '<span class="chip up">● Trading</span>' : '') + '</div>' +
+        (s.notes ? '<div class="muted" style="font-size:12.5px;margin-top:2px">' + esc(s.notes) + '</div>' : '') + '</div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
         (on ? '<button class="btn sm" type="button" onclick="stOn(\'\')">Switch off</button>' : '<button class="btn sm primary" type="button" onclick="stOn(\'' + s.id + '\')">Trade this</button>') +
         '<button class="btn sm" type="button" onclick="stEdit(\'' + s.id + '\')">Edit</button>' +
         '<button class="btn sm" type="button" onclick="stBacktest(\'' + s.id + '\')">Back-test</button>' +
-        '<button class="btn sm" type="button" onclick="stBtLoad(\'' + s.id + '\')">Last result</button>' +
-        '<button class="btn sm" type="button" onclick="stCopy(\'' + s.id + '\')">Duplicate</button></div>' +
-        (on ? '' : '<button class="btn sm" type="button" style="color:var(--down);border-color:var(--down)" onclick="stDelete(\'' + s.id + '\')">Delete</button>') + '</div>' +
-      (running ? '<div class="faint" style="font-size:11px;margin-top:6px">Back-test started ' + esc(algoWhen(running)) + '</div>' : '') +
+        '<details class="st-more"><summary class="btn sm" aria-label="More actions">More ▾</summary><div class="menu">' +
+          '<button type="button" onclick="this.closest(\'details\').open=false;stCopy(\'' + s.id + '\')">Duplicate</button>' +
+          (on ? '' : '<button type="button" class="danger" onclick="this.closest(\'details\').open=false;stDelete(\'' + s.id + '\')">Delete…</button>') +
+        '</div></details></div></div>' +
+      '<div class="st-chips">' + chips.map(c => '<span class="chip">' + esc(c) + '</span>').join('') + '</div>' +
+      '<div class="st-sig" title="' + esc(sig) + '">Enters ' + s.window.from + '–' + s.window.until + ' when ' + esc(sig || 'no signals') + '</div>' +
+      '<div class="muted" style="font-size:12.5px;margin-top:4px">' + esc(exits) + '</div>' +
+      '<div class="st-bt">' + (b ? '<span class="muted">Back-test · ' + esc(bDay(dayOf(b.ran))) + '</span>' +
+          '<span>Profit <b>' + ppSigned(b.profit) + '</b></span><span>Trades <b>' + b.trades + '</b></span><span>Won <b>' + (b.trades ? Math.round(100 * b.wins / b.trades) + '%' : '–') + '</b></span>' +
+          '<span>Worst fall <b>' + ppSigned(b.worst_drop) + '</b></span><a href="javascript:void 0" onclick="stBtLoad(\'' + s.id + '\')">Details</a>'
+        : '<span class="muted">Not back-tested yet.</span>') +
+        (running ? '<span class="faint">· run started ' + esc(String(running).slice(11, 16)) + '</span>' : '') + '</div>' +
+      (ST_BT && ST_BT.id === s.id ? '<div style="margin-top:12px">' + stBtPanel() + '</div>' : '') +
       '</div></div>';
   });
   h += '<div class="faint" style="font-size:11px;margin-top:6px">One strategy trades at a time. A switch reaches the trading machine in a minute or two; open trades keep the stops they started with. Back-tests use the downloaded ICICI minute prices and the same charges.</div>';
   v.innerHTML = h;
+  pnlDraw();
 }
 
 // ---- Superstar portfolios (Investor registry page) ----

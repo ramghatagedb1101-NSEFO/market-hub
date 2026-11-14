@@ -4,6 +4,30 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Design pass: Auto trading and Strategies (Sat 14 Nov 2026)
+Owner asked whether the screens look top notch; my answer was no (no charts, browser pop-ups, a long dense form,
+cluttered cards, back-test results away from their strategy, cramped phone tabs, bare empty states). Owner: "Go ahead".
+- Charts (dashboard and phone; Auto trading and every back-test): "Profit so far" (running total: 2px line, 10% wash,
+  end value labelled) and "Profit by day" (bars from a zero line, profit up, loss down; at most 24px wide, rounded
+  far end, 2px gaps). Two charts, never one with two scales. Hover or tap shows the day's figures; the Daily tab keeps
+  every value. Colours checked with the dataviz validator: dark theme profit #1f9a8e, loss #e06a36 (colour-blind
+  separation 11.7; the app's text green / red were 5.4 and failed); light theme #067647 / #c4320a (9.1; the phone's
+  own text pair was 4.6 and failed, so its charts use these too).
+- Dashboard: in-page dialogs in place of the browser's prompt / confirm boxes (Trade this, Switch off, Delete in red,
+  Safety limits as a small form); strategy cards with chips (side, option, index, strike, expiry, lots, intraday /
+  carry), the signals in two lines, exits, and the latest back-test inline (profit, trades, % won, worst fall);
+  Duplicate and Delete under "More"; back-test details open under their own card with both charts; the form is two
+  columns with a live summary beside it (what the strategy does, in words, and warnings: no signals, window ending
+  before it starts, exit time before the window, a sold option without a stop-loss, back-tests on nearest expiry
+  only) and 24-hour time pickers; helpful empty states with the next step.
+- `trader/backtest.py` keeps the latest result of each strategy in `state/backtests/_index.json`; the relay returns
+  it with the strategy list.
+- Phone: four tabs (pending orders now sit under Open, as "Working orders"), the two charts above them, an empty
+  state that says where to switch a strategy on. sw.js v64.
+- Checked in the preview: dashboard Auto trading and Strategies (light and dark), the form's live summary and
+  warnings, the limits dialog, back-test details with charts; phone at 375 px (charts, Open tab, empty state); no
+  console errors.
+
 ### Strategy builder: compare any two data points, and groups (Sat 14 Nov 2026)
 Owner: "Add a signal is a very good idea ... pick and choose the existing data points that I have give all possible
 combinations".

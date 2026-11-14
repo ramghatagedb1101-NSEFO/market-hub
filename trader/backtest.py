@@ -25,6 +25,7 @@ from .strategies.rules import Rules, clean
 from .summary import build
 
 OUT = "state/backtests/{id}.json"
+INDEX = "state/backtests/_index.json"
 
 
 class IndexMinutes:
@@ -107,6 +108,10 @@ def main() -> int:
         print(json.dumps(res["summary"]["totals"], indent=1))
     else:
         save(OUT.format(id=sid), res, f"Back-test: {res['name']}")
+        idx = load(INDEX) or {}                     # the latest result of each strategy, for the page's cards
+        idx[sid] = {"ran": res["ran"], "trades": t["trades"], "wins": t["wins"], "profit": t["booked"],
+                    "worst_drop": t["worst_drop"], "sessions": res["coverage"]["sessions"]}
+        save(INDEX, idx, f"Back-tests index: {len(idx)} strategies")
     return 0
 
 
