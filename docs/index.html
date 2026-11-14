@@ -202,7 +202,7 @@
 <main>
   <section class="pane on" id="home"><div class="grid" id="home-body"></div><div id="home-ins"></div><div id="home-today"></div></section>
   <section class="pane" id="brief"><div id="brief-body"></div></section>
-  <section class="pane" id="fno"><div id="fno-paper"></div><div id="fno-body"></div><div id="fno-ins"></div></section>
+  <section class="pane" id="fno"><div id="fno-paper"></div><div id="fno-algo"></div><div id="fno-body"></div><div id="fno-ins"></div></section>
   <section class="pane" id="mb"><div id="mb-body"></div></section>
   <section class="pane" id="desk"><div id="desk-body"></div><div id="desk-ins"></div></section>
 </main>
@@ -263,6 +263,10 @@
 <div class="stock-bg" id="paper" role="dialog" aria-modal="true">
   <div class="stock-top"><button class="btn" type="button" onclick="closePaper()">Back</button><span class="nm">Paper trading</span><button class="btn" type="button" onclick="loadPaper()">Refresh</button></div>
   <div class="stock-body" id="pp-body"></div>
+</div>
+<div class="stock-bg" id="algo" role="dialog" aria-modal="true">
+  <div class="stock-top"><button class="btn" type="button" onclick="closeAlgo()">Back</button><span class="nm">Auto trading</span><button class="btn" type="button" onclick="loadAlgo()">Refresh</button></div>
+  <div class="stock-body" id="algo-body"></div>
 </div>
 <div class="stock-bg" id="stock" role="dialog" aria-modal="true">
   <div class="stock-top"><button class="btn" type="button" onclick="closeStock()">Back</button><span class="nm" id="st-title"></span><button class="btn" type="button" id="st-star" onclick="toggleStar()">☆ Star</button></div>
@@ -1231,6 +1235,7 @@
       `<div class="note">The cost of an at-the-money straddle the day before each index's latest expiry, as % of the index: the move the market was pricing in. Rank 73 = dearer than 73% of expiries in 3 years. Dear favours selling options, cheap favours buying. Date = expiry.</div></div></div>`;
     el.innerHTML = html;
     drawPaperCard(); if (!PAPER) loadPaper();
+    drawAlgoCard(); if (!ALGO) loadAlgo();
   }
   // ---- Paper trading on the phone (21 Oct 2026, owner: "yes build it"): the same account, orders, charges and margin as
   // the dashboard (relay Paper.gs), as a full-screen page opened from the card at the top of the F&O tab.
@@ -1252,6 +1257,75 @@
         `<div class="row"><span class="l">Open P&amp;L · ${open} open${work ? " · " + work + " working" : ""}</span><span class="r">${pSigned(A.open_pnl)}</span></div>` +
         `<div class="row"><span class="l">Booked P&amp;L · cash free</span><span class="r">${pSigned(A.booked)} · ${pMoney(A.cash)}</span></div>`) +
       `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="openPaper()">Open paper trading</button></div></div>`;
+  }
+  // ---- Auto trading (14 Nov 2026, owner: "a screen on the admin dashboard and the mobile app to see the trades summary
+  // and daily/monthly profit or loss"): the IBKR paper trading program (trader/), from the private site/algo.json that
+  // GitHub refreshes every 10 minutes in market hours. A card under Paper trading on the F&O tab opens the full page.
+  let ALGO = null, ALGO_TAB = "daily", ALGO_ALL = false;
+  async function loadAlgo(){
+    try { const d = await relayPost("app_data", { token: SESSION, files: ["algo"] }); ALGO = (d.files || {}).algo || d; }
+    catch(e){ ALGO = { error: e.message }; }
+    drawAlgoCard(); if ($("#algo").classList.contains("on")) drawAlgoP();
+  }
+  const algoWhen = t => t ? dayTxt(parseDay(t)) + ", " + String(t).slice(11, 16) + " IST" : "";
+  function algoName(k){
+    const p = String(k || "").split(" "); if (p.length < 3) return esc(k);
+    const d = parseDay(p[1]);
+    return `${esc(p[0] === "BANKNIFTY" ? "BANK NIFTY" : p[0])} ${esc(p[2].slice(0, -1))} ${p[2].slice(-1) === "C" ? "CE" : "PE"}` +
+      ` <span class="mut">${d ? d.getUTCDate() + " " + MON[d.getUTCMonth()] : ""}</span>`;
+  }
+  function algoStatus(A){
+    const st = A.status || {};
+    if (!st.last) return "Not started yet";
+    if (st.killed) return `<span class="dn">Stopped for the day: ${esc(st.killed)}</span>`;
+    const ist = new Date(Date.now() + 5.5 * 3600e3), m = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+    const open = ist.getUTCDay() >= 1 && ist.getUTCDay() <= 5 && m >= 555 && m <= 930;
+    if (open && (Date.now() - new Date(st.last + "+05:30").getTime()) / 60000 > 15) return `<span class="dn">Not heard from since ${esc(algoWhen(st.last))}</span>`;
+    return st.strategy && st.strategy !== "watch only" ? `<span class="up">Trading · ${esc(st.strategy.replace(/_/g, " "))}</span>` : "Watching only";
+  }
+  function drawAlgoCard(){
+    const el = $("#fno-algo"); if (!el) return;
+    const A = ALGO, T = (A && A.totals) || {}, TD = (A && A.today) || {}, MO = (A && A.month) || {};
+    const body = !A ? `<div class="mut">Loading…</div>` :
+      A.error ? `<div class="mut">${A.error === "not published yet" ? "Appears after the program first runs." : esc(A.error)}</div>` :
+      `<div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut">IBKR paper</span></div>` +
+      `<div class="row"><span class="l">Today${(A.open || []).length ? " · " + A.open.length + " open" : ""}</span><span class="r">${pSigned((TD.booked || 0) + (TD.open || 0))}</span></div>` +
+      `<div class="row"><span class="l">This month · ${MO.trades || 0} trades</span><span class="r">${pSigned(MO.booked || 0)}</span></div>` +
+      `<div class="row"><span class="l">All time · ${T.trades || 0} trades</span><span class="r">${pSigned(T.booked || 0)}</span></div>`;
+    el.innerHTML = `<div class="sec">Auto trading</div><div class="panel"><div class="pb">${body}` +
+      `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="openAlgo()">Open auto trading</button></div></div>`;
+  }
+  function openAlgo(){ $("#algo").classList.add("on"); document.body.style.overflow = "hidden"; drawAlgoP(); loadAlgo(); }
+  function closeAlgo(){ $("#algo").classList.remove("on"); document.body.style.overflow = ""; drawAlgoCard(); }
+  function algoTab(k){ ALGO_TAB = k; ALGO_ALL = false; drawAlgoP(); }
+  function algoAll(){ ALGO_ALL = true; drawAlgoP(); }
+  function drawAlgoP(){ const b = $("#algo-body"); if (b) b.innerHTML = algoPage(); }
+  function algoPage(){
+    const A = ALGO;
+    if (!A) return `<div class="mut" style="padding:12px">Loading…</div>`;
+    if (A.error) return `<div class="mut" style="padding:12px">${A.error === "not published yet" ? "Nothing yet: the summary appears after the program first runs." : esc(A.error)}</div>`;
+    const T = A.totals || {}, D = (A.days || []).slice().reverse(), M = (A.months || []).slice().reverse(), TR = A.trades || [], O = A.open || [], TD = A.today || {}, MO = A.month || {};
+    const stat = (k, v, s) => `<div style="padding:6px 0"><div class="mut" style="font-size:11px">${k}</div><div style="font-weight:700">${v}</div>${s ? `<div class="mut" style="font-size:11px">${s}</div>` : ""}</div>`;
+    const asof = A.asof ? `As of ${String(A.asof).slice(11, 16)} IST · ${dayTxt(parseDay(A.asof))}` : "";
+    let h = `<div class="panel"><div class="pb"><div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut" style="font-size:11px">${esc(asof)}</span></div>` +
+      `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 10px;margin-top:4px">` +
+      stat("Today", pSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + " closed") +
+      stat("This month", pSigned(MO.booked || 0), (MO.trades || 0) + " trades") +
+      stat("All time", pSigned(T.booked || 0), (T.trades || 0) + " trades") +
+      stat("Won", T.trades ? Math.round(100 * T.wins / T.trades) + "%" : "–", (T.wins || 0) + " of " + (T.trades || 0)) +
+      stat("Avg win / loss", `<span style="white-space:nowrap;font-size:12px">${T.avg_win != null ? pSigned(T.avg_win) : "–"} / ${T.avg_loss != null ? pSigned(T.avg_loss) : "–"}</span>`, "per trade") +
+      stat("Worst fall", pSigned(T.worst_drop || 0), "from a high") + `</div></div></div>`;
+    const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length };
+    h += `<div class="seg" style="margin:12px 0 6px">${[["daily", "Daily"], ["monthly", "Monthly"], ["trades", "Trades"], ["open", "Open"]].map(([k, l]) =>
+      `<button type="button" class="${ALGO_TAB === k ? "on" : ""}" onclick="algoTab('${k}')">${l}${n[k] ? " · " + n[k] : ""}</button>`).join("")}</div><div class="panel"><div class="pb">`;
+    const SHOW = 20, cut = list => ALGO_ALL ? list : list.slice(0, SHOW);
+    const more = list => !ALGO_ALL && list.length > SHOW ? `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="algoAll()">Show all ${list.length}</button>` : "";
+    if (ALGO_TAB === "daily") h += D.length ? cut(D).map(d => `<div class="row"><span class="l">${esc(dayTxt(parseDay(d.date)))}<br><span class="mut" style="font-size:11px">${d.trades} trade${d.trades === 1 ? "" : "s"} · ${d.wins} won · ${d.losses} lost</span></span><span class="r">${pSigned(d.pnl)}</span></div>`).join("") + more(D) : `<div class="mut">No closed trades yet.</div>`;
+    else if (ALGO_TAB === "monthly") h += M.length ? M.map(m => { const d = parseDay(m.month + "-01"); return `<div class="row"><span class="l">${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}<br><span class="mut" style="font-size:11px">${m.trades} trade${m.trades === 1 ? "" : "s"} · ${m.days_up} day${m.days_up === 1 ? "" : "s"} up · ${m.days_down} down</span></span><span class="r">${pSigned(m.pnl)}</span></div>`; }).join("") : `<div class="mut">No closed trades yet.</div>`;
+    else if (ALGO_TAB === "trades") h += TR.length ? cut(TR).map(t => `<div class="row"><span class="l">${algoName(t.contract)}<br><span class="mut" style="font-size:11px">${t.dir === "long" ? "Bought" : "Sold"} ${f(t.qty)} · ${f(t.entry, 2)} → ${f(t.exit, 2)} · ${esc(t.why)}<br>${esc(algoWhen(t.exit_t))}</span></span><span class="r">${pSigned(t.pnl)}</span></div>`).join("") + more(TR) : `<div class="mut">No closed trades yet.</div>`;
+    else h += O.length ? O.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${o.qty > 0 ? "Bought" : "Sold"} ${f(Math.abs(o.qty))} at ${f(o.entry, 2)} · now ${o.mark != null ? f(o.mark, 2) : "–"}<br>${esc(o.protection || (o.qty < 0 ? "Loss capped by a bought option" : ""))}</span></span><span class="r">${pSigned(o.pnl)}</span></div>`).join("") : `<div class="mut">No open positions.</div>`;
+    h += `</div></div><div class="note" style="margin:8px 2px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A trade counts on the day it closes.</div>`;
+    return h;
   }
   // Order form state; strikes and prices from app_paper_chain, stock price from app_paper_quote.
   const PQ = { kind: "option", side: "buy", idx: "NIFTY", exp: "", strike: null, type: "CE", lots: "", sym: "", qty: "", otype: "MARKET", product: "", price: "", trigger: "", trail: "", unit: "pts", note: "", tab: "pos" };
@@ -1921,7 +1995,7 @@
     await init(); await renderFno(); await renderBrief(); await liveTick();
     if ($("#mb").classList.contains("on")) renderIdeas();
     renderToday();
-    INSD = null; PAPER = null; renderIns();
+    INSD = null; PAPER = null; ALGO = null; renderIns();
   }
 
   // Pull to refresh (drag down from the top of the main pane)
@@ -1973,7 +2047,7 @@
   if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(politeTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
-  Object.assign(window, { openStock, closeStock, openPaper, closePaper, loadPaper, pqSet, pqIn, previewP, placeP, exitP, cancelP, trailP, drawPaperP, PQ, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
+  Object.assign(window, { openStock, closeStock, openPaper, closePaper, loadPaper, openAlgo, closeAlgo, loadAlgo, algoTab, algoAll, pqSet, pqIn, previewP, placeP, exitP, cancelP, trailP, drawPaperP, PQ, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
                           openSearch, closeSearch, drawSearch, sxToggle, setResMode, refreshSummary });
 })();
 </script>

@@ -23,7 +23,8 @@ const ADMIN_CODE_SECONDS = 600;        // ten minutes
 const ADMIN_MAX_TRIES = 5;
 // Phone app data: the files the daily jobs keep in the private repo's site/ folder (hub/site_data.py).
 const APP_DIR = 'site';
-const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest', 'insights'];
+const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest', 'insights',
+                   'algo'];   // algo: the IBKR paper trading summary (trader/summary.py, 14 Nov 2026)
 
 /**
  * Sessions live in the script properties, not CacheService: CacheService caps any entry at six hours,
@@ -223,6 +224,11 @@ function appData_(token, files) {
     try { out[n] = JSON.parse(res.getContentText()); } catch (err) { out[n] = { error: 'not valid JSON' }; }
   });
   return { files: out };
+}
+
+/** Auto trading (14 Nov 2026): the IBKR paper trading program's trades and daily / monthly profit, as on the phone. */
+function adminAlgo(token) {
+  return appData_(token, ['algo']);
 }
 
 /** F&O option ideas for the dashboard (13 Nov 2026): the index structures and the NIFTY 50 stock option screen, as on the phone. */

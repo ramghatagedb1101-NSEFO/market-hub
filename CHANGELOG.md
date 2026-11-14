@@ -4,6 +4,33 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Auto trading screens on the phone and dashboard (Sat 14 Nov 2026)
+Owner: "i need a screen on the admin dashboard and the mobile app to see the trades summary and daily/monthly profit or
+loss".
+- `trader/summary.py` builds the summary from the trading machine's journals only (so restarts lose nothing): every
+  round trip first in, first out (entry, exit, quantity, profit after both sides' charges, why it closed: stop-loss,
+  trailing stop, strategy exit, expiry, day stopped), profit by day (counted on the day a trade closes) and month,
+  open positions with their stop or trailing stop, all-time figures (won %, average win and loss, worst fall from a
+  high), and status (trading / watching only / stopped for the day and why / not heard from in market hours).
+  Every trade is kept (the screens show 20, then "Show all").
+- `.github/workflows/algo-sync.yml`: every 10 minutes 08:30-15:20 IST on weekdays, plus 15:35 and 16:10, copies the
+  journals from the machine over SSH (existing ORACLE_SSH_KEY; the machine's address is looked up through Oracle by
+  `infra/oci_ip.py`, so it is not in this public repo) and publishes `site/algo.json` to the private repo. It skips
+  the save when only the time changed within the hour. Log: counts only.
+- Engine journal: each profit line now carries the open positions (quantity, latest price, stop or trailing).
+- Relay: `algo` added to the phone files; `adminAlgo` for the dashboard. Dashboard: F&O > Paper trading > "Auto
+  trading" (figures strip, Daily / Monthly / Trades / Open tabs). Phone: "Auto trading" card under Paper trading on
+  the F&O tab, opening a full page with the same tabs (sw.js v62).
+- Charges (owner: "brokerage, STT, taxes etc needs to be considered"): every fill is charged the full Indian table, as in
+  the back-tests: brokerage Rs 20 an order, STT 0.15% on sold premium, exchange charges, stamp duty, SEBI fee, 18% GST,
+  and STT on bought options settling in the money. Live fills now use this table, not IBKR's simulated paper
+  commission (which may leave out the taxes); the summary's expiry settlement now adds the exercise STT. Both screens
+  say which charges are included.
+- Checked locally (preview with sample data from real ICICI replays: 5 condors, a trailing-stop win, a stop-loss loss,
+  one open position): figures add up (month = -7,782 + 1,776 - 1,912), expiry settlements at index close minus
+  strike, open stop shown 25% under entry; phone at 375 px, no console errors. Self-tests: 40 of 40 (8 new for the
+  summary).
+
 ### Index minute history from ICICI (Sat 14 Nov 2026)
 Owner asked where to get the NIFTY index minute by minute (only option candles around expiries were downloaded).
 - `hub/breeze_index.py`: NIFTY 50, NIFTY BANK and SENSEX one-minute candles for every session from Oct 2023 to the

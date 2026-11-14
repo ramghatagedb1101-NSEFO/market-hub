@@ -200,9 +200,10 @@ class IBKR:
             self.seen.add(f.execution.execId)
             side = "BUY" if f.execution.side == "BOT" else "SELL"
             units = int(f.execution.shares)
-            fee = f.commissionReport.commission if f.commissionReport and f.commissionReport.commission else None
-            if fee is None or math.isnan(fee) or fee > 1e9:
-                fee = table_charges(f.execution.price, units, side.lower(), c.exchange)
+            # Charges: the full Indian table (brokerage Rs 20 an order, STT, exchange charges, stamp duty, SEBI fee, GST;
+            # hub/rule_test.py), not IBKR's simulated paper commission, which may leave out the taxes (owner, 14 Nov
+            # 2026: "brokerage, STT, taxes etc needs to be considered"). Same table as the back-tests, so they compare.
+            fee = table_charges(f.execution.price, units, side.lower(), c.exchange)
             tag = f.execution.orderRef or self.tags.get(f.execution.orderId, "")
             if tag in ("stop", "trail") and c in self.children:
                 del self.children[c]

@@ -1,0 +1,49 @@
+name: algo-sync
+
+# The phone's and dashboard's "Auto trading" screens (14 Nov 2026): copies the paper trading journals from
+# market-hub-trader and publishes the trades summary (trader/summary.py) to the private repo, site/algo.json.
+# Every 10 minutes in market hours and twice after the close. Public log: counts only, never prices or addresses.
+# Secrets: ORACLE_SSH_KEY (the Oracle machines' SSH key), OCI_* (to look up the machine's address), PRIVATE_REPO_TOKEN.
+on:
+  schedule:
+    - cron: "*/10 3-9 * * 1-5"        # 08:30-15:20 IST, weekdays
+    - cron: "5,40 10 * * 1-5"         # 15:35 and 16:10 IST: the day's last word
+  workflow_dispatch:
+
+concurrency:
+  group: algo-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet "requests>=2.31" "oci>=2.130"
+      - name: Copy the journals from the trading machine
+        env:
+          KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          OCI_API_KEY: ${{ secrets.OCI_API_KEY }}
+          OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_REGION: ap-mumbai-1
+        run: |
+          umask 077
+          printf '%s\n' "$OCI_API_KEY" > "$RUNNER_TEMP/oci.pem"
+          HOST=$(cd infra && OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python oci_ip.py)
+          rm -f "$RUNNER_TEMP/oci.pem"
+          echo "::add-mask::$HOST"
+          printf '%s\n' "$KEY" > "$RUNNER_TEMP/k"
+          ssh -i "$RUNNER_TEMP/k" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o BatchMode=yes \
+            "ubuntu@$HOST" 'tar czf - -C /opt/trader journal' | tar xzf -
+          rm -f "$RUNNER_TEMP/k"
+          echo "journal days: $(ls journal | wc -l)"
+      - name: Publish the summary
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m trader.summary journal --publish

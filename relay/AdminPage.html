@@ -619,7 +619,7 @@ const NAV = [
   ['F&O', [['fnog', 'Option ideas', [['fno', 'Index options'], ['fnostocks', 'NIFTY 50 stocks']]],
                ['expiryg', 'Expiry meter', [['expiry', 'Expiry meter']]],
                ['positioning', 'Positioning', [['positions', 'Futures and option prices']]],
-               ['paperg', 'Paper trading', [['paper', 'Paper trading']]]]]
+               ['paperg', 'Paper trading', [['paper', 'Paper trading'], ['algo', 'Auto trading']]]]]
 ];
 const SETTINGS = ['settings', 'Data and settings', [['health', 'Data health'], ['emails', 'Email alerts'], ['params', 'Measures'], ['tests', 'Back-tests'], ['registry', 'Investor registry']]];
 const NAV_ICON = { today: 'overview', portfolio: 'portfolio', shortlist: 'shortlist', screens: 'screener', rankings: 'factors', companies: 'library',
@@ -682,7 +682,7 @@ function chartTheme(){
 function go(h){ location.hash = h; }
 function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 
-const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', fno:'Index options', fnostocks:'NIFTY 50 stock options', paper:'Paper trades', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
+const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', fno:'Index options', fnostocks:'NIFTY 50 stock options', paper:'Paper trades', algo:'Auto trading', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
                  registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report',
                  screener:'Build a screen', factors:'Rankings', explore:'Compare measures', sectors:'Sectors', signals:"What's new", expiry:'Expiry meter' };
 function rerender(){
@@ -691,7 +691,7 @@ function rerender(){
   $('tape').style.display = current.page === 'overview' ? 'none' : '';   // the Overview shows the same quotes as tiles
   const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
-              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fno: pageFno, fnostocks: pageFnoStocks, paper: pagePaper, health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
+              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fno: pageFno, fnostocks: pageFnoStocks, paper: pagePaper, algo: pageAlgo, health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
   if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
   if (current.page !== 'expiry') stopExpiry();
   f(current.arg);
@@ -1434,6 +1434,53 @@ function pagePaper(){
   html += '<div class="tabs">' + [['positions', 'Positions'], ['orders', 'Orders'], ['trades', 'Trades'], ['perf', 'Performance']].map(([k, l]) => '<a href="javascript:void 0" class="' + (PP_TAB === k ? 'on' : '') + '" onclick="PP_TAB=\'' + k + '\';rerender()">' + l + (n[k] ? ' <span class="faint">' + n[k] + '</span>' : '') + '</a>').join('') + '</div>';
   html += PP_TAB === 'orders' ? ppOrders(O) : PP_TAB === 'trades' ? ppTrades(T) : PP_TAB === 'perf' ? ppPerformance(T, A) : ppPositions(T);
   html += '<div class="faint" style="font-size:11px;margin-top:12px">Charges from Kite when logged in, else Zerodha\'s published rates (' + esc(S.paper.rates || '') + ').</div>';
+  v.innerHTML = html;
+}
+
+// ---- Auto trading (14 Nov 2026, owner: "a screen ... to see the trades summary and daily/monthly profit or loss"): the
+// IBKR paper trading program (trader/), from site/algo.json, which GitHub refreshes every 10 minutes in market hours.
+let ALGO_TAB = 'daily';
+function algoLoad(){ S.algoLoading = true; call('adminAlgo', token).then(d => { S.algo = (d.files || {}).algo || d; S.algoLoading = false; rerender(); }).catch(e => { S.algo = { error: e.message }; S.algoLoading = false; rerender(); }); }
+const algoWhen = t => t ? bDay(dayOf(t)) + ', ' + String(t).slice(11, 16) + ' IST' : '';
+function algoName(k){
+  const p = String(k || '').split(' '); if (p.length < 3) return esc(k);
+  const r = p[2].slice(-1), strike = p[2].slice(0, -1), d = dayOf(p[1]);
+  return '<b>' + esc(p[0] === 'BANKNIFTY' ? 'BANK NIFTY' : p[0]) + ' ' + esc(strike) + ' ' + (r === 'C' ? 'CE' : 'PE') + '</b> <span class="faint">' + (d ? d.getUTCDate() + ' ' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear() : '') + '</span>';
+}
+function algoStatus(A){
+  const st = A.status || {};
+  if (!st.last) return '<span class="chip">Not started yet</span>';
+  const mins = (Date.now() - new Date(st.last + '+05:30').getTime()) / 60000;
+  if (st.killed) return '<span class="chip down">Stopped for the day: ' + esc(st.killed) + '</span>';
+  if (marketHoursIst() && mins > 15) return '<span class="chip warn">Not heard from since ' + esc(algoWhen(st.last)) + '</span>';
+  const on = st.strategy && st.strategy !== 'watch only';
+  return '<span class="chip ' + (on ? 'up' : '') + '">' + (on ? 'Trading · ' + esc(st.strategy.replace(/_/g, ' ')) : 'Watching only') + '</span>';
+}
+function pageAlgo(){
+  const v = $('view');
+  if (!S.algo) { if (!S.algoLoading) algoLoad(); v.innerHTML = loadingBlock('Loading…'); return; }
+  if (S.algo.error) { v.innerHTML = errBlock(S.algo.error === 'not published yet' ? 'Nothing yet: the summary appears after the program first runs.' : S.algo.error); return; }
+  const A = S.algo, T = A.totals || {}, D = A.days || [], M = A.months || [], TR = A.trades || [], O = A.open || [], TD = A.today || {}, MO = A.month || {};
+  const stat = (k, val, sub) => '<div><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="w">' + sub + '</div></div>';
+  const asof = A.asof ? 'As of ' + String(A.asof).slice(11, 16) + ' IST · ' + bDay(dayOf(A.asof)) : '';
+  let html = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-8px 0 12px">' + algoStatus(A) +
+    '<span class="muted" style="font-size:12px">IBKR paper account · ' + esc(asof) + ' · <a href="javascript:void 0" onclick="S.algo=null;rerender()">Refresh</a></span></div>';
+  const wr = T.trades ? Math.round(100 * T.wins / T.trades) + '% won' : 'no trades yet';
+  html += '<div class="strip" style="margin-bottom:16px">' +
+    stat('Today', ppSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + ' closed' + (O.length ? ' · ' + O.length + ' open' : '')) +
+    stat('This month', ppSigned(MO.booked || 0), (MO.trades || 0) + ' trades') +
+    stat('All time', ppSigned(T.booked || 0), (T.trades || 0) + ' trades · ' + wr) +
+    stat('Average win / loss', (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–'), 'per trade, after charges') +
+    stat('Worst fall', ppSigned(T.worst_drop || 0), 'from a high, day by day') + '</div>';
+  const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length };
+  html += '<div class="tabs">' + [['daily', 'Daily'], ['monthly', 'Monthly'], ['trades', 'Trades'], ['open', 'Open']].map(([k, l]) => '<a href="javascript:void 0" class="' + (ALGO_TAB === k ? 'on' : '') + '" onclick="ALGO_TAB=\'' + k + '\';rerender()">' + l + (n[k] ? ' <span class="faint">' + n[k] + '</span>' : '') + '</a>').join('') + '</div>';
+  const none = t => '<div class="panel"><div class="panel-b muted">' + t + '</div></div>';
+  const tbl = (head, rows) => '<div class="panel"><div class="panel-b" style="overflow-x:auto"><table class="t"><thead><tr>' + head.map((h, i) => '<th' + (i ? ' class="num"' : '') + '>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div></div>';
+  if (ALGO_TAB === 'daily') html += D.length ? tbl(['Day', 'Profit', 'Trades', 'Won', 'Lost'], D.slice().reverse().map(d => '<tr><td class="l">' + esc(bDay(dayOf(d.date))) + '</td><td class="num">' + ppSigned(d.pnl) + '</td><td class="num">' + d.trades + '</td><td class="num">' + d.wins + '</td><td class="num">' + d.losses + '</td></tr>')) : none('No closed trades yet.');
+  else if (ALGO_TAB === 'monthly') html += M.length ? tbl(['Month', 'Profit', 'Trades', 'Days up', 'Days down'], M.slice().reverse().map(m => { const d = dayOf(m.month + '-01'); return '<tr><td class="l">' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + '</td><td class="num">' + ppSigned(m.pnl) + '</td><td class="num">' + m.trades + '</td><td class="num">' + m.days_up + '</td><td class="num">' + m.days_down + '</td></tr>'; })) : none('No closed trades yet.');
+  else if (ALGO_TAB === 'trades') html += TR.length ? tbl(['Option', 'Closed', 'Side', 'Qty', 'Entry', 'Exit', 'Profit', 'Why'], TR.map(t => '<tr><td class="l">' + algoName(t.contract) + '</td><td class="num" style="white-space:nowrap">' + esc(algoWhen(t.exit_t)) + '</td><td class="num">' + (t.dir === 'long' ? 'Bought' : 'Sold') + '</td><td class="num">' + num(t.qty, 0) + '</td><td class="num">' + num(t.entry, 2) + '</td><td class="num">' + num(t.exit, 2) + '</td><td class="num">' + ppSigned(t.pnl) + '</td><td class="num">' + esc(t.why) + '</td></tr>')) : none('No closed trades yet.');
+  else html += O.length ? tbl(['Option', 'Qty', 'Entry', 'Last', 'Open profit', 'Protection'], O.map(o => '<tr><td class="l">' + algoName(o.contract) + '</td><td class="num">' + num(o.qty, 0) + '</td><td class="num">' + num(o.entry, 2) + '</td><td class="num">' + (o.mark != null ? num(o.mark, 2) : '–') + '</td><td class="num">' + ppSigned(o.pnl) + '</td><td class="num">' + esc(o.protection || (o.qty < 0 ? 'Sold; loss capped by a bought option' : '–')) + '</td></tr>')) : none('No open positions.');
+  html += '<div class="faint" style="font-size:11px;margin-top:12px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A trade counts on the day it closes.</div>';
   v.innerHTML = html;
 }
 

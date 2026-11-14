@@ -162,8 +162,43 @@ def test_condor():
     ok("condor: settled flat", eng.book.open_legs() == 0)
 
 
+def test_summary():
+    from datetime import datetime as dt
+    from .summary import build
+    # trailing-stop trade: one long round trip, closed by the trailing stop, profit equals the engine's
+    e = entry({"25000": walk(0, 30, [100, 105, 112, 120, 128, 135, 142, 150, 146, 140, 133, 125])})
+    eng, j = go(e, {(0, 30): [buy()]}, {C})
+    s = build(j.lines, now=dt(2026, 11, 2, 16, 0))
+    t = s["trades"]
+    ok("summary: one trade, closed by the trailing stop", len(t) == 1 and t[0]["why"] == "Trailing stop", t)
+    ok("summary: trade profit matches the engine", abs(t[0]["pnl"] - eng.book.pnl()) < 0.01, (t[0]["pnl"], eng.book.pnl()))
+    ok("summary: day and month rows", s["days"][0]["date"] == PREV and s["months"][0]["month"] == "2026-11"
+       and s["today"]["booked"] == t[0]["pnl"])
+    ok("summary: nothing left open", s["open"] == [])
+    # stop still working at the day's end: shows as open with its stop
+    e = entry({"25000": walk(0, 30, [100, 104, 108, 110, 109, 108])})
+    eng, j = go(e, {(0, 30): [buy()]}, {C})
+    s = build(j.lines, now=dt(2026, 11, 2, 16, 0))
+    o = s["open"]
+    ok("summary: open position with its stop-loss", len(o) == 1 and o[0]["protection"].startswith("Stop-loss at"), o)
+    ok("summary: open profit valued at the last price", o[0]["mark"] == 108 and o[0]["pnl"] is not None, o)
+    # condor settled at expiry: four trades, booked total equals the engine's
+    from .strategies.expiry_condor import ExpiryCondor
+    strikes = range(24000, 26050, 50)
+    call = {str(k): walk(0, 360, [max(25000 - k, 0) + 60 * 2.718 ** (-abs(k - 25000) / 300)] * 16) for k in strikes}
+    put = {str(k): walk(0, 360, [max(k - 25000, 0) + 60 * 2.718 ** (-abs(k - 25000) / 300)] * 16) for k in strikes}
+    st = Settings(strategy="expiry_condor", stale_seconds=300)
+    j = Journal()
+    eng = run("NIFTY", entry(call, put), 25020.0, ExpiryCondor({}), st, j)
+    s = build(j.lines, now=dt(2026, 11, 3, 16, 0))
+    ok("summary: condor gives four trades at expiry", len(s["trades"]) == 4 and all(x["why"] == "Expiry" for x in s["trades"]),
+       [(x["contract"], x["why"]) for x in s["trades"]])
+    ok("summary: condor total matches the engine", abs(s["totals"]["booked"] - eng.book.pnl()) < 0.05,
+       (s["totals"]["booked"], eng.book.pnl()))
+
+
 def main() -> int:
-    for t in [test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor]:
         t()
     bad = [n for n, good in R if not good]
