@@ -13,6 +13,10 @@ Aug 2026, but you calculated for a much older period also".
 - Cause 2: the owner's first Supertrend back-test was read before Supertrend was a signal, so it had no Supertrend
   condition and entered at the window's start each day: its trades did not follow Supertrend at all. Read again it
   becomes "Supertrend (10, 3) gives a Buy on 5-minute bars" (the fix above).
+- Checked on the owner's sentence: 41 trades from Aug 2026, entries on Supertrend Buy flips at their own times,
+  all closed at 15:00 as asked. An expiry week that began in July was still tested from 29 Jul; sessions before the
+  start date are now trimmed. Google's AI answered "busy" (503) for a few minutes: the page now retries it (three
+  tries a model) and says so plainly.
 
 ### Back-tests: Results opens where you can see it; Supertrend as a signal (Sat 14 Nov 2026)
 Owner: "clicking results does not do anything" (on a Supertrend back-test).

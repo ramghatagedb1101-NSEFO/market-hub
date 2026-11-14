@@ -83,6 +83,12 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
         if not entry:
             continue
         sess = entry.get("days") or [entry["prev_day"], e]
+        if isinstance(since, str) and len(since) == 10 and entry.get("days"):
+            keep = [x for x in sess if x >= since]          # "since 1 Aug": an expiry week starting in July is trimmed
+            if not keep:
+                continue
+            if keep != sess:
+                entry, sess = dict(entry, days=keep), keep
         days = minutes.around(sess)
         if any(x not in days for x in sess):
             skipped += 1
