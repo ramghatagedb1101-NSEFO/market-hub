@@ -2,6 +2,7 @@
 Tests for the trading program on made-up minute prices (no network, no broker). Run from the repo root:
     python -m trader.selftest
 """
+import json
 import sys
 
 from .journal import Journal
@@ -504,6 +505,31 @@ def test_both_directions():
     ok("both ways: put closed at the exit time", sides[-1:] == [("P", "SELL", True)] and eng.book.open_legs() == 0, sides)
 
 
+def test_recorder_merge():
+    """IBKR day recorder (14 Nov 2026): a new day slots into a stored week in date order, old rows keep their dates,
+    a stored day is never overwritten, and the expiry is marked complete only on its expiry day."""
+    from trader import recorder as R
+    store = {}
+    R.load_gz = lambda p: json.loads(json.dumps(store[p])) if p in store else None
+    R.save_gz = lambda p, b, m: store.__setitem__(p, json.loads(json.dumps(b))) or 1
+    R.load = lambda p: json.loads(json.dumps(store[p])) if p in store else None
+    R.save = lambda p, b, m: store.__setitem__(p, json.loads(json.dumps(b)))
+    wk = f"{R.WEEKS}/NIFTY/2026-11-17.json.gz"
+    store[wk] = {"days": ["2026-11-11", "2026-11-13"], "expiry": "2026-11-17", "call": {"25000": [[0, 0, 1, 1, 1, 1, 5, 9], [1, 0, 2, 2, 2, 2, 5, 9]]},
+                 "put": {}, "source": "owner files"}
+    body = {"index": "NIFTY", "day": "2026-11-12", "expiries": ["2026-11-17"],
+            "options": {"2026-11-17": {"call": {"25000": [[0, 7, 7, 7, 7, 3]], "25100": [[5, 4, 4, 4, 4, 1]]}, "put": {}}}}
+    R.merge_week(body)
+    e = store[wk]
+    assert e["days"] == ["2026-11-11", "2026-11-12", "2026-11-13"], e["days"]
+    assert e["call"]["25000"] == [[0, 0, 1, 1, 1, 1, 5, 9], [1, 0, 7, 7, 7, 7, 3, 0], [2, 0, 2, 2, 2, 2, 5, 9]], e["call"]["25000"]
+    assert e["call"]["25100"] == [[1, 5, 4, 4, 4, 4, 1, 0]] and "IBKR" in e["source"]
+    assert "added" not in R.merge_week(body) and store[wk]["days"] == e["days"]          # stored day left alone
+    assert R.EXP_DONE not in store                                                     # not complete yet
+    R.merge_week(dict(body, day="2026-11-17"))
+    assert store[R.EXP_DONE]["NIFTY_2026-11-17"]["weeks"] is True
+
+
 def test_kicker_matches_crons():
     """The trading machine's on-time starts (trader/kicker.py, 14 Nov 2026) use the same times as each workflow's own
     GitHub schedule (kept as the backup), so the two never drift apart."""
@@ -556,7 +582,7 @@ def test_kicker_matches_crons():
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons, test_fast_signals]:
+              test_kicker_matches_crons, test_fast_signals, test_recorder_merge]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

@@ -1,0 +1,14 @@
+[Unit]
+Description=Market Hub day recorder (trader/recorder.py): the session's IBKR minute prices to the private repo
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/trader/app
+EnvironmentFile=/opt/trader/secrets/bt.env
+Environment=TZ=Asia/Kolkata
+ExecStart=/opt/trader/venv/bin/python -u -m trader.recorder
+TimeoutStartSec=3h
+Nice=5

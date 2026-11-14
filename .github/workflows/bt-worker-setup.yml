@@ -16,6 +16,10 @@ on:
         description: "only show the worker's last log lines (no pull, no restart)"
         type: boolean
         default: false
+      recorder:
+        description: "day recorder: probe (quick IBKR check, writes nothing) or a past day YYYY-MM-DD to record (runs on in the background)"
+        required: false
+        default: ""
 
 concurrency:
   group: algo-sync
@@ -53,6 +57,7 @@ jobs:
           if [ "${{ inputs.log_only }}" = "true" ]; then
             $SSH 'systemctl is-active bt-worker.service; journalctl -u bt-worker.service -n 40 --no-pager -o short-iso'
             $SSH 'systemctl is-active kicker.timer; journalctl -u kicker.service -n 30 --no-pager -o cat | grep -v -e Starting -e Finished -e Deactivated || true'
+            $SSH 'systemctl is-active recorder.timer; journalctl -u recorder.service -u recorder-day.service -n 40 --no-pager -o cat || true'
             rm -f "$RUNNER_TEMP/k"; exit 0
           fi
           $SSH 'cd /opt/trader/app && git pull -q --ff-only && git log --oneline -1 | cut -c1-7'
@@ -61,6 +66,14 @@ jobs:
           $SSH 'sudo cp /opt/trader/app/infra/trader/bt-worker.service /etc/systemd/system/bt-worker.service && sudo systemctl daemon-reload && sudo systemctl enable -q bt-worker.service && sudo systemctl restart bt-worker.service && sleep 5 && systemctl is-active bt-worker.service && journalctl -u bt-worker.service -n 5 --no-pager -o cat'
           # On-time starts for the GitHub jobs (14 Nov 2026, trader/kicker.py): a once-a-minute timer, same secrets file.
           $SSH 'sudo cp /opt/trader/app/infra/trader/kicker.service /opt/trader/app/infra/trader/kicker.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now kicker.timer && systemctl is-active kicker.timer && systemctl list-timers kicker.timer --no-pager | head -2'
+          # Day recorder (14 Nov 2026, trader/recorder.py): the session's IBKR minute prices, 15:50 IST on weekdays.
+          $SSH 'sudo cp /opt/trader/app/infra/trader/recorder.service /opt/trader/app/infra/trader/recorder.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now recorder.timer && systemctl is-active recorder.timer && systemctl list-timers recorder.timer --no-pager | head -2'
+          REC="${{ inputs.recorder }}"
+          if [ "$REC" = "probe" ]; then
+            $SSH 'cd /opt/trader/app && set -a && . /opt/trader/secrets/bt.env && set +a && TZ=Asia/Kolkata timeout 600 /opt/trader/venv/bin/python -u -m trader.recorder --probe'
+          elif echo "$REC" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+            $SSH "sudo systemd-run --unit=recorder-day --collect -p User=ubuntu -p WorkingDirectory=/opt/trader/app -p EnvironmentFile=/opt/trader/secrets/bt.env -p Environment=TZ=Asia/Kolkata /opt/trader/venv/bin/python -u -m trader.recorder $REC && echo started"
+          fi
           if [ "${{ inputs.restart_trader }}" = "true" ]; then
             H=$(TZ=Asia/Kolkata date +%H%M); D=$(TZ=Asia/Kolkata date +%u)
             if [ "$D" -le 5 ] && [ "$H" -ge 0910 ] && [ "$H" -le 1535 ]; then echo "::warning::market hours: trading program not restarted"
