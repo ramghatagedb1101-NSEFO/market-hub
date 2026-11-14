@@ -77,14 +77,16 @@ def _items(start: datetime, end: datetime) -> list[dict]:
 def _ask(text: str) -> tuple[dict, str]:
     # 14 Nov 2026: as in hub/summaries.py, the bigger model gets one try of at most BIG_WAIT_S (it waited up to 4 minutes,
     # twice, before the lighter model since 3 Nov), then the lighter model twice.
-    from .summaries import GEMINI_FALLBACK_MODEL, GEMINI_MODEL, _big_client, _transient, make_client
+    from .summaries import (BIG_WAIT_S, GEMINI_FALLBACK_MODEL, GEMINI_MODEL, SMALL_WAIT_S, _big_client, _transient,
+                            _within, make_client)
     client, last = make_client(), None
     fmt = {"type": "text", "mime_type": "application/json", "schema": SCHEMA}
     for model, wait in ((GEMINI_MODEL, 0), (GEMINI_FALLBACK_MODEL, 0), (GEMINI_FALLBACK_MODEL, 30)):
         time.sleep(wait)
         try:
             c = _big_client() if model == GEMINI_MODEL else client
-            r = c.interactions.create(model=model, input=[{"type": "text", "text": text}], response_format=fmt)
+            r = _within(BIG_WAIT_S if model == GEMINI_MODEL else SMALL_WAIT_S,      # a hard limit (14 Nov 2026)
+                        lambda: c.interactions.create(model=model, input=[{"type": "text", "text": text}], response_format=fmt))
             return json.loads(r.output_text), model
         except Exception as exc:                        # noqa: BLE001
             if model != GEMINI_MODEL and not _transient(exc):

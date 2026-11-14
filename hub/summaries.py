@@ -169,6 +169,27 @@ def _transient(exc) -> bool:
 
 
 _BIG_CLIENT = {}
+SMALL_WAIT_S = 240
+
+
+def _within(seconds: int, fn):
+    """fn() in a background thread, given up after `seconds` (14 Nov 2026: the client's own timeout did not stop a
+    gemini-3.8-flash call that hung for 900 s; the abandoned thread is left to finish or die with the job)."""
+    box = {}
+
+    def go():
+        try:
+            box["r"] = fn()
+        except Exception as exc:                     # noqa: BLE001 -- passed on below
+            box["e"] = exc
+    th = threading.Thread(target=go, daemon=True)
+    th.start()
+    th.join(seconds)
+    if th.is_alive():
+        raise TimeoutError(f"timed out after {seconds} s")
+    if "e" in box:
+        raise box["e"]
+    return box["r"]
 
 
 def _big_client():
@@ -195,8 +216,9 @@ def ask_gemini(client, pdf: bytes | None, text: str | None, instructions: str) -
         t0 = time.monotonic()
         print(f"[summaries]   asking {model}", flush=True)     # 14 Nov 2026: so a stall is named (download / which model)
         try:
-            r = (_big_client() if big else client).interactions.create(
-                model=model, input=[part, {"type": "text", "text": instructions}], response_format=fmt)
+            c = _big_client() if big else client
+            r = _within(BIG_WAIT_S if big else SMALL_WAIT_S, lambda: c.interactions.create(
+                model=model, input=[part, {"type": "text", "text": instructions}], response_format=fmt))
             print(f"[summaries]   {model} answered in {time.monotonic() - t0:.0f}s", flush=True)
             return r.output_text, model
         except Exception as exc:

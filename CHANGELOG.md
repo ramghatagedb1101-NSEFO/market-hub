@@ -44,6 +44,14 @@ No score for 6, 9, 10, 11 and 13 Nov 2026. Evidence (every close-estimate run's 
 - Not fixed here: GitHub's late schedules also leave the close estimate without live entries since 5 Nov and live.yml
   ran twice on 13 Nov (15:39, 23:10 IST).
 
+### AI summaries / news score: the 2-minute limit enforced (Sat 14 Nov 2026)
+- The stage log showed the real stall: AUTOAXLES's 11.1 MB transcript downloaded in 2 s, then "asking
+  gemini-3.8-flash" hung until the 900 s document limit. Google's client time limit did not stop that call, so the
+  2-minute limit never fired. Each model call now runs against a stopwatch (`_within`: 120 s for the bigger model,
+  240 s for the lighter one); a call past it is abandoned and the next model asked. Same in `hub/news_score.py`.
+- Live back-test on the trading machine after the speed change: the owner's Supertrend both-ways test 245 s -> 21 s,
+  same 92 trades and -Rs 17,638.42, exits at 15:00.
+
 ### Back-tests: about 10x faster, exact times, failed runs say so, option chart opens on the latest expiry (Sat 14 Nov 2026)
 Owner: "fix 1 to 3 and also 5".
 - Speed: a profile showed 97% of a back-test in re-grouping every one-minute bar so far into 5-minute bars and
