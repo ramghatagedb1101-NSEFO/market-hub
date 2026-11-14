@@ -2825,7 +2825,7 @@ function botPanel(){
   const rupee = v => (v < 0 ? '−₹' : '₹') + num(Math.abs(v), 0);
   const won = s => s && s.trades ? Math.round(100 * s.wins / s.trades) + '% won' : '';
   let b = '<div class="muted" style="font-size:12.5px;margin-bottom:10px">Tested ' + num(R.tested || 0, 0) + ' ideas · ' + (recs.length ? recs.length + ' passed every test' : 'none has passed every test yet') +
-    '. Each must make money after charges from ' + esc(bDay((R.periods || {}).dev ? R.periods.dev[0] : '')) + ' to ' + esc(bDay((R.periods || {}).dev ? R.periods.dev[1] : '')) + ', with nearby settings too, and then in the months since, which it never saw while choosing.</div>';
+    '. Each must make money after charges from ' + esc((R.periods || {}).dev ? bDay(dayOf(R.periods.dev[0])) : '') + ' to ' + esc((R.periods || {}).dev ? bDay(dayOf(R.periods.dev[1])) : '') + ', with nearby settings too, and then in the months since, which it never saw while choosing.</div>';
   b += recs.map((x, i) => {
     const d = x.dev || {}, v = x.vault || {}, n = x.normal || {};
     return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">' +
@@ -2833,6 +2833,7 @@ function botPanel(){
       (BOT.added[i] === true ? '<span style="color:var(--up);font-size:13px">Added to your strategies</span>'
         : '<button class="btn sm primary" type="button" ' + (BOT.busy[i] ? 'disabled' : '') + ' onclick="botAdd(' + i + ')">' + (BOT.busy[i] ? 'Adding…' : 'Add to my strategies') + '</button>') + '</div>' +
       (typeof BOT.added[i] === 'string' ? '<div style="color:var(--down);font-size:12.5px">' + esc(BOT.added[i]) + '</div>' : '') +
+      (x.fading ? '<div style="color:var(--down);font-size:12.5px;margin-top:4px">Losing money on the latest days (₹' + num((x.vault_now || {}).profit || 0, 0) + ' since ' + esc(bDay(dayOf((R.periods || {}).vault_from || ''))) + ')</div>' : '') +
       '<div class="muted" style="font-size:12.5px;margin:4px 0 8px">' + esc(x.why) + '</div>' +
       '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:12.5px">' +
       '<div><div class="faint">While choosing</div><b style="color:' + (d.profit >= 0 ? 'var(--up)' : 'var(--down)') + '">' + rupee(d.profit || 0) + '</b> · ' + (d.trades || 0) + ' trades · ' + won(d) + '</div>' +
@@ -2840,6 +2841,8 @@ function botPanel(){
       (n.bad_20 != null ? '<div><div class="faint">A bad month can look like</div>' + rupee(n.bad_20) + ' over 20 sessions · ' + n.longest_losing_run + ' losing days in a row</div>' : '') +
       '</div></div>';
   }).join('');
+  const wait = Object.entries(R.waiting || {});
+  if (wait.length) b += '<div class="muted" style="font-size:12.5px;margin:6px 0">Waiting for history: ' + wait.map(([k, c]) => esc(BOT_FAM[k] || k) + ' (' + c + '% of the period so far)').join(' · ') + '.</div>';
   const near = R.near_misses || [];
   if (near.length) b += '<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12.5px">Close calls (' + near.length + ')</summary>' +
     near.map(x => '<div style="font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line2)"><b>' + esc(x.name) + '</b> — ' + esc(x.why_failed || x.stage) + '</div>').join('') + '</details>';
@@ -2849,7 +2852,7 @@ function botPanel(){
   return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + b + '</div></div>';
 }
 const BOT_FAM = { vol_condor: 'Sell iron condors when volatility is rich', expiry_strangle: 'Sell strangles on expiry day', gap_fade: 'Fade large opening gaps',
-  trend_orb: 'Follow trend days with spreads', cheap_straddle: 'Buy straddles when volatility is cheap', fii_bear: 'Follow heavy FII shorts', pcr_put_sell: 'Sell put spreads on a high put-call ratio', ai: 'Ideas from Gemini' };
+  trend_orb: 'Follow trend days with spreads', cheap_straddle: 'Buy straddles when volatility is cheap', fii_bear: 'Follow heavy FII shorts', pcr_put_sell: 'Sell put spreads on a high put-call ratio', flows_follow: 'Follow FII cash and the US close', news_mood: 'Follow the morning news mood', ai: 'Ideas from Gemini' };
 function btShow(id){ stBtLoad(id); setTimeout(() => { const el = $('bt-res'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); }
 function pageBacktests(){
   const v = $('view');
