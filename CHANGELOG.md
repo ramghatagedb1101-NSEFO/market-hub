@@ -13,6 +13,8 @@ Owner: "need such style configuration options for the charts" (TradingView's Inp
 - **Colours** button: candle up / down and Buy / Sell colours, defaults TradingView's green #089981 / red #f23645
   (were the colour-blind-safe teal / orange); Reset to defaults.
 - The profit charts and the app's +/− figures keep their colours (not part of this request).
+- Index chart (intraday) loads ten earlier sessions as well, so slow indicators (Range Filter 100 needs ~300 five-minute
+  bars) are settled on the first bar shown; it still opens on the last five sessions (scroll back for more).
 
 ### Range Filter: a new indicator for strategies, back-tests and the chart (Sat 14 Nov 2026)
 Owner: "add a new custom indicator: Range Filter" (their TradingView script "Range Filter Buy and Sell").

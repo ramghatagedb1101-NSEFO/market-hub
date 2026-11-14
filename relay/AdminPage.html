@@ -2258,7 +2258,9 @@ function stcDraw(){
   } else if (daily) bars = D.days.map(r => ({ time: r[0], open: r[1], high: r[2], low: r[3], close: r[4] }));
   else {
     const day = STC.day || D.days[D.days.length - 1][0], di = Math.max(0, D.days.findIndex(r => r[0] === day));
-    sessions = D.days.slice(Math.max(0, di - STC_SPAN + 1), di + 1).map(r => r[0]);
+    // 14 Nov 2026: ten earlier sessions are loaded too, so slow indicators (Range Filter 100: ~300 five-minute bars)
+    // are settled on the first bar shown; the view opens on the last five, scroll back for the rest.
+    sessions = D.days.slice(Math.max(0, di - STC_SPAN - 9), di + 1).map(r => r[0]);
     for (const d of sessions) {
       const mo = stcLoad(idx, d.slice(0, 7));
       if (!mo || mo.loading) return;                 // a month still loading: drawn again when it arrives
@@ -2427,7 +2429,7 @@ function stcDraw(){
   if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(place)).observe(mainDiv);
   // ---- first view
   if (daily) main.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 260), to: n + 4 });
-  else if (OPT && sessions.length > STC_SPAN) {               // the last five sessions; scroll back for the rest
+  else if (sessions.length > STC_SPAN) {                      // the last five sessions; scroll back for the rest
     const from = bars.findIndex(b => stcDayKey(b.time) >= sessions[sessions.length - STC_SPAN]);
     main.timeScale().setVisibleLogicalRange({ from: Math.max(0, from), to: n + 4 });
   } else main.timeScale().fitContent();
