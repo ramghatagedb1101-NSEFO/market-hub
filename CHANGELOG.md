@@ -4,6 +4,26 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy bot, step 1: every trading day recorded; market diary (Sat 14 Nov 2026, night)
+Owner: keep recording every trading day from 31 Oct 2026 on (the owner's ICICI files end 30 Oct; later sessions existed
+only for the two days around each expiry), and let the coming strategy bot use the brief's information.
+- `trader/recorder.py` on market-hub-trader (`recorder.timer`, 15:50 IST weekdays; its own IBKR connection, client 23):
+  for NIFTY and BANK NIFTY the session's index minutes, one-minute trade bars of the nearest and next expiry's options
+  within 5% of the open, and one-minute bid / ask for the nearest expiry within 2%. Raw day file
+  `state/ibkr/days/<INDEX>/<day>.json.gz`; the nearest expiry's day is merged into `state/breeze/expiry_weeks/` (the
+  back-tests' format) and the expiry is marked complete on its expiry day, so back-tests use it with no change. Stored
+  days are never overwritten. Probe on 13 Nov: IBKR index minutes match ICICI's (same minute labels, average close
+  difference 0.55 points over 370 minutes). First look at real costs: ATM NIFTY bid/ask gap about 0.25-0.45 points
+  (time-averaged, 13 Nov); the back-tests charge the larger of 0.10 or 2% of the price per side, far more for ATM
+  options. To be checked against real fills before any change (step 2).
+- Backfill 31 Oct - 13 Nov started from IBKR. IBKR serves only options not yet expired: BANK NIFTY (monthly 24 Nov) and
+  NIFTY from 11 Nov can be filled; NIFTY 31 Oct - 10 Nov (expiries 3 and 10 Nov) keep raw files only and need ICICI.
+- Back-tests page: a back-test's Results button is light green once its results exist (owner: no way to tell before).
+- Market diary: `hub/context.py` keeps each day's FII/DII flows, FX, global markets, commodities, VIX and headline
+  titles in `state/market_diary.json` (context.json was overwritten daily, so none of it could be tested on the past).
+- `bt-worker-setup.yml` installs the recorder; `-f recorder=probe` checks IBKR, `-f recorder="day day ..."` records
+  past sessions in the background; `log_only` shows its log.
+
 ### Fixed ICICI address now on the trading machine (Sat 14 Nov 2026, 21:44 IST)
 130.210.31.37 (the only address ICICI accepts the API key from) was a reserved Oracle address on `market-hub-ip`; it is
 now `market-hub-trader`'s address, so one machine does everything (owner). `infra/oci_move_ip.py` / `oci-ip.yml`

@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Sat 14 Nov 2026, ~21:15 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
+As of Sat 14 Nov 2026, ~22:45 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
 `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
@@ -91,6 +91,21 @@ As of Sat 14 Nov 2026, ~21:15 IST. Start with the 14 Nov HANDOVER just below, th
   clicked twice.
 - Later (owner agreed): multi-leg trades (straddle, strangle, condor) in the shared engine after the first live
   sessions; VWAP (futures data) and IV percentile.
+
+### Strategy bot (owner, 14 Nov 2026 night) -- plan agreed, step 1 under way
+Goal: strategies with a real chance of making money live, found and tested by a bot; the bot RECOMMENDS, the owner
+switches strategies on / off (paper). Gemini free tier as its AI. Steps: (1) data: daily IBKR recording (done,
+`trader/recorder.py`), market diary (done), IV history + IV percentile signal, India VIX history, NSE put-call ratio /
+open interest / participant positions, events calendar; (2) multi-leg trades (straddle, strangle, condor, spreads) in
+back-test, form and live program, with a cap on the whole position; (3) the bot: ideas must name who pays us
+(volatility premium, time decay, event IV drop, gap / trend days); judged on post-Nov-2024 rules data, days-to-expiry
+not weekday; a locked 6-month vault tested once; survival tests (neighbouring settings, without best 5 days, each
+period, both indices, crash days incl. 4 Jun 2024, enough trades, a higher bar the more ideas tried); real costs from
+the recorded bid / ask; portfolio of small uncorrelated strategies sharing the day's loss limit; (4) a written
+"normal" range per strategy and an automatic switch-off plus email when paper results leave it.
+- Recorder: first daily run Mon 16 Nov 15:50; check its log (`bt-worker-setup.yml -f log_only=true`) and the files in
+  `state/ibkr/days/`. Backfill 31 Oct - 13 Nov running (started 22:30 14 Nov).
+- NIFTY 31 Oct - 10 Nov option minutes: fetch from ICICI on a sign-in day (IBKR no longer serves expired options).
 
 ### Open items, in order
 0. Fixed 21:15 14 Nov: the machine starts `breeze.yml` as a manual run, whose default was the sign-in test
