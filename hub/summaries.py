@@ -192,11 +192,15 @@ def ask_gemini(client, pdf: bytes | None, text: str | None, instructions: str) -
         if wait:
             time.sleep(wait)
         big = model == GEMINI_MODEL
+        t0 = time.monotonic()
+        print(f"[summaries]   asking {model}", flush=True)     # 14 Nov 2026: so a stall is named (download / which model)
         try:
             r = (_big_client() if big else client).interactions.create(
                 model=model, input=[part, {"type": "text", "text": instructions}], response_format=fmt)
+            print(f"[summaries]   {model} answered in {time.monotonic() - t0:.0f}s", flush=True)
             return r.output_text, model
         except Exception as exc:
+            print(f"[summaries]   {model} failed in {time.monotonic() - t0:.0f}s: {str(exc)[:120]}", flush=True)
             if big:                                  # whatever went wrong, the lighter model still gets its turn
                 if _transient(exc):
                     BIG_OFF["why"] = str(exc)[:120]
@@ -239,7 +243,9 @@ def make_client():
 
 
 def summarise(client, kind: str, doc: dict) -> dict:
+    t0 = time.monotonic()
     pdf = download(doc["url"])
+    print(f"[summaries]   downloaded {len(pdf) / 1e6:.1f} MB in {time.monotonic() - t0:.0f}s", flush=True)
     coverage = None
     if PROVIDER == "anthropic":
         whole = kind == "tr" and len(pdf) <= MAX_PDF_BYTES
