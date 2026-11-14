@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Index minute history from ICICI (Sat 14 Nov 2026)
+Owner asked where to get the NIFTY index minute by minute (only option candles around expiries were downloaded).
+- `hub/breeze_index.py`: NIFTY 50, NIFTY BANK and SENSEX one-minute candles for every session from Oct 2023 to the
+  day before, two days a request (~400 requests per index once; the current month is refreshed each run). Saved to the
+  private repo `state/breeze/index/<INDEX>/<YYYY-MM>.json.gz`; a month with any request error is fetched again.
+- The scheduled ICICI runs (16:00 / 21:00 IST) do the index first, inside the same request budget, then the expiries.
+
 ### IBKR paper account connected (Sat 14 Nov 2026)
 - Owner typed the paper login on the machine. The gateway first restarted endlessly: it runs inside its container as
   user 1000, the machine's user is 1001, so it could not read the password file or its settings folder. Owners fixed

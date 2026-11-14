@@ -132,14 +132,19 @@ def load_gz(path: str):
 def main() -> int:
     budget = int(os.getenv("BUDGET") or 4000)
     stop_at = time.time() + 60 * int(os.getenv("MAX_MINUTES") or 300)
+    # Index minutes first (small: about 1,200 requests once, then ~10 a run), sharing this run's budget (14 Nov 2026).
+    from .breeze_index import run as index_run
+    b, failed = index_run(None, budget, stop_at)
+    if failed:
+        print(f"::error title=ICICI index download::{failed[:200]} (work up to here is saved)")
+        return 1
     recs = load("state/expiry_history/records.json") or {}
     done = load(INDEX) or {}
     queue = todo(recs, done)
     print(f"{len(recs)} expiries recorded, {len(done)} already downloaded, {len(queue)} to go; budget {budget} requests")
     if not queue:
         return 0
-    b = Breeze()
-    failed = None
+    b = b or Breeze()
     for key, r, ch in queue:
         n = len(legs(ch))
         if b.calls + n > budget or time.time() > stop_at:
