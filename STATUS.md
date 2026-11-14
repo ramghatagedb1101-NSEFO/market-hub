@@ -98,7 +98,11 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
 4. Options-data signals (put-call ratio, open interest change; futures VWAP) for the placeholders.
 5. Decided (owner, 14 Nov): keep the current paper password; no change needed. (A separate paper password was
    offered as extra safety for the copy stored on the machine; `set-login.sh` changes it any time.)
-6. Proposal pending: move the fixed address 130.210.31.37 to `market-hub-trader` and retire `market-hub-ip`.
+6. GitHub schedules started 7-9 hours late all week (9-13 Nov 2026): close-estimate's 09:20 run at 17:06 IST,
+   market-loop's 08:45 run at 16:26 (no 14:45 start, no paper/watch checks in market hours), live.yml twice on 13 Nov.
+   The news score now records on a late run (14 Nov); the close estimate's live entries and the market-hours jobs need
+   a trigger GitHub does not delay (e.g. the trading machine or the relay starting them).
+7. Proposal pending: move the fixed address 130.210.31.37 to `market-hub-trader` and retire `market-hub-ip`.
 
 ### Notes for the next session
 - SSH to both Oracle machines with the owner's Oracle SSH key (the same key as the ORACLE_SSH_KEY secret); users
@@ -240,7 +244,8 @@ to `main` (CI) or the owner running `--pull`/`--push` locally with their own tok
   tested from 60 recorded expiry days (7 on 3 Nov 2026; about mid-2027).
 - **14:45 runs** (close estimate; expiry-day option screen on Mon/Tue) are started by the same afternoon loop (29 Oct
   2026: their schedules ran 35-45 minutes late, after the close).
-- **News score** (Gemini, daily before the open) is recorded only; review it after about 60 trading days (late Jan 2027).
+- **News score** (Gemini, daily; headlines up to 09:00, so a late run scores the same; 14 Nov 2026: no longer needs an
+  open session, missed day via close-estimate Run workflow `news_day`) is recorded only; review it after about 60 trading days (late Jan 2027).
 - **SENSEX**: no Kite close for today before 15:35 IST (mid-session values had seeded forecasts on 5 days); 25 records fixed.
 - **Live data audit** done (extras/data-audit/AUDIT.md on the laptop). Relay pushed 15:05: GIFT Nifty in the quote,
   dashboard 52-week range from highs/lows, paper chain refreshes every 30 s.

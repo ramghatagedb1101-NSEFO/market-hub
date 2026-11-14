@@ -4,6 +4,24 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Daily news score: recorded whenever the day's run starts (Sat 14 Nov 2026)
+No score for 6, 9, 10, 11 and 13 Nov 2026. Evidence (every close-estimate run's log, the feed's history in the private repo):
+- **6-11 Nov:** the private-data key had expired (see 12 Nov): the feed came back as a 401 message, read as data, and the
+  step stopped with `KeyError: 'indices'` (the 11 Nov traceback). Fixed 12 Nov by the new key; the step now says
+  "could not read the feed (HTTP 401)" instead.
+- **13 Nov:** GitHub started every close-estimate run 7-9 hours late (09:20 schedule at 17:06 IST, then 18:47, 21:06,
+  22:43; the same since 9 Nov, and market-loop's 08:45 run started at 16:26, so its 14:45 start never came). The step
+  read only an OPEN session: the 17:06 run still had one, but was cancelled by the job's 10-minute limit while Gemini
+  waited; by 18:47 the 18:05 daily run had settled the day ("no open session for 2026-11-13"). 12 Nov scored only
+  because its 17:46 run came before that day's 18:05 settle (and finished with 18 s to spare).
+- **Fix (`hub/news_score.py`):** the day's block is taken settled or open (`today` or `next` with target = the day);
+  the headline window still ends at 09:00 by publish time, so a late run reads exactly the same news. The job limit is
+  20 minutes (was 10). `close-estimate.yml` (Run workflow) takes a missed day (`news_day`, YYYY-MM-DD); for a day no
+  longer in the feed the window starts at the weekday before it that is not a listed NSE holiday. Entries stay one a day,
+  in date order; a missed day's `at` carries the date it was scored. Gemini model handling unchanged.
+- Not fixed here: GitHub's late schedules also leave the close estimate without live entries since 5 Nov and live.yml
+  ran twice on 13 Nov (15:39, 23:10 IST).
+
 ### AI summaries: the bigger model gets 2 minutes (Sat 14 Nov 2026)
 Owner: "just give them a limit ... I don't see any harm in using a bigger model if it is available free of cost."
 Evidence (site/summaries.json and the last 12 runs): gemini-3.8-flash wrote 10-14 summaries a day until 2 Nov 2026 and

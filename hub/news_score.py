@@ -24,7 +24,7 @@ from xml.etree import ElementTree
 import requests
 
 from . import config
-from .close_estimate import PRIVATE, _gh, session_block
+from .close_estimate import PRIVATE, _gh
 from .context import NEWS_FEEDS, UA
 
 LOG_PATH = "state/news_score_log.json"
@@ -93,34 +93,62 @@ def _ask(text: str) -> tuple[dict, str]:
     raise last
 
 
-def record() -> dict | None:
+def _last_session(b: dict, day: str, holidays: list) -> str | None:
+    """The session before `day` (the start of the headline window), or None when `day` is not a session.
+    14 Nov 2026: this read only an OPEN session (close_estimate.session_block). GitHub has been starting the
+    close-estimate runs 7-9 hours late (09:20 schedule at 17:06 IST on 13 Nov), and once the 18:05 daily run settles the
+    day the feed's block is no longer open, so every later run stopped with "no open session" and the day had no score.
+    The headline window ends at 09:00 whatever the run's time, so a settled block of today is just as good. A missed
+    earlier day (`record YYYY-MM-DD`) is no longer in the feed: its last session is the weekday before it that is not
+    an NSE holiday."""
+    for k in ("today", "next"):
+        t = b.get(k) or {}
+        if t.get("target") == day and t.get("asof"):
+            return t["asof"]
+    d = datetime.fromisoformat(day).date()
+    if d >= datetime.now(config.IST).date() or d.weekday() >= 5 or day in holidays:
+        return None
+    d -= timedelta(days=1)
+    while d.weekday() >= 5 or d.isoformat() in holidays:
+        d -= timedelta(days=1)
+    return d.isoformat()
+
+
+def record(day: str | None = None) -> dict | None:
     now = datetime.now(config.IST)
-    today = now.date().isoformat()
+    today = day or now.date().isoformat()
     r = _gh("GET", LOG_PATH)
+    if r.status_code not in (200, 404):                 # 6-11 Nov 2026: an expired key read as "no data"; say so
+        raise SystemExit(f"could not read the news-score log (HTTP {r.status_code})")
     sha, log = (r.json()["sha"], json.loads(base64.b64decode(r.json()["content"]))) if r.status_code == 200 else (None, [])
     if any(e["date"] == today for e in log):
         return None                                     # one score a day
-    feed = requests.get(PRIVATE + "site/feed.json", timeout=30, headers={
-        "Authorization": "Bearer " + os.environ["PRIVATE_REPO_TOKEN"], "Accept": "application/vnd.github.raw"}).json()
-    t = session_block(feed["indices"]["NIFTY"], today)
-    if today in (feed.get("holidays") or []):
+    fr = requests.get(PRIVATE + "site/feed.json", timeout=30, headers={
+        "Authorization": "Bearer " + os.environ["PRIVATE_REPO_TOKEN"], "Accept": "application/vnd.github.raw"})
+    if fr.status_code != 200:
+        raise SystemExit(f"could not read the feed (HTTP {fr.status_code})")
+    feed = fr.json()
+    holidays = feed.get("holidays") or []
+    if today in holidays:
         return None                                     # NSE trading holiday
-    if t is None:
-        if now.weekday() < 5:                           # outside review 27 Oct 2026: never succeed with nothing
-            raise SystemExit(f"no open session for {today} in the feed ({feed.get('generated_at')})")
+    asof = _last_session(feed["indices"]["NIFTY"], today, holidays)
+    if asof is None:
+        if datetime.fromisoformat(today).weekday() < 5:  # outside review 27 Oct 2026: never succeed with nothing
+            raise SystemExit(f"no session for {today} in the feed ({feed.get('generated_at')})")
         return None
-    start = datetime.fromisoformat(t["asof"] + "T15:30:00+05:30")
+    start = datetime.fromisoformat(asof + "T15:30:00+05:30")
     end = datetime.fromisoformat(today + "T09:00:00+05:30")
     items = _items(start, end)
     if not items:
         raise SystemExit("no headlines in the window")
     lines = "\n".join(f"- [{x['t']}] {x['title']}" for x in items)
     ans, model = _ask(PROMPT.format(start=start.strftime("%a %d %b %Y %H:%M"), end=end.strftime("%a %d %b %Y %H:%M"),
-                                    day=now.strftime("%a %d %b %Y"), lines=lines))
-    entry = {"date": today, "asof": t["asof"], "at": now.strftime("%H:%M"), "model": model, "headlines": len(items),
+                                    day=end.strftime("%a %d %b %Y"), lines=lines))
+    at = now.strftime("%H:%M") if today == now.date().isoformat() else now.strftime("%Y-%m-%d %H:%M")   # a missed day
+    entry = {"date": today, "asof": asof, "at": at, "model": model, "headlines": len(items),
              "score": int(ans["score"]), "confidence": ans["confidence"], "reasons": ans["reasons"][:3]}
     body = {"message": f"news score {today}", "content": base64.b64encode(
-        json.dumps(log + [entry], ensure_ascii=False, separators=(",", ":")).encode()).decode()}
+        json.dumps(sorted(log + [entry], key=lambda e: e["date"]), ensure_ascii=False, separators=(",", ":")).encode()).decode()}
     if sha:
         body["sha"] = sha
     if _gh("PUT", LOG_PATH, json=body).status_code not in (200, 201):
@@ -155,7 +183,7 @@ def summary(prices: dict) -> dict:
 
 
 if __name__ == "__main__":
-    if (sys.argv[1:] or [""])[0] == "record":
-        print(json.dumps(record(), ensure_ascii=False, indent=1))
+    if (sys.argv[1:] or [""])[0] == "record":                # record [YYYY-MM-DD]: a missed day, by hand
+        print(json.dumps(record(sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] else None), ensure_ascii=False, indent=1))
     else:
         print(__doc__)

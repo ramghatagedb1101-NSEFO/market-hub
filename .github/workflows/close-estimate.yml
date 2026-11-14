@@ -11,6 +11,11 @@ on:
     - cron: "30 7 * * 1-5"     # 13:00 IST
     - cron: "15 9 * * 1-5"     # 14:45 IST (backup: market-loop.yml starts this run at 14:45; GitHub delays this one)
   workflow_dispatch:
+    inputs:
+      news_day:
+        description: "Score a missed day's news (YYYY-MM-DD); empty = today"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -22,7 +27,9 @@ concurrency:
 jobs:
   record:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # 14 Nov 2026: was 10. The news score's Gemini calls can take up to ~10 minutes (2 min bigger model, then the lighter
+    # one twice with a 4-minute limit); on 13 Nov the one run that could still score the day was cancelled mid-call.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,4 +60,5 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-        run: python -m hub.news_score record
+          NEWS_DAY: ${{ inputs.news_day }}
+        run: python -m hub.news_score record "$NEWS_DAY"
