@@ -60,6 +60,7 @@ class OrderRequest:
     closing: bool = False # True when it only reduces an open position (always allowed, even after the kill switch)
     tag: str = ""         # the strategy's own label, e.g. "condor-entry"
     hedge: bool = False   # a bought wing that caps a sold leg's loss: no stop-loss (a stop would remove the cap)
+    exits: dict | None = None   # the strategy's exits for the position this opens (trader/engine.py default_exits)
 
 
 @dataclass

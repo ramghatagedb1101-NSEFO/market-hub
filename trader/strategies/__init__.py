@@ -8,6 +8,9 @@ from ..model import Settings
 def make(s: Settings):
     if not s.strategy:
         return None
+    if s.strategy == "rules":                       # a strategy from the dashboard's builder, in s.params
+        from .rules import Rules
+        return Rules(s.params)
     if s.strategy == "expiry_condor":
         from .expiry_condor import ExpiryCondor
         return ExpiryCondor(s.params)

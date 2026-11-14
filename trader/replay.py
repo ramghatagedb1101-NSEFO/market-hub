@@ -11,6 +11,7 @@ expiry record (state/expiry_history/records.json).
     python -m trader.replay NIFTY 2026-11-03 [--strategy expiry_condor] [--echo]
 """
 import argparse
+import bisect
 import sys
 from datetime import datetime, timedelta
 
@@ -30,16 +31,44 @@ def at(day: str, minute: int) -> datetime:
 
 
 class ReplayFeed:
-    def __init__(self, index: str, entry: dict):
+    """
+    index_days (optional): the index's own one-minute bars by date, {"YYYY-MM-DD": [[min, o, h, l, c, v], ...]}
+    (hub/breeze_index.py), including at least one session before prev_day so the builder's signals have history.
+    """
+
+    def __init__(self, index: str, entry: dict, index_days: dict | None = None):
         self.index, self.e = index, entry
         self.days = [entry["prev_day"], entry["expiry"]]
         self.series: dict[Contract, list] = {}
+        self.keys: dict[Contract, list] = {}
         for right, side in (("C", "call"), ("P", "put")):
             for k, rows in (entry.get(side) or {}).items():
+                rows = [r for r in sorted(rows) if r[5]]
                 if rows:
-                    self.series[Contract(index, entry["expiry"], float(k), right)] = sorted(rows)
+                    c = Contract(index, entry["expiry"], float(k), right)
+                    self.series[c], self.keys[c] = rows, [(r[0], r[1]) for r in rows]
         self.pos = (0, 0)
         self.subscribed: set[Contract] = set()
+        self.ibars, self.ikeys, self.prev = [], [], {}
+        for d in sorted(index_days or {}):
+            if d > self.days[1]:
+                continue
+            for m, o, h, l, c, *_ in index_days[d]:
+                t = at(d, m)
+                self.ibars.append((t, o, h, l, c))
+            self.prev[d] = index_days[d][-1][4] if index_days[d] else None
+        self.ikeys = [b[0] for b in self.ibars]
+
+    def index_bars(self, index: str) -> list:
+        """One-minute index bars up to and including the current minute (the engine's signals drop the last one)."""
+        if index != self.index:
+            return []
+        return self.ibars[:bisect.bisect_right(self.ikeys, self.now())]
+
+    def prev_close(self, index: str) -> float | None:
+        today = self.days[self.pos[0]]
+        before = [d for d in self.prev if d < today]
+        return self.prev[before[-1]] if before and index == self.index else None
 
     def move(self, day: int, minute: int) -> None:
         self.pos = (day, minute)
@@ -48,14 +77,11 @@ class ReplayFeed:
         return at(self.days[self.pos[0]], self.pos[1])
 
     def quote(self, c: Contract) -> Quote | None:
-        last = None
-        for row in self.series.get(c, ()):
-            if (row[0], row[1]) > self.pos:
-                break
-            if row[5]:
-                last = row
-        if not last:
+        ks = self.keys.get(c)
+        i = bisect.bisect_right(ks, self.pos) if ks else 0
+        if not i:
             return None
+        last = self.series[c][i - 1]
         px = float(last[5])
         return Quote(max(px - slip(px), 0.05), px + slip(px), px, at(self.days[last[0]], last[1]))
 
@@ -86,10 +112,11 @@ class ReplayBroker:
     """
     Fills at once at the replay's bid / ask; a limit that is not reached waits and is cancelled at the day's end.
 
-    Stops (attached to a buy, or the trailing stop that replaces it) are checked against each minute's candle: the
-    stop as it stood before the minute is hit when the minute's low reaches it, and fills at the stop -- or at the
-    minute's open when the price opened below it -- less slippage. Only then does a trailing stop move up with the
-    minute's high (the cautious order, since a candle does not say whether its high or low came first).
+    Stops (attached to an entry, or the trailing stop that replaces it) are checked against each minute's candle: a
+    sell-stop below a long is hit when the minute's low reaches it, a buy-stop above a short when the high does; it
+    fills at the stop -- or at the minute's open when the price opened through it -- with slippage against us. Only
+    then does a trailing stop follow the minute's best price (the cautious order, since a candle does not say whether
+    its high or low came first). Trailing distance in % or points.
     """
 
     def __init__(self, feed: ReplayFeed):
@@ -103,26 +130,34 @@ class ReplayBroker:
         self.n += 1
         return f"R{self.n}"
 
-    def submit(self, r: OrderRequest, q: Quote | None, now: datetime, stop: float | None = None) -> str:
+    def submit(self, r: OrderRequest, q: Quote | None, now: datetime, stop: float | None = None,
+               validity: str = "GTC") -> str:
         oid = self._id()
         self.waiting.append((oid, r))
         if stop is not None:                       # child: works only once the parent has filled
             self.stops[r.contract] = {"id": self._id(), "parent": oid, "kind": "stop", "stop": stop,
+                                      "side": "SELL" if r.side == "BUY" else "BUY", "validity": validity,
                                       "qty": r.lots * r.contract.lot, "live": False}
         self._try(now)
         return oid
 
-    def trail(self, c: Contract, by: float, now: datetime) -> str:
-        """Replace the stop with a trailing stop `by` (share) below the highest price from now on."""
+    def trail(self, c: Contract, by: float, now: datetime, by_type: str = "pct") -> str:
+        """Replace the stop with a trailing stop `by` (% or points) behind the best price from now on."""
         old = self.stops.get(c)
         if not old or not old["live"]:
             return ""
         q = self.feed.quote(c)
-        high = q.last if q else old["stop"]
-        self.stops[c] = {"id": self._id(), "parent": "", "kind": "trail", "by": by, "high": high,
-                         "stop": high * (1 - by), "qty": old["qty"], "live": True,
-                         "from": self.feed.pos}
-        return self.stops[c]["id"]
+        best = q.last if q else old["stop"]
+        st = {"id": self._id(), "parent": "", "kind": "trail", "by": by, "by_type": by_type, "best": best,
+              "side": old["side"], "validity": old["validity"], "qty": old["qty"], "live": True, "from": self.feed.pos}
+        st["stop"] = self._trail_stop(st)
+        self.stops[c] = st
+        return st["id"]
+
+    @staticmethod
+    def _trail_stop(st: dict) -> float:
+        d = st["best"] * st["by"] / 100 if st["by_type"] == "pct" else st["by"]
+        return st["best"] - d if st["side"] == "SELL" else st["best"] + d
 
     def cancel_children(self, c: Contract) -> None:
         self.stops.pop(c, None)
@@ -131,12 +166,11 @@ class ReplayBroker:
         return self.stops.get(c)
 
     def _candle(self, c: Contract):
-        for row in self.feed.series.get(c, ()):
-            if (row[0], row[1]) == self.feed.pos:
-                return row
-            if (row[0], row[1]) > self.feed.pos:
-                return None
-        return None
+        ks = self.feed.keys.get(c)
+        if not ks:
+            return None
+        i = bisect.bisect_left(ks, self.feed.pos)
+        return self.feed.series[c][i] if i < len(ks) and ks[i] == self.feed.pos else None
 
     def _try(self, now: datetime) -> None:
         keep = []
@@ -163,18 +197,19 @@ class ReplayBroker:
         for c, st in list(self.stops.items()):
             row = self._candle(c) if st["live"] else None
             if not row or (row[0], row[1]) == st.get("from"):
-                continue                           # the minute it started in: its low may come from before
+                continue                           # the minute it started in: its range may come from before
             o, h, l = float(row[2] or row[5]), float(row[3] or row[5]), float(row[4] or row[5])
-            if l <= st["stop"]:
-                base = min(st["stop"], o)
-                px = max(base - slip(base), 0.05)
-                self.done.append(Fill(c, "SELL", st["qty"], px, now,
-                                      charges(px, st["qty"], "sell", c.exchange), st["id"], st["kind"]))
+            sell = st["side"] == "SELL"            # protects a long (stop below) or a short (stop above)
+            if (l <= st["stop"]) if sell else (h >= st["stop"]):
+                base = min(st["stop"], o) if sell else max(st["stop"], o)
+                px = max(base - slip(base), 0.05) if sell else base + slip(base)
+                self.done.append(Fill(c, st["side"], st["qty"], px, now,
+                                      charges(px, st["qty"], st["side"].lower(), c.exchange), st["id"], st["kind"]))
                 del self.stops[c]
                 continue
-            if st["kind"] == "trail" and h > st["high"]:
-                st["high"] = h
-                st["stop"] = h * (1 - st["by"])
+            if st["kind"] == "trail" and ((h > st["best"]) if sell else (l < st["best"])):
+                st["best"] = h if sell else l
+                st["stop"] = self._trail_stop(st)
 
     def poll_fills(self) -> list[Fill]:
         self._try(self.feed.now())
@@ -189,22 +224,23 @@ class ReplayBroker:
         out = [{"id": oid, "contract": r.contract.key(), "side": r.side, "qty": r.lots * r.contract.lot,
                 "type": "Limit" if r.limit is not None else "At market", "price": r.limit, "tag": r.tag}
                for oid, r in self.waiting]
-        out += [{"id": st["id"], "contract": c.key(), "side": "SELL", "qty": st["qty"],
+        out += [{"id": st["id"], "contract": c.key(), "side": st["side"], "qty": st["qty"],
                  "type": "Trailing stop" if st["kind"] == "trail" else "Stop-loss", "price": round(st["stop"], 2),
                  "tag": st["kind"], "waiting_for_entry": not st["live"]} for c, st in self.stops.items()]
         return out
 
     def end_of_day(self) -> int:
-        """Unfilled entry orders are cancelled; stops of open positions stay (IBKR keeps good-till-cancelled stops)."""
+        """Unfilled entry orders are cancelled, and day-only stops; good-till-cancelled stops of open positions stay."""
         dropped = {oid for oid, _ in self.waiting}
-        for c in [c for c, st in self.stops.items() if st.get("parent") in dropped]:
+        for c in [c for c, st in self.stops.items() if st.get("parent") in dropped or st.get("validity") == "DAY"]:
             del self.stops[c]
         n, self.waiting = len(self.waiting), []
         return n
 
 
-def run(index: str, entry: dict, index_close: float | None, strategy, settings: Settings, journal: Journal) -> Engine:
-    feed = ReplayFeed(index, entry)
+def run(index: str, entry: dict, index_close: float | None, strategy, settings: Settings, journal: Journal,
+        index_days: dict | None = None) -> Engine:
+    feed = ReplayFeed(index, entry, index_days)
     broker = ReplayBroker(feed)
     eng = Engine(feed, broker, strategy, settings, journal)
     for day in (0, 1):

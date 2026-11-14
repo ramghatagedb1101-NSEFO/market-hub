@@ -2,8 +2,11 @@ name: algo-sync
 
 # The phone's and dashboard's "Auto trading" screens (14 Nov 2026): copies the paper trading journals from
 # market-hub-trader and publishes the trades summary (trader/summary.py) to the private repo, site/algo.json.
+# Also copies the strategy builder's saved strategies, the active one and the limits (relay ?mode=strategies) to the
+# machine, which switches within seconds of a change (strategy builder, 14 Nov 2026).
 # Every 10 minutes in market hours and twice after the close. Public log: counts only, never prices or addresses.
-# Secrets: ORACLE_SSH_KEY (the Oracle machines' SSH key), OCI_* (to look up the machine's address), PRIVATE_REPO_TOKEN.
+# Secrets: ORACLE_SSH_KEY (the Oracle machines' SSH key), OCI_* (to look up the machine's address), RELAY_URL,
+# RELAY_KEY, PRIVATE_REPO_TOKEN.
 on:
   schedule:
     - cron: "*/10 3-9 * * 1-5"        # 08:30-15:20 IST, weekdays
@@ -24,9 +27,11 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install --quiet "requests>=2.31" "oci>=2.130"
-      - name: Copy the journals from the trading machine
+      - name: Strategies to the machine, journals from it
         env:
           KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
           OCI_API_KEY: ${{ secrets.OCI_API_KEY }}
           OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
           OCI_USER: ${{ secrets.OCI_USER }}
@@ -39,8 +44,23 @@ jobs:
           rm -f "$RUNNER_TEMP/oci.pem"
           echo "::add-mask::$HOST"
           printf '%s\n' "$KEY" > "$RUNNER_TEMP/k"
-          ssh -i "$RUNNER_TEMP/k" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o BatchMode=yes \
-            "ubuntu@$HOST" 'tar czf - -C /opt/trader journal' | tar xzf -
+          SSH="ssh -i $RUNNER_TEMP/k -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o BatchMode=yes ubuntu@$HOST"
+          # strategies: written only when they changed, so the machine switches only on a real change
+          if curl -sfL --get "$RELAY_URL" --data-urlencode "mode=strategies" --data-urlencode "key=$RELAY_KEY" -o s.json \
+             && python -c "import json; d=json.load(open('s.json')); assert 'items' in d; d.pop('changed', None); json.dump(d, open('s2.json','w'), sort_keys=True)"; then
+            NEW=$(sha256sum s2.json | cut -c1-64)
+            OLD=$($SSH 'sha256sum /opt/trader/strategies.json 2>/dev/null | cut -c1-64' || true)
+            if [ "$NEW" != "$OLD" ]; then
+              $SSH 'cat > /opt/trader/strategies.json.tmp && mv /opt/trader/strategies.json.tmp /opt/trader/strategies.json' < s2.json
+              echo "strategies: updated on the machine"
+            else
+              echo "strategies: unchanged"
+            fi
+          else
+            echo "::warning::could not read the strategies from the relay; the machine keeps its copy"
+          fi
+          rm -f s.json s2.json
+          $SSH 'tar czf - -C /opt/trader journal' | tar xzf -
           rm -f "$RUNNER_TEMP/k"
           echo "journal days: $(ls journal | wc -l)"
       - name: Publish the summary

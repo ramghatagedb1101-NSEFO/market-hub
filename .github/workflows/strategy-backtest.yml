@@ -1,0 +1,40 @@
+name: strategy-backtest
+
+# Back-test of one strategy from the dashboard's strategy builder (14 Nov 2026), started by the dashboard's Back-test
+# button through the relay (adminBacktestStart). Reads the saved strategies from the relay (RELAY_KEY), runs
+# trader/backtest.py on the ICICI minute history, writes state/backtests/<id>.json to the private repo.
+# Public log: counts only, never prices or the strategy's settings.
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: "strategy id (s_...)"
+        required: true
+
+concurrency:
+  group: backtest-${{ inputs.id }}
+  cancel-in-progress: true
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet "requests>=2.31"
+      - name: Read the saved strategies
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          ID: ${{ inputs.id }}
+        run: |
+          [[ "$ID" =~ ^s_[a-z0-9]{6,20}$ ]] || { echo "::error::bad id"; exit 1; }
+          curl -sfL --get "$RELAY_URL" --data-urlencode "mode=strategies" --data-urlencode "key=$RELAY_KEY" -o "$RUNNER_TEMP/strategies.json"
+          python -c "import json,sys; d=json.load(open(sys.argv[1])); assert 'items' in d, d.get('error'); print(len(d['items']), 'strategies')" "$RUNNER_TEMP/strategies.json"
+      - name: Back-test
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -u -m trader.backtest "$RUNNER_TEMP/strategies.json" "${{ inputs.id }}"

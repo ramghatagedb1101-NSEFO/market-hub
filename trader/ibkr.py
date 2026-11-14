@@ -42,6 +42,8 @@ class IBKR:
         self.children: dict[Contract, dict] = {}   # protective sell per long position: order, kind, oca group
         self.seen: set[str] = set()                # execution ids already reported
         self.tags: dict[int, str] = {}
+        self.index_t: dict[str, object] = {}       # index -> live index ticker (for the builder's signals)
+        self.bars: dict[str, list] = {}            # index -> one-minute bars (time, o, h, l, c), last three sessions
 
     # ---- connection -------------------------------------------------------------------------------------------
     def connect(self) -> list[str]:
@@ -87,6 +89,41 @@ class IBKR:
         p = self.chain(index)
         return sorted(p.strikes) if p else []
 
+    def _index(self, index: str):
+        """Live index price, started with the last three sessions of one-minute bars so signals have history."""
+        if index not in self.index_t:
+            und = Index(IB_SYMBOL[index], "NSE", "INR")
+            self.ib.qualifyContracts(und)
+            try:
+                hist = self.ib.reqHistoricalData(und, endDateTime="", durationStr="3 D", barSizeSetting="1 min",
+                                                 whatToShow="TRADES", useRTH=True, formatDate=1)
+            except Exception:
+                hist = []
+            self.bars[index] = [(b.date.astimezone().replace(tzinfo=None) if b.date.tzinfo else b.date,
+                                 b.open, b.high, b.low, b.close) for b in hist or [] if isinstance(b.date, datetime)]
+            self.index_t[index] = self.ib.reqMktData(und, "", False, False)
+        return self.index_t[index]
+
+    def index_bars(self, index: str) -> list:
+        t = self._index(index)
+        px = t.last if t.last == t.last and t.last and t.last > 0 else None
+        if px:
+            m = datetime.now().replace(second=0, microsecond=0)
+            bars = self.bars[index]
+            if bars and bars[-1][0] == m:
+                b = bars[-1]
+                bars[-1] = (m, b[1], max(b[2], px), min(b[3], px), px)
+            elif not bars or bars[-1][0] < m:
+                bars.append((m, px, px, px, px))
+            cut = m - timedelta(days=5)
+            if bars and bars[0][0] < cut:
+                self.bars[index] = [b for b in bars if b[0] >= cut]
+        return self.bars[index]
+
+    def prev_close(self, index: str) -> float | None:
+        t = self._index(index)
+        return t.close if t.close == t.close and t.close and t.close > 0 else None
+
     def is_day_before(self, expiry: str) -> bool:
         """True when the next trading session after today is that expiry."""
         d = date.today() + timedelta(days=1)
@@ -114,7 +151,8 @@ class IBKR:
         return out
 
     # ---- broker -------------------------------------------------------------------------------------------------
-    def submit(self, r: OrderRequest, q: Quote | None, now: datetime, stop: float | None = None) -> str:
+    def submit(self, r: OrderRequest, q: Quote | None, now: datetime, stop: float | None = None,
+               validity: str = "GTC") -> str:
         o = self._ib(r.contract)
         if o is None:
             return ""
@@ -132,45 +170,54 @@ class IBKR:
         if stop is None:
             self.ib.placeOrder(o, parent)
             return str(parent.orderId)
-        oca = f"mh-{parent.orderId}"
-        child = StopOrder("SELL", qty, _tick(stop, False), orderRef="stop", tif="GTC", parentId=parent.orderId,
-                          ocaGroup=oca, ocaType=1)
+        oca, action = f"mh-{parent.orderId}", "SELL" if r.side == "BUY" else "BUY"
+        child = StopOrder(action, qty, _tick(stop, action == "BUY"), orderRef="stop", tif=validity,
+                          parentId=parent.orderId, ocaGroup=oca, ocaType=1)
         child.orderId = self.ib.client.getReqId()
         parent.transmit = False                        # the pair goes together
         self.ib.placeOrder(o, parent)
         trade = self.ib.placeOrder(o, child)
         self.tags[child.orderId] = "stop"
-        self.children[r.contract] = {"trade": trade, "kind": "stop", "oca": oca, "qty": qty, "stop": child.auxPrice}
+        self.children[r.contract] = {"trade": trade, "kind": "stop", "oca": oca, "qty": qty, "stop": child.auxPrice,
+                                     "action": action, "tif": validity}
         return str(parent.orderId)
 
-    def trail(self, c: Contract, by: float, now: datetime) -> str:
+    def trail(self, c: Contract, by: float, now: datetime, by_type: str = "pct") -> str:
+        """Trailing stop `by` (% or points) behind the best price; then the fixed stop is cancelled (same OCA group)."""
         ch = self.children.get(c)
         o = self._ib(c)
         if not ch or ch["kind"] != "stop" or o is None:
             return ""
-        t = Order(action="SELL", orderType="TRAIL", totalQuantity=ch["qty"], trailingPercent=round(by * 100, 2),
-                  tif="GTC", ocaGroup=ch["oca"], ocaType=1, orderRef="trail")
+        t = Order(action=ch["action"], orderType="TRAIL", totalQuantity=ch["qty"], tif=ch["tif"],
+                  ocaGroup=ch["oca"], ocaType=1, orderRef="trail")
+        if by_type == "pct":
+            t.trailingPercent = round(by, 2)
+        else:
+            t.auxPrice = round(by, 2)                  # trailing amount in points
         t.orderId = self.ib.client.getReqId()
         trade = self.ib.placeOrder(o, t)
         self.ib.sleep(2)
         if trade.orderStatus.status in ("Cancelled", "ApiCancelled", "Inactive"):
-            ch["kind"], ch["by"], ch["high"] = "ratchet", by, None    # IBKR refused: keep the stop, move it ourselves
+            ch.update(kind="ratchet", by=by, by_type=by_type, best=None)   # IBKR refused: keep the stop, move it ourselves
             return f"ratchet-{ch['trade'].order.orderId}"
         self.ib.cancelOrder(ch["trade"].order)
         self.tags[t.orderId] = "trail"
-        self.children[c] = {"trade": trade, "kind": "trail", "oca": ch["oca"], "qty": ch["qty"]}
+        self.children[c] = {"trade": trade, "kind": "trail", "oca": ch["oca"], "qty": ch["qty"],
+                            "action": ch["action"], "tif": ch["tif"]}
         return str(t.orderId)
 
     def ratchet(self, quotes: dict[Contract, Quote]) -> None:
-        """Fallback trailing: raise a kept fixed stop to `by` under the highest price seen (never lower it)."""
+        """Fallback trailing: move a kept fixed stop behind the best price seen, only ever towards profit."""
         for c, ch in self.children.items():
             q = quotes.get(c)
             if ch["kind"] != "ratchet" or not q or not q.mid:
                 continue
-            ch["high"] = max(ch["high"] or q.mid, q.mid)
-            new = _tick(ch["high"] * (1 - ch["by"]), False)
+            sell = ch["action"] == "SELL"              # protects a long
+            ch["best"] = (max if sell else min)(ch["best"] or q.mid, q.mid)
+            d = ch["best"] * ch["by"] / 100 if ch["by_type"] == "pct" else ch["by"]
+            new = _tick(ch["best"] - d, False) if sell else _tick(ch["best"] + d, True)
             order = ch["trade"].order
-            if new > order.auxPrice:
+            if (new > order.auxPrice) if sell else (new < order.auxPrice):
                 order.auxPrice = new
                 self.ib.placeOrder(self._ib(c), order)
 
@@ -232,12 +279,13 @@ class IBKR:
         """After a restart: pick up the protective stops IBKR is still holding, so they are managed again."""
         n = 0
         for t in self.ib.openTrades():
-            if t.order.orderRef not in ("stop", "trail") or t.order.action != "SELL":
+            if t.order.orderRef not in ("stop", "trail"):
                 continue
             c = self._ours(t.contract)
             if c:
                 self.children[c] = {"trade": t, "kind": t.order.orderRef, "oca": t.order.ocaGroup,
-                                    "qty": int(t.order.totalQuantity), "stop": t.order.auxPrice}
+                                    "qty": int(t.order.totalQuantity), "stop": t.order.auxPrice,
+                                    "action": t.order.action, "tif": t.order.tif or "GTC"}
                 n += 1
         return n
 

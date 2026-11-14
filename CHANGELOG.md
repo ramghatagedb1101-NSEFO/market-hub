@@ -4,6 +4,38 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy builder on the dashboard (Sat 14 Nov 2026)
+Owner: "a strategy builder page also on the admin dashboard. defining signals, SL levels, trailing SL levels, GTC
+order or EOD order, etc"; "one strategy out of each saved strategy can be applied during the market for the algo
+trading depending on the market situation".
+- Dashboard: F&O > Paper trading > "Strategies". Each strategy is a form: index, buy / sell, CE / PE, strike (N
+  strikes from the money, or the strike nearest a premium), expiry (nearest / next / monthly), lots; entry window and
+  signals combined with "all" or "any" (index vs its EMA / SMA, average crossover, RSI level or cross, opening-range
+  break, % move from yesterday's close or today's open, days to expiry, day of week; on 1 / 3 / 5 / 15-minute bars);
+  exits (stop-loss, target, trailing stop after a gain, each in % or points); order type intraday (day-only stop, close
+  everything by a set time) or carry (good-till-cancelled stop); per-strategy limits (trades a day, loss a day, wait
+  between trades). Buttons: Trade this / Switch off, Edit, Back-test, Last result, Duplicate, Delete (red, asks first,
+  hidden while trading). Safety limits for the machine (lots per order, day's loss) changeable from the page.
+  Not offered: index vs VWAP (the index has no traded volume). Options data (put-call ratio, open interest) next.
+- One strategy trades at a time. Saved in the relay (`relay/Strategy.gs`, script properties); a switch, a limits
+  change or an edit of the active strategy starts `algo-sync.yml` at once, which copies them to the machine
+  (only when they changed); the machine switches within seconds of the copy, new trades only (open trades keep the
+  exits they started with; each position's exits are saved on the machine so a restart keeps them).
+- Engine (`trader/engine.py`): exits per position from the strategy: stop on sold options too (a buy-stop above),
+  target, trailing after a gain in % or points, exit-by time, day-only or good-till-cancelled stops; IBKR and replay
+  brokers handle both sides. The owner's standing rule stays: any option buy without its own exits gets the 25% stop
+  and the trailing stop after +20%.
+- Signals: `trader/indicators.py` on the index's one-minute bars (completed bars only); live from IBKR (three sessions
+  of history at start, then the live index price), in replay from `state/breeze/index/`.
+- Back-test: `trader/backtest.py` + `strategy-backtest.yml` (started by the page's Back-test button through the relay),
+  result in the private repo `state/backtests/<id>.json`, shown on the page (profit after charges, trades, won %,
+  average win / loss, worst fall, by month, every trade). Data today: the day before and the day of each downloaded
+  expiry ("nearest" expiry only); the every-day option download widens it. Checked on real data: a NIFTY breakout
+  call strategy over 16 expiries (32 sessions) ran in 29 seconds, 14 trades, entries and exits as set.
+- Tests: 66 of 66 (24 new: signals, builder strategies end to end: breakout entry, target, buy-stop on a sold put,
+  exit-by time, trailing in points). Page checked in the preview: save, switch on / off, back-test result, empty
+  signals refused; no console errors.
+
 ### Auto trading screens on the phone and dashboard (Sat 14 Nov 2026)
 Owner: "i need a screen on the admin dashboard and the mobile app to see the trades summary and daily/monthly profit or
 loss".

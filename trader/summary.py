@@ -75,6 +75,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         status["last"] = t
         if k == "start":
             status.update(strategy=r.get("strategy"), started=t, killed=None)
+        elif k == "switch":
+            status["strategy"] = r.get("strategy")
         elif k == "kill":
             status["killed"] = r.get("reason")
         elif k == "order" and r.get("stop"):

@@ -32,6 +32,7 @@ function doGet(e) {
   if (p.mode === 'bs_usage') return json_(bsUsage_(p));
   if (p.mode === 'push_state') return json_(pushState_(p));
   if (p.mode === 'breeze_session') return json_(breezeSessionForBatch_(p));
+  if (p.mode === 'strategies') return json_(strategiesForBatch_(p));
   if (p.request_token) return handleLogin_(p.request_token);
   return html_('Kite relay is running. Log in with your Kite link to start today\'s run.');
 }

@@ -206,8 +206,96 @@ def test_summary():
        (s["totals"]["booked"], eng.book.pnl()))
 
 
+def test_indicators():
+    from datetime import datetime as dt, timedelta as td
+    from .indicators import check, completed, ema, resample, rsi, sma
+    ok("ind: sma", sma([1, 2, 3, 4], 2) == [None, 1.5, 2.5, 3.5])
+    e = ema([1, 2, 3, 4, 5], 3)
+    ok("ind: ema seeded with the average", e[2] == 2 and abs(e[3] - 3) < 1e-9 and abs(e[4] - 4) < 1e-9, e)
+    r = rsi([float(i) for i in range(30)], 14)
+    ok("ind: rsi of a straight rise is 100", r[-1] == 100.0, r[-1])
+    r = rsi([100 + (i % 2) for i in range(40)], 14)
+    ok("ind: rsi of a flat zigzag is near 50", 40 < r[-1] < 60, r[-1])
+    t0 = dt(2026, 11, 2, 9, 15)
+    bars = [(t0 + td(minutes=i), 100 + i, 101 + i, 99 + i, 100.5 + i) for i in range(10)]
+    rs = resample(bars, 5)
+    ok("ind: 5-minute bars", len(rs) == 2 and rs[0][1] == 100 and rs[0][2] == 105 and rs[0][4] == 104.5, rs)
+    ok("ind: unfinished minute left out", len(completed(bars, t0 + td(minutes=9, seconds=30))) == 9)
+    day = [(t0 + td(minutes=i), 100, 101, 99, 100) for i in range(15)] + [(t0 + td(minutes=15), 100, 103, 100, 102.5)]
+    ok("ind: opening range breakout up", check({"type": "orb", "minutes": 15, "dir": "up"}, day, t0 + td(minutes=16), None, None)[0])
+    ok("ind: no breakdown at the same time", not check({"type": "orb", "minutes": 15, "dir": "down"}, day, t0 + td(minutes=16), None, None)[0])
+    ok("ind: change from yesterday", check({"type": "change", "from": "prev_close", "op": "above", "pct": 2}, day, t0, 100.0, None)[0])
+    ok("ind: days to expiry", check({"type": "dte", "op": "<=", "days": 1}, [], t0, None, "2026-11-03")[0])
+
+
+def _rules_case(strategy, call=None, put=None, index_path=None):
+    from .journal import Journal
+    from .strategies.rules import Rules
+    warm = {"2026-10-30": [[m, 25000, 25001, 24999, 25000, 0] for m in range(376)]}
+    path = index_path or [25000] * 15 + [25000 + 3 * i for i in range(1, 361)]
+    warm[PREV] = [[m, p, p + 1, p - 1, p, 0] for m, p in enumerate(path)]
+    warm[EXP] = [[m, path[-1], path[-1] + 1, path[-1] - 1, path[-1], 0] for m in range(376)]
+    e = entry(call or {}, put or {})
+    s = Settings(strategy="rules", stale_seconds=300, max_lots_per_order=5)
+    j = Journal()
+    eng = run("NIFTY", e, None, Rules(strategy), s, j, index_days=warm)
+    return eng, j
+
+
+def test_rules():
+    base = {"id": "t1", "name": "ORB call", "index": "NIFTY", "side": "BUY", "right": "C",
+            "strike": {"mode": "atm", "steps": 0}, "expiry": "nearest", "lots": 1,
+            "window": {"from": "09:30", "until": "14:30"}, "match": "all",
+            "signals": [{"type": "orb", "minutes": 15, "dir": "up"}],
+            "exits": {"sl": 25, "target": 30, "trail": 0}, "style": "intraday", "max_trades_day": 1}
+    strikes = range(24800, 25300, 50)
+    rising = {str(k): walk(0, 0, [max(100 + (i - 15) * 2, 100) if k == 25000 else 50 for i in range(376)]) for k in strikes}
+    eng, j = _rules_case(base, call=rising)
+    orders = [r for r in j.lines if r["kind"] == "order"]
+    ok("rules: one entry, at 09:30 or later", len(orders) >= 1 and orders[0]["t"][11:16] >= "09:30", orders[:1])
+    ok("rules: bought the at-the-money call", orders and orders[0]["contract"].endswith(" 25000C") and orders[0]["side"] == "BUY")
+    ok("rules: stop attached, day-only", orders and orders[0]["stop"] and orders[0]["validity"] == "DAY", orders[:1])
+    fills = [r for r in j.lines if r["kind"] == "fill"]
+    ok("rules: closed at the target", len(fills) == 2 and fills[1]["tag"] == "target" and fills[1]["side"] == "SELL", fills)
+    ok("rules: target near +30%", fills and 1.25 * fills[0]["price"] <= fills[-1]["price"] <= 1.45 * fills[0]["price"],
+       [f["price"] for f in fills])
+    ok("rules: only one trade that day", len(orders) == 2)        # entry + target close
+    # no signal, no trade
+    flat = dict(base, signals=[{"type": "orb", "minutes": 15, "dir": "down"}])
+    eng, j = _rules_case(flat, call=rising)
+    ok("rules: no trade without its signal", j.count("order") == 0)
+    # a sold put with its own stop: the put rises, the buy-stop above fires
+    short = dict(base, id="t2", side="SELL", right="P", exits={"sl": 20, "target": 0, "trail": 0}, style="carry")
+    up_put = {str(k): walk(0, 0, [100 + max(i - 15, 0) for i in range(376)] if k == 25000 else [50] * 376) for k in strikes}
+    eng, j = _rules_case(short, put=up_put)
+    fills = [r for r in j.lines if r["kind"] == "fill"]
+    o = next(r for r in j.lines if r["kind"] == "order")
+    ok("rules: sold put gets a buy-stop above, good till cancelled", o["stop"] > 100 and o["validity"] == "GTC", o)
+    ok("rules: buy-stop closes the short", len(fills) == 2 and fills[1]["side"] == "BUY" and fills[1]["tag"] == "stop", fills)
+    ok("rules: short closed near +20%", fills and 1.15 * fills[0]["price"] <= fills[-1]["price"] <= 1.35 * fills[0]["price"],
+       [f["price"] for f in fills])
+    ok("rules: flat after the stop", eng.book.open_legs() == 0)
+    # exit-by time: no target, no stop hit; closed at 15:15
+    timed = dict(base, id="t3", exits={"sl": 90, "target": 0, "trail": 0, "exit_by": "11:00"})
+    eng, j = _rules_case(timed, call=rising)
+    fills = [r for r in j.lines if r["kind"] == "fill"]
+    ok("rules: closed at the exit-by time", len(fills) == 2 and fills[1]["tag"] == "time-exit"
+       and fills[1]["t"][11:16] <= "11:02", [(f["t"], f["tag"]) for f in fills])
+    # trailing in points: switch after +20 points, trail 10 points
+    trail = dict(base, id="t4", exits={"sl": 25, "target": 0, "trail_after_type": "points", "trail_after": 20,
+                                       "trail_type": "points", "trail": 10})
+    peak = {str(k): walk(0, 0, [100] * 16 + [100 + 3 * i for i in range(1, 20)] + [157 - 2 * i for i in range(1, 30)] + [99] * 312
+                         if k == 25000 else [50] * 376) for k in strikes}
+    eng, j = _rules_case(trail, call=peak)
+    fills = [r for r in j.lines if r["kind"] == "fill"]
+    on = [r for r in j.lines if r["kind"] == "trail-on"]
+    ok("rules: points trailing switched on", on and on[0]["by_type"] == "points", on[:1])
+    ok("rules: trailing exit about 10 points under the peak", fills and fills[-1]["tag"] == "trail"
+       and 140 <= fills[-1]["price"] <= 150, [(f["price"], f["tag"]) for f in fills])
+
+
 def main() -> int:
-    for t in [test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_indicators, test_rules, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor]:
         t()
     bad = [n for n, good in R if not good]
