@@ -8,6 +8,7 @@ without changing anything. If the move fails part-way, the trader gets a tempora
 Same settings as infra/oci_launch.py. Nothing secret is printed.
 """
 import sys
+import time
 
 import oci
 
@@ -60,8 +61,15 @@ def main() -> int:
         return 1
     if t_pub and t_pub.lifetime == "EPHEMERAL":
         network.delete_public_ip(t_pub.id)
-        oci.wait_until(network, network.get_public_ip(t_pub.id), "lifecycle_state", "TERMINATED",
-                       succeed_on_not_found=True, max_wait_seconds=180)
+        for _ in range(36):                                  # gone (404) or TERMINATED within ~3 minutes
+            try:
+                if network.get_public_ip(t_pub.id).data.lifecycle_state == "TERMINATED":
+                    break
+            except oci.exceptions.ServiceError as e:
+                if e.status == 404:
+                    break
+                raise
+            time.sleep(5)
         print("trader's temporary address released")
     try:
         network.update_public_ip(fixed.id, oci.core.models.UpdatePublicIpDetails(private_ip_id=t_pip.id))

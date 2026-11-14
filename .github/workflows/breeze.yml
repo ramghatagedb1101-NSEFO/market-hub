@@ -1,7 +1,7 @@
 name: breeze
 
 # ICICI Direct Breeze history (13 Nov 2026; hub/breeze.py). ICICI accepts the API key only from the fixed address
-# 130.210.31.37 (the owner's free Oracle Cloud server), so this job opens an SSH tunnel to that server and sends its
+# 130.210.31.37 (the owner's free Oracle Cloud server; since 14 Nov 2026 the trading machine market-hub-trader), so this job opens an SSH tunnel to that server and sends its
 # ICICI requests through it. Needs today's ICICI sign-in (the login link -> phone app -> relay).
 # Secrets: BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY, RELAY_URL, RELAY_KEY, PRIVATE_REPO_TOKEN.
 # Public log: counts and dates only, never prices or keys.
@@ -92,7 +92,7 @@ jobs:
           printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle.key
           chmod 600 ~/.ssh/oracle.key
           ssh -i ~/.ssh/oracle.key -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -o ExitOnForwardFailure=yes \
-              -f -N -D 1080 opc@130.210.31.37
+              -f -N -D 1080 ubuntu@130.210.31.37
           IP=$(curl -sS --max-time 20 --socks5-hostname 127.0.0.1:1080 https://api.ipify.org)
           echo "Requests leave from: $IP"
           [ "$IP" = "130.210.31.37" ] || { echo "::error title=Tunnel::requests do not leave from the fixed address"; exit 1; }
