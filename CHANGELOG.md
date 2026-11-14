@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy builder: placeholders for signals waiting on data (Sat 14 Nov 2026)
+Owner: "Just keep the placeholder on the dashboard. The moment the data is available, we can make enable."
+- The page's "Add a signal" list now ends with a greyed-out group "Coming when the data is ready": put-call ratio,
+  change in open interest, option price above / below a level, VWAP (from futures volume). They cannot be picked or
+  saved. To enable one: add it to `ST_SIG` (AdminPage.html), `STRAT_SIGNALS` (relay/Strategy.gs), `SIGNALS` and
+  `check()` (trader/strategies/rules.py, trader/indicators.py), and feed the data to the live program and replay.
+
 ### Strategy builder on the dashboard (Sat 14 Nov 2026)
 Owner: "a strategy builder page also on the admin dashboard. defining signals, SL levels, trailing SL levels, GTC
 order or EOD order, etc"; "one strategy out of each saved strategy can be applied during the market for the algo

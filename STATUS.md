@@ -37,7 +37,8 @@ first) and `CLAUDE.md`.
   `set-login.sh` (paper login fails while the main IBKR account is signed in: IBKR allows one session across the two).
   Strategy builder (14 Nov): dashboard F&O > Paper trading > Strategies; one strategy trades at a time, switched from
   the page; back-tests on the ICICI minutes (expiry days only until the every-day option download: owner approved the
-  plan, to start after the expiry download). Index minutes for NIFTY / BANK NIFTY / SENSEX complete Oct 2023 - 13 Nov 2026.
+  plan, to start after the expiry download). Greyed-out placeholders on the page for put-call ratio,
+  open interest change, option price level and futures VWAP: enable each once its data is in the program. Index minutes for NIFTY / BANK NIFTY / SENSEX complete Oct 2023 - 13 Nov 2026.
   Paper trading program built (`trader/`, 14 Nov; CHANGELOG): stop-loss with every buy, trailing after +20%, limits,
   kill switch, replay on ICICI minutes, 32 self-tests pass. Installed on the machine as `trader.service`, not started.
   Untested against IBKR until the paper login works. IBKR side (14 Nov): NSE shares and F&O live data are on the account, "Fee Waived"

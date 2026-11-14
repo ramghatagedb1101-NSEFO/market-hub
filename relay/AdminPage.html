@@ -1499,6 +1499,7 @@ const ST_SIG = {
   dte: { l: 'Days to expiry', d: { type: 'dte', op: '<=', days: 2 } },
   weekday: { l: 'Day of week', d: { type: 'weekday', days: [1, 2, 3, 4, 5] } }
 };
+const ST_SOON = ['Put-call ratio', 'Change in open interest', 'Option price above / below a level', 'VWAP (from futures volume)'];
 function stNew(){
   return { name: 'New strategy', notes: '', index: 'NIFTY', side: 'BUY', right: 'C', strike: { mode: 'atm', steps: 0 }, expiry: 'nearest', lots: 1,
     window: { from: '09:30', until: '14:30' }, match: 'all', signals: [JSON.parse(JSON.stringify(ST_SIG.orb.d))],
@@ -1604,7 +1605,10 @@ function stForm(){
   h += sec('When to enter',
     row('Between', timeIn('window.from', E.window.from), 'and', timeIn('window.until', E.window.until), ', when', seg('match', E.match, [['all', 'all'], ['any', 'any']]), 'of these are true:') +
     (sigs || '<div class="muted" style="margin-top:8px">No signals yet: the strategy never trades without one.</div>') +
-    '<div style="margin-top:10px">' + '<select class="field" style="width:auto" onchange="if(this.value){ST_EDIT.signals.push(JSON.parse(JSON.stringify(ST_SIG[this.value].d)));rerender()}"><option value="">+ Add a signal…</option>' + Object.keys(ST_SIG).map(k => '<option value="' + k + '">' + ST_SIG[k].l + '</option>').join('') + '</select></div>');
+    '<div style="margin-top:10px">' + '<select class="field" style="width:auto" onchange="if(this.value){ST_EDIT.signals.push(JSON.parse(JSON.stringify(ST_SIG[this.value].d)));rerender()}"><option value="">+ Add a signal…</option>' + Object.keys(ST_SIG).map(k => '<option value="' + k + '">' + ST_SIG[k].l + '</option>').join('') +
+      // Placeholders (owner, 14 Nov 2026: "keep the placeholder on the dashboard. The moment the data is available, we can
+      // make enable"): shown greyed out until the program has the data; enabling one = add it to ST_SIG and indicators.py.
+      '<optgroup label="Coming when the data is ready">' + ST_SOON.map(l => '<option disabled>' + l + '</option>').join('') + '</optgroup></select></div>');
   h += sec('Exits',
     lbl('Stop-loss (sent with the order, held by IBKR)') + row(numIn('exits.sl', X.sl), unit('exits.sl_type', X.sl_type), '<span class="muted" style="font-size:12px">' + (E.side === 'BUY' ? 'below' : 'above') + ' the entry · 0 = none</span>') +
     lbl('Target') + row(numIn('exits.target', X.target), unit('exits.target_type', X.target_type), '<span class="muted" style="font-size:12px">in profit · 0 = none</span>') +
