@@ -64,17 +64,20 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
    ran on its timer). If they do not, add a relay time trigger or a machine-side push.
 3. The gateway's daily restart at 06:30 and the program reconnecting afterwards.
 
-### Back-tests page (14 Nov 2026, afternoon) -- next step for the next session
-- Live: F&O > Back-tests (plain English -> Gemini -> five cards -> run -> results). GEMINI_API_KEY saved through the page
-  (Google checks it on save). First real run: BANK NIFTY RSI(14) crosses 60 on 15-min, last 6 months: 124 sessions,
-  63 trades, 32% won, -Rs 85,764 after charges (GitHub, ~2.5 min).
-- NEXT (owner chose it): run back-tests on `market-hub-trader` instead of GitHub, target 10-60 s. Owner approval
-  still needed to place PRIVATE_REPO_TOKEN on the machine (copied by a GitHub job, never shown). Plan: a small
-  `bt_worker` service polls the relay (`?mode=bt_next&key=RELAY_KEY`) every ~5 s, keeps the minute files cached on
-  its disk (load_gz with a local cache), runs `trader.backtest`, saves `state/backtests/<id>.json`; jobs wait until
-  15:30 on market days. Page polling unchanged.
-- Later (owner agreed to phase it): multi-leg trades (straddle, strangle, condor) in the shared engine, after the
-  first live sessions; VWAP (futures data) and IV percentile.
+### Back-tests page, Range Filter, chart settings (14 Nov 2026, afternoon/evening)
+- F&O > Back-tests: plain English -> Gemini (GEMINI_API_KEY saved via the page) -> five cards -> run. Runs on
+  `market-hub-trader` (`bt-worker.service`, relay queue `?mode=bt_next`) outside 09:10-15:35 IST weekdays, else GitHub.
+  First machine run ~1.5 min (filling its disk cache); repeat runs not timed yet. `bt-worker-setup.yml` updates the
+  machine (pull, worker restart; optional trading-program restart, refused in market hours).
+- Range Filter (owner's TradingView script) in strategies, back-tests, chart and the English reader; chart and program
+  give identical signals. Live program keeps 6 sessions of minute bars, back-tests 5 sessions before each expiry.
+- Strategy chart: green / red defaults (Colours window), a settings window per indicator (Inputs / Style /
+  Visibility), labels pointing at their candle with a details box on hover, collapsible legend, full screen / Normal
+  view, ten warm-up sessions on intraday views.
+- To check: the strategy chart's option view opened on the 28 Jul 2026 NIFTY expiry, not the latest; the earlier
+  back-test was dispatched three times in a minute (two cancelled) -- confirm whether the owner clicked twice.
+- Later (owner agreed): multi-leg trades (straddle, strangle, condor) in the shared engine after the first live
+  sessions; VWAP (futures data) and IV percentile.
 
 ### Open items, in order
 1. Monday checks above.
