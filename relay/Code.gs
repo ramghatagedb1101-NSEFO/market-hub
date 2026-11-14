@@ -33,6 +33,7 @@ function doGet(e) {
   if (p.mode === 'push_state') return json_(pushState_(p));
   if (p.mode === 'breeze_session') return json_(breezeSessionForBatch_(p));
   if (p.mode === 'bt_next') return json_(btNext_(p));
+  if (p.mode === 'bt_progress') return json_(btProgress_(p));
   if (p.mode === 'strategies') return json_(strategiesForBatch_(p));
   if (p.mode === 'kick') return json_(kick_(p));
   if (p.mode === 'kick_seen') return json_(kickSeen_(p));

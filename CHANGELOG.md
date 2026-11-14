@@ -4,6 +4,20 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Back-tests say what is happening, and a worker restart no longer loses one (Sat 14 Nov 2026, ~23:00 IST)
+Owner: "Running... this refreshes by itself" gave no way to tell what was going on. Cause found: the owner's "Gap Down and
+Open Recovery" test was handed to the trading machine's worker, and the worker was restarted by tonight's machine
+updates (`bt-worker-setup.yml` restarts it); the job had already left the queue, so nothing ever finished it.
+- The relay keeps each job handed out (`BT_RUNNING`) with its progress; the worker reports "n of N expiries" every 10
+  and the end (`?mode=bt_progress`). Stopped mid-run (systemd), the worker puts the job back at the front of the queue;
+  a job silent for 4 minutes is put back by the relay (at most twice).
+- The page (`adminBacktestStatus`, polled every 3-5 s): "Starting..." / "Waiting its turn" / "Running on the trading
+  machine - 20 of 120 expiries" with a progress bar and a clock, or "Running on GitHub - usually 2-5 minutes"; on
+  finish the results open marked "just finished" and the list's Results button turns green; "This back-test did not
+  start - Run again" when it is neither queued nor running; "No result after 20 minutes - Run again".
+- Fixed with it: a new run showed the PREVIOUS run's results as its own at once when the panel had none loaded (only a
+  result saved after the run was started now counts).
+
 ### Strategy bot, step 1: every trading day recorded; market diary (Sat 14 Nov 2026, night)
 Owner: keep recording every trading day from 31 Oct 2026 on (the owner's ICICI files end 30 Oct; later sessions existed
 only for the two days around each expiry), and let the coming strategy bot use the brief's information.

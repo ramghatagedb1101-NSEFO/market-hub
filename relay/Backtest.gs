@@ -140,6 +140,11 @@ function btQueuePush_(id) {
     q.push(id); props.setProperty('BT_QUEUE', JSON.stringify(q.slice(-20)));
   } finally { lock.releaseLock(); }
 }
+/* 14 Nov 2026 (owner: "no way to say what is going on"): a job handed to the worker is kept in BT_RUNNING with its
+ * progress ({at, upd, done, total} by id; trader/bt_worker.py reports through ?mode=bt_progress). A job whose worker
+ * stopped reporting for 4 minutes (the worker was restarted mid-run) goes back to the front of the queue, at most twice,
+ * so a restart never loses a back-test. The page reads all this through adminBacktestStatus. */
+function btRunning_() { return JSON.parse(PropertiesService.getScriptProperties().getProperty('BT_RUNNING') || '{}'); }
 function btNext_(p) {
   const props = PropertiesService.getScriptProperties();
   const relayKey = props.getProperty('RELAY_KEY') || '';
@@ -149,11 +154,59 @@ function btNext_(p) {
     const lock = LockService.getScriptLock(); lock.waitLock(10000);
     let id = null;
     try {
-      const q = JSON.parse(props.getProperty('BT_QUEUE') || '[]');
-      if (q.length) { id = q.shift(); props.setProperty('BT_QUEUE', JSON.stringify(q)); }
+      const q = JSON.parse(props.getProperty('BT_QUEUE') || '[]'), run = btRunning_(), now = Date.now();
+      Object.keys(run).forEach(k => {
+        if (now - run[k].upd > 4 * 60000) {
+          if ((run[k].tries || 0) < 2 && q.indexOf(k) < 0) { q.unshift(k); run['_t_' + k] = (run[k].tries || 0) + 1; }
+          delete run[k];
+        }
+      });
+      if (q.length) {
+        id = q.shift();
+        const tries = run['_t_' + id] || 0; delete run['_t_' + id];
+        run[id] = { at: now, upd: now, done: 0, total: 0, tries: tries };
+      }
+      props.setProperty('BT_QUEUE', JSON.stringify(q));
+      props.setProperty('BT_RUNNING', JSON.stringify(run));
     } finally { lock.releaseLock(); }
     if (id) return { id: id };
     Utilities.sleep(1000);
   }
   return {};
+}
+/** The worker's report: ?mode=bt_progress&id=&done=&total= while running; &end=ok|failed when finished; &end=requeue
+ * when it is stopped mid-run (it goes back to the front of the queue). */
+function btProgress_(p) {
+  const props = PropertiesService.getScriptProperties();
+  const relayKey = props.getProperty('RELAY_KEY') || '';
+  if (!relayKey || p.key !== relayKey) return { error: 'key does not match RELAY_KEY' };
+  if (!/^s_[a-z0-9]{6,20}$/.test(p.id || '')) return { error: 'bad id' };
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const run = btRunning_();
+    if (p.end) {
+      const was = run[p.id] || {};
+      delete run[p.id];
+      if (p.end === 'requeue') {
+        const q = JSON.parse(props.getProperty('BT_QUEUE') || '[]').filter(x => x !== p.id);
+        q.unshift(p.id); props.setProperty('BT_QUEUE', JSON.stringify(q));
+        run['_t_' + p.id] = was.tries || 0;
+      }
+    } else {
+      const r = run[p.id] || { at: Date.now(), tries: 0 };
+      r.upd = Date.now(); r.done = Number(p.done) || 0; r.total = Number(p.total) || 0;
+      run[p.id] = r;
+    }
+    props.setProperty('BT_RUNNING', JSON.stringify(run));
+  } finally { lock.releaseLock(); }
+  return { ok: true };
+}
+/** For the page while it waits: queued (place in the queue), running (expiries done of total, seconds since the last
+ * report), when it was sent, and whether the worker is listening. */
+function adminBacktestStatus(token, id) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  const props = PropertiesService.getScriptProperties(), now = Date.now();
+  const q = JSON.parse(props.getProperty('BT_QUEUE') || '[]'), r = btRunning_()[id];
+  return { queued: q.indexOf(id), running: r ? { done: r.done, total: r.total, quiet: Math.round((now - r.upd) / 1000), since: Math.round((now - r.at) / 1000) } : null,
+           sent: CacheService.getScriptCache().get('bt_' + id) || '', worker: now - Number(props.getProperty('BT_WORKER_SEEN') || 0) < 90000 };
 }

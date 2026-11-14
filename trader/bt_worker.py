@@ -11,6 +11,8 @@ not ask, so the trading program has the machine to itself.
 Settings: /opt/trader/secrets/bt.env (PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY), written by bt-worker-setup.yml.
 """
 import os
+import re
+import signal
 import time
 import traceback
 from datetime import datetime, timedelta, timezone
@@ -26,10 +28,26 @@ def market_hours(now: datetime) -> bool:
     return now.weekday() < 5 and 9 * 60 + 10 <= m <= 15 * 60 + 35
 
 
-def relay(mode: str) -> dict:
-    r = requests.get(os.environ["RELAY_URL"], params={"mode": mode, "key": os.environ["RELAY_KEY"]}, timeout=60)
+def relay(mode: str, **extra) -> dict:
+    r = requests.get(os.environ["RELAY_URL"], params={"mode": mode, "key": os.environ["RELAY_KEY"], **extra}, timeout=60)
     r.raise_for_status()
     return r.json()
+
+
+def report(sid: str, **kw) -> None:
+    """Progress to the relay, for the page (14 Nov 2026). Never stops the run."""
+    try:
+        relay("bt_progress", id=sid, **kw)
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+class Stopped(BaseException):
+    """systemd stopped the worker (an update restarts it): the job goes back to the queue instead of being lost."""
+
+
+def _on_term(signum, frame):
+    raise Stopped()
 
 
 def run_one(sid: str) -> None:
@@ -38,21 +56,36 @@ def run_one(sid: str) -> None:
     defn = next((x for x in data.get("items") or [] if x.get("id") == sid), None)
     if not defn:
         print(f"{sid}: no such strategy", flush=True)
+        report(sid, end="failed")
         return
     t0 = time.time()
+
+    def progress(msg: str) -> None:                              # "10 of 120 expiries", every 10
+        m = re.match(r"(\d+) of (\d+)", msg)
+        if m:
+            report(sid, done=m.group(1), total=m.group(2))
+
+    report(sid, done=0, total=0)
     try:
-        res = backtest(defn, data.get("limits"), progress=lambda m: None)
+        res = backtest(defn, data.get("limits"), progress=progress)
+    except Stopped:
+        report(sid, end="requeue")
+        print(f"{sid}: stopped mid-run, back in the queue", flush=True)
+        raise
     except Exception as exc:                                     # the page shows "could not finish", not "Running..."
         from .backtest import publish_failed
         publish_failed(sid, defn.get("name"), exc)
+        report(sid, end="failed")
         raise
     publish(sid, res)
+    report(sid, end="ok")
     t = res["summary"]["totals"]
     print(f"{sid}: {res['coverage']['sessions']} sessions, {t['trades']} trades, {time.time() - t0:.0f} s", flush=True)
 
 
 def main() -> None:
     print("bt-worker: start", flush=True)
+    signal.signal(signal.SIGTERM, _on_term)
     while True:
         try:
             if market_hours(datetime.now(IST)):
