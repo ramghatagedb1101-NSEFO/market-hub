@@ -64,6 +64,18 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
    ran on its timer). If they do not, add a relay time trigger or a machine-side push.
 3. The gateway's daily restart at 06:30 and the program reconnecting afterwards.
 
+### Back-tests page (14 Nov 2026, afternoon) -- next step for the next session
+- Live: F&O > Back-tests (plain English -> Gemini -> five cards -> run -> results). GEMINI_API_KEY saved through the page
+  (Google checks it on save). First real run: BANK NIFTY RSI(14) crosses 60 on 15-min, last 6 months: 124 sessions,
+  63 trades, 32% won, -Rs 85,764 after charges (GitHub, ~2.5 min).
+- NEXT (owner chose it): run back-tests on `market-hub-trader` instead of GitHub, target 10-60 s. Owner approval
+  still needed to place PRIVATE_REPO_TOKEN on the machine (copied by a GitHub job, never shown). Plan: a small
+  `bt_worker` service polls the relay (`?mode=bt_next&key=RELAY_KEY`) every ~5 s, keeps the minute files cached on
+  its disk (load_gz with a local cache), runs `trader.backtest`, saves `state/backtests/<id>.json`; jobs wait until
+  15:30 on market days. Page polling unchanged.
+- Later (owner agreed to phase it): multi-leg trades (straddle, strangle, condor) in the shared engine, after the
+  first live sessions; VWAP (futures data) and IV percentile.
+
 ### Open items, in order
 1. Monday checks above.
 2. ICICI expiry download to finish (~5 sign-in days, mostly SENSEX), then `rule_real_fill` and the first serious
