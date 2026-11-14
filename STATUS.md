@@ -79,6 +79,9 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
   trades (46 calls, 46 puts, 37 reversals), 29% won, -Rs 17,638 after charges, 3 Aug - 9 Nov 2026; one day (9 Nov) hit the
   Rs 10,000 day's loss limit and closed. Exits show 15:01: the 15:00 decision fills on the next minute's price.
   The strategy form edits both sides (Direction: One option / Trade both ways), 14 Nov 2026.
+- Back-tests reader: gemini-3.5-flash-lite first (3.8-flash hung or was out of allowance in every timed call, 14 Nov);
+  three live reads after the change answered in 10-20 s. Open: the daily AI summaries still use 3.8-flash first and took
+  8-11 minutes a document on 14 Nov (one failed) -- owner to decide whether to switch them too.
 - Back-test jobs that fail on the machine leave the page on "Running…" (the worker only logs). `bt-worker-setup.yml
   -f log_only=true` shows the worker's log without restarting it.
 - To check: the strategy chart's option view opened on the 28 Jul 2026 NIFTY expiry, not the latest; the earlier
