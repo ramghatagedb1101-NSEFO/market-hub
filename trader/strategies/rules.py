@@ -24,7 +24,7 @@ from ..indicators import COMPARE_OPS, OPERANDS, check, completed
 from ..model import LOT, Contract, OrderRequest
 from ..regime import REGIMES, classify
 
-SIGNALS = {"price_ma", "ma_cross", "rsi", "orb", "change", "dte", "weekday", "compare", "range_filter"}
+SIGNALS = {"price_ma", "ma_cross", "rsi", "orb", "change", "dte", "weekday", "compare", "range_filter", "supertrend"}
 MAX_GROUPS, MAX_SIGNALS = 5, 8
 
 

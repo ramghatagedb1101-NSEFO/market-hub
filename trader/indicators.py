@@ -7,6 +7,7 @@ the bar of the minute in progress is left out, so a signal never changes its min
 Signal types (each a dict from the builder page; "tf" = bar size in minutes, 1 / 3 / 5 / 15):
   price_ma     index close above / below its moving average      {ma: "ema"|"sma", period, tf, op: "above"|"below"}
   ma_cross     fast average crossing the slow one on the last bar {ma, fast, slow, tf, dir: "up"|"down"}
+  supertrend   Supertrend (as on the chart)                       {period, mult, tf, dir: "buy"|"sell"|"up"|"down"}
   range_filter Range Filter (owner's TradingView script)           {per, mult, tf, dir: "buy"|"sell"|"up"|"down"}
   rsi          RSI above / below a level, or crossing it          {period, tf, op: "above"|"below"|"crosses_above"|
                                                                    "crosses_below", level}
@@ -150,6 +151,32 @@ NAMES = {"price": "index", "open": "bar open", "high": "bar high", "low": "bar l
          "orb_high": "opening-range high", "orb_low": "opening-range low", "ema": "EMA", "sma": "SMA", "rsi": "RSI",
          "atr": "ATR", "adx": "ADX", "chg_prev": "% from yesterday", "chg_open": "% from open", "opt_price": "option price",
          "dte": "days to expiry", "value": ""}
+
+
+def supertrend(bars: list, n: int = 10, k: float = 3.0) -> dict:
+    """Supertrend, the same steps as the dashboard chart's (relay/AdminPage.html stcSupertrend; 14 Nov 2026): bands
+    = mid-price -/+ k x Wilder's ATR(n), ratcheted; up while the close stays above the lower band. Buy / sell = the bar
+    where it flips. Lists: line, up (True / False / None), buy, sell."""
+    a = atr(bars, n)
+    m = len(bars)
+    line, up_l, buy, sell = [None] * m, [None] * m, [False] * m, [False] * m
+    fu = fl = None
+    up = True
+    for i, b in enumerate(bars):
+        if a[i] is None:
+            continue
+        mid = (b[2] + b[3]) / 2
+        bu, bl, pc = mid + k * a[i], mid - k * a[i], (bars[i - 1][4] if i else b[4])
+        fu = bu if fu is None or bu < fu or pc > fu else fu
+        fl = bl if fl is None or bl > fl or pc < fl else fl
+        if up and b[4] < fl:
+            up = False
+        elif not up and b[4] > fu:
+            up = True
+        line[i], up_l[i] = (fl if up else fu), up
+        if i and up_l[i - 1] is not None and up_l[i - 1] != up:
+            buy[i], sell[i] = up, not up
+    return {"line": line, "up": up_l, "buy": buy, "sell": sell}
 
 
 def pine_ema(xs: list, n: int) -> list:
@@ -381,6 +408,14 @@ def check(sig: dict, bars: list[Bar], now: datetime, prev_close: float | None, e
         ok = {"above": r[-1] > lvl, "below": r[-1] < lvl,
               "crosses_above": r[-2] <= lvl < r[-1], "crosses_below": r[-2] >= lvl > r[-1]}.get(op, False)
         return ok, f"RSI{n} ({tf}m) {r[-1]:.1f}"
+    if t == "supertrend":
+        n, k = int(sig.get("period", 10)), float(sig.get("mult", 3.0))
+        st = supertrend(resample(bars, tf), n, k)
+        if not st["up"] or st["up"][-1] is None:
+            return False, f"Supertrend ({n}, {k:g}, {tf}m) not ready"
+        d = sig.get("dir", "buy")
+        ok = {"buy": st["buy"][-1], "sell": st["sell"][-1], "up": st["up"][-1] is True, "down": st["up"][-1] is False}.get(d, False)
+        return ok, f"Supertrend ({n}, {k:g}, {tf}m) {st['line'][-1]:,.1f}, {'buy' if st['up'][-1] else 'sell'} state"
     if t == "range_filter":
         # Range Filter (owner's script): dir "buy" / "sell" = the signal on the last completed bar; "up" / "down" = the
         # filter's state now (last signal was a buy / sell). Needs several sessions of bars to settle (per 100 on

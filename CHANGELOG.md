@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Back-tests: Results opens where you can see it; Supertrend as a signal (Sat 14 Nov 2026)
+Owner: "clicking results does not do anything" (on a Supertrend back-test).
+- Cause 1: Results did open, but at the top of the page while the owner was at the list below; the page now scrolls
+  to it. A back-test with no result yet shows a "Run back-test" button there.
+- Cause 2: that Supertrend back-test had never run (no result stored): Supertrend was on the chart but not a signal
+  the program knew, so the sentence could not be read into it. Now `supertrend` {period, mult, tf, dir: buy | sell |
+  up | down} is a signal in the program (`trader/indicators.py`, the chart's exact steps: same flips on 800 test bars),
+  the strategy form and the plain-English reader. A request to buy the call on Buy AND the put on Sell is noted as
+  two back-tests (one leg each) until multi-leg / reversing trades come.
+
 ### Strategy chart: labels point at their candle with details on hover, collapsible legend, full screen (Sat 14 Nov 2026)
 Owner: "label for buy and sell must point to the particular candle and ... show the details in a small box ... a
 collapsable button to hide or show the indicators ... a full screen button ... a button to normal view".

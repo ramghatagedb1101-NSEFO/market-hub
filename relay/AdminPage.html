@@ -1697,6 +1697,7 @@ const ST_SIG = {
   price_ma: { l: 'Index vs its average', d: { type: 'price_ma', ma: 'ema', period: 20, tf: 5, op: 'above' } },
   ma_cross: { l: 'Average crossover', d: { type: 'ma_cross', ma: 'ema', fast: 9, slow: 21, tf: 5, dir: 'up' } },
   rsi: { l: 'RSI', d: { type: 'rsi', period: 14, tf: 5, op: 'above', level: 60 } },
+  supertrend: { l: 'Supertrend', d: { type: 'supertrend', period: 10, mult: 3, tf: 5, dir: 'buy' } },
   range_filter: { l: 'Range Filter', d: { type: 'range_filter', per: 100, mult: 3, tf: 5, dir: 'buy' } },
   orb: { l: 'Opening range break', d: { type: 'orb', minutes: 15, dir: 'up' } },
   change: { l: 'Move from yesterday / open', d: { type: 'change', from: 'prev_close', op: 'above', pct: 0.5 } },
@@ -1825,6 +1826,7 @@ function stSigText(g){
   if (g.type === 'ma_cross') return String(g.ma || 'ema').toUpperCase() + ' ' + g.fast + ' crosses ' + (g.dir === 'down' ? 'below' : 'above') + ' ' + g.slow + tfx;
   if (g.type === 'rsi') return 'RSI ' + g.period + ' ' + String(g.op).replace('_', ' ') + ' ' + g.level + tfx;
   if (g.type === 'orb') return 'Index breaks the first ' + g.minutes + ' minutes\' ' + (g.dir === 'down' ? 'low' : 'high');
+  if (g.type === 'supertrend') return 'Supertrend (' + g.period + ', ' + g.mult + ') ' + ({ buy: 'gives a Buy', sell: 'gives a Sell', up: 'in a Buy state', down: 'in a Sell state' }[g.dir] || g.dir) + tfx;
   if (g.type === 'range_filter') return 'Range Filter (' + g.per + ', ' + g.mult + ') ' + ({ buy: 'gives a Buy', sell: 'gives a Sell', up: 'in a Buy state', down: 'in a Sell state' }[g.dir] || g.dir) + tfx;
   if (g.type === 'change') return 'Index ' + g.op + ' ' + (g.pct > 0 ? '+' : '') + g.pct + '% from ' + (g.from === 'open' ? "today's open" : "yesterday's close");
   if (g.type === 'dte') return (g.op === '>=' ? 'At least ' : 'At most ') + g.days + ' days to expiry';
@@ -2511,6 +2513,8 @@ function stForm(){
     else if (g.type === 'price_ma') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + ' its ' + sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
     else if (g.type === 'ma_cross') f = sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'fast', g.fast, ST_RANGE.period, '', true) + ' crosses ' + sel(p + 'dir', g.dir, [['up', 'above'], ['down', 'below']]) + stSlider(p + 'slow', g.slow, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
     else if (g.type === 'rsi') f = 'RSI' + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + stSlider(p + 'level', g.level, ST_RANGE.level, '', true);
+    else if (g.type === 'supertrend') f = 'Supertrend' + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + '× ' + stSlider(p + 'mult', g.mult, ST_RANGE.rf_mult, '', true) + ' on ' + tfSel(p) + '-min bars ' +
+      sel(p + 'dir', g.dir, [['buy', 'gives a Buy'], ['sell', 'gives a Sell'], ['up', 'is in a Buy state'], ['down', 'is in a Sell state']]);
     else if (g.type === 'range_filter') f = 'Range Filter' + stSlider(p + 'per', g.per, ST_RANGE.rf_per, '', true) + '× ' + stSlider(p + 'mult', g.mult, ST_RANGE.rf_mult, '', true) + ' on ' + tfSel(p) + '-min bars ' +
       sel(p + 'dir', g.dir, [['buy', 'gives a Buy'], ['sell', 'gives a Sell'], ['up', 'is in a Buy state'], ['down', 'is in a Sell state']]);
     else if (g.type === 'orb') f = 'Index breaks the first' + stSlider(p + 'minutes', g.minutes, ST_RANGE.minutes, 'min', true) + 'minutes\' ' + sel(p + 'dir', g.dir, [['up', 'high'], ['down', 'low']]);
@@ -2671,6 +2675,7 @@ async function btDelete(id){
   if (ST_BT && ST_BT.id === id) ST_BT = null;
   stDo('adminStrategyDelete', [id], 'Deleting…', () => 'Deleted.');
 }
+function btShow(id){ stBtLoad(id); setTimeout(() => { const el = $('bt-res'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); }
 function pageBacktests(){
   const v = $('view');
   btLoadKey();
@@ -2694,7 +2699,7 @@ function pageBacktests(){
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" ' + (BTQ.busy ? 'disabled' : '') + ' onclick="btRun()">Run back-test</button>' +
       '<button class="btn" type="button" onclick="btEdit()">Change details</button><button class="btn" type="button" onclick="BTQ.parsed=null;rerender()">Start again</button></div></div></div>';
   }
-  h += stBtPanel();
+  h += '<div id="bt-res"></div>' + stBtPanel();
   if (!P) h += '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">' +
     '<div class="panel"><div class="panel-h"><h3>How to write it</h3></div><div class="panel-b">' + BT_GUIDE.map(([k, e]) => '<div style="margin-bottom:8px"><b>' + k + '</b><div class="muted" style="font-size:12.5px">e.g. ' + esc(e) + '</div></div>').join('') + '</div></div>' +
     '<div class="panel"><div class="panel-h"><h3>Examples</h3><span class="muted" style="font-size:12px">click to use</span></div><div class="panel-b">' +
@@ -2702,7 +2707,7 @@ function pageBacktests(){
   const mine = ((S.strat && S.strat.items) || []).filter(x => x.bt).reverse();
   if (mine.length) h += '<div class="panel"><div class="panel-h"><h3>Your back-tests</h3><span class="muted" style="font-size:12px">' + mine.length + '</span></div><table class="t"><thead><tr><th class="l">Back-test</th><th class="l">Asked</th><th></th></tr></thead><tbody>' +
     mine.map(s => '<tr><td class="l"><b>' + esc(s.name) + '</b><div class="faint" style="font-size:11.5px">' + esc(stIdx(s.index)) + (s.months ? ' · last ' + s.months + ' months' : '') + '</div></td><td class="l muted" style="white-space:normal;font-size:12.5px;max-width:520px">' + esc(s.query || '') + '</td>' +
-      '<td style="white-space:nowrap"><button class="btn sm" type="button" onclick="stBtLoad(\'' + s.id + '\')">Results</button> <button class="btn sm" type="button" onclick="stBacktest(\'' + s.id + '\')">Run again</button> <button class="btn sm" type="button" onclick="btUse(\'' + s.id + '\')">Use for paper trading</button> <button class="btn sm" type="button" style="color:var(--down)" onclick="btDelete(\'' + s.id + '\')">Delete</button></td></tr>').join('') + '</tbody></table></div>';
+      '<td style="white-space:nowrap"><button class="btn sm" type="button" onclick="btShow(\'' + s.id + '\')">Results</button> <button class="btn sm" type="button" onclick="stBacktest(\'' + s.id + '\')">Run again</button> <button class="btn sm" type="button" onclick="btUse(\'' + s.id + '\')">Use for paper trading</button> <button class="btn sm" type="button" style="color:var(--down)" onclick="btDelete(\'' + s.id + '\')">Delete</button></td></tr>').join('') + '</tbody></table></div>';
   v.innerHTML = h;
 }
 function pageStrategies(){

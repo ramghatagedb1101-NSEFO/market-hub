@@ -34,7 +34,7 @@ function stratLimits_() {
 }
 function stratNum_(x, lo, hi, d) { const v = Number(x); return isFinite(v) ? Math.min(Math.max(v, lo), hi) : d; }
 function stratTime_(x, d) { x = String(x || ''); return /^\d\d:\d\d$/.test(x) && x >= '09:15' && x <= '15:30' ? x : d; }
-const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday', 'compare', 'range_filter'];
+const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday', 'compare', 'range_filter', 'supertrend'];
 // The general comparison's data points (trader/indicators.py OPERANDS) and comparisons.
 const STRAT_OPERANDS = ['price', 'open', 'high', 'low', 'close', 'day_open', 'day_high', 'day_low', 'prev_close', 'prev_high',
   'prev_low', 'orb_high', 'orb_low', 'ema', 'sma', 'rsi', 'atr', 'adx', 'chg_prev', 'chg_open', 'opt_price', 'dte', 'value'];
