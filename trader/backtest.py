@@ -43,13 +43,15 @@ class IndexMinutes:
         return self.months[m].get(d)
 
     def around(self, days: list) -> dict:
-        out, d = {}, date.fromisoformat(days[0])
-        for k in range(1, 8):                                   # the session before prev_day, for history
-            back = (d - timedelta(days=k)).isoformat()
+        out, d, got = {}, date.fromisoformat(days[0]), 0
+        for k in range(1, 15):                                  # five sessions before, for history (14 Nov 2026: the
+            back = (d - timedelta(days=k)).isoformat()          # Range Filter needs about four sessions to settle)
             bars = self.day(back)
             if bars:
                 out[back] = bars
-                break
+                got += 1
+                if got == 5:
+                    break
         for x in days:
             bars = self.day(x)
             if bars:

@@ -6,6 +6,11 @@ name: bt-worker-setup
 # Run by hand, outside market hours. Public log: steps only, never addresses or secrets.
 on:
   workflow_dispatch:
+    inputs:
+      restart_trader:
+        description: "also restart the trading program (outside market hours only)"
+        type: boolean
+        default: false
 
 concurrency:
   group: algo-sync
@@ -44,4 +49,9 @@ jobs:
           printf 'PRIVATE_REPO_TOKEN=%s\nRELAY_URL=%s\nRELAY_KEY=%s\n' "$PRIVATE_REPO_TOKEN" "$RELAY_URL" "$RELAY_KEY" | \
             $SSH 'mkdir -p /opt/trader/secrets /opt/trader/btcache && umask 077 && cat > /opt/trader/secrets/bt.env && chmod 600 /opt/trader/secrets/bt.env'
           $SSH 'sudo cp /opt/trader/app/infra/trader/bt-worker.service /etc/systemd/system/bt-worker.service && sudo systemctl daemon-reload && sudo systemctl enable -q bt-worker.service && sudo systemctl restart bt-worker.service && sleep 5 && systemctl is-active bt-worker.service && journalctl -u bt-worker.service -n 5 --no-pager -o cat'
+          if [ "${{ inputs.restart_trader }}" = "true" ]; then
+            H=$(TZ=Asia/Kolkata date +%H%M); D=$(TZ=Asia/Kolkata date +%u)
+            if [ "$D" -le 5 ] && [ "$H" -ge 0910 ] && [ "$H" -le 1535 ]; then echo "::warning::market hours: trading program not restarted"
+            else $SSH 'sudo systemctl restart trader.service && sleep 5 && systemctl is-active trader.service'; fi
+          fi
           rm -f "$RUNNER_TEMP/k"

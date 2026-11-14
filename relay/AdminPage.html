@@ -1697,6 +1697,7 @@ const ST_SIG = {
   price_ma: { l: 'Index vs its average', d: { type: 'price_ma', ma: 'ema', period: 20, tf: 5, op: 'above' } },
   ma_cross: { l: 'Average crossover', d: { type: 'ma_cross', ma: 'ema', fast: 9, slow: 21, tf: 5, dir: 'up' } },
   rsi: { l: 'RSI', d: { type: 'rsi', period: 14, tf: 5, op: 'above', level: 60 } },
+  range_filter: { l: 'Range Filter', d: { type: 'range_filter', per: 100, mult: 3, tf: 5, dir: 'buy' } },
   orb: { l: 'Opening range break', d: { type: 'orb', minutes: 15, dir: 'up' } },
   change: { l: 'Move from yesterday / open', d: { type: 'change', from: 'prev_close', op: 'above', pct: 0.5 } },
   dte: { l: 'Days to expiry', d: { type: 'dte', op: '<=', days: 2 } },
@@ -1824,6 +1825,7 @@ function stSigText(g){
   if (g.type === 'ma_cross') return String(g.ma || 'ema').toUpperCase() + ' ' + g.fast + ' crosses ' + (g.dir === 'down' ? 'below' : 'above') + ' ' + g.slow + tfx;
   if (g.type === 'rsi') return 'RSI ' + g.period + ' ' + String(g.op).replace('_', ' ') + ' ' + g.level + tfx;
   if (g.type === 'orb') return 'Index breaks the first ' + g.minutes + ' minutes\' ' + (g.dir === 'down' ? 'low' : 'high');
+  if (g.type === 'range_filter') return 'Range Filter (' + g.per + ', ' + g.mult + ') ' + ({ buy: 'gives a Buy', sell: 'gives a Sell', up: 'in a Buy state', down: 'in a Sell state' }[g.dir] || g.dir) + tfx;
   if (g.type === 'change') return 'Index ' + g.op + ' ' + (g.pct > 0 ? '+' : '') + g.pct + '% from ' + (g.from === 'open' ? "today's open" : "yesterday's close");
   if (g.type === 'dte') return (g.op === '>=' ? 'At least ' : 'At most ') + g.days + ' days to expiry';
   if (g.type === 'weekday') return 'On ' + (g.days || []).map(d => DOW3[d]).join(', ');
@@ -1852,7 +1854,7 @@ const ST_RANGE = {
   lots: [1, 10, 1, [1, 2, 3, 5]], steps: [-5, 10, 1, [-2, 0, 1, 2, 3, 5]], near: [10, 500, 5, [30, 50, 100, 150, 200]],
   max_trades_day: [1, 10, 1, [1, 2, 3, 5]], max_loss_day: [0, 50000, 500, [2000, 5000, 10000, 20000]],
   reentry_gap: [0, 120, 5, [0, 15, 30, 60]],
-  period: [2, 200, 1, [9, 14, 20, 50, 100, 200]], level: [5, 95, 1, [30, 50, 70]], minutes: [5, 90, 5, [5, 15, 30, 60]],
+  period: [2, 200, 1, [9, 14, 20, 50, 100, 200]], rf_per: [5, 300, 1, [20, 50, 100, 200]], rf_mult: [0.5, 10, 0.1, [1, 2, 3, 6]], level: [5, 95, 1, [30, 50, 70]], minutes: [5, 90, 5, [5, 15, 30, 60]],
   pct: [-3, 3, 0.1, [-1, -0.5, 0.5, 1]], days: [0, 10, 1, [0, 1, 2, 5]], dist: [1, 10, 1, [1, 2, 3, 5]]
 };
 function stSlider(path, v, r, unit, compact){
@@ -1910,6 +1912,7 @@ const STC_CAT = {
   ema: { l: 'EMA', g: 'On the price', p: { n: [20, 'period'] } },
   bb: { l: 'Bollinger Bands', g: 'On the price', p: { n: [20, 'period'], k: [2, 'std dev'] } },
   st: { l: 'Supertrend', g: 'On the price', p: { n: [10, 'ATR period'], k: [3, 'multiplier'] } },
+  rf: { l: 'Range Filter', g: 'On the price', p: { n: [100, 'sampling period'], k: [3, 'range multiplier'] } },
   dc: { l: 'Donchian channel', g: 'On the price', p: { n: [20, 'period'] } },
   piv: { l: 'Pivot points (classic)', g: 'Levels', p: {}, idx: true },
   pdh: { l: "Previous day's high / low / close", g: 'Levels', p: {}, intra: true, idx: true },
@@ -1929,7 +1932,7 @@ const stcOpt = () => STC.src === 'option';
 const stcApplies = t => !(stcOpt() ? STC_CAT[t].idx : STC_CAT[t].opt);
 const STC_SOON = ['VWAP (needs futures volume)'];
 // buy / sell labels start on for Supertrend; the others start off (a button on each), so the chart stays readable
-function stcSigDefault(t){ return t === 'st'; }
+function stcSigDefault(t){ return t === 'st' || t === 'rf'; }
 const STC = (() => {
   const base = { view: 'daily', day: null, strat: true, trades: true,
     ind: { daily: [{ t: 'sma', n: 20, c: 0 }, { t: 'sma', n: 50, c: 1 }, { t: 'sma', n: 200, c: 2 }], intra: [{ t: 'pdh', c: 0 }] } };
@@ -1971,7 +1974,7 @@ function stcAdd(t){
   Object.keys(def.p).forEach(k => { it[k] = def.p[k][0]; });
   L.push(it); stcSave(); rerender();
 }
-const STC_SIGS = { sma: 'MA', ema: 'EMA', bb: 'BB', st: 'ST', dc: 'DC', rsi: 'RSI', macd: 'MACD', sto: 'STO', adx: 'ADX' };
+const STC_SIGS = { sma: 'MA', ema: 'EMA', bb: 'BB', st: 'ST', rf: 'RF', dc: 'DC', rsi: 'RSI', macd: 'MACD', sto: 'STO', adx: 'ADX' };
 function stcSig(i){ const it = STC.ind[stcKind()][i]; it.sig = !it.sig; stcSave(); rerender(); }
 function stcDel(i){ STC.ind[stcKind()].splice(i, 1); stcSave(); rerender(); }
 function stcPar(i, k, v){ const n = Number(v); if (!isFinite(n) || n <= 0) return; STC.ind[stcKind()][i][k] = n; stcSave(); rerender(); }
@@ -2110,6 +2113,28 @@ function stcAtr(bars, n){
     if (i < n - 1) { a = (a || 0) + tr; return; } if (i === n - 1) a = (a + tr) / n; else a = (a * (n - 1) + tr) / n; out[i] = a; });
   return out;
 }
+// Range Filter (owner's TradingView script, 14 Nov 2026): the same steps as trader/indicators.py range_filter(), so the
+// chart's Buy / Sell labels are the ones the strategies trade on.
+function stcPineEma(xs, n){ const k = 2 / (n + 1), out = []; let e = null, run = [];
+  xs.forEach(x => { if (e == null) { if (x == null) run = []; else { run.push(x); if (run.length >= n) e = run.slice(-n).reduce((a, b) => a + b, 0) / n; } } else e = x * k + e * (1 - k); out.push(e); });
+  return out; }
+function stcRangeFilter(src, per, mult){
+  const n = src.length, diff = src.map((x, i) => i ? Math.abs(x - src[i - 1]) : null);
+  const sm = stcPineEma(stcPineEma(diff, per), per * 2 - 1).map(v => v == null ? null : v * mult);
+  const filt = new Array(n).fill(null), hi = filt.slice(), lo = filt.slice(), state = new Array(n).fill(0), buy = new Array(n).fill(false), sell = buy.slice();
+  let prev = null, up = 0, down = 0, cond = 0;
+  for (let i = 0; i < n; i++) {
+    const x = src[i], r = sm[i];
+    if (r != null) { const p = prev == null ? 0 : prev; const f = x > p ? (x - r < p ? p : x - r) : (x + r > p ? p : x + r); filt[i] = f; hi[i] = f + r; lo[i] = f - r; }
+    const f0 = i ? filt[i - 1] : null, f1 = filt[i];
+    if (f1 != null && f0 != null) { if (f1 > f0) { up += 1; down = 0; } else if (f1 < f0) { down += 1; up = 0; } }
+    let lc = false, sc = false;
+    if (f1 != null && i && x !== src[i - 1]) { lc = x > f1 && up > 0; sc = x < f1 && down > 0; }
+    const before = cond; cond = lc ? 1 : sc ? -1 : cond;
+    buy[i] = lc && before === -1; sell[i] = sc && before === 1; state[i] = cond; prev = f1;
+  }
+  return { filt, hi, lo, state, buy, sell };
+}
 function stcSupertrend(bars, n, k){
   const atr = stcAtr(bars, n), line = new Array(bars.length).fill(null), dirs = new Array(bars.length).fill(null);
   let fu = null, fl = null, up = true;
@@ -2222,6 +2247,10 @@ function stcDraw(){
       if (it.sig) { over(m, col, nm, { colorOf: i => closes[i] >= m[i] ? BS.buy : BS.sell }); crosses(closes, m, code); } else over(m, col, nm); }
     else if (it.t === 'bb') { const b = bollinger(closes, it.n, it.k); over(b.up, col, 'BB ' + it.n + ', ' + it.k + ' upper', { lineWidth: 1 }); line(main, b.mid, col, '', { lineWidth: 1, lineStyle: 2 }); over(b.lo, col, 'lower', { lineWidth: 1 });
       if (it.sig) for (let i = 1; i < n; i++) { if (b.lo[i - 1] != null && closes[i - 1] < b.lo[i - 1] && closes[i] >= b.lo[i]) flag(i, true, 'BB'); else if (b.up[i - 1] != null && closes[i - 1] > b.up[i - 1] && closes[i] <= b.up[i]) flag(i, false, 'BB'); } }
+    else if (it.t === 'rf') { const rf = stcRangeFilter(closes, it.n, it.k);
+      over(rf.filt, BS.buy, 'Range Filter ' + it.n + ', ' + it.k, { lineWidth: 2, colorOf: i => rf.state[i] === 1 ? BS.buy : rf.state[i] === -1 ? BS.sell : col });
+      over(rf.hi, col, 'High target', { lineWidth: 1, lineStyle: 2 }); over(rf.lo, col, 'Low target', { lineWidth: 1, lineStyle: 2 });
+      if (it.sig) for (let i = 1; i < n; i++) { if (rf.buy[i]) flag(i, true, 'RF'); else if (rf.sell[i]) flag(i, false, 'RF'); } }
     else if (it.t === 'st') { const st = stcSupertrend(bars, it.n, it.k);
       over(st, BS.buy, 'Supertrend ' + it.n + ', ' + it.k, { colorOf: i => st.up[i] ? BS.buy : BS.sell });
       if (it.sig) for (let i = 1; i < n; i++) if (st.up[i] != null && st.up[i - 1] != null && st.up[i] !== st.up[i - 1]) flag(i, st.up[i], 'ST'); }
@@ -2378,6 +2407,8 @@ function stForm(){
     else if (g.type === 'price_ma') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + ' its ' + sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
     else if (g.type === 'ma_cross') f = sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'fast', g.fast, ST_RANGE.period, '', true) + ' crosses ' + sel(p + 'dir', g.dir, [['up', 'above'], ['down', 'below']]) + stSlider(p + 'slow', g.slow, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
     else if (g.type === 'rsi') f = 'RSI' + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + stSlider(p + 'level', g.level, ST_RANGE.level, '', true);
+    else if (g.type === 'range_filter') f = 'Range Filter' + stSlider(p + 'per', g.per, ST_RANGE.rf_per, '', true) + '× ' + stSlider(p + 'mult', g.mult, ST_RANGE.rf_mult, '', true) + ' on ' + tfSel(p) + '-min bars ' +
+      sel(p + 'dir', g.dir, [['buy', 'gives a Buy'], ['sell', 'gives a Sell'], ['up', 'is in a Buy state'], ['down', 'is in a Sell state']]);
     else if (g.type === 'orb') f = 'Index breaks the first' + stSlider(p + 'minutes', g.minutes, ST_RANGE.minutes, 'min', true) + 'minutes\' ' + sel(p + 'dir', g.dir, [['up', 'high'], ['down', 'low']]);
     else if (g.type === 'change') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + stSlider(p + 'pct', g.pct, ST_RANGE.pct, '%', true) + '% from ' + sel(p + 'from', g.from, [['prev_close', "yesterday's close"], ['open', "today's open"]]);
     else if (g.type === 'dte') f = sel(p + 'op', g.op, [['<=', 'At most'], ['>=', 'At least']]) + stSlider(p + 'days', g.days, ST_RANGE.days, '', true) + 'days to expiry';

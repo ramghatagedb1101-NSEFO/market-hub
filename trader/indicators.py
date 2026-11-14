@@ -7,6 +7,7 @@ the bar of the minute in progress is left out, so a signal never changes its min
 Signal types (each a dict from the builder page; "tf" = bar size in minutes, 1 / 3 / 5 / 15):
   price_ma     index close above / below its moving average      {ma: "ema"|"sma", period, tf, op: "above"|"below"}
   ma_cross     fast average crossing the slow one on the last bar {ma, fast, slow, tf, dir: "up"|"down"}
+  range_filter Range Filter (owner's TradingView script)           {per, mult, tf, dir: "buy"|"sell"|"up"|"down"}
   rsi          RSI above / below a level, or crossing it          {period, tf, op: "above"|"below"|"crosses_above"|
                                                                    "crosses_below", level}
   orb          index breaks the first N minutes' high / low       {minutes, dir: "up"|"down"}
@@ -149,6 +150,54 @@ NAMES = {"price": "index", "open": "bar open", "high": "bar high", "low": "bar l
          "orb_high": "opening-range high", "orb_low": "opening-range low", "ema": "EMA", "sma": "SMA", "rsi": "RSI",
          "atr": "ATR", "adx": "ADX", "chg_prev": "% from yesterday", "chg_open": "% from open", "opt_price": "option price",
          "dte": "days to expiry", "value": ""}
+
+
+def pine_ema(xs: list, n: int) -> list:
+    """TradingView's ta.ema: starts at the simple average of the first n values (values may start as None)."""
+    out, k, e, run = [], 2 / (n + 1), None, []
+    for x in xs:
+        if e is None:
+            run = run + [x] if x is not None else []
+            if len(run) >= n:
+                e = sum(run[-n:]) / n
+        else:
+            e = x * k + e * (1 - k)
+        out.append(e)
+    return out
+
+
+def range_filter(src: list[float], per: int = 100, mult: float = 3.0) -> dict:
+    """Range Filter (owner's TradingView script "Range Filter Buy and Sell", 14 Nov 2026), line for line:
+    smrng = ema(ema(|src - src[1]|, per), 2*per - 1) * mult; the filter moves only when price leaves its range;
+    up / down = bars in a row it rose / fell; buy = price above a rising filter after a sell state (longCondition),
+    sell = the mirror (shortCondition). Returns lists (None until ready): filt, hband, lband, state (1 / -1 / 0),
+    buy, sell (True on the bar of the signal)."""
+    nbar = len(src)
+    diff = [None] + [abs(src[i] - src[i - 1]) for i in range(1, nbar)]
+    smrng = [None if v is None else v * mult for v in pine_ema(pine_ema(diff, per), per * 2 - 1)]
+    filt, up, down, state = [None] * nbar, [0.0] * nbar, [0.0] * nbar, [0] * nbar
+    hb, lb, buy, sell = [None] * nbar, [None] * nbar, [False] * nbar, [False] * nbar
+    prev, cond = None, 0
+    for i in range(nbar):
+        x, r = src[i], smrng[i]
+        if r is not None:
+            p = prev if prev is not None else 0.0                       # nz(rngfilt[1])
+            f = (p if x - r < p else x - r) if x > p else (p if x + r > p else x + r)
+            filt[i], hb[i], lb[i] = f, f + r, f - r
+        f0, f1 = (filt[i - 1] if i else None), filt[i]
+        u0, d0 = (up[i - 1] if i else 0.0), (down[i - 1] if i else 0.0)
+        up[i] = u0 + 1 if (f1 is not None and f0 is not None and f1 > f0) else 0.0 if (f1 is not None and f0 is not None and f1 < f0) else u0
+        down[i] = d0 + 1 if (f1 is not None and f0 is not None and f1 < f0) else 0.0 if (f1 is not None and f0 is not None and f1 > f0) else d0
+        long_c = short_c = False
+        if f1 is not None and i:
+            moved = x != src[i - 1]                                     # the script's "src > src[1] or src < src[1]"
+            long_c = x > f1 and up[i] > 0 and moved
+            short_c = x < f1 and down[i] > 0 and moved
+        before = cond
+        cond = 1 if long_c else -1 if short_c else cond
+        buy[i], sell[i], state[i] = long_c and before == -1, short_c and before == 1, cond
+        prev = filt[i]
+    return {"filt": filt, "hband": hb, "lband": lb, "state": state, "buy": buy, "sell": sell}
 
 
 def _days(bars1: list[Bar]) -> dict:
@@ -332,4 +381,15 @@ def check(sig: dict, bars: list[Bar], now: datetime, prev_close: float | None, e
         ok = {"above": r[-1] > lvl, "below": r[-1] < lvl,
               "crosses_above": r[-2] <= lvl < r[-1], "crosses_below": r[-2] >= lvl > r[-1]}.get(op, False)
         return ok, f"RSI{n} ({tf}m) {r[-1]:.1f}"
+    if t == "range_filter":
+        # Range Filter (owner's script): dir "buy" / "sell" = the signal on the last completed bar; "up" / "down" = the
+        # filter's state now (last signal was a buy / sell). Needs several sessions of bars to settle (per 100 on
+        # 5-minute bars: about four), so live and back-tests keep five sessions of history.
+        per, mult = int(sig.get("per", 100)), float(sig.get("mult", 3.0))
+        rf = range_filter(closes, per, mult)
+        if not closes or rf["filt"][-1] is None:
+            return False, f"Range Filter ({per}, {mult:g}, {tf}m) not ready"
+        d = sig.get("dir", "buy")
+        ok = {"buy": rf["buy"][-1], "sell": rf["sell"][-1], "up": rf["state"][-1] == 1, "down": rf["state"][-1] == -1}.get(d, False)
+        return ok, f"Range Filter ({per}, {mult:g}, {tf}m) {rf['filt'][-1]:,.1f}, {'buy' if rf['state'][-1] == 1 else 'sell' if rf['state'][-1] == -1 else 'no'} state"
     return False, f"unknown signal {t!r}"

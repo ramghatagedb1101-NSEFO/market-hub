@@ -55,6 +55,8 @@ const BT_GUIDE = [
   ' {"type":"ma_cross","ma":"ema"|"sma","fast":n,"slow":m,"tf":5,"dir":"up"|"down"}',
   ' {"type":"rsi","period":14,"tf":5,"op":"above"|"below"|"crosses_above"|"crosses_below","level":x}',
   ' {"type":"orb","minutes":15,"dir":"up"|"down"}  (index breaks the first N minutes high / low)',
+  ' {"type":"range_filter","per":100,"mult":3,"tf":5,"dir":"buy"|"sell"|"up"|"down"}  (Range Filter:',
+  '   buy / sell = its Buy / Sell signal on that bar; up / down = it is in a Buy / Sell state; defaults 100 and 3)',
   ' {"type":"change","from":"prev_close"|"open","op":"above"|"below","pct":x}  (signed percent move of the index)',
   ' {"type":"dte","op":"<="|">=","days":n}   {"type":"weekday","days":[1..5]}  (1 = Monday)',
   ' {"type":"compare","left":OP,"op":">"|"<"|">="|"<="|"crosses_above"|"crosses_below","right":OP,"tf":5}',

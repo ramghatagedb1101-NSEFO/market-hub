@@ -90,12 +90,12 @@ class IBKR:
         return sorted(p.strikes) if p else []
 
     def _index(self, index: str):
-        """Live index price, started with the last three sessions of one-minute bars so signals have history."""
+        """Live index price, started with the last six sessions (Range Filter: 14 Nov 2026) of one-minute bars so signals have history."""
         if index not in self.index_t:
             und = Index(IB_SYMBOL[index], "NSE", "INR")
             self.ib.qualifyContracts(und)
             try:
-                hist = self.ib.reqHistoricalData(und, endDateTime="", durationStr="3 D", barSizeSetting="1 min",
+                hist = self.ib.reqHistoricalData(und, endDateTime="", durationStr="6 D", barSizeSetting="1 min",
                                                  whatToShow="TRADES", useRTH=True, formatDate=1)
             except Exception:
                 hist = []
@@ -115,7 +115,7 @@ class IBKR:
                 bars[-1] = (m, b[1], max(b[2], px), min(b[3], px), px)
             elif not bars or bars[-1][0] < m:
                 bars.append((m, px, px, px, px))
-            cut = m - timedelta(days=5)
+            cut = m - timedelta(days=10)
             if bars and bars[0][0] < cut:
                 self.bars[index] = [b for b in bars if b[0] >= cut]
         return self.bars[index]

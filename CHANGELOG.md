@@ -4,6 +4,21 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Range Filter: a new indicator for strategies, back-tests and the chart (Sat 14 Nov 2026)
+Owner: "add a new custom indicator: Range Filter" (their TradingView script "Range Filter Buy and Sell").
+- `trader/indicators.py` `range_filter()` follows the script line for line: smoothed average range = EMA(EMA(|close -
+  previous close|, period), 2 x period - 1) x multiplier, with TradingView's own EMA start (`pine_ema`); the filter
+  moves only when price leaves its range; Buy = the script's longCondition after a sell state, Sell = the mirror.
+  New strategy signal `range_filter` {per, mult, tf, dir: buy | sell | up | down} (gives a Buy / Sell on that bar, or
+  is in a Buy / Sell state), in the strategy form, the server's checks and the plain-English reader.
+- Chart: "Range Filter" (sampling period, multiplier) with the filter line coloured by state, the high / low targets,
+  and Buy / Sell labels on by default. The chart's code and the program's give identical signals (checked on 1,200
+  bars: same Buy and Sell bars, same filter value).
+- History: the filter needs about four sessions of 5-minute bars to settle (period 100), so the live program now starts
+  with six sessions of minute bars (was three) and back-tests load five sessions before each expiry's first day (was
+  one). Tests: 109 of 109 (five new).
+- `bt-worker-setup.yml` can also restart the trading program (refuses in market hours).
+
 ### Back-tests run on the trading machine (Sat 14 Nov 2026)
 Owner approved putting PRIVATE_REPO_TOKEN on market-hub-trader so back-tests run there instead of GitHub.
 - `trader/bt_worker.py` (service `bt-worker.service`, installed by `bt-worker-setup.yml`): asks the relay for a queued

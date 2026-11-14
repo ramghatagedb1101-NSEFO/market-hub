@@ -432,9 +432,32 @@ def test_week():
     ok("week: settled on expiry day", any(r["kind"] == "settle" for r in j.lines) or eng.book.open_legs() == 0)
 
 
+def test_range_filter():
+    """Range Filter (owner's TradingView script, 14 Nov 2026): ready after per + 2*per - 2 bars, the filter only moves
+    when price leaves its range, a buy only after a sell state, and the signal type works through check()."""
+    from datetime import datetime, timedelta
+    from .indicators import range_filter, check
+    up = [100 + i * 0.5 for i in range(80)]
+    down = [up[-1] - i * 0.5 for i in range(1, 81)]
+    flat = [down[-1] + (0.3 if i % 2 else -0.3) for i in range(60)]
+    xs = up + down + up[:0] + [down[-1] + i * 0.6 for i in range(1, 81)] + flat
+    r = range_filter(xs, 10, 1.0)
+    first = next(i for i, v in enumerate(r["filt"]) if v is not None)
+    ok("range filter: first value after per + 2*per - 2 bars", first == 10 + 19 - 1, first)
+    moves = sum(1 for i in range(first + 1, len(xs)) if r["filt"][i] != r["filt"][i - 1])
+    ok("range filter: holds still inside its range", moves < len(xs) - first - 1, moves)
+    b, s = [i for i, v in enumerate(r["buy"]) if v], [i for i, v in enumerate(r["sell"]) if v]
+    ok("range filter: a sell on the fall and a buy on the rise", s and b and s[0] < b[-1], (b, s))
+    ok("range filter: buys and sells alternate", all(x < y for x, y in zip(sorted(s + b), sorted(s + b)[1:])), (b, s))
+    t0 = datetime(2026, 11, 13, 9, 15)
+    bars = [(t0 + timedelta(minutes=i), x, x, x, x) for i, x in enumerate(xs)]
+    st_ok, why = check({"type": "range_filter", "per": 10, "mult": 1.0, "tf": 1, "dir": "up"}, bars, t0 + timedelta(minutes=len(xs)), None, None)
+    ok("range filter: signal reads the state", st_ok == (r["state"][-1] == 1) and "Range Filter" in why, why)
+
+
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
-              test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week]:
+              test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")
