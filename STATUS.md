@@ -91,7 +91,7 @@ As of Sat 14 Nov 2026, ~22:20 IST. Start with the 14 Nov HANDOVER just below, th
   clicked twice.
 - Multi-leg trades (straddle, strangle, condor, spreads): built 14 Nov night (step 2 below); VWAP still later.
 
-### Strategy bot (owner, 14 Nov 2026 night) -- plan agreed, step 1 under way
+### Strategy bot (owner, 14 Nov 2026 night) -- steps 1 and 2 done, step 3 (the research bot) next
 Goal: strategies with a real chance of making money live, found and tested by a bot; the bot RECOMMENDS, the owner
 switches strategies on / off (paper). Gemini free tier as its AI. Steps: (1) data -- DONE 14 Nov: daily IBKR recording (`trader/recorder.py`), market
 diary (`state/market_diary.json`), market history since 2022 (`hub/market_daily.py`: VIX, IV + percentile, put-call
