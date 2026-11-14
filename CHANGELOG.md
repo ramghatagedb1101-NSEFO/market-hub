@@ -12,6 +12,8 @@ Owner: "add put side editing to the strategy form". A both-ways strategy could o
   Switching back to One option drops the put side.
 - The summary beside the form, the strategy card ("Buy CE / PE", both sides' signals) and the chart's strategy lines
   cover the put side. Back-tests > Change details opens such a strategy with both sections filled.
+- The summary said "stops for the day after a ₹0 loss" when a strategy had no day's loss limit of its own; it now
+  says so (the program's ₹10,000 day limit still applies).
 
 ### Both directions: trade labels (Sat 14 Nov 2026)
 - The first both-ways back-test labelled every trade "(call side)": the side word sat in front of the ":" that the

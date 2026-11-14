@@ -1763,7 +1763,7 @@ function stSide(){
       (Number(X.trail) ? '; once ' + u(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + u(X.trail_type, X.trail) + ' behind the best price' : '') + '.</li>' +
     '<li>' + (E.style === 'carry' ? 'Carry: the stop stays good till cancelled; held overnight.' : 'Intraday: everything closed by ' + X.exit_by + '; stops are day orders.') + '</li>' +
     '<li>Autopilot: ' + ((E.conditions || []).length ? 'considered on ' + (E.conditions || []).map(c => COND[c].toLowerCase()).join(', ') + ' days' : 'not considered (no market condition ticked)') + '.</li>' +
-    '<li>At most ' + E.max_trades_day + ' trade' + (E.max_trades_day == 1 ? '' : 's') + ' a day; stops for the day after a ₹' + num(Number(E.max_loss_day) || 0, 0) + ' loss; waits ' + E.reentry_gap + ' min between trades.</li></ul>' +
+    '<li>At most ' + E.max_trades_day + ' trade' + (E.max_trades_day == 1 ? '' : 's') + ' a day' + (Number(E.max_loss_day) ? '; stops for the day after a ₹' + num(Number(E.max_loss_day), 0) + ' loss' : '; no day’s loss limit of its own') + '; waits ' + E.reentry_gap + ' min between trades.</li></ul>' +
     warn.map(w => '<div class="st-warn">⚠ ' + esc(w) + '</div>').join('') +
     '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn primary" type="button" onclick="stSave()">Save</button><button class="btn" type="button" onclick="ST_EDIT=null;ST_MSG=\'\';rerender()">Cancel</button></div>' +
     (ST_MSG ? '<div class="muted" style="font-size:12.5px;margin-top:8px">' + esc(ST_MSG) + '</div>' : '') + '</div></div>';
