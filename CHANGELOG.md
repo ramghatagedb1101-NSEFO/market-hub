@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy chart: labels point at their candle with details on hover, collapsible legend, full screen (Sat 14 Nov 2026)
+Owner: "label for buy and sell must point to the particular candle and ... show the details in a small box ... a
+collapsable button to hide or show the indicators ... a full screen button ... a button to normal view".
+- Buy / Sell labels have a small arrow to their candle; with the cursor on one, a box shows what fired it (Range Filter
+  with its filter and target values), the bar's date and time, and its open / high / low / close.
+- ▾ / ▸ next to the chart's name in the top-left legend hides or shows the indicator lines' values (remembered).
+- ⛶ Full screen: the chart fills the window (the browser goes full screen too where Google's page frame allows it), the
+  price panel grows to the window's height; "✕ Normal view" or Esc returns.
+
 ### Strategy chart: settings window for each indicator, green / red by default (Sat 14 Nov 2026)
 Owner: "need such style configuration options for the charts" (TradingView's Inputs / Style / Visibility window) and
 "by default green and red are used".

@@ -1988,6 +1988,16 @@ function stcColours(){
   stcModal('Chart colours', { Colours: tab }, box => { ['up', 'down', 'buy', 'sell'].forEach(k => STC_COL[k] = box.querySelector('[data-k="' + k + '"]').value); stcColSave(); rerender(); },
     () => { Object.assign(STC_COL, STC_COL_DEF); stcColSave(); rerender(); });
 }
+// Full screen (owner, 14 Nov 2026): the chart panel fills the window, the browser too where it allows it; "Normal view"
+// or Esc returns.
+function stcFull(){
+  STC.fs = !STC.fs;
+  try { if (STC.fs) { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {}); }
+        else if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch (e) {}
+  rerender();
+}
+document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && STC.fs) { STC.fs = false; rerender(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && STC.fs && !document.fullscreenElement) { STC.fs = false; rerender(); } });
 function stcSigDefault(t){ return t === 'st' || t === 'rf'; }
 const STC = (() => {
   const base = { view: 'daily', day: null, strat: true, trades: true,
@@ -2150,7 +2160,8 @@ function stcPanel(E){
   const head = OPT ? (O && O.k ? name + ' ' + num(Number(O.k), 0) + (O.right === 'put' ? ' PE' : ' CE') + ' · expiry ' + bDay(dayOf(O.exp)) : name + ' options') : name;
   const sub = OPT ? (O && O.days ? O.days.length + (O.days.length === 1 ? ' session' : ' sessions') + ', ' + bDay(dayOf(O.days[0])) + ' to ' + bDay(dayOf(O.days[O.days.length - 1])) : 'ICICI minute history')
     : 'ICICI minute history' + (days.length ? ' · ' + bDay(dayOf(days[0][0])) + ' to ' + bDay(dayOf(days[days.length - 1][0])) : '');
-  return '<div class="panel" style="margin-bottom:12px"><div class="panel-h"><h3>Chart · ' + esc(head) + '</h3><span class="muted" style="font-size:12px">' + esc(sub) + '</span></div><div class="panel-b">' +
+  const fsBtn = '<button class="btn sm" type="button" onclick="stcFull()" title="' + (STC.fs ? 'Back to the normal view' : 'Full screen') + '">' + (STC.fs ? '✕ Normal view' : '⛶ Full screen') + '</button>';
+  return '<div class="panel" style="margin-bottom:12px' + (STC.fs ? ';position:fixed;inset:0;z-index:900;margin:0;border-radius:0;overflow:auto' : '') + '"><div class="panel-h"><h3>Chart · ' + esc(head) + '</h3><span style="display:flex;gap:10px;align-items:center"><span class="muted" style="font-size:12px">' + esc(sub) + '</span>' + fsBtn + '</span></div><div class="panel-b">' +
     ctl + (note ? '<div class="muted">' + esc(note) + '</div>' : '') + '<div id="st-chart" style="position:relative;min-height:' + (380 + 130 * L.filter(x => STC_CAT[x.t].low && stcApplies(x.t)).length) + 'px"></div>' +
     (STC.view !== 'daily' ? '<div class="faint" style="font-size:11px;margin-top:6px">' + (OPT ? (O && O.days && O.days.length > STC_SPAN ? 'The last five of ' + O.days.length + ' sessions; scroll back for the earlier days.' : 'Every stored session of this expiry.') : 'The chosen session and the four before it.') + '</div>' : '') + '</div></div>';
 }
@@ -2238,6 +2249,7 @@ function stcPrevPeriod(days, date, kind){
 // own scale, all sharing one time axis (only the bottom one shows it), scroll / zoom and crosshair kept in step.
 // Intraday shows the chosen session and the four before it, continuous; levels (previous day, pivots, opening range)
 // step day by day. Names and values sit top-left in each panel; buy / sell show as filled flags above / below the bar.
+const STC_LEG = { open: (() => { try { return localStorage.getItem('mh_stc_leg') !== '0'; } catch (e) { return true; } })() };
 const STC_SPAN = 5;                                   // sessions shown on intraday views
 function stcDayKey(t){ return typeof t === 'number' ? new Date(t * 1000).toISOString().slice(0, 10) : String(t).slice(0, 10); }
 function stcDraw(){
@@ -2280,7 +2292,8 @@ function stcDraw(){
   const lows = L.filter(x => STC_CAT[x.t].low && (!x.tfs || x.tfs.indexOf(daily ? 'D' : String(STC.view)) >= 0));   // Visibility tab
   el.innerHTML = ''; el.style.height = 'auto';
   const mk = (h, last) => { const d = document.createElement('div'); d.style.cssText = 'position:relative;height:' + h + 'px;' + (last ? '' : 'border-bottom:1px solid var(--border-subtle);'); el.append(d); return d; };
-  const mainDiv = mk(daily ? 380 : 400, !lows.length), lowDivs = lows.map((_, k) => mk(130, k === lows.length - 1));
+  const mainH = STC.fs ? Math.max(380, window.innerHeight - 230 - lows.length * 130) : daily ? 380 : 400;
+  const mainDiv = mk(mainH, !lows.length), lowDivs = lows.map((_, k) => mk(130, k === lows.length - 1));
   const opts = showTime => ({ autoSize: true,
     layout: { background: { type: 'solid', color: 'transparent' }, textColor: text, fontFamily: cssVar('--font'), attributionLogo: false },
     grid: { vertLines: { color: grid }, horzLines: { color: grid } }, rightPriceScale: { borderVisible: false, minimumWidth: 76 },
@@ -2297,7 +2310,7 @@ function stcDraw(){
   const over = (vals, color, name, o) => { line(main, vals, color, name, sty(o)); legendMain.push([o && o.colorOf ? BS.buy : color, name, vals]); };
   // ---- buy / sell (owner: labels at each signal; one-line indicators green while buy, red while sell)
   const many = L.filter(x => x.sig && STC_SIGS[x.t]).length > 1, flags = [];
-  const flag = (i, buy, code) => { if (i > 0 && i < n) flags.push({ i, buy, text: (buy ? 'Buy' : 'Sell') + (many ? ' · ' + code : '') }); };
+  const flag = (i, buy, code, note) => { if (i > 0 && i < n) flags.push({ i, buy, code, note, text: (buy ? 'Buy' : 'Sell') + (many ? ' · ' + code : '') }); };
   const crosses = (a, b, code, cond) => { for (let i = 1; i < n; i++) { if ([a[i], a[i - 1], b[i], b[i - 1]].some(v => v == null)) continue;
     if (a[i - 1] <= b[i - 1] && a[i] > b[i] && (!cond || cond(i, true))) flag(i, true, code); else if (a[i - 1] >= b[i - 1] && a[i] < b[i] && (!cond || cond(i, false))) flag(i, false, code); } };
   const step = { lineType: 1, lineWidth: 1 };
@@ -2314,7 +2327,8 @@ function stcDraw(){
     else if (it.t === 'rf') { const rf = stcRangeFilter(closes, it.n, it.k);
       over(rf.filt, BS.buy, 'Range Filter ' + it.n + ', ' + it.k, { lineWidth: 2, colorOf: i => rf.state[i] === 1 ? BS.buy : rf.state[i] === -1 ? BS.sell : col });
       if (!it.nb) { over(rf.hi, col, 'High target', { lineWidth: 1, lineStyle: 2 }); over(rf.lo, col, 'Low target', { lineWidth: 1, lineStyle: 2 }); }
-      if (it.sig) for (let i = 1; i < n; i++) { if (rf.buy[i]) flag(i, true, 'RF'); else if (rf.sell[i]) flag(i, false, 'RF'); } }
+      if (it.sig) for (let i = 1; i < n; i++) { const nt = 'Range Filter ' + it.n + ', ' + it.k + ' · filter ' + num(rf.filt[i], 2) + ' · targets ' + num(rf.lo[i], 2) + ' – ' + num(rf.hi[i], 2);
+        if (rf.buy[i]) flag(i, true, 'RF', nt); else if (rf.sell[i]) flag(i, false, 'RF', nt); } }
     else if (it.t === 'st') { const st = stcSupertrend(bars, it.n, it.k);
       over(st, BS.buy, 'Supertrend ' + it.n + ', ' + it.k, { colorOf: i => st.up[i] ? BS.buy : BS.sell });
       if (it.sig) for (let i = 1; i < n; i++) if (st.up[i] != null && st.up[i - 1] != null && st.up[i] !== st.up[i - 1]) flag(i, st.up[i], 'ST'); }
@@ -2402,25 +2416,51 @@ function stcDraw(){
     mainLeg.textContent = '';
     const head = document.createElement('div'); head.style.fontWeight = '600'; head.style.color = 'var(--text)';
     head.textContent = (idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + (OPT ? ' ' + num(Number(O.k), 0) + (O.right === 'put' ? ' PE' : ' CE') : '') + ' · ' + tf + '   ' + whenOf(b.time) + '   O ' + fmt(b.open) + '  H ' + fmt(b.high) + '  L ' + fmt(b.low) + '  C ' + fmt(b.close);
+    if (legendMain.some(x => x[1])) {
+      const tg = document.createElement('button'); tg.type = 'button'; tg.title = STC_LEG.open ? 'Hide the indicators' : 'Show the indicators';
+      tg.textContent = STC_LEG.open ? '▾' : '▸';
+      tg.style.cssText = 'pointer-events:auto;margin-left:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);border-radius:4px;font-size:11px;line-height:1;padding:2px 5px;cursor:pointer';
+      tg.onclick = () => { STC_LEG.open = !STC_LEG.open; try { localStorage.setItem('mh_stc_leg', STC_LEG.open ? '1' : '0'); } catch (e) {} paint(lastI); };
+      head.append(tg);
+    }
     mainLeg.append(head);
-    legendMain.filter(x => x[1]).forEach(([c, nm, vals]) => { const r = document.createElement('div'); r.style.cssText = 'display:flex;gap:6px;align-items:center';
+    if (STC_LEG.open) legendMain.filter(x => x[1]).forEach(([c, nm, vals]) => { const r = document.createElement('div'); r.style.cssText = 'display:flex;gap:6px;align-items:center';
       const k = document.createElement('span'); k.style.cssText = 'width:12px;height:2px;background:' + c; r.append(k, document.createTextNode(nm + '  ' + fmt(vals[i]))); mainLeg.append(r); });
     lowCharts.forEach((x, j) => { lowLegs[j].textContent = ''; x.leg.forEach(([c, nm, vals]) => { const s = document.createElement('span'); s.style.cssText = 'margin-right:10px;white-space:nowrap';
       const k = document.createElement('span'); k.style.cssText = 'display:inline-block;width:10px;height:2px;margin-right:4px;vertical-align:middle;background:' + c; s.append(k, document.createTextNode(nm + ' ' + fmt(vals[i]))); lowLegs[j].append(s); }); });
   };
   const timeIdx = new Map(bars.map((b, i) => [typeof b.time === 'number' ? b.time : String(b.time), i]));
   const atTime = t => timeIdx.get(typeof t === 'number' ? t : (t && t.year ? t.year + '-' + String(t.month).padStart(2, '0') + '-' + String(t.day).padStart(2, '0') : String(t)));
+  let lastI = n - 1;
   all.forEach(c => c.subscribeCrosshairMove(p => {
     const i = p && p.time != null ? atTime(p.time) : null;
-    paint(i != null ? i : n - 1);
+    lastI = i != null ? i : n - 1;
+    paint(lastI);
     all.forEach(o => { if (o === c) return; const tgt = o === main ? candles : (lowCharts.find(x => x.ch === o) || {}).first;
       if (i == null || !tgt) o.clearCrosshairPosition(); else { try { o.setCrosshairPosition(o === main ? closes[i] : 0, bars[i].time, tgt); } catch (e) {} } });
   }));
   paint(n - 1);
   // ---- buy / sell flags: filled boxes above (sell) / below (buy) the bar, kept in place as the chart moves
   const layer = document.createElement('div'); layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2'; mainDiv.append(layer);
-  const els = flags.map(f => { const d = document.createElement('div'); d.textContent = f.text;
-    d.style.cssText = 'position:absolute;transform:translate(-50%,' + (f.buy ? '6px' : 'calc(-100% - 6px)') + ');background:' + (f.buy ? BS.buy : BS.sell) + ';color:#fff;font-size:11px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.25)';
+  // 14 Nov 2026 (owner): each label points at its candle (a small arrow) and shows the details while the cursor is on it
+  const tip = document.createElement('div');
+  tip.style.cssText = 'position:absolute;z-index:4;display:none;pointer-events:none;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.5;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:280px';
+  mainDiv.append(tip);
+  const catName = code => { const k = Object.keys(STC_SIGS).find(x => code && code.indexOf(STC_SIGS[x]) === 0); return k ? STC_CAT[k].l + code.slice(STC_SIGS[k].length) : code; };
+  const els = flags.map(f => { const d = document.createElement('div'), bg = f.buy ? BS.buy : BS.sell;
+    d.textContent = f.text;
+    d.style.cssText = 'position:absolute;pointer-events:auto;cursor:default;transform:translate(-50%,' + (f.buy ? '9px' : 'calc(-100% - 9px)') + ');background:' + bg + ';color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.25)';
+    const arrow = document.createElement('span');
+    arrow.style.cssText = 'position:absolute;left:50%;transform:translateX(-50%);width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;' +
+      (f.buy ? 'top:-5px;border-bottom:5px solid ' + bg : 'bottom:-5px;border-top:5px solid ' + bg);
+    d.append(arrow);
+    d.onmouseenter = () => { const b = bars[f.i];
+      tip.innerHTML = '<b style="color:' + bg + '">' + (f.buy ? 'Buy' : 'Sell') + '</b> · ' + esc(f.note || catName(f.code)) + '<br><span class="muted">' + esc(whenOf(b.time)) + '</span><br>O ' + num(b.open, 2) + '  H ' + num(b.high, 2) + '  L ' + num(b.low, 2) + '  C ' + num(b.close, 2);
+      tip.style.display = 'block';
+      const x = parseFloat(d.style.left), y = parseFloat(d.style.top), w = tip.offsetWidth, h = tip.offsetHeight;
+      tip.style.left = Math.max(4, Math.min(mainDiv.clientWidth - w - 80, x - w / 2)) + 'px';
+      tip.style.top = (f.buy ? Math.min(mainDiv.clientHeight - h - 4, y + 34) : Math.max(4, y - h - 34)) + 'px'; };
+    d.onmouseleave = () => { tip.style.display = 'none'; };
     layer.append(d); return d; });
   const place = () => flags.forEach((f, k) => { const x = main.timeScale().timeToCoordinate(bars[f.i].time), y = candles.priceToCoordinate(f.buy ? bars[f.i].low : bars[f.i].high);
     if (x == null || y == null || x < 0 || x > mainDiv.clientWidth - 76) { els[k].style.display = 'none'; return; }
