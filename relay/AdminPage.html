@@ -1910,31 +1910,38 @@ const STC_CAT = {
   bb: { l: 'Bollinger Bands', g: 'On the price', p: { n: [20, 'period'], k: [2, 'std dev'] } },
   st: { l: 'Supertrend', g: 'On the price', p: { n: [10, 'ATR period'], k: [3, 'multiplier'] } },
   dc: { l: 'Donchian channel', g: 'On the price', p: { n: [20, 'period'] } },
-  piv: { l: 'Pivot points (classic)', g: 'Levels', p: {} },
-  pdh: { l: "Previous day's high / low / close", g: 'Levels', p: {}, intra: true },
-  pwh: { l: "Previous week's high / low", g: 'Levels', p: {} },
-  pmh: { l: "Previous month's high / low", g: 'Levels', p: {} },
+  piv: { l: 'Pivot points (classic)', g: 'Levels', p: {}, idx: true },
+  pdh: { l: "Previous day's high / low / close", g: 'Levels', p: {}, intra: true, idx: true },
+  pwh: { l: "Previous week's high / low", g: 'Levels', p: {}, idx: true },
+  pmh: { l: "Previous month's high / low", g: 'Levels', p: {}, idx: true },
   orb: { l: 'Opening range', g: 'Levels', p: { n: [15, 'minutes'] }, intra: true },
   rsi: { l: 'RSI', g: 'Lower panel', p: { n: [14, 'period'] }, low: true },
   macd: { l: 'MACD', g: 'Lower panel', p: { f: [12, 'fast'], s: [26, 'slow'], g: [9, 'signal'] }, low: true },
   sto: { l: 'Stochastic', g: 'Lower panel', p: { n: [14, '%K'], d: [3, '%D'] }, low: true },
   atr: { l: 'ATR', g: 'Lower panel', p: { n: [14, 'period'] }, low: true },
-  adx: { l: 'ADX (+DI / −DI)', g: 'Lower panel', p: { n: [14, 'period'] }, low: true }
+  adx: { l: 'ADX (+DI / −DI)', g: 'Lower panel', p: { n: [14, 'period'] }, low: true },
+  vol: { l: 'Volume', g: 'Option chart', p: {}, low: true, opt: true },
+  oi: { l: 'Open interest', g: 'Option chart', p: {}, low: true, opt: true }
 };
+// what applies on the chart now: index-only levels hide on the option chart, volume / open interest on the index
+const stcOpt = () => STC.src === 'option';
+const stcApplies = t => !(stcOpt() ? STC_CAT[t].idx : STC_CAT[t].opt);
 const STC_SOON = ['VWAP (needs futures volume)'];
 // buy / sell labels start on for Supertrend; the others start off (a button on each), so the chart stays readable
 function stcSigDefault(t){ return t === 'st'; }
 const STC = (() => {
   const base = { view: 'daily', day: null, strat: true, trades: true,
     ind: { daily: [{ t: 'sma', n: 20, c: 0 }, { t: 'sma', n: 50, c: 1 }, { t: 'sma', n: 200, c: 2 }], intra: [{ t: 'pdh', c: 0 }] } };
-  try { const s = JSON.parse(localStorage.getItem('mh_stc_v1') || 'null'); if (s && s.ind) base.ind = s.ind; } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem('mh_stc_v1') || 'null'); if (s && s.ind) base.ind = s.ind;
+    if (s && s.src === 'option') base.src = 'option'; if (s && s.opt) base.opt = s.opt; if (s && s.optInit) base.optInit = true; } catch (e) {}
+  base.src = base.src || 'index'; base.opt = base.opt || { right: 'call' };
   // 5 colours -> 4; buy / sell labels on unless switched off (owner, 14 Nov 2026: "labels for buy and sell are not appearing":
   // set-ups saved before the labels existed had them off)
   ['daily', 'intra'].forEach(k => (base.ind[k] || []).forEach(it => { if (it.c > 3) it.c = it.c % 4; if (it.sig === undefined) it.sig = stcSigDefault(it.t); }));
   return base;
 })();
-const STD = { daily: {}, month: {}, bt: {} };
-function stcSave(){ try { localStorage.setItem('mh_stc_v1', JSON.stringify({ ind: STC.ind })); } catch (e) {} }
+const STD = { daily: {}, month: {}, bt: {}, optList: {}, opt: {} };
+function stcSave(){ try { localStorage.setItem('mh_stc_v1', JSON.stringify({ ind: STC.ind, src: STC.src, opt: STC.opt, optInit: STC.optInit })); } catch (e) {} }
 function stcPal(){
   const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
     (document.documentElement.getAttribute('data-theme') !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -1976,6 +1983,55 @@ function stcLoad(idx, month){
     .catch(e => { box[key] = { error: e.message }; rerender(); });
   return box[key];
 }
+// Option chart (owner, 14 Nov 2026: "a chart for the option prices is better, just give that as an option"): one
+// contract's own minute candles, every session stored for its expiry, with volume and open interest underneath.
+function stcSrc(v){
+  STC.src = v;
+  if (v === 'option') {
+    if (STC.view === 'daily') STC.view = 5;
+    const L = STC.ind.intra;
+    if (!STC.optInit) { STC.optInit = true;                       // the first time: volume and open interest panels
+      ['vol', 'oi'].forEach(t => { if (!L.some(x => x.t === t) && L.filter(x => STC_CAT[x.t].low).length < 3) L.push({ t, c: 2, sig: false }); }); }
+  }
+  stcSave(); rerender();
+}
+function stcOptSet(k, v){ STC.opt[k] = v; if (k === 'exp') STC.opt.k = null; stcSave(); rerender(); }
+function stcOptList(idx){
+  if (STD.optList[idx]) return STD.optList[idx];
+  STD.optList[idx] = { loading: true };
+  call('adminOptionExpiries', token, idx).then(d => { STD.optList[idx] = d; rerender(); }).catch(e => { STD.optList[idx] = { error: e.message }; rerender(); });
+  return STD.optList[idx];
+}
+function stcOptLoad(idx, exp){
+  const key = idx + '|' + exp;
+  if (STD.opt[key]) return STD.opt[key];
+  STD.opt[key] = { loading: true };
+  call('adminOptionChart', token, idx, exp).then(async d => {
+    const e = d && d.gz ? await unpack(d) : d;
+    if (e && !e.error && !e.days) e.days = [e.prev_day, e.expiry];   // the download's two days
+    STD.opt[key] = e; rerender();
+  }).catch(e => { STD.opt[key] = { error: e.message }; rerender(); });
+  return STD.opt[key];
+}
+// the contract on show: {exp, k, right, days, rows, ks, items} or {msg}
+function stcOptPick(idx, D){
+  const list = stcOptList(idx);
+  if (!list || list.loading) return { msg: 'Loading the option expiries…' };
+  if (list.error) return { msg: list.error };
+  const items = list.items || [];
+  if (!items.length) return { msg: 'No option prices stored for this index yet.' };
+  if (!items.some(x => x.expiry === STC.opt.exp)) { STC.opt.exp = items[0].expiry; STC.opt.k = null; }
+  const e = stcOptLoad(idx, STC.opt.exp);
+  if (!e || e.loading) return { msg: 'Loading the option prices…', items };
+  if (e.error) return { msg: e.error, items };
+  const side = STC.opt.right === 'put' ? 'put' : 'call', ks = Object.keys(e[side] || {}).sort((a, b) => a - b);
+  if (!ks.length) return { msg: 'No ' + (side === 'put' ? 'put' : 'call') + ' prices for that expiry.', items };
+  if (!ks.includes(String(STC.opt.k))) {                          // start at the money: nearest the index's first open
+    const first = ((D && D.days) || []).find(r => r[0] === e.days[0]), ref = first ? first[1] : Number(ks[Math.floor(ks.length / 2)]);
+    STC.opt.k = ks.reduce((a, b) => Math.abs(b - ref) < Math.abs(a - ref) ? b : a);
+  }
+  return { exp: e.expiry, k: String(STC.opt.k), right: side, days: e.days, rows: e[side][String(STC.opt.k)], ks, items };
+}
 function stcBt(id){
   if (!id || STD.bt[id]) return STD.bt[id];
   STD.bt[id] = { loading: true };
@@ -1983,15 +2039,28 @@ function stcBt(id){
   return STD.bt[id];
 }
 function stcPanel(E){
-  const idx = E.index || 'NIFTY', D = stcLoad(idx);
+  const idx = E.index || 'NIFTY', D = stcLoad(idx), OPT = stcOpt();
   const days = (D && D.days) || [];
+  if (OPT && STC.view === 'daily') STC.view = 5;
   if (STC.view !== 'daily' && !STC.day && days.length) STC.day = days[days.length - 1][0];
+  const O = OPT ? stcOptPick(idx, D) : null;
   const bt = E.id ? stcBt(E.id) : null, tdays = new Set(((bt && bt.summary && bt.summary.trades) || []).map(t => String(t.entry_t).slice(0, 10)));
   const P = stcPal(), kind = stcKind(), L = STC.ind[kind];
   const seg = (k, v, opts) => '<div class="seg">' + opts.map(([x, l]) => '<button type="button" class="' + (String(v) === String(x) ? 'on' : '') + '" onclick="stcSet(\'' + k + '\', ' + JSON.stringify(x).replace(/"/g, '&quot;') + ')">' + l + '</button>').join('') + '</div>';
   const chip = (on, label, click) => '<button type="button" class="chip' + (on ? ' brand' : '') + '" style="cursor:pointer;border:0" onclick="' + click + '">' + (on ? '✓ ' : '') + label + '</button>';
-  let ctl = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">' + seg('view', STC.view, [['daily', 'Daily'], [15, '15 min'], [5, '5 min'], [3, '3 min'], [1, '1 min']]);
-  if (STC.view !== 'daily' && days.length) {
+  const srcSeg = '<div class="seg">' + [['index', 'Index'], ['option', 'Option']].map(([x, l]) => '<button type="button" class="' + (STC.src === x ? 'on' : '') + '" onclick="stcSrc(\'' + x + '\')">' + l + '</button>').join('') + '</div>';
+  let ctl = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">' + srcSeg +
+    seg('view', STC.view, (OPT ? [] : [['daily', 'Daily']]).concat([[15, '15 min'], [5, '5 min'], [3, '3 min'], [1, '1 min']]));
+  if (OPT) {
+    const items = (O && O.items) || [], sel = (opts, cur, on) => '<select class="field" style="width:auto;height:28px" onchange="' + on + '">' + opts.map(([v, l]) => '<option value="' + esc(v) + '"' + (String(v) === String(cur) ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select>';
+    if (items.length) ctl += '<label class="muted" style="font-size:12px;display:flex;gap:6px;align-items:center">Expiry ' +
+      sel(items.map(x => [x.expiry, bDay(dayOf(x.expiry)) + ' · ' + x.sessions + (x.sessions === 1 ? ' day' : ' days')]), STC.opt.exp, "stcOptSet('exp', this.value)") + '</label>';
+    if (O && O.ks) ctl += '<label class="muted" style="font-size:12px;display:flex;gap:6px;align-items:center">Strike ' +
+      sel(O.ks.map(k => [k, num(Number(k), 0)]), O.k, "stcOptSet('k', this.value)") + '</label>' +
+      '<div class="seg">' + [['call', 'Call (CE)'], ['put', 'Put (PE)']].map(([x, l]) => '<button type="button" class="' + (O.right === x ? 'on' : '') + '" onclick="stcOptSet(\'right\', \'' + x + '\')">' + l + '</button>').join('') + '</div>';
+    if (E.id) ctl += chip(STC.trades, 'Back-test trades', 'stcSet(\'trades\', ' + !STC.trades + ')');
+  }
+  if (!OPT && STC.view !== 'daily' && days.length) {
     const i = Math.max(0, days.findIndex(d => d[0] === STC.day));
     ctl += '<div style="display:flex;gap:4px;align-items:center"><button class="btn sm" type="button" ' + (i > 0 ? 'onclick="stcSet(\'day\', \'' + days[i - 1][0] + '\')"' : 'disabled') + '>‹</button>' +
       '<select class="field" style="width:auto" onchange="stcSet(\'day\', this.value)">' + days.slice().reverse().map(d => '<option value="' + d[0] + '"' + (d[0] === STC.day ? ' selected' : '') + '>' + bDay(dayOf(d[0])) + (tdays.has(d[0]) ? ' · back-test trade' : '') + '</option>').join('') + '</select>' +
@@ -2004,29 +2073,33 @@ function stcPanel(E){
     const def = STC_CAT[it.t], BS = stcBS(), col = def.low ? P[2] : it.t === 'st' ? 'linear-gradient(to right,' + BS.buy + ' 50%,' + BS.sell + ' 50%)' : P[it.c];
     const pars = Object.keys(def.p).map(k => '<input class="field num" title="' + def.p[k][1] + '" aria-label="' + def.p[k][1] + '" style="width:46px;height:24px;padding:0 4px" value="' + it[k] + '" onchange="stcPar(' + i + ', \'' + k + '\', this.value)">').join('');
     return '<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:2px 4px 2px 10px;font-size:12px;background:var(--surface)">' +
-      '<span style="width:12px;height:3px;border-radius:2px;background:' + col + '"></span>' + esc(it.t === 'sma' ? (kind === 'daily' ? 'DMA' : 'SMA') : def.l) + (def.low ? ' <span class="faint">(own panel)</span>' : '') + pars +
+      '<span style="width:12px;height:3px;border-radius:2px;background:' + col + '"></span>' + esc(it.t === 'sma' ? (kind === 'daily' ? 'DMA' : 'SMA') : def.l) + (def.low ? ' <span class="faint">(own panel)</span>' : '') + (stcApplies(it.t) ? '' : ' <span class="faint">(' + (def.opt ? 'option chart only' : 'index chart only') + ')</span>') + pars +
       (STC_SIGS[it.t] ? '<button type="button" title="Show or hide the buy / sell labels on the chart' + (it.t === 'st' ? '' : ' (and the line green / red)') + '" onclick="stcSig(' + i + ')" style="border:1px solid ' + (it.sig ? 'var(--accent)' : 'var(--border)') + ';background:' + (it.sig ? 'var(--accent-soft)' : 'none') + ';color:' + (it.sig ? 'var(--accent-text)' : 'var(--text-3)') + ';border-radius:999px;font-size:11px;font-weight:600;padding:1px 7px;cursor:pointer">' + (it.sig ? '✓ Buy/Sell' : 'Buy/Sell off') + '</button>' : '') +
       '<button type="button" title="Remove" aria-label="Remove ' + esc(def.l) + '" onclick="stcDel(' + i + ')" style="border:0;background:none;cursor:pointer;color:var(--text-3);font-size:14px;padding:0 4px">×</button></span>';
   }).join('');
   const groups = {};
-  Object.keys(STC_CAT).filter(t => !(STC_CAT[t].intra && kind === 'daily')).forEach(t => { (groups[STC_CAT[t].g] = groups[STC_CAT[t].g] || []).push(t); });
+  Object.keys(STC_CAT).filter(t => !(STC_CAT[t].intra && kind === 'daily') && stcApplies(t)).forEach(t => { (groups[STC_CAT[t].g] = groups[STC_CAT[t].g] || []).push(t); });
   const add = '<select class="field" style="width:auto;height:28px" onchange="if(this.value){stcAdd(this.value)}"><option value="">+ Add indicator…</option>' +
     Object.keys(groups).map(g => '<optgroup label="' + g + '">' + groups[g].map(t => '<option value="' + t + '">' + STC_CAT[t].l + '</option>').join('') + '</optgroup>').join('') +
     '<optgroup label="Coming when the data is ready">' + STC_SOON.map(l => '<option disabled>' + l + '</option>').join('') + '</optgroup></select>';
   ctl += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">' + pills + add + '</div>';
-  const note = !D || D.loading ? 'Loading index prices…' : D.error ? D.error : '';
-  return '<div class="panel" style="margin-bottom:12px"><div class="panel-h"><h3>Chart · ' + esc(idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + '</h3><span class="muted" style="font-size:12px">ICICI minute history' + (days.length ? ' · ' + bDay(dayOf(days[0][0])) + ' to ' + bDay(dayOf(days[days.length - 1][0])) : '') + '</span></div><div class="panel-b">' +
-    ctl + (note ? '<div class="muted">' + esc(note) + '</div>' : '') + '<div id="st-chart" style="position:relative;min-height:' + (380 + 130 * L.filter(x => STC_CAT[x.t].low).length) + 'px"></div>' +
-    (STC.view !== 'daily' ? '<div class="faint" style="font-size:11px;margin-top:6px">The chosen session and the four before it.</div>' : '') + '</div></div>';
+  const note = !D || D.loading ? 'Loading index prices…' : D.error ? D.error : OPT && O && O.msg ? O.msg : '';
+  const name = idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx;
+  const head = OPT ? (O && O.k ? name + ' ' + num(Number(O.k), 0) + (O.right === 'put' ? ' PE' : ' CE') + ' · expiry ' + bDay(dayOf(O.exp)) : name + ' options') : name;
+  const sub = OPT ? (O && O.days ? O.days.length + (O.days.length === 1 ? ' session' : ' sessions') + ', ' + bDay(dayOf(O.days[0])) + ' to ' + bDay(dayOf(O.days[O.days.length - 1])) : 'ICICI minute history')
+    : 'ICICI minute history' + (days.length ? ' · ' + bDay(dayOf(days[0][0])) + ' to ' + bDay(dayOf(days[days.length - 1][0])) : '');
+  return '<div class="panel" style="margin-bottom:12px"><div class="panel-h"><h3>Chart · ' + esc(head) + '</h3><span class="muted" style="font-size:12px">' + esc(sub) + '</span></div><div class="panel-b">' +
+    ctl + (note ? '<div class="muted">' + esc(note) + '</div>' : '') + '<div id="st-chart" style="position:relative;min-height:' + (380 + 130 * L.filter(x => STC_CAT[x.t].low && stcApplies(x.t)).length) + 'px"></div>' +
+    (STC.view !== 'daily' ? '<div class="faint" style="font-size:11px;margin-top:6px">' + (OPT ? (O && O.days && O.days.length > STC_SPAN ? 'The last five of ' + O.days.length + ' sessions; scroll back for the earlier days.' : 'Every stored session of this expiry.') : 'The chosen session and the four before it.') + '</div>' : '') + '</div></div>';
 }
 function stcBars(dayRows, day, tf){
   const [y, m, d] = day.split('-').map(Number), out = [];
   let cur = null;
-  dayRows.forEach(([mn, o, h, l, c]) => {
+  dayRows.forEach(([mn, o, h, l, c, v, oi]) => {
     if (c == null) return;
     const b = Math.floor(mn / tf) * tf, t = Date.UTC(y, m - 1, d, 9, 15 + b) / 1000;   // IST clock shown as is
-    if (!cur || cur.time !== t) { cur = { time: t, open: o, high: h, low: l, close: c }; out.push(cur); }
-    else { cur.high = Math.max(cur.high, h); cur.low = Math.min(cur.low, l); cur.close = c; }
+    if (!cur || cur.time !== t) { cur = { time: t, open: o, high: h, low: l, close: c, vol: v || 0, oi }; out.push(cur); }
+    else { cur.high = Math.max(cur.high, h); cur.low = Math.min(cur.low, l); cur.close = c; cur.vol += v || 0; if (oi != null) cur.oi = oi; }
   });
   return out;
 }
@@ -2089,10 +2162,16 @@ function stcDraw(){
   const idx = E.index || 'NIFTY', D = STD.daily[idx];
   if (!D || !D.days || !D.days.length) return;
   const P = stcPal(), BS = stcBS(), text = cssVar('--text-3'), grid = cssVar('--border-subtle'), up = cssVar('--up'), down = cssVar('--down'), muted = cssVar('--text-4') || text;
-  const daily = STC.view === 'daily', kind = stcKind(), L = STC.ind[kind];
+  const OPT = stcOpt(), daily = STC.view === 'daily' && !OPT, kind = stcKind(), L = STC.ind[kind].filter(x => stcApplies(x.t));
   // ---- bars
-  let bars = [], sessions = [];
-  if (daily) bars = D.days.map(r => ({ time: r[0], open: r[1], high: r[2], low: r[3], close: r[4] }));
+  let bars = [], sessions = [], O = null;
+  if (OPT) {
+    O = stcOptPick(idx, D);
+    if (!O.rows) { el.innerHTML = ''; return; }                 // the message shows above the chart
+    sessions = O.days;
+    const by = {}; O.rows.forEach(r => (by[r[0]] = by[r[0]] || []).push(r.slice(1)));
+    O.days.forEach((d, i) => { bars = bars.concat(stcBars(by[i] || [], d, STC.view)); });
+  } else if (daily) bars = D.days.map(r => ({ time: r[0], open: r[1], high: r[2], low: r[3], close: r[4] }));
   else {
     const day = STC.day || D.days[D.days.length - 1][0], di = Math.max(0, D.days.findIndex(r => r[0] === day));
     sessions = D.days.slice(Math.max(0, di - STC_SPAN + 1), di + 1).map(r => r[0]);
@@ -2157,7 +2236,7 @@ function stcDraw(){
       ['h', 'l'].forEach((w, j) => over(bars.map(b => { const pp = stcPrevPeriod(D.days, stcDayKey(b.time), k2); return pp ? pp[w] : null; }), col, (j ? '' : 'Prev ' + k2 + ' ') + (j ? 'low' : 'high'), Object.assign({}, step, { lineStyle: 2 }))); }
     else if (it.t === 'orb' && !daily) { [0, 1].forEach(j => over(perDay((d, b) => { const r = orbOf(d, it.n); return r && b.time >= r[2] ? r[j] : null; }), col, j ? 'low' : 'Opening ' + it.n + ' min high', Object.assign({}, step, { lineStyle: 2 }))); }
   });
-  if (!daily && STC.strat) {
+  if (!daily && STC.strat && !OPT) {
     // the strategy's own lines, from its signals, in the neutral ink
     const seen = new Set();
     const avg = (k3, nn) => { const k = k3 + nn; if (seen.has(k) || seen.size >= 2) return; seen.add(k); over((k3 === 'sma' ? sma : ema)(closes, nn), muted, 'Strategy ' + k3.toUpperCase() + ' ' + nn, { lineStyle: 1 }); };
@@ -2176,7 +2255,9 @@ function stcDraw(){
   const bt = E.id && STD.bt[E.id], marks = [];
   if (!daily && STC.trades && bt && bt.summary) {
     const inView = new Set(sessions), toT = s => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], Math.floor(+m[5] / STC.view) * STC.view) / 1000 : null; };
+    const mine = OPT ? idx + ' ' + O.exp + ' ' + O.k + (O.right === 'put' ? 'P' : 'C') : null;   // the option chart: this contract's trades
     (bt.summary.trades || []).forEach(t => {
+      if (mine && t.contract !== mine) return;
       if (inView.has(String(t.entry_t).slice(0, 10))) marks.push({ time: toT(t.entry_t), position: 'belowBar', color: P[0], shape: 'circle', text: 'Back-test ' + (t.dir === 'long' ? 'buy ' : 'sell ') + num(t.entry, 2) });
       if (inView.has(String(t.exit_t).slice(0, 10))) marks.push({ time: toT(t.exit_t), position: 'aboveBar', color: P[0], shape: 'circle', text: t.why + ' ' + (t.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(t.pnl), 0) });
     });
@@ -2200,6 +2281,10 @@ function stcDraw(){
       first = add(kv, P[0], 'Stochastic %K ' + it.n); add(dv, P[1], '%D ' + it.d); guide(first, 80); guide(first, 20);
       if (it.sig) crosses(kv, dv, 'STO', (i, buy) => buy ? kv[i - 1] <= 20 : kv[i - 1] >= 80); }
     else if (it.t === 'atr') first = add(stcAtr(bars, it.n), P[2], 'ATR ' + it.n);
+    else if (it.t === 'vol') { const vals = bars.map(b => b.vol);
+      first = ch.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false, priceFormat: { type: 'volume' } });
+      first.setData(bars.map(b => ({ time: b.time, value: b.vol || 0, color: P[0] + '99' }))); leg.push([P[0], 'Volume', vals]); }
+    else if (it.t === 'oi') { first = add(bars.map(b => b.oi), P[1], 'Open interest', { priceFormat: { type: 'volume' } }); }
     else if (it.t === 'adx') { const x = stcAdx(bars, it.n); first = add(x.adx, P[2], 'ADX ' + it.n); add(x.pdi, BS.buy, '+DI'); add(x.mdi, BS.sell, '−DI'); guide(first, 25);
       if (it.sig) crosses(x.pdi, x.mdi, 'ADX', i => x.adx[i] != null && x.adx[i] >= 20); }
     lowCharts.push({ ch, first, leg, div: lowDivs[k] });
@@ -2211,13 +2296,13 @@ function stcDraw(){
   // ---- top-left legends (TradingView style): name and value at the crosshair (or the last bar)
   const legBox = (div) => { const b = document.createElement('div'); b.style.cssText = 'position:absolute;left:8px;top:6px;z-index:3;font-size:12px;line-height:1.5;pointer-events:none;color:var(--text-2);max-width:calc(100% - 100px)'; div.append(b); return b; };
   const mainLeg = legBox(mainDiv), lowLegs = lowCharts.map(x => legBox(x.div));
-  const fmt = v => v == null || !isFinite(v) ? '–' : num(v, 2);
+  const fmt = v => v == null || !isFinite(v) ? '–' : num(v, Number.isInteger(v) && Math.abs(v) >= 1000 ? 0 : 2);
   const tf = daily ? 'D' : STC.view + ' min';
   const paint = i => {
     const b = bars[i];
     mainLeg.textContent = '';
     const head = document.createElement('div'); head.style.fontWeight = '600'; head.style.color = 'var(--text)';
-    head.textContent = (idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + ' · ' + tf + '   O ' + fmt(b.open) + '  H ' + fmt(b.high) + '  L ' + fmt(b.low) + '  C ' + fmt(b.close);
+    head.textContent = (idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + (OPT ? ' ' + num(Number(O.k), 0) + (O.right === 'put' ? ' PE' : ' CE') : '') + ' · ' + tf + '   O ' + fmt(b.open) + '  H ' + fmt(b.high) + '  L ' + fmt(b.low) + '  C ' + fmt(b.close);
     mainLeg.append(head);
     legendMain.filter(x => x[1]).forEach(([c, nm, vals]) => { const r = document.createElement('div'); r.style.cssText = 'display:flex;gap:6px;align-items:center';
       const k = document.createElement('span'); k.style.cssText = 'width:12px;height:2px;background:' + c; r.append(k, document.createTextNode(nm + '  ' + fmt(vals[i]))); mainLeg.append(r); });
@@ -2245,7 +2330,10 @@ function stcDraw(){
   if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(place)).observe(mainDiv);
   // ---- first view
   if (daily) main.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 260), to: n + 4 });
-  else main.timeScale().fitContent();
+  else if (OPT && sessions.length > STC_SPAN) {               // the last five sessions; scroll back for the rest
+    const from = bars.findIndex(b => stcDayKey(b.time) >= sessions[sessions.length - STC_SPAN]);
+    main.timeScale().setVisibleLogicalRange({ from: Math.max(0, from), to: n + 4 });
+  } else main.timeScale().fitContent();
   requestAnimationFrame(place);
 }
 

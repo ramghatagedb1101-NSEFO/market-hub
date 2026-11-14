@@ -4,6 +4,19 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Option prices on the strategy chart (Sat 14 Nov 2026)
+Owner: "a chart for the option prices is better, just give that as an option".
+- The strategy chart has an **Index / Option** switch. Option: pick the expiry (every stored one, with its number of
+  sessions), the strike (starts at the money: nearest the index's open on the expiry's first stored day) and Call / Put;
+  15 / 5 / 3 / 1-minute candles of that contract over every stored session of the expiry (the last five shown, scroll
+  back for more), with Volume and Open interest panels underneath (added the first time; removable like any panel).
+- The same indicators and Buy / Sell labels work on the option's own price. Index-only levels (pivots, previous day /
+  week / month) are left off the option chart and say so; Volume and Open interest say "option chart only" on the index.
+- A back-tested strategy's trades in that very contract are marked on it.
+- Relay: `adminOptionExpiries` (from `state/breeze/expiry_days/_done.json`) and `adminOptionChart` (one expiry's file,
+  the owner's full weeks first, else the download's two days, gzipped). The largest (a BANK NIFTY month, 8.6 MB) opens
+  in about a quarter of a second in the browser.
+
 ### The owner's ICICI files imported: every session of 2024-26 for back-tests (Sat 14 Nov 2026)
 Owner: "where i should save the ICICI historic data for you?", then saved it to `D:\ICICI data historic\NSEData`.
 - What it is: NIFTY and BANK NIFTY option minutes (open, high, low, close, volume, open interest) for every trading day

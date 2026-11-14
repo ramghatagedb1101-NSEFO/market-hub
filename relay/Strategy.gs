@@ -212,6 +212,40 @@ function adminIndexChart(token, index, month) {
   return month ? { gz: Utilities.base64Encode(res.getBlob().getBytes()) } : JSON.parse(res.getContentText());
 }
 
+/** The option chart (owner, 14 Nov 2026: "a chart for the option prices ... just give that as an option"): the
+ *  expiries with stored option minutes for an index, newest first, with how many sessions each covers. */
+function adminOptionExpiries(token, index) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  if (['NIFTY', 'BANKNIFTY', 'SENSEX'].indexOf(index) < 0) return { error: 'bad index' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  const res = privateRaw_(readToken, 'state/breeze/expiry_days/_done.json');
+  if (res.getResponseCode() !== 200) return { error: 'Could not load the list of option prices (' + res.getResponseCode() + ').' };
+  const done = JSON.parse(res.getContentText()), out = [];
+  Object.keys(done).forEach(k => {
+    if (k.indexOf(index + '_') !== 0) return;
+    const v = done[k] || {}, week = v.source === 'owner files' || !!v.weeks;
+    out.push({ expiry: k.slice(index.length + 1), sessions: week ? (v.weeks || v.sessions || 2) : 2, week: week });
+  });
+  out.sort((x, y) => x.expiry < y.expiry ? 1 : -1);
+  return { items: out };
+}
+
+/** One expiry's option minutes (every strike, both sides), gzipped for the trip; every session when the owner's files
+ *  have it (state/breeze/expiry_weeks/), else the day before and the expiry day (state/breeze/expiry_days/). */
+function adminOptionChart(token, index, expiry) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  if (['NIFTY', 'BANKNIFTY', 'SENSEX'].indexOf(index) < 0) return { error: 'bad index' };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expiry || '')) return { error: 'bad expiry' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  let res = privateRaw_(readToken, 'state/breeze/expiry_weeks/' + index + '/' + expiry + '.json.gz');
+  if (res.getResponseCode() === 404) res = privateRaw_(readToken, 'state/breeze/expiry_days/' + index + '/' + expiry + '.json.gz');
+  if (res.getResponseCode() === 404) return { error: 'No option prices stored for that expiry yet.' };
+  if (res.getResponseCode() !== 200) return { error: 'Could not load the option prices (' + res.getResponseCode() + ').' };
+  return { gz: Utilities.base64Encode(res.getBlob().getBytes()) };
+}
+
 /** For the algo-sync and back-test jobs (RELAY_KEY): every saved strategy, the active one and the limits. */
 function strategiesForBatch_(p) {
   const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
