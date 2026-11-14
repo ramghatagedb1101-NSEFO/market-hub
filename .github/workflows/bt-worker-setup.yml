@@ -17,7 +17,7 @@ on:
         type: boolean
         default: false
       recorder:
-        description: "day recorder: probe (quick IBKR check, writes nothing) or a past day YYYY-MM-DD to record (runs on in the background)"
+        description: "day recorder: probe (quick IBKR check, writes nothing) or past days "YYYY-MM-DD YYYY-MM-DD ..." to record (runs on in the background)"
         required: false
         default: ""
 
@@ -71,7 +71,7 @@ jobs:
           REC="${{ inputs.recorder }}"
           if [ "$REC" = "probe" ]; then
             $SSH 'cd /opt/trader/app && set -a && . /opt/trader/secrets/bt.env && set +a && TZ=Asia/Kolkata timeout 600 /opt/trader/venv/bin/python -u -m trader.recorder --probe'
-          elif echo "$REC" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+          elif echo "$REC" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}( [0-9]{4}-[0-9]{2}-[0-9]{2})*$'; then
             $SSH "sudo systemd-run --unit=recorder-day --collect -p User=ubuntu -p WorkingDirectory=/opt/trader/app -p EnvironmentFile=/opt/trader/secrets/bt.env -p Environment=TZ=Asia/Kolkata /opt/trader/venv/bin/python -u -m trader.recorder $REC && echo started"
           fi
           if [ "${{ inputs.restart_trader }}" = "true" ]; then

@@ -18,7 +18,8 @@ in state/breeze/expiry_days/_done.json ({"weeks": true, "source": "IBKR"}), so b
 stored (owner's files, the ICICI download) is never overwritten.
 
     python -m trader.recorder                 (today, after the close; does nothing on a holiday)
-    python -m trader.recorder 2026-11-13      (a past session: only options not yet expired are still served)
+    python -m trader.recorder 2026-11-12 2026-11-13   (past sessions: only options not yet expired are still served; a
+                                              day whose nearest expiry has expired keeps its raw file only)
     python -m trader.recorder --probe         (last session, NIFTY, a few strikes; prints counts and compares the
                                                index bars with ICICI's; writes nothing)
 Private repo only (PRIVATE_REPO_TOKEN); the log prints counts.
@@ -132,9 +133,19 @@ def _key(k: float) -> str:
     return str(int(k)) if float(k).is_integer() else str(k)
 
 
+def missed_expiry(index: str, day: str, first: str) -> str | None:
+    """A past day: IBKR lists only live expiries, so its first one may not have been that day's nearest. Returns an
+    expiry from the expiry records that fell between the day and IBKR's first, if any."""
+    recs = load("state/expiry_history/records.json") or {}
+    gone = sorted(k.split("_", 1)[1] for k in recs if k.startswith(index + "_") and day <= k.split("_", 1)[1] < first)
+    return gone[0] if gone else None
+
+
 def merge_week(body: dict) -> str:
     """Adds the day to the nearest expiry's week file (back-tests' format). Returns what happened."""
     index, day, exp = body["index"], body["day"], body["expiries"][0]
+    if (gone := missed_expiry(index, day, exp)):
+        return f"week file not changed: that day's nearest expiry was {gone} (expired, not served by IBKR)"
     path = f"{WEEKS}/{index}/{exp}.json.gz"
     e = load_gz(path) or {"days": [], "expiry": exp, "fields": ["day", "min", "open", "high", "low", "close", "volume",
                                                                     "oi"], "call": {}, "put": {}, "source": "IBKR"}
@@ -215,23 +226,24 @@ def main() -> int:
         if "--probe" in sys.argv:
             return probe(rec)
         now = datetime.now(IST)
-        d = args[0] if args else now.date().isoformat()
-        if not is_session(date.fromisoformat(d)):
-            print(f"{d}: not a trading day, nothing to record")
-            return 0
         if not args and (now.hour, now.minute) < (15, 35):
             print("the session is still open: run after 15:35 IST")
             return 1
-        bad = 0
-        for index in INDICES:
-            body = rec.day(index, d)
-            if not body:
-                bad += 1
+        bad = tried = 0
+        for d in args or [now.date().isoformat()]:
+            if not is_session(date.fromisoformat(d)):
+                print(f"{d}: not a trading day, nothing to record")
                 continue
-            size = save_gz(f"{RAW}/{index}/{d}.json.gz", body, f"IBKR day record: {index} {d}")
-            print(f"{index} {d}: day file {size // 1024} KB; {merge_week(body)}; {merge_index(body)}")
+            for index in INDICES:
+                tried += 1
+                body = rec.day(index, d)
+                if not body:
+                    bad += 1
+                    continue
+                size = save_gz(f"{RAW}/{index}/{d}.json.gz", body, f"IBKR day record: {index} {d}")
+                print(f"{index} {d}: day file {size // 1024} KB; {merge_week(body)}; {merge_index(body)}", flush=True)
         print(f"done: {rec.requests} IBKR requests")
-        return 1 if bad == len(INDICES) else 0
+        return 1 if tried and bad == tried else 0
     finally:
         rec.k.ib.disconnect()
 
