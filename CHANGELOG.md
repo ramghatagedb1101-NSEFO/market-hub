@@ -4,6 +4,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Back-tests: the reader can no longer hang (Sat 14 Nov 2026)
+- One "Read my back-test" sat on "Working…" for over three minutes (the page's call to Google never came back; a
+  retry right after answered in 20 s). The page now gives up after 90 s with "Google's AI did not answer in time.
+  Try again.", and the relay stops retrying Google after 60 s.
+
 ### Both directions: call on one signal, put on the other, in one strategy (Sat 14 Nov 2026)
 Owner: "the engine did not execute any put, why?" then "yes, build both directions". A strategy traded one option in one
 direction, so "call on Supertrend Buy, put on Sell" kept only the call side.

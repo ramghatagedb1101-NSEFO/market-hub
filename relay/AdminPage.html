@@ -2638,7 +2638,10 @@ function btAsk(){
   const el = $('bt-q'); BTQ.text = el ? el.value : BTQ.text;
   if (BTQ.text.trim().length < 8) { BTQ.err = 'Describe the back-test in a sentence or two.'; rerender(); return; }
   BTQ.busy = true; BTQ.err = ''; BTQ.parsed = null; rerender();
-  call('adminBtParse', token, BTQ.text).then(d => {
+  // 14 Nov 2026: one read sat on "Working…" for minutes (the page's call to Google never came back); give up after 90 s.
+  const late = new Promise(res => setTimeout(() => res({ error: "Google's AI did not answer in time. Try again." }), 90000));
+  Promise.race([call('adminBtParse', token, BTQ.text), late]).then(d => {
+    if (!BTQ.busy) return;
     BTQ.busy = false;
     if (d && d.error === 'no_key') { BTQ.key = false; BTQ.err = 'Paste your Gemini key first (below).'; }
     else if (d && d.error) BTQ.err = d.error;

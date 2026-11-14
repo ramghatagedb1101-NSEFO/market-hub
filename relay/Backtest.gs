@@ -91,7 +91,9 @@ function adminBtParse(token, text) {
   // times, 2 and 5 s apart, before giving up with a plain message.
   const tries = [];
   BT_MODELS.forEach(m => { tries.push([m, 0], [m, 2000], [m, 5000]); });
+  const t0 = Date.now();
   for (let i = 0; i < tries.length; i++) {
+    if (Date.now() - t0 > 60000) break;                // the page gives up at 90 s
     if (tries[i][1]) Utilities.sleep(tries[i][1]);
     const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + tries[i][0] + ':generateContent',
       { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key },
@@ -110,7 +112,7 @@ function adminBtParse(token, text) {
          : code === 429 || code >= 500 ? "Google's free AI is busy right now. Try again in a minute." : "Google's AI did not answer (" + code + '). Try again in a minute.';
     if (code === 400 || code === 403) break;
   }
-  return { error: last };
+  return { error: last || "Google's AI did not answer in time. Try again." };
 }
 
 /* ---- Back-tests on the trading machine (14 Nov 2026) ----------------------------------------------------------
