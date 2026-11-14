@@ -19,7 +19,7 @@ import time
 from datetime import date, timedelta
 
 from .breeze import Breeze
-from .breeze_history import _num, load_gz, save_gz
+from .breeze_history import DAILY, _num, allowance, load_gz, record_usage, save_gz
 from .expiry_history import load, save
 
 SPOT = {"NIFTY": ("NIFTY", "NSE"), "BANKNIFTY": ("CNXBAN", "NSE"), "SENSEX": ("BSESEN", "BSE")}
@@ -115,8 +115,15 @@ def run(b: Breeze | None, budget: int, stop_at: float):
 
 
 def main() -> int:
-    budget = int(os.getenv("BUDGET") or 4000)
-    b, failed = run(None, budget, time.time() + 60 * int(os.getenv("MAX_MINUTES") or 300))
+    budget = allowance(int(os.getenv("BUDGET") or DAILY))
+    if budget <= 0:
+        print("today's ICICI allowance is used up")
+        return 0
+    b = None
+    try:
+        b, failed = run(None, budget, time.time() + 60 * int(os.getenv("MAX_MINUTES") or 300))
+    finally:
+        record_usage(b.calls if b else 0)
     print(f"run done: {b.calls if b else 0} requests")
     if failed:
         print(f"::error title=ICICI index download::{failed[:200]} (work up to here is saved)")

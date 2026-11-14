@@ -18,7 +18,7 @@ on:
       budget:
         description: "most ICICI requests this run (breeze_history)"
         required: false
-        default: "4000"
+        default: "4900"
 
 permissions:
   contents: read
@@ -81,4 +81,4 @@ jobs:
           BREEZE_API_KEY: ${{ secrets.BREEZE_API_KEY }}
           BREEZE_API_SECRET: ${{ secrets.BREEZE_API_SECRET }}
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
-          BUDGET: ${{ inputs.budget || '4000' }}
+          BUDGET: ${{ inputs.budget || '4900' }}

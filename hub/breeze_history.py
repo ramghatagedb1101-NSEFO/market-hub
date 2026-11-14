@@ -35,6 +35,31 @@ FIELDS = ["day", "min", "open", "high", "low", "close", "volume", "oi"]
 DIR = "state/breeze/expiry_days"
 INDEX = f"{DIR}/_done.json"
 OPEN, CLOSE = "09:15", "15:30"
+# ICICI allows 5,000 requests a day per user (icicidirect.com Breeze FAQ). Runs share one daily allowance, counted in
+# the private repo, so the second run of a day uses only what the first left (14 Nov 2026: two 4,000-request runs a
+# day would have run into the limit).
+DAILY = 4900
+USAGE = "state/breeze/usage.json"
+
+
+def today_ist() -> str:
+    from datetime import datetime
+    from .config import IST
+    return datetime.now(IST).date().isoformat()
+
+
+def allowance(wanted: int) -> int:
+    used = (load(USAGE) or {}).get(today_ist(), 0)
+    left = max(DAILY - used, 0)
+    print(f"ICICI requests today so far {used}; {left} left of {DAILY}")
+    return min(wanted, left)
+
+
+def record_usage(calls: int) -> None:
+    if calls:
+        u = load(USAGE) or {}
+        u[today_ist()] = u.get(today_ist(), 0) + calls
+        save(USAGE, dict(sorted(u.items())[-30:]), f"ICICI requests: {u[today_ist()]} on {today_ist()}")
 
 
 def _num(x):
@@ -130,11 +155,25 @@ def load_gz(path: str):
 
 
 def main() -> int:
-    budget = int(os.getenv("BUDGET") or 4000)
+    budget = allowance(int(os.getenv("BUDGET") or DAILY))
     stop_at = time.time() + 60 * int(os.getenv("MAX_MINUTES") or 300)
+    if budget <= 0:
+        print("today's ICICI allowance is used up; the next day's run carries on")
+        return 0
+    try:
+        return _download(budget, stop_at)
+    finally:
+        record_usage(_B[0].calls if _B[0] else 0)
+
+
+_B = [None]                     # this run's ICICI connection, so its request count is recorded even on an error
+
+
+def _download(budget: int, stop_at: float) -> int:
     # Index minutes first (small: about 1,200 requests once, then ~10 a run), sharing this run's budget (14 Nov 2026).
     from .breeze_index import run as index_run
     b, failed = index_run(None, budget, stop_at)
+    _B[0] = b
     if failed:
         print(f"::error title=ICICI index download::{failed[:200]} (work up to here is saved)")
         return 1
@@ -145,6 +184,7 @@ def main() -> int:
     if not queue:
         return 0
     b = b or Breeze()
+    _B[0] = b
     for key, r, ch in queue:
         n = len(legs(ch))
         if b.calls + n > budget or time.time() > stop_at:

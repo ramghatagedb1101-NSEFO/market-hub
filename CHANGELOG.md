@@ -10,6 +10,12 @@ Owner asked where to get the NIFTY index minute by minute (only option candles a
   day before, two days a request (~400 requests per index once; the current month is refreshed each run). Saved to the
   private repo `state/breeze/index/<INDEX>/<YYYY-MM>.json.gz`; a month with any request error is fetched again.
 - The scheduled ICICI runs (16:00 / 21:00 IST) do the index first, inside the same request budget, then the expiries.
+- ICICI allows 5,000 requests a day per user (ICICI's Breeze FAQ). Two scheduled runs of 4,000 each could pass that, so
+  runs now share one daily allowance of 4,900, counted in the private repo (`state/breeze/usage.json`, IST days,
+  recorded even when a run fails). The second run of a day uses what the first left. Remaining work at that pace:
+  about 48,000 requests, so about 10 days of daily ICICI sign-ins.
+- Owner asked: open interest is in every option candle (checked: 60,444 of 60,445 candles for NIFTY 3 Nov 2026, changing
+  through the day).
 
 ### IBKR paper account connected (Sat 14 Nov 2026)
 - Owner typed the paper login on the machine. The gateway first restarted endlessly: it runs inside its container as
