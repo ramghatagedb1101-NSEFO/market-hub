@@ -92,6 +92,7 @@ function stratClean_(s) {
     // "Use for paper trading"; the sentence and the test period (months back, none = all data) travel with it.
     bt: s.bt === true, query: String(s.query || '').slice(0, 1500),
     months: s.months ? Math.round(stratNum_(s.months, 1, 60, 0)) || null : null,
+    from: /^\d{4}-\d{2}-\d{2}$/.test(s.from || '') ? s.from : null,
     updated: Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm")
   };
 }

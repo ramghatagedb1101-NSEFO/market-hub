@@ -2648,7 +2648,7 @@ function btAsk(){
 function btExample(i){ BTQ.text = BT_EXAMPLES[i][1]; BTQ.parsed = null; BTQ.err = ''; rerender(); const el = $('bt-q'); if (el) el.focus(); }
 function btStrategy(){
   const P = BTQ.parsed || {}, s = JSON.parse(JSON.stringify(P.strategy || {}));
-  s.bt = true; s.query = P.query || BTQ.text; s.months = P.period_months || null; s.expiry = 'nearest'; s.style = 'intraday';
+  s.bt = true; s.query = P.query || BTQ.text; s.months = P.period_months || null; s.from = P.from || null; s.expiry = 'nearest'; s.style = 'intraday';
   if (!Array.isArray(s.groups) || !s.groups.length || !s.groups.some(g => (g.signals || []).length)) s.groups = [{ match: 'all', signals: [{ type: 'weekday', days: [1, 2, 3, 4, 5] }] }];
   return s;
 }
@@ -2694,7 +2694,7 @@ function pageBacktests(){
     const card = (k, val) => '<div class="panel kpi" style="min-width:0"><div class="k">' + k + '</div><div style="font-size:13.5px;line-height:1.45;margin-top:4px">' + esc(val || '–') + '</div></div>';
     h += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>What I understood</h3><span class="muted" style="font-size:12px">' + esc((P.strategy || {}).name || '') + '</span></div><div class="panel-b">' +
       '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px">' +
-      card('Instrument', U.instrument) + card('Entry', U.entry) + card('Option', U.option) + card('Exit', U.exit) + card('Period', U.period || (P.period_months ? 'last ' + P.period_months + ' months' : 'all the data, Jan 2024 on')) + '</div>' +
+      card('Instrument', U.instrument) + card('Entry', U.entry) + card('Option', U.option) + card('Exit', U.exit) + card('Period', U.period || (P.from ? 'from ' + bDay(dayOf(P.from)) : P.period_months ? 'last ' + P.period_months + ' months' : 'all the data, Jan 2024 on')) + '</div>' +
       ((P.unsupported || []).length ? '<div class="notice" style="margin-bottom:10px"><b>Not tested:</b> ' + P.unsupported.map(esc).join(' · ') + '</div>' : '') +
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" ' + (BTQ.busy ? 'disabled' : '') + ' onclick="btRun()">Run back-test</button>' +
       '<button class="btn" type="button" onclick="btEdit()">Change details</button><button class="btn" type="button" onclick="BTQ.parsed=null;rerender()">Start again</button></div></div></div>';
@@ -2706,7 +2706,7 @@ function pageBacktests(){
     BT_EXAMPLES.map(([t, q], i) => '<div role="button" tabindex="0" onclick="btExample(' + i + ')" onkeydown="if(event.key===\'Enter\')btExample(' + i + ')" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"><b>' + esc(t) + '</b><div class="muted" style="font-size:12.5px">' + esc(q) + '</div></div>').join('') + '</div></div></div>';
   const mine = ((S.strat && S.strat.items) || []).filter(x => x.bt).reverse();
   if (mine.length) h += '<div class="panel"><div class="panel-h"><h3>Your back-tests</h3><span class="muted" style="font-size:12px">' + mine.length + '</span></div><table class="t"><thead><tr><th class="l">Back-test</th><th class="l">Asked</th><th></th></tr></thead><tbody>' +
-    mine.map(s => '<tr><td class="l"><b>' + esc(s.name) + '</b><div class="faint" style="font-size:11.5px">' + esc(stIdx(s.index)) + (s.months ? ' · last ' + s.months + ' months' : '') + '</div></td><td class="l muted" style="white-space:normal;font-size:12.5px;max-width:520px">' + esc(s.query || '') + '</td>' +
+    mine.map(s => '<tr><td class="l"><b>' + esc(s.name) + '</b><div class="faint" style="font-size:11.5px">' + esc(stIdx(s.index)) + (s.from ? ' · from ' + bDay(dayOf(s.from)) : s.months ? ' · last ' + s.months + ' months' : '') + '</div></td><td class="l muted" style="white-space:normal;font-size:12.5px;max-width:520px">' + esc(s.query || '') + '</td>' +
       '<td style="white-space:nowrap"><button class="btn sm" type="button" onclick="btShow(\'' + s.id + '\')">Results</button> <button class="btn sm" type="button" onclick="stBacktest(\'' + s.id + '\')">Run again</button> <button class="btn sm" type="button" onclick="btUse(\'' + s.id + '\')">Use for paper trading</button> <button class="btn sm" type="button" style="color:var(--down)" onclick="btDelete(\'' + s.id + '\')">Delete</button></td></tr>').join('') + '</tbody></table></div>';
   v.innerHTML = h;
 }

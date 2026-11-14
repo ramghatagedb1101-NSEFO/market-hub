@@ -68,6 +68,9 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
     if isinstance(months, (int, float)) and months > 0:
         cut = (date.today() - timedelta(days=int(months * 30.44))).isoformat()
         expiries = [e for e in expiries if e >= cut]
+    since = defn.get("from")                       # Back-tests page: "since Aug 2026" (14 Nov 2026)
+    if isinstance(since, str) and len(since) == 10:
+        expiries = [e for e in expiries if e >= since]
     recs = load("state/expiry_history/records.json") or {}
     minutes = IndexMinutes(idx)
     rows, sessions, skipped = [], [], 0
@@ -101,6 +104,7 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
                                         "from": min(sessions) if sessions else None,
                                         "to": max(sessions) if sessions else None, "skipped": skipped},
             "note": note, "months": months if isinstance(months, (int, float)) and months > 0 else None,
+            "from": since if isinstance(since, str) and len(since) == 10 else None,
             "query": defn.get("query") or None, "summary": summary}
 
 

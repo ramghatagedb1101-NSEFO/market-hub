@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Back-tests: "since Aug 2026" kept as a start date; the reader knows today's date (Sat 14 Nov 2026)
+Owner: "entry time and exit time is not as per supertrend buy or sell signal and I had specified the period only from
+Aug 2026, but you calculated for a much older period also".
+- Cause 1: Gemini did not know today's date and took "since Aug 2026" for the future, so the period was dropped and
+  the test ran on all the data from Jan 2024. The request now carries today's date (IST), and a start date is kept
+  (`from`, e.g. 2026-08-01) besides "last N months"; `trader/backtest.py` tests only expiries from that date.
+- Cause 2: the owner's first Supertrend back-test was read before Supertrend was a signal, so it had no Supertrend
+  condition and entered at the window's start each day: its trades did not follow Supertrend at all. Read again it
+  becomes "Supertrend (10, 3) gives a Buy on 5-minute bars" (the fix above).
+
 ### Back-tests: Results opens where you can see it; Supertrend as a signal (Sat 14 Nov 2026)
 Owner: "clicking results does not do anything" (on a Supertrend back-test).
 - Cause 1: Results did open, but at the top of the page while the owner was at the list below; the page now scrolls

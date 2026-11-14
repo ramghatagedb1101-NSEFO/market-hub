@@ -36,7 +36,7 @@ const BT_GUIDE = [
   'iron condor), next-week or monthly expiry (nearest only). Anything not available goes in "unsupported" in plain',
   'words (e.g. "VWAP is not available yet"); never invent a substitute. If the request needs several legs, keep the',
   'first leg only and say so in "unsupported".',
-  'Output: {"strategy": S, "period_months": N|null, "understood": {"instrument","entry","option","exit","period"},',
+  'Output: {"strategy": S, "period_months": N|null, "from": "YYYY-MM-DD"|null, "understood": {"instrument","entry","option","exit","period"},',
   ' "unsupported": [text]}. "understood" = one short plain-English line each, describing S exactly.',
   'S = {"name": short title, "index": "NIFTY"|"BANKNIFTY", "side": "BUY"|"SELL", "right": "C"|"P",',
   ' "strike": {"mode":"atm","steps":k} (k strikes out of the money, negative = in the money; "ATM+2 call" = steps 2,',
@@ -67,7 +67,9 @@ const BT_GUIDE = [
   '  OP = {"src": price|open|high|low|close|day_open|day_high|day_low|prev_close|prev_high|prev_low|orb_high|orb_low|',
   '   ema|sma|rsi|atr|adx|chg_prev|chg_open|opt_price|dte|value, "n": period (ema/sma/rsi/atr/adx/orb), "value": x}',
   'Gap down 1% = {"type":"change","from":"prev_close","op":"below","pct":-1}. "price closes above the day open" =',
-  ' compare close > day_open. "Last 6 months" = period_months 6; none given = null (all data).'
+  ' compare close > day_open. "Last 6 months" = period_months 6, from null. "Since Aug 2026" / "from 1 Aug 2026" =',
+  ' from "2026-08-01", period_months null. None given = both null (all data). A date before Jan 2024 or after today:',
+  ' say so in unsupported.'
 ].join('\n');
 
 /** Plain English -> strategy settings, through Gemini. */
@@ -77,7 +79,9 @@ function adminBtParse(token, text) {
   if (q.length < 8) return { error: 'Describe the back-test in a sentence or two.' };
   const key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
   if (!key) return { error: 'no_key' };
-  const body = { systemInstruction: { parts: [{ text: BT_GUIDE }] },
+  // 14 Nov 2026: Gemini did not know today's date and took "since Aug 2026" for the future (period dropped).
+  const today = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyyy-MM-dd (EEEE)');
+  const body = { systemInstruction: { parts: [{ text: 'Today is ' + today + ' (India). Data runs to yesterday.\n' + BT_GUIDE }] },
                  contents: [{ role: 'user', parts: [{ text: q }] }],
                  generationConfig: { responseMimeType: 'application/json', temperature: 0 } };
   let last = '';
