@@ -22,6 +22,14 @@ Owner: "where i should save the ICICI historic data for you?", then saved it to 
   several-day replay one bad Monday would have blocked the rest of the week. The guard now restarts each session
   (`trader/risk.py`): the day's loss counts from that morning. The live program was not affected (a fresh engine each
   day). Tests: 104 of 104 (new: a four-session expiry week).
+- Checked end to end on the real data: a NIFTY "first 15 minutes' high broken -> buy the at-the-money call" strategy
+  over all 698 sessions (1 Jan 2024 - 9 Nov 2026, 150 expiries, none skipped) in about 6 minutes: 676 trades on 416
+  days, never more than the 2 a day allowed, every weekday, exits by stop-loss 329, trailing stop 279, exit time 68.
+  It lost Rs 2.78 lakh after charges (2024 -0.49, 2025 -1.04, 2026 -1.26 lakh): the plain breakout call-buy does not
+  pay; the tooling works.
+- Downloads of stored files are retried (`load_gz`): one dropped connection had stopped a whole back-test.
+- The ICICI download now takes NIFTY / BANK NIFTY first and SENSEX last (owner: IBKR has no SENSEX F&O): the 26
+  NIFTY / BANK NIFTY expiries of Oct-Dec 2023 (2,212 requests) finish in one run, then SENSEX (147 expiries).
 
 ### Buy / Sell labels on the strategy chart: on by default for Supertrend (Sat 14 Nov 2026)
 Owner: "labels for buy and sell are not appearing". Cause: the labels worked, but each indicator's small "B/S" button was

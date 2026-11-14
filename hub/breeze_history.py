@@ -95,9 +95,11 @@ def legs(chain: list) -> list:
 
 
 def todo(recs: dict, done: dict) -> list:
-    """(key, record, day-before chain) for recorded expiries not yet downloaded, newest first."""
+    """(key, record, day-before chain) for recorded expiries not yet downloaded, newest first; SENSEX last (owner,
+    14 Nov 2026: IBKR has no SENSEX options, so the indexes the program can trade come first)."""
     chains, out = {}, []
-    for key, r in sorted(recs.items(), key=lambda kv: kv[1]["expiry"], reverse=True):
+    newest = sorted(recs.items(), key=lambda kv: kv[1]["expiry"], reverse=True)
+    for key, r in sorted(newest, key=lambda kv: kv[1].get("symbol") == "SENSEX"):      # stable: newest first in each
         if key in done or r.get("symbol") not in ICICI or not r.get("prev_day"):
             continue
         f = f"state/expiry_history/chains/{r['symbol']}_{r['expiry'][:4]}.json"
@@ -145,13 +147,22 @@ def save_gz(path: str, body: dict, message: str) -> int:
     return len(data)
 
 
-def load_gz(path: str):
+def load_gz(path: str, tries: int = 4):
+    """One stored file, or None if there is none. A broken or refused download is tried again (a back-test reads
+    ~150 of these; one dropped connection stopped a whole run on 14 Nov 2026)."""
     url, h = _gh(path)
-    r = requests.get(url, headers=dict(h, Accept="application/vnd.github.raw"), timeout=120)
-    if r.status_code == 404:
-        return None
-    r.raise_for_status()
-    return json.loads(gzip.decompress(r.content))
+    for n in range(tries):
+        try:
+            r = requests.get(url, headers=dict(h, Accept="application/vnd.github.raw"), timeout=120)
+            if r.status_code == 404:
+                return None
+            r.raise_for_status()
+            return json.loads(gzip.decompress(r.content))
+        except (requests.RequestException, OSError, EOFError) as e:
+            if n == tries - 1:
+                raise
+            print(f"download of {path.rsplit('/', 1)[-1]} failed ({type(e).__name__}); trying again")
+            time.sleep(5 * (n + 1))
 
 
 def main() -> int:
