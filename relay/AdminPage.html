@@ -282,6 +282,24 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
 .st-side ul{margin:6px 0 0;padding-left:18px}
 .st-warn{font-size:12.5px;color:var(--warn, #b54708);margin-top:8px}
 @media (max-width:1000px){ .st-form{grid-template-columns:1fr} .st-side{position:static} }
+
+/* Strategy form: sliders and the risk-style meter (14 Nov 2026) */
+.pr{display:grid;grid-template-columns:190px minmax(0,1fr);gap:6px 16px;align-items:start;padding:12px 0;border-bottom:1px solid var(--border-subtle)}
+.pr:last-child{border-bottom:0}
+.pr-l{font-size:13px;font-weight:600;padding-top:4px}
+.pr-h{font-size:11.5px;font-weight:400;color:var(--text-3);margin-top:2px}
+.sl-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sl-row input[type=range]{flex:1;min-width:140px;accent-color:var(--accent);height:20px;cursor:pointer}
+.sl-row.compact input[type=range]{flex:none;width:110px;min-width:0}
+.sl-row .sl-box{width:80px}
+.sl-row.compact .sl-box{width:64px}
+.sl-pre{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.sl-pre button{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:2px 10px;font-size:11.5px;color:var(--text-2);cursor:pointer}
+.sl-pre button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-text)}
+.risk-bar{position:relative;height:8px;border-radius:999px;background:linear-gradient(to right,var(--accent-soft) 0 35%,var(--warn-soft) 35% 65%,var(--neg-soft) 65% 100%);margin:10px 0 4px}
+.risk-bar i{position:absolute;top:-4px;width:4px;height:16px;border-radius:2px;background:var(--text);transform:translateX(-2px)}
+.risk-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--text-3)}
+@media (max-width:700px){ .pr{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -1716,7 +1734,7 @@ function stSide(){
   if (E.style === 'intraday' && X.exit_by <= E.window.from) warn.push('Exit time is before the entry window opens.');
   if (E.side === 'SELL' && !Number(X.sl)) warn.push('A sold option with no stop-loss has no limit on its loss.');
   if (E.expiry !== 'nearest') warn.push('Back-tests cover the nearest expiry only, for now.');
-  return '<div class="panel"><div class="panel-h"><h3>Summary</h3></div><div class="panel-b">' +
+  return '<div class="panel"><div class="panel-h"><h3>Summary</h3></div><div class="panel-b">' + stRiskBlock(E) +
     '<b>' + esc(E.name || 'Unnamed') + '</b><ul>' +
     '<li>' + esc(what) + '</li>' +
     '<li>Enters ' + E.window.from + '–' + E.window.until + (when ? ' when ' + esc(when) : '') + '.</li>' +
@@ -1798,6 +1816,222 @@ function stLine(s){
     ' · ' + s.expiry + ' expiry · ' + s.lots + ' lot' + (s.lots > 1 ? 's' : '') + ' · ' + (s.style === 'carry' ? 'carry' : 'intraday, out by ' + e.exit_by) +
     ' · stop ' + (e.sl ? u(e.sl_type, e.sl) : 'none') + (e.target ? ' · target ' + u(e.target_type, e.target) : '') + (e.trail ? ' · trail ' + u(e.trail_type, e.trail) + ' after ' + u(e.trail_after_type, e.trail_after) : '');
 }
+// ---- Sliders and the risk style (owner, 14 Nov 2026: "a dragging bar where I can just drag it based on preset numbers,
+// or even type my own"; "mimic ... whether this is a defensive or aggressive or balanced type of selection").
+// Each number: a slider over a sensible range, the preset values as one-tap chips, and a box to type any value (also
+// outside the slider's range). [min, max, step, presets] by field and unit.
+const ST_RANGE = {
+  sl: { pct: [0, 60, 1, [0, 15, 20, 25, 30, 40]], points: [0, 200, 5, [0, 10, 20, 30, 50, 100]] },
+  target: { pct: [0, 200, 5, [0, 25, 50, 75, 100]], points: [0, 300, 5, [0, 20, 40, 60, 100]] },
+  trail_after: { pct: [0, 100, 1, [10, 20, 30, 50]], points: [0, 200, 5, [10, 20, 30, 50]] },
+  trail: { pct: [0, 40, 1, [0, 5, 10, 15, 20]], points: [0, 100, 1, [0, 5, 10, 20, 30]] },
+  lots: [1, 10, 1, [1, 2, 3, 5]], steps: [-5, 10, 1, [-2, 0, 1, 2, 3, 5]], near: [10, 500, 5, [30, 50, 100, 150, 200]],
+  max_trades_day: [1, 10, 1, [1, 2, 3, 5]], max_loss_day: [0, 50000, 500, [2000, 5000, 10000, 20000]],
+  reentry_gap: [0, 120, 5, [0, 15, 30, 60]],
+  period: [2, 200, 1, [9, 14, 20, 50, 100, 200]], level: [5, 95, 1, [30, 50, 70]], minutes: [5, 90, 5, [5, 15, 30, 60]],
+  pct: [-3, 3, 0.1, [-1, -0.5, 0.5, 1]], days: [0, 10, 1, [0, 1, 2, 5]]
+};
+function stSlider(path, v, r, unit, compact){
+  const [mn, mx, step, pre] = r, val = Number(v) || 0, pos = Math.min(Math.max(val, mn), mx);
+  const id = 'dl' + path.replace(/\W/g, '_');
+  return '<div class="sl-row' + (compact ? ' compact' : '') + '"><input type="range" min="' + mn + '" max="' + mx + '" step="' + step + '" value="' + pos + '" list="' + id + '" data-p="' + path + '" oninput="stSl(this)" aria-label="' + esc(path) + '">' +
+    '<datalist id="' + id + '">' + pre.map(x => '<option value="' + x + '">').join('') + '</datalist>' +
+    '<input class="field num sl-box" inputmode="decimal" value="' + esc(v) + '" data-p="' + path + '" oninput="stSlBox(this)">' + (unit ? '<span class="muted" style="font-size:12px">' + unit + '</span>' : '') + '</div>' +
+    (compact ? '' : '<div class="sl-pre">' + pre.map(x => '<button type="button" class="' + (Number(x) === val ? 'on' : '') + '" onclick="stSet(\'' + path + '\', ' + x + ', true)">' + x + '</button>').join('') + '</div>');
+}
+function stSl(el){ stNum(el.dataset.p, el.value); const b = el.parentNode.querySelector('.sl-box'); if (b) b.value = el.value; stPreOn(el); }
+function stSlBox(el){ stNum(el.dataset.p, el.value); const r = el.parentNode.querySelector('input[type=range]'); if (r && el.value !== '' && isFinite(Number(el.value))) r.value = el.value; stPreOn(el); }
+function stPreOn(el){ const pre = el.parentNode.nextElementSibling; if (!pre || !pre.classList.contains('sl-pre')) return; const v = Number(el.value); pre.querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.textContent) === v)); }
+// Risk style: a plain points score, starting at 40 (an at-the-money buy, 25% stop, intraday, 1 lot = Balanced).
+// Under 35 Defensive, 65 and over Aggressive. Each setting that moves it is listed, largest first.
+function stRisk(E){
+  const X = E.exits || {}, out = [];
+  const add = (pts, why) => { if (pts) out.push([pts, why]); };
+  const ref = E.strike && E.strike.mode === 'premium' ? Number(E.strike.near) || 100 : 100;
+  const slp = Number(X.sl) ? (X.sl_type === 'points' ? Number(X.sl) / ref * 100 : Number(X.sl)) : 0;
+  if (!Number(X.sl)) add(30, 'No stop-loss');
+  else if (slp <= 15) add(-8, 'Tight stop-loss (' + Math.round(slp) + '%)');
+  else if (slp > 50) add(18, 'Very wide stop-loss (' + Math.round(slp) + '%)');
+  else if (slp > 30) add(10, 'Wide stop-loss (' + Math.round(slp) + '%)');
+  if (Number(X.trail)) add(-5, 'Trailing stop locks in gains');
+  if (E.side === 'SELL') add(20, 'Selling options: a loss can exceed the premium');
+  if (E.strike && E.strike.mode === 'atm') { const n = Number(E.strike.steps) || 0; if (E.side === 'BUY' && n >= 3) add(8, 'Far out-of-the-money buy'); if (n < 0) add(-4, 'In the money'); }
+  if (E.strike && E.strike.mode === 'premium' && E.side === 'BUY' && Number(E.strike.near) <= 30) add(8, 'Cheap far options');
+  if (E.expiry === 'nearest') add(5, 'Nearest expiry: fastest swings');
+  if (E.expiry === 'monthly') add(-5, 'Monthly expiry: slower');
+  if (E.style === 'carry') add(12, 'Held overnight');
+  const lots = Number(E.lots) || 1; if (lots > 1) add(Math.min(24, 6 * (lots - 1)), lots + ' lots an order');
+  const mt = Number(E.max_trades_day) || 1; if (mt >= 7) add(12, 'Up to ' + mt + ' trades a day'); else if (mt >= 4) add(6, 'Up to ' + mt + ' trades a day');
+  const ml = Number(E.max_loss_day) || 0;
+  if (!ml) add(10, "No day's loss cap"); else if (ml >= 15000) add(10, "Day's loss cap ₹" + num(ml, 0)); else if (ml <= 3000) add(-6, "Small day's loss cap ₹" + num(ml, 0));
+  const score = Math.max(0, Math.min(100, 40 + out.reduce((a, x) => a + x[0], 0)));
+  return { score, label: score < 35 ? 'Defensive' : score < 65 ? 'Balanced' : 'Aggressive', cls: score < 35 ? 'brand' : score < 65 ? 'warn' : 'down',
+           reasons: out.sort((a, b) => Math.abs(b[0]) - Math.abs(a[0])) };
+}
+function stRiskBlock(E){
+  const r = stRisk(E);
+  return '<div style="margin:2px 0 12px"><div style="display:flex;justify-content:space-between;align-items:center"><span class="muted" style="font-size:12px">Risk style</span><span class="chip ' + r.cls + '" style="font-weight:600">' + r.label + '</span></div>' +
+    '<div class="risk-bar" role="img" aria-label="Risk style ' + r.label + ', ' + r.score + ' of 100"><i style="left:' + r.score + '%"></i></div><div class="risk-scale"><span>Defensive</span><span>Balanced</span><span>Aggressive</span></div>' +
+    (r.reasons.length ? '<ul style="margin:8px 0 0;padding-left:18px;font-size:12px">' + r.reasons.slice(0, 4).map(([pt, w]) => '<li>' + (pt > 0 ? '▲ ' : '▼ ') + esc(w) + '</li>').join('') + '</ul>' : '') + '</div>';
+}
+// ---- Strategy builder chart (owner, 14 Nov 2026: "a chart should appear there with various option to mark DMA, or
+// other parameters"). The strategy's index from the ICICI history: daily bars with DMA 20 / 50 / 100 / 200, or one
+// day's 1 / 5 / 15-minute bars with EMA / SMA, yesterday's high and low, the opening range, RSI below, the
+// strategy's own lines (its averages, ranges and levels, worked out from its signals) and its last back-test's
+// entries and exits. Line colours: the validated categorical order (dataviz validator, 14 Nov 2026), fixed per line
+// (never cycled); each line is named on the price scale (light-mode contrast needs the names).
+const STC = { view: 'daily', day: null, dma: { 20: true, 50: true, 100: false, 200: true }, ema: 20, emaOn: false, sma: 50, smaOn: false,
+              prev: true, orb: 15, orbOn: false, rsi: false, strat: true, trades: true };
+const STD = { daily: {}, month: {}, bt: {} };
+function stcPal(){
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+    (document.documentElement.getAttribute('data-theme') !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  return dark ? { blue: '#3987e5', yellow: '#c98500', magenta: '#d55181', violet: '#9085e9', aqua: '#199e70' }
+              : { blue: '#2a78d6', yellow: '#eda100', magenta: '#e87ba4', violet: '#6250d6', aqua: '#1baf7a' };
+}
+function stcSet(k, v){ STC[k] = v; rerender(); }
+function stcDma(n){ STC.dma[n] = !STC.dma[n]; rerender(); }
+function stcLoad(idx, month){
+  const key = month ? idx + '|' + month : idx;
+  const box = month ? STD.month : STD.daily;
+  if (box[key]) return box[key];
+  box[key] = { loading: true };
+  call('adminIndexChart', token, idx, month || '').then(async d => { box[key] = month && d.gz ? (await unpack(d)) : d; rerender(); })
+    .catch(e => { box[key] = { error: e.message }; rerender(); });
+  return box[key];
+}
+function stcBt(id){
+  if (!id || STD.bt[id]) return STD.bt[id];
+  STD.bt[id] = { loading: true };
+  call('adminBacktestResult', token, id).then(d => { STD.bt[id] = d; rerender(); }).catch(e => { STD.bt[id] = { error: e.message }; });
+  return STD.bt[id];
+}
+function stcPanel(E){
+  const idx = E.index || 'NIFTY', D = stcLoad(idx);
+  const days = (D && D.days) || [];
+  if (STC.view !== 'daily' && !STC.day && days.length) STC.day = days[days.length - 1][0];
+  const bt = E.id ? stcBt(E.id) : null, tdays = new Set(((bt && bt.summary && bt.summary.trades) || []).map(t => String(t.entry_t).slice(0, 10)));
+  const chip = (on, label, click) => '<button type="button" class="chip' + (on ? ' brand' : '') + '" style="cursor:pointer;border:0" onclick="' + click + '">' + (on ? '✓ ' : '') + label + '</button>';
+  const seg = (k, v, opts) => '<div class="seg">' + opts.map(([x, l]) => '<button type="button" class="' + (String(v) === String(x) ? 'on' : '') + '" onclick="stcSet(\'' + k + '\', ' + JSON.stringify(x).replace(/"/g, '&quot;') + ')">' + l + '</button>').join('') + '</div>';
+  const numBox = (k, w) => '<input class="field num" style="width:' + (w || 52) + 'px;height:26px" value="' + STC[k] + '" onchange="stcSet(\'' + k + '\', Math.max(1, Math.round(Number(this.value) || 1)))">';
+  let ctl = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">' + seg('view', STC.view, [['daily', 'Daily'], [15, '15 min'], [5, '5 min'], [1, '1 min']]);
+  if (STC.view !== 'daily' && days.length) {
+    const i = Math.max(0, days.findIndex(d => d[0] === STC.day));
+    ctl += '<div style="display:flex;gap:4px;align-items:center"><button class="btn sm" type="button" ' + (i > 0 ? 'onclick="stcSet(\'day\', \'' + days[i - 1][0] + '\')"' : 'disabled') + '>‹</button>' +
+      '<select class="field" style="width:auto" onchange="stcSet(\'day\', this.value)">' + days.slice().reverse().map(d => '<option value="' + d[0] + '"' + (d[0] === STC.day ? ' selected' : '') + '>' + bDay(dayOf(d[0])) + (tdays.has(d[0]) ? ' · back-test trade' : '') + '</option>').join('') + '</select>' +
+      '<button class="btn sm" type="button" ' + (i < days.length - 1 ? 'onclick="stcSet(\'day\', \'' + days[i + 1][0] + '\')"' : 'disabled') + '>›</button></div>';
+  }
+  ctl += '</div><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><span class="muted" style="font-size:12px">Show</span>';
+  if (STC.view === 'daily') ctl += [20, 50, 100, 200].map(n => chip(STC.dma[n], 'DMA ' + n, 'stcDma(' + n + ')')).join('');
+  else ctl += chip(STC.emaOn, 'EMA', 'stcSet(\'emaOn\', ' + !STC.emaOn + ')') + numBox('ema') + chip(STC.smaOn, 'SMA', 'stcSet(\'smaOn\', ' + !STC.smaOn + ')') + numBox('sma') +
+    chip(STC.prev, "Yesterday's high / low", 'stcSet(\'prev\', ' + !STC.prev + ')') + chip(STC.orbOn, 'Opening range', 'stcSet(\'orbOn\', ' + !STC.orbOn + ')') + numBox('orb', 46) + '<span class="muted" style="font-size:12px">min</span>' +
+    chip(STC.strat, "This strategy's lines", 'stcSet(\'strat\', ' + !STC.strat + ')') + (E.id ? chip(STC.trades, 'Back-test trades', 'stcSet(\'trades\', ' + !STC.trades + ')') : '');
+  ctl += chip(STC.rsi, 'RSI 14', 'stcSet(\'rsi\', ' + !STC.rsi + ')') + '</div>';
+  const note = !D || D.loading ? 'Loading index prices…' : D.error ? D.error : '';
+  return '<div class="panel" style="margin-bottom:12px"><div class="panel-h"><h3>Chart · ' + esc(idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + '</h3><span class="muted" style="font-size:12px">ICICI minute history' + (days.length ? ' · ' + bDay(dayOf(days[0][0])) + ' to ' + bDay(dayOf(days[days.length - 1][0])) : '') + '</span></div><div class="panel-b">' +
+    ctl + (note ? '<div class="muted">' + esc(note) + '</div>' : '') + '<div id="st-chart" style="height:' + (STC.rsi ? 420 : 340) + 'px;position:relative"></div><div id="st-chart-legend" class="muted" style="font-size:12px;margin-top:6px"></div></div></div>';
+}
+function stcBars(dayRows, day, tf){
+  const [y, m, d] = day.split('-').map(Number), out = [];
+  let cur = null;
+  dayRows.forEach(([mn, o, h, l, c]) => {
+    if (c == null) return;
+    const b = Math.floor(mn / tf) * tf, t = Date.UTC(y, m - 1, d, 9, 15 + b) / 1000;   // IST clock shown as is
+    if (!cur || cur.time !== t) { cur = { time: t, open: o, high: h, low: l, close: c }; out.push(cur); }
+    else { cur.high = Math.max(cur.high, h); cur.low = Math.min(cur.low, l); cur.close = c; }
+  });
+  return out;
+}
+function stcDraw(){
+  const el = $('st-chart'), E = ST_EDIT;
+  if (!el || !E || typeof LightweightCharts === 'undefined') return;
+  const idx = E.index || 'NIFTY', D = STD.daily[idx];
+  if (!D || !D.days || !D.days.length) return;
+  const P = stcPal(), text = cssVar('--text-3'), grid = cssVar('--border-subtle'), up = cssVar('--up'), down = cssVar('--down'), muted = cssVar('--text-4') || text;
+  const daily = STC.view === 'daily', legend = [];
+  let bars = [], prevDay = null;
+  if (daily) bars = D.days.map(r => ({ time: r[0], open: r[1], high: r[2], low: r[3], close: r[4] }));
+  else {
+    const day = STC.day || D.days[D.days.length - 1][0], mo = stcLoad(idx, day.slice(0, 7));
+    if (!mo || mo.loading || mo.error) { if (mo && mo.error) el.innerHTML = '<div class="muted">' + esc(mo.error) + '</div>'; return; }
+    const di = D.days.findIndex(r => r[0] === day);
+    prevDay = di > 0 ? D.days[di - 1] : null;
+    let warm = [];                                   // the session before, so averages and RSI start with history
+    if (prevDay) {
+      const pm = prevDay[0].slice(0, 7) === day.slice(0, 7) ? mo : stcLoad(idx, prevDay[0].slice(0, 7));
+      if (pm && pm.days && pm.days[prevDay[0]]) warm = stcBars(pm.days[prevDay[0]], prevDay[0], STC.view);
+    }
+    bars = warm.concat(stcBars((mo.days || {})[day] || [], day, STC.view));
+    bars.warmN = warm.length;
+  }
+  if (!bars.length) { el.innerHTML = '<div class="muted">No prices for that day.</div>'; return; }
+  const chart = LightweightCharts.createChart(el, { autoSize: true,
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: text, fontFamily: cssVar('--font'), attributionLogo: false },
+    grid: { vertLines: { color: grid }, horzLines: { color: grid } }, rightPriceScale: { borderVisible: false },
+    timeScale: { borderVisible: false, timeVisible: !daily, secondsVisible: false }, crosshair: { mode: 0 } });
+  lwcCharts.push(chart);
+  const main = chart.addCandlestickSeries({ upColor: up, downColor: down, borderVisible: false, wickUpColor: up, wickDownColor: down });
+  main.setData(bars.map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
+  const closes = bars.map(b => b.close);
+  const line = (vals, color, title, dashed) => {
+    const pts = bars.map((b, i) => ({ time: b.time, value: vals[i] })).filter(p => p.value != null && isFinite(p.value));
+    if (pts.length) chart.addLineSeries({ color, lineWidth: 2, lineStyle: dashed ? 2 : 0, title, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }).setData(pts);
+    legend.push([color, title]);
+  };
+  const level = (price, color, title) => { if (price != null && isFinite(price)) { main.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title }); legend.push([color, title]); } };
+  if (daily) {
+    [[20, P.blue], [50, P.yellow], [100, P.magenta], [200, P.violet]].forEach(([n, c]) => { if (STC.dma[n]) line(sma(closes, n), c, 'DMA ' + n); });
+  } else {
+    if (STC.emaOn) line(ema(closes, STC.ema), P.blue, 'EMA ' + STC.ema);
+    if (STC.smaOn) line(sma(closes, STC.sma), P.yellow, 'SMA ' + STC.sma);
+    if (STC.prev && prevDay) { level(prevDay[2], muted, "Yesterday's high"); level(prevDay[3], muted, "Yesterday's low"); }
+    const today = bars.slice(bars.warmN || 0), t0 = today.length ? today[0].time : null;
+    const orb = m => { const r = today.filter(b => b.time < t0 + m * 60); return r.length ? [Math.max(...r.map(b => b.high)), Math.min(...r.map(b => b.low))] : null; };
+    if (STC.orbOn && today.length) { const r = orb(STC.orb); if (r) { level(r[0], P.aqua, 'Opening ' + STC.orb + ' min high'); level(r[1], P.aqua, 'Opening ' + STC.orb + ' min low'); } }
+    if (STC.strat) {
+      // the strategy's own lines, from its signals (worked out on this chart's bars)
+      const seen = new Set(), sl = [P.magenta, P.violet];
+      const avg = (kind, n) => { const k = kind + n; if (seen.has(k) || seen.size >= 2) return; const c = sl[seen.size]; seen.add(k); line((kind === 'sma' ? sma : ema)(closes, n), c, 'Strategy ' + kind.toUpperCase() + ' ' + n); };
+      (E.groups || []).forEach(g => g.signals.forEach(s => {
+        if (s.type === 'price_ma') avg(s.ma || 'ema', s.period);
+        if (s.type === 'ma_cross') { avg(s.ma || 'ema', s.fast); avg(s.ma || 'ema', s.slow); }
+        if (s.type === 'orb' && today.length) { const r = orb(s.minutes || 15); if (r) level(s.dir === 'down' ? r[1] : r[0], P.aqua, 'Strategy opening ' + (s.minutes || 15) + ' min ' + (s.dir === 'down' ? 'low' : 'high')); }
+        if (s.type === 'compare') [s.left, s.right].forEach(o => { if (!o) return;
+          if (o.src === 'ema' || o.src === 'sma') avg(o.src, o.n || 14);
+          if ((o.src === 'prev_high' || o.src === 'prev_low') && prevDay && !STC.prev) level(o.src === 'prev_high' ? prevDay[2] : prevDay[3], muted, o.src === 'prev_high' ? "Yesterday's high" : "Yesterday's low");
+          if ((o.src === 'orb_high' || o.src === 'orb_low') && today.length) { const r = orb(o.n || 15); if (r) level(o.src === 'orb_high' ? r[0] : r[1], P.aqua, 'Strategy opening ' + (o.n || 15) + ' min ' + (o.src === 'orb_high' ? 'high' : 'low')); }
+          if (o.src === 'value' && Math.abs(Number(o.value)) > 1000) level(Number(o.value), muted, 'Strategy level ' + num(Number(o.value), 0)); });
+      }));
+    }
+    const bt = E.id && STD.bt[E.id];
+    if (STC.trades && bt && bt.summary && t0 != null) {
+      const day = STC.day, toT = s => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], Math.floor(+m[5] / STC.view) * STC.view) / 1000 : null; };
+      const mk = [];
+      (bt.summary.trades || []).filter(t => String(t.entry_t).slice(0, 10) === day || String(t.exit_t).slice(0, 10) === day).forEach(t => {
+        const a = toT(t.entry_t), z = toT(t.exit_t);
+        if (String(t.entry_t).slice(0, 10) === day && a) mk.push({ time: a, position: 'belowBar', color: P.blue, shape: 'arrowUp', text: (t.dir === 'long' ? 'Buy ' : 'Sell ') + num(t.entry, 2) });
+        if (String(t.exit_t).slice(0, 10) === day && z) mk.push({ time: z, position: 'aboveBar', color: t.pnl >= 0 ? up : down, shape: 'arrowDown', text: t.why + ' ' + (t.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(t.pnl), 0) });
+      });
+      if (mk.length) { main.setMarkers(mk.sort((x, y) => x.time - y.time)); legend.push([P.blue, 'Back-test trades: ' + mk.length / 2 + ' that day']); }
+    }
+  }
+  if (STC.rsi) {
+    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.06, bottom: 0.3 } });
+    const r = rsi(closes, 14), rs = chart.addLineSeries({ priceScaleId: 'ind', color: P.violet, lineWidth: 1.5, title: 'RSI 14', priceLineVisible: false });
+    chart.priceScale('ind').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
+    rs.setData(bars.map((b, i) => ({ time: b.time, value: r[i] })).filter(p => p.value != null));
+    rs.createPriceLine({ price: 70, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '70' });
+    rs.createPriceLine({ price: 30, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '30' });
+    legend.push([P.violet, 'RSI 14 (lower panel)']);
+  }
+  const n = bars.length;
+  if (daily) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 260), to: n + 2 });
+  else chart.timeScale().setVisibleLogicalRange({ from: bars.warmN || 0, to: n + 1 });
+  const lg = $('st-chart-legend');
+  if (lg) { lg.textContent = ''; legend.forEach(([c, t]) => { const s = document.createElement('span'); s.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-right:14px';
+    const k = document.createElement('span'); k.style.cssText = 'width:14px;height:2px;background:' + c; s.append(k, document.createTextNode(t)); lg.append(s); }); }
+}
+
 function stForm(){
   const E = ST_EDIT, X = E.exits;
   const lbl = t => '<div class="muted" style="font-size:12px;font-weight:500;margin:10px 0 4px">' + t + '</div>';
@@ -1809,27 +2043,29 @@ function stForm(){
   const row = (...xs) => '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + xs.join('') + '</div>';
   const sec = (t, body) => '<div class="panel" style="margin-bottom:12px"><div class="panel-h"><h3>' + t + '</h3></div><div class="panel-b">' + body + '</div></div>';
   let h = sec('Strategy', lbl('Name') + '<input class="field" value="' + esc(E.name) + '" oninput="stSet(\'name\', this.value)">' + lbl('Notes (when to use it)') + '<input class="field" placeholder="e.g. trending mornings" value="' + esc(E.notes || '') + '" oninput="stSet(\'notes\', this.value)">');
+  const pr = (label, hint, ctl) => '<div class="pr"><div class="pr-l">' + label + (hint ? '<div class="pr-h">' + hint + '</div>' : '') + '</div><div>' + ctl + '</div></div>';
   h += sec('What to trade',
-    row(sel('index', E.index, [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']]), seg('side', E.side, [['BUY', 'Buy'], ['SELL', 'Sell']]), seg('right', E.right, [['C', 'Call (CE)'], ['P', 'Put (PE)']])) +
-    lbl('Strike') + row(seg('strike.mode', E.strike.mode, [['atm', 'From the money'], ['premium', 'By price']]),
-      E.strike.mode === 'premium' ? 'price nearest ₹ ' + numIn('strike.near', E.strike.near) : numIn('strike.steps', E.strike.steps || 0, 70) + '<span class="muted" style="font-size:12px">strikes out of the money (0 = at the money, negative = in the money)</span>') +
-    lbl('Expiry and size') + row(sel('expiry', E.expiry, [['nearest', 'Nearest expiry'], ['next', 'Next expiry'], ['monthly', 'Monthly expiry']]), numIn('lots', E.lots, 70), '<span class="muted" style="font-size:12px">lots</span>'));
+    pr('Option', '', row(sel('index', E.index, [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']]), seg('side', E.side, [['BUY', 'Buy'], ['SELL', 'Sell']]), seg('right', E.right, [['C', 'Call (CE)'], ['P', 'Put (PE)']]), sel('expiry', E.expiry, [['nearest', 'Nearest expiry'], ['next', 'Next expiry'], ['monthly', 'Monthly expiry']]))) +
+    pr('Strike', E.strike.mode === 'premium' ? 'the strike whose price is nearest' : 'strikes out of the money · 0 = at the money · minus = in the money',
+      seg('strike.mode', E.strike.mode, [['atm', 'From the money'], ['premium', 'By price']]) + '<div style="margin-top:8px">' +
+      (E.strike.mode === 'premium' ? stSlider('strike.near', E.strike.near, ST_RANGE.near, '₹') : stSlider('strike.steps', E.strike.steps || 0, ST_RANGE.steps, 'strikes')) + '</div>') +
+    pr('Lots', 'per order; the safety limit still applies', stSlider('lots', E.lots, ST_RANGE.lots, 'lots')));
   const tfSel = p => sel(p + 'tf', String((ST_EDIT_GET(p + 'tf')) || 5), [[1, '1'], [3, '3'], [5, '5'], [15, '15']]);
   const opIn = (p, o) => {
     const opts = ST_OPS.map(([g, xs]) => '<optgroup label="' + g + '">' + xs.map(([k, l]) => '<option value="' + k + '"' + (k === o.src ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</optgroup>').join('');
     return '<select class="field" style="width:auto" onchange="stOperand(\'' + p + '\', this.value)">' + opts + '</select>' +
-      (o.src === 'value' ? numIn(p + 'value', o.value == null ? 0 : o.value, 80) : ST_HASN[o.src] ? numIn(p + 'n', o.n || (o.src.indexOf('orb') === 0 ? 15 : 14), 56) + '<span class="muted" style="font-size:12px">' + (ST_HASN[o.src] === 'minutes' ? 'min' : '') + '</span>' : '');
+      (o.src === 'value' ? numIn(p + 'value', o.value == null ? 0 : o.value, 80) : ST_HASN[o.src] ? stSlider(p + 'n', o.n || (o.src.indexOf('orb') === 0 ? 15 : 14), ST_HASN[o.src] === 'minutes' ? ST_RANGE.minutes : ST_RANGE.period, ST_HASN[o.src] === 'minutes' ? 'min' : '', true) : '');
   };
   const sigRow = (g, gi, i) => {
     const p = 'groups.' + gi + '.signals.' + i + '.';
     let f = '';
     if (g.type === 'compare') f = opIn(p + 'left.', g.left || { src: 'price' }) + sel(p + 'op', g.op, [['>', 'above'], ['<', 'below'], ['>=', 'at or above'], ['<=', 'at or below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + opIn(p + 'right.', g.right || { src: 'value', value: 0 }) + 'on ' + tfSel(p) + '-min bars';
-    else if (g.type === 'price_ma') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + ' its ' + sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + numIn(p + 'period', g.period, 60) + ' on ' + tfSel(p) + '-min bars';
-    else if (g.type === 'ma_cross') f = sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + numIn(p + 'fast', g.fast, 60) + ' crosses ' + sel(p + 'dir', g.dir, [['up', 'above'], ['down', 'below']]) + numIn(p + 'slow', g.slow, 60) + ' on ' + tfSel(p) + '-min bars';
-    else if (g.type === 'rsi') f = 'RSI' + numIn(p + 'period', g.period, 60) + ' on ' + tfSel(p) + '-min bars ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + numIn(p + 'level', g.level, 60);
-    else if (g.type === 'orb') f = 'Index breaks the first' + numIn(p + 'minutes', g.minutes, 60) + 'minutes\' ' + sel(p + 'dir', g.dir, [['up', 'high'], ['down', 'low']]);
-    else if (g.type === 'change') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + numIn(p + 'pct', g.pct, 70) + '% from ' + sel(p + 'from', g.from, [['prev_close', "yesterday's close"], ['open', "today's open"]]);
-    else if (g.type === 'dte') f = sel(p + 'op', g.op, [['<=', 'At most'], ['>=', 'At least']]) + numIn(p + 'days', g.days, 60) + 'days to expiry';
+    else if (g.type === 'price_ma') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + ' its ' + sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
+    else if (g.type === 'ma_cross') f = sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'fast', g.fast, ST_RANGE.period, '', true) + ' crosses ' + sel(p + 'dir', g.dir, [['up', 'above'], ['down', 'below']]) + stSlider(p + 'slow', g.slow, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
+    else if (g.type === 'rsi') f = 'RSI' + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + stSlider(p + 'level', g.level, ST_RANGE.level, '', true);
+    else if (g.type === 'orb') f = 'Index breaks the first' + stSlider(p + 'minutes', g.minutes, ST_RANGE.minutes, 'min', true) + 'minutes\' ' + sel(p + 'dir', g.dir, [['up', 'high'], ['down', 'low']]);
+    else if (g.type === 'change') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + stSlider(p + 'pct', g.pct, ST_RANGE.pct, '%', true) + '% from ' + sel(p + 'from', g.from, [['prev_close', "yesterday's close"], ['open', "today's open"]]);
+    else if (g.type === 'dte') f = sel(p + 'op', g.op, [['<=', 'At most'], ['>=', 'At least']]) + stSlider(p + 'days', g.days, ST_RANGE.days, '', true) + 'days to expiry';
     else if (g.type === 'weekday') f = 'On ' + [1, 2, 3, 4, 5].map(d => '<label style="margin-right:8px;font-size:13px"><input type="checkbox"' + ((g.days || []).indexOf(d) >= 0 ? ' checked' : '') + ' onchange="stDay(' + gi + ',' + i + ',' + d + ',this.checked)"> ' + DOW3[d] + '</label>').join('');
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle)">' + row(f) +
       '<button class="btn sm" type="button" title="Remove this signal" onclick="ST_EDIT.groups[' + gi + '].signals.splice(' + i + ',1);rerender()">×</button></div>';
@@ -1843,18 +2079,25 @@ function stForm(){
     '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' + row('<b>Group ' + (gi + 1) + '</b>', 'true when', seg('groups.' + gi + '.match', g.match, [['all', 'all'], ['any', 'any']]), 'of its signals are true') +
     (E.groups.length > 1 ? '<button class="btn sm" type="button" title="Remove this group" onclick="ST_EDIT.groups.splice(' + gi + ',1);rerender()">Remove group</button>' : '') + '</div>' +
     (g.signals.map((x, i) => sigRow(x, gi, i)).join('') || '<div class="muted" style="margin-top:8px">No signals in this group yet.</div>') + addSel(gi) + '</div>').join('');
+  h += stcPanel(E);
   h += sec('When to enter',
     row('Between', timeIn('window.from', E.window.from), 'and', timeIn('window.until', E.window.until), (E.groups.length > 1 ? ', when ' + seg('groups_match', E.groups_match || 'any', [['any', 'any'], ['all', 'all']]) + ' of these groups are true:' : ', when:')) +
     groups + '<button class="btn sm" type="button" style="margin-top:10px" onclick="ST_EDIT.groups.push({match:\'all\',signals:[]});ST_EDIT.groups_match=ST_EDIT.groups_match||\'any\';rerender()">+ Add a group (an "or" choice)</button>');
+  const rng = (k, t) => ST_RANGE[k][t === 'points' ? 'points' : 'pct'];
+  const u = t => t === 'points' ? 'pts' : '%';
   h += sec('Exits',
-    lbl('Stop-loss (sent with the order, held by IBKR)') + row(numIn('exits.sl', X.sl), unit('exits.sl_type', X.sl_type), '<span class="muted" style="font-size:12px">' + (E.side === 'BUY' ? 'below' : 'above') + ' the entry · 0 = none</span>') +
-    lbl('Target') + row(numIn('exits.target', X.target), unit('exits.target_type', X.target_type), '<span class="muted" style="font-size:12px">in profit · 0 = none</span>') +
-    lbl('Trailing stop') + row('after', numIn('exits.trail_after', X.trail_after), unit('exits.trail_after_type', X.trail_after_type), 'in profit, replace the stop with one trailing', numIn('exits.trail', X.trail), unit('exits.trail_type', X.trail_type), 'behind the best price', '<span class="muted" style="font-size:12px">· 0 = no trailing</span>') +
-    lbl('Order type') + row(seg('style', E.style, [['intraday', 'Intraday (day order)'], ['carry', 'Carry (good till cancelled)']]),
-      E.style === 'intraday' ? 'close everything by ' + timeIn('exits.exit_by', X.exit_by) : '<span class="muted" style="font-size:12px">held overnight; the stop stays at IBKR until hit or expiry</span>'));
+    pr('Stop-loss', (E.side === 'BUY' ? 'below' : 'above') + ' the entry, held by IBKR · 0 = none', unit('exits.sl_type', X.sl_type) + '<div style="margin-top:8px">' + stSlider('exits.sl', X.sl, rng('sl', X.sl_type), u(X.sl_type)) + '</div>') +
+    pr('Target', 'close in profit · 0 = none', unit('exits.target_type', X.target_type) + '<div style="margin-top:8px">' + stSlider('exits.target', X.target, rng('target', X.target_type), u(X.target_type)) + '</div>') +
+    pr('Trailing stop starts', 'once this far in profit', unit('exits.trail_after_type', X.trail_after_type) + '<div style="margin-top:8px">' + stSlider('exits.trail_after', X.trail_after, rng('trail_after', X.trail_after_type), u(X.trail_after_type)) + '</div>') +
+    pr('Trailing distance', 'behind the best price · 0 = no trailing', unit('exits.trail_type', X.trail_type) + '<div style="margin-top:8px">' + stSlider('exits.trail', X.trail, rng('trail', X.trail_type), u(X.trail_type)) + '</div>') +
+    pr('Order type', E.style === 'intraday' ? 'day orders; everything closed by the time set' : 'held overnight; the stop stays at IBKR until hit or expiry',
+      row(seg('style', E.style, [['intraday', 'Intraday (day order)'], ['carry', 'Carry (good till cancelled)']]), E.style === 'intraday' ? 'close by ' + timeIn('exits.exit_by', X.exit_by) : '')));
   h += sec('Market conditions (for autopilot)', '<div class="muted" style="font-size:12.5px;margin-bottom:8px">Tick the conditions this strategy suits. Autopilot only considers it on those days.</div>' +
     Object.keys(COND).map(c => '<label style="margin-right:16px;font-size:13px;white-space:nowrap"><input type="checkbox"' + ((E.conditions || []).indexOf(c) >= 0 ? ' checked' : '') + ' onchange="stCond(\'' + c + '\', this.checked)"> ' + COND[c] + '</label>').join(''));
-  h += sec('Limits for this strategy', row('At most', numIn('max_trades_day', E.max_trades_day, 60), 'trades a day; stop for the day after a loss of ₹', numIn('max_loss_day', E.max_loss_day, 100), '; wait', numIn('reentry_gap', E.reentry_gap, 60), 'minutes between trades'));
+  h += sec('Limits for this strategy',
+    pr('Trades a day', 'at most', stSlider('max_trades_day', E.max_trades_day, ST_RANGE.max_trades_day, 'trades')) +
+    pr("Day's loss limit", 'stop for the day after this loss · 0 = none', stSlider('max_loss_day', E.max_loss_day, ST_RANGE.max_loss_day, '₹')) +
+    pr('Wait between trades', 'after a trade closes', stSlider('reentry_gap', E.reentry_gap, ST_RANGE.reentry_gap, 'min')));
   return '<div class="st-form"><div>' + h + '</div><aside class="st-side" id="st-side">' + stSide() + '</aside></div>';
 }
 function stCond(c, on){ ST_EDIT.conditions = (ST_EDIT.conditions || []).filter(x => x !== c); if (on) ST_EDIT.conditions.push(c); stSideRefresh(); }
@@ -1919,7 +2162,7 @@ function pageStrategies(){
   const v = $('view');
   if (!S.strat) { if (!S.stratLoading) stLoad(); v.innerHTML = loadingBlock('Loading…'); return; }
   if (S.strat.error) { v.innerHTML = errBlock(S.strat.error); return; }
-  if (ST_EDIT) { v.innerHTML = stForm(); return; }
+  if (ST_EDIT) { v.innerHTML = stForm(); stcDraw(); return; }
   const items = S.strat.items || [], act = items.find(x => x.id === S.strat.active), L = S.strat.limits || {};
   const auto = S.strat.mode === 'autopilot';
   if (auto && !S.algo && !S.algoLoading) algoLoad();
@@ -1951,7 +2194,7 @@ function pageStrategies(){
           '<button type="button" onclick="this.closest(\'details\').open=false;stCopy(\'' + s.id + '\')">Duplicate</button>' +
           (on ? '' : '<button type="button" class="danger" onclick="this.closest(\'details\').open=false;stDelete(\'' + s.id + '\')">Delete…</button>') +
         '</div></details></div></div>' +
-      '<div class="st-chips">' + chips.map(c => '<span class="chip">' + esc(c) + '</span>').join('') +
+      '<div class="st-chips">' + (r => '<span class="chip ' + r.cls + '" title="Risk style ' + r.score + ' of 100">' + r.label + '</span>')(stRisk(s)) + chips.map(c => '<span class="chip">' + esc(c) + '</span>').join('') +
         ((s.conditions || []).length ? '<span class="chip brand">Suited to: ' + esc(s.conditions.map(c => COND[c]).join(', ')) + '</span>' : '') +
         (auto && s.id === S.strat.fallback ? '<span class="chip warn">Fallback</span>' : '') + '</div>' +
       '<div class="st-sig" title="' + esc(sig) + '">Enters ' + s.window.from + '–' + s.window.until + ' when ' + esc(sig || 'no signals') + '</div>' +

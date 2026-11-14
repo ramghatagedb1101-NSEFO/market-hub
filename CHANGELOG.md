@@ -4,6 +4,29 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy form: sliders, risk style, chart (Sat 14 Nov 2026)
+Owner: "a dragging bar where I can just drag it based on preset numbers, or even type my own"; "mimic ... whether this
+is a defensive or aggressive or balanced type of selection"; "a chart should appear there with various option to mark
+DMA, or other parameters".
+- Every number in the form is a slider over a sensible range with preset chips (one tap) and a box to type any value
+  (also outside the slider's range): strike distance or premium, lots, stop-loss, target, trailing start and distance
+  (each in % or points), trades a day, day's loss limit, wait between trades; compact sliders for the numbers inside
+  signals (periods, RSI level, minutes, %, days).
+- Risk style (Defensive / Balanced / Aggressive) in the live summary and as a chip on each card: a plain points score
+  from 40 (an at-the-money buy, 25% stop, intraday, 1 lot = Balanced; under 35 Defensive, 65+ Aggressive) moved by
+  the stop-loss width (or none), trailing stop, selling options, far out-of-the-money buys, expiry, holding
+  overnight, lots, trades a day and the day's loss cap; the main reasons listed with up / down arrows.
+- Chart above "When to enter": the strategy's index from the ICICI history. Daily with DMA 20 / 50 / 100 / 200 (771
+  NIFTY sessions since Oct 2023, new `state/breeze/index/<INDEX>/daily.json`, kept up by `hub/breeze_index.py`);
+  15 / 5 / 1-minute for any session (day picker; days with back-test trades flagged) with EMA and SMA (any period),
+  yesterday's high / low, the opening range (any minutes), the strategy's own lines from its signals, and its last
+  back-test's entries and exits marked; RSI 14 below on request. Line colours from the validated categorical order,
+  each line named on the price scale. Relay: `adminIndexChart`.
+- Checked in the preview: daily chart with DMAs; 6 Nov 2026 on 5-minute bars showing the strategy's EMA 20 and
+  opening-range high, yesterday's high / low, and its back-test trade (buy 164.53, trailing stop +₹2,128); sliders,
+  presets and boxes in sync; the risk style moving Balanced -> Aggressive (selling, overnight) -> Defensive (tight
+  stop, monthly); no console errors.
+
 ### Docs and handover (Sat 14 Nov 2026, ~10:30 IST)
 Owner: "Update documents and handover".
 - STATUS.md: a new HANDOVER at the top (where everything stands with today's figures, how the pieces fit, the owner's

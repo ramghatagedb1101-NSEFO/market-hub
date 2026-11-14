@@ -198,6 +198,20 @@ function adminBacktestResult(token, id) {
   return JSON.parse(res.getContentText());
 }
 
+/** The strategy builder's chart (14 Nov 2026): the index's daily bars (state/breeze/index/<INDEX>/daily.json), or one
+ * month of its one-minute bars (the gzipped month file, passed through as base64 for the page to unpack). */
+function adminIndexChart(token, index, month) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  if (['NIFTY', 'BANKNIFTY', 'SENSEX'].indexOf(index) < 0) return { error: 'bad index' };
+  if (month && !/^\d{4}-\d{2}$/.test(month)) return { error: 'bad month' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  const res = privateRaw_(readToken, 'state/breeze/index/' + index + '/' + (month ? month + '.json.gz' : 'daily.json'));
+  if (res.getResponseCode() === 404) return { error: 'No index prices for that ' + (month ? 'month' : 'index') + ' yet.' };
+  if (res.getResponseCode() !== 200) return { error: 'Could not load the index prices (' + res.getResponseCode() + ').' };
+  return month ? { gz: Utilities.base64Encode(res.getBlob().getBytes()) } : JSON.parse(res.getContentText());
+}
+
 /** For the algo-sync and back-test jobs (RELAY_KEY): every saved strategy, the active one and the limits. */
 function strategiesForBatch_(p) {
   const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';

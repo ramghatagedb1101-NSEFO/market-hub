@@ -10,6 +10,8 @@ index for the whole span, so the whole thing fits inside one run's budget.
 state/breeze/index/<INDEX>/<YYYY-MM>.json.gz =
   {"index", "month", "fields": [min, open, high, low, close, volume], "days": {"YYYY-MM-DD": [[min, o, h, l, c, v], ...]}}
   (min = minutes after 09:15). Progress: state/breeze/index/_done.json; the current month is fetched again each run.
+state/breeze/index/<INDEX>/daily.json = {"index", "days": [[date, open, high, low, close], ...]}, one bar a session,
+  for the strategy builder's chart (daily view and DMAs, 14 Nov 2026); kept up to date by each run.
 Private repo only; the public log shows counts.
     gh workflow run breeze.yml -f module=breeze_index
 """
@@ -82,6 +84,36 @@ def fetch_month(b: Breeze, index: str, month: str, until: date) -> dict:
     return body
 
 
+def day_bars(body: dict) -> list:
+    """One month's minute bars -> [[date, open, high, low, close], ...]."""
+    out = []
+    for d, rows in sorted((body.get("days") or {}).items()):
+        rows = [r for r in rows if r[4] is not None]
+        if rows:
+            out.append([d, rows[0][1], max(r[2] for r in rows), min(r[3] for r in rows), rows[-1][4]])
+    return out
+
+
+def update_daily(index: str, bodies: list) -> int:
+    """Merges the sessions of these month files into the index's daily.json; returns the session count."""
+    path = f"{DIR}/{index}/daily.json"
+    have = {r[0]: r for r in (load(path) or {}).get("days", [])}
+    for body in bodies:
+        for r in day_bars(body):
+            have[r[0]] = r
+    save(path, {"index": index, "days": [have[k] for k in sorted(have)]}, f"Index daily bars: {index}")
+    return len(have)
+
+
+def rebuild_daily(index: str) -> int:
+    """From every month file already saved (one-off, or to repair)."""
+    done = load(DONE) or {}
+    bodies = [load_gz(f"{DIR}/{index}/{k.split('_', 1)[1]}.json.gz") or {} for k in sorted(done) if k.startswith(index + "_")]
+    this_month = date.today().strftime("%Y-%m")
+    cur = load_gz(f"{DIR}/{index}/{this_month}.json.gz")
+    return update_daily(index, bodies + ([cur] if cur else []))
+
+
 def run(b: Breeze | None, budget: int, stop_at: float):
     """Fetch what is missing within the budget. Returns (Breeze used, error text or None)."""
     until = date.today() - timedelta(days=1)
@@ -92,6 +124,7 @@ def run(b: Breeze | None, budget: int, stop_at: float):
     if not queue:
         return b, None
     b = b or Breeze()
+    fetched: dict = {}
     for index, month in queue:
         need = (len(weekdays(month, until)) + 1) // 2
         if b.calls + need > budget or time.time() > stop_at:
@@ -103,6 +136,7 @@ def run(b: Breeze | None, budget: int, stop_at: float):
             return b, str(exc)
         n = sum(len(v) for v in body["days"].values())
         if body["days"]:
+            fetched.setdefault(index, []).append(body)
             size = save_gz(f"{DIR}/{index}/{month}.json.gz", body, f"ICICI index minutes: {index} {month}")
         else:
             size = 0
@@ -111,6 +145,8 @@ def run(b: Breeze | None, budget: int, stop_at: float):
             save(DONE, done, f"ICICI index minutes: {len(done)} index-months")
         print(f"{index} {month}: {len(body['days'])} days, {n} candles ({size // 1024} KB), {body['errors']} errors; "
               f"{b.calls} requests")
+    for index, bodies in fetched.items():
+        print(f"{index} daily bars: {update_daily(index, bodies)} sessions")
     return b, None
 
 
