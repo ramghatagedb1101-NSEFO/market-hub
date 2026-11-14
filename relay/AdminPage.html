@@ -1707,12 +1707,12 @@ const ST_OPS = [['Index', [['price', 'Index price'], ['open', 'Bar open'], ['hig
   ['Today', [['day_open', "Today's open"], ['day_high', "Today's high"], ['day_low', "Today's low"], ['chg_open', '% move from today\'s open']]],
   ['Yesterday', [['prev_close', "Yesterday's close"], ['prev_high', "Yesterday's high"], ['prev_low', "Yesterday's low"], ['chg_prev', '% move from yesterday\'s close']]],
   ['Opening range', [['orb_high', 'Opening-range high'], ['orb_low', 'Opening-range low']]],
-  ['Indicators', [['ema', 'EMA'], ['sma', 'SMA'], ['rsi', 'RSI'], ['atr', 'ATR (average range)']]],
+  ['Indicators', [['ema', 'EMA'], ['sma', 'SMA'], ['rsi', 'RSI'], ['atr', 'ATR (average range)'], ['adx', 'ADX (trend strength)']]],
   ['Option', [['opt_price', 'Option price (the one this strategy trades)']]],
   ['Calendar', [['dte', 'Days to expiry']]],
   ['Number', [['value', 'A number']]]];
 const ST_OPNAME = Object.fromEntries(ST_OPS.flatMap(g => g[1]));
-const ST_HASN = { ema: 'period', sma: 'period', rsi: 'period', atr: 'period', orb_high: 'minutes', orb_low: 'minutes' };
+const ST_HASN = { ema: 'period', sma: 'period', rsi: 'period', atr: 'period', adx: 'period', orb_high: 'minutes', orb_low: 'minutes' };
 function stNew(){
   return { name: 'New strategy', notes: '', index: 'NIFTY', side: 'BUY', right: 'C', strike: { mode: 'atm', steps: 0 }, expiry: 'nearest', lots: 1,
     window: { from: '09:30', until: '14:30' }, groups_match: 'any', groups: [{ match: 'all', signals: [JSON.parse(JSON.stringify(ST_SIG.orb.d))] }],
@@ -1918,7 +1918,8 @@ const STC_CAT = {
   rsi: { l: 'RSI', g: 'Lower panel', p: { n: [14, 'period'] }, low: true },
   macd: { l: 'MACD', g: 'Lower panel', p: { f: [12, 'fast'], s: [26, 'slow'], g: [9, 'signal'] }, low: true },
   sto: { l: 'Stochastic', g: 'Lower panel', p: { n: [14, '%K'], d: [3, '%D'] }, low: true },
-  atr: { l: 'ATR', g: 'Lower panel', p: { n: [14, 'period'] }, low: true }
+  atr: { l: 'ATR', g: 'Lower panel', p: { n: [14, 'period'] }, low: true },
+  adx: { l: 'ADX (+DI / −DI)', g: 'Lower panel', p: { n: [14, 'period'] }, low: true }
 };
 const STC_SOON = ['VWAP (needs futures volume)'];
 const STC = (() => {
@@ -2031,6 +2032,24 @@ function stcSupertrend(bars, n, k){
     line[i] = up ? fl : fu;
   });
   return line;
+}
+// Wilder's ADX with +DI / -DI (owner, 14 Nov 2026: "add ADX indicator"); the same sums as trader/indicators.py adx()
+function stcAdx(bars, n){
+  const N = bars.length, adx = new Array(N).fill(null), pdi = new Array(N).fill(null), mdi = new Array(N).fill(null);
+  if (N < 2 * n) return { adx, pdi, mdi };
+  const tr = [], pd = [], md = [];
+  for (let i = 1; i < N; i++) { const b = bars[i], p = bars[i - 1], up = b.high - p.high, dn = p.low - b.low;
+    tr.push(Math.max(b.high - b.low, Math.abs(b.high - p.close), Math.abs(b.low - p.close))); pd.push(up > dn && up > 0 ? up : 0); md.push(dn > up && dn > 0 ? dn : 0); }
+  let st = 0, sp = 0, sm = 0; for (let j = 0; j < n; j++) { st += tr[j]; sp += pd[j]; sm += md[j]; }
+  const dx = [];
+  for (let j = n - 1; j < tr.length; j++) {
+    if (j >= n) { st = st - st / n + tr[j]; sp = sp - sp / n + pd[j]; sm = sm - sm / n + md[j]; }
+    const P = st ? 100 * sp / st : 0, M = st ? 100 * sm / st : 0;
+    pdi[j + 1] = P; mdi[j + 1] = M; dx.push(P + M ? 100 * Math.abs(P - M) / (P + M) : 0);
+  }
+  let a = dx.slice(0, n).reduce((x, y) => x + y, 0) / n; adx[2 * n - 1] = a;
+  for (let k = n; k < dx.length; k++) { a = (a * (n - 1) + dx[k]) / n; adx[k + n] = a; }
+  return { adx, pdi, mdi };
 }
 function stcPivots(h, l, c){ const p = (h + l + c) / 3; return { P: p, R1: 2 * p - l, S1: 2 * p - h, R2: p + (h - l), S2: p - (h - l), R3: h + 2 * (p - l), S3: l - 2 * (h - p) }; }
 // previous calendar week / month (high, low, close) before a date, from the daily bars
@@ -2146,6 +2165,9 @@ function stcDraw(){
       const kk = k.map(v => v == null ? 0 : v), d = sma(kk, it.d).map((v, i) => k[i] == null || i < it.n + it.d - 2 ? null : v);
       const s = low(k, cA, '%K ' + it.n); low(d, cB, '%D ' + it.d); [80, 20].forEach(v => s.createPriceLine({ price: v, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: String(v) })); }
     else if (it.t === 'atr') low(stcAtr(bars, it.n), cA, 'ATR ' + it.n);
+    else if (it.t === 'adx') { const x = stcAdx(bars, it.n), s = low(x.adx, cA, 'ADX ' + it.n);
+      low(x.pdi, P[4], '+DI'); low(x.mdi, P[1], '−DI');
+      s.createPriceLine({ price: 25, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '25' }); }
     legend.push([cA, name(it) + ' (lower panel)']);
   }
   const n = bars.length;
@@ -2231,7 +2253,7 @@ function stForm(){
 function stCond(c, on){ ST_EDIT.conditions = (ST_EDIT.conditions || []).filter(x => x !== c); if (on) ST_EDIT.conditions.push(c); stSideRefresh(); }
 function stDay(gi, i, d, on){ const g = ST_EDIT.groups[gi].signals[i]; g.days = (g.days || []).filter(x => x !== d); if (on) g.days.push(d); g.days.sort(); }
 function ST_EDIT_GET(path){ return path.split('.').reduce((o, k) => o == null ? o : o[k], ST_EDIT); }
-function stOperand(path, src){ const o = { src }; if (src === 'value') o.value = 0; if (ST_HASN[src]) o.n = src.indexOf('orb') === 0 ? 15 : src === 'rsi' || src === 'atr' ? 14 : 20; stSet(path.replace(/\.$/, ''), o, true); }
+function stOperand(path, src){ const o = { src }; if (src === 'value') o.value = 0; if (ST_HASN[src]) o.n = src.indexOf('orb') === 0 ? 15 : ['rsi', 'atr', 'adx'].indexOf(src) >= 0 ? 14 : 20; stSet(path.replace(/\.$/, ''), o, true); }
 function stBtPanel(){
   if (!ST_BT) return '';
   const s = (S.strat.items || []).find(x => x.id === ST_BT.id) || {};

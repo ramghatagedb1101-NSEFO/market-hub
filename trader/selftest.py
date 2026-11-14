@@ -310,6 +310,14 @@ def test_compare_and_groups():
     ok("compare: % from yesterday's close", cmp({"src": "chg_prev"}, ">", {"src": "value", "value": 5})[0], cmp({"src": "chg_prev"}, ">", {"src": "value", "value": 5})[1])
     ok("compare: EMA 9 above EMA 21 in a rise", cmp({"src": "ema", "n": 9}, ">", {"src": "ema", "n": 21})[0])
     ok("compare: ATR is positive", cmp({"src": "atr", "n": 14}, ">", {"src": "value", "value": 0})[0])
+    from .indicators import adx
+    trend = [(t0 + td(minutes=i), 100 + i, 101 + i, 99.5 + i, 100.8 + i) for i in range(80)]
+    chop = [(t0 + td(minutes=i), 100, 100.6 + (i % 2) * .2, 99.4 - (i % 2) * .2, 100 + (.3 if i % 2 else -.3)) for i in range(80)]
+    a_t, a_c = adx(trend, 14)[-1], adx(chop, 14)[-1]
+    ok("ADX: a steady trend reads strong (> 50)", a_t is not None and a_t > 50, a_t)
+    ok("ADX: back-and-forth reads weak (< 20)", a_c is not None and a_c < 20, a_c)
+    ok("ADX: none before 2 x period bars", adx(trend[:27], 14)[-1] is None and adx(trend[:28], 14)[-1] is not None)
+    ok("compare: ADX above 25 in a steady rise", cmp({"src": "adx", "n": 14}, ">", {"src": "value", "value": 25})[0])
     ok("compare: option price under a level", cmp({"src": "opt_price"}, "<", {"src": "value", "value": 150}, ctx={"opt_price": 120})[0])
     ok("compare: option price over a level is false", not cmp({"src": "opt_price"}, ">", {"src": "value", "value": 150}, ctx={"opt_price": 120})[0])
     ok("compare: days to expiry", cmp({"src": "dte"}, "<=", {"src": "value", "value": 1})[0])

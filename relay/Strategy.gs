@@ -37,13 +37,13 @@ function stratTime_(x, d) { x = String(x || ''); return /^\d\d:\d\d$/.test(x) &&
 const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday', 'compare'];
 // The general comparison's data points (trader/indicators.py OPERANDS) and comparisons.
 const STRAT_OPERANDS = ['price', 'open', 'high', 'low', 'close', 'day_open', 'day_high', 'day_low', 'prev_close', 'prev_high',
-  'prev_low', 'orb_high', 'orb_low', 'ema', 'sma', 'rsi', 'atr', 'chg_prev', 'chg_open', 'opt_price', 'dte', 'value'];
+  'prev_low', 'orb_high', 'orb_low', 'ema', 'sma', 'rsi', 'atr', 'adx', 'chg_prev', 'chg_open', 'opt_price', 'dte', 'value'];
 const STRAT_OPS = ['>', '<', '>=', '<=', 'crosses_above', 'crosses_below'];
 function stratOperand_(o) {
   if (!o || STRAT_OPERANDS.indexOf(o.src) < 0) return null;
   const out = { src: o.src };
   if (o.src === 'value') out.value = stratNum_(o.value, -1e9, 1e9, 0);
-  if (['ema', 'sma', 'rsi', 'atr', 'orb_high', 'orb_low'].indexOf(o.src) >= 0) out.n = Math.round(stratNum_(o.n, 1, 500, /^orb/.test(o.src) ? 15 : 14));
+  if (['ema', 'sma', 'rsi', 'atr', 'adx', 'orb_high', 'orb_low'].indexOf(o.src) >= 0) out.n = Math.round(stratNum_(o.n, 1, 500, /^orb/.test(o.src) ? 15 : 14));
   return out;
 }
 function stratSignal_(x) {

@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### ADX (Sat 14 Nov 2026)
+Owner: "add ADX indicator".
+- Chart: "ADX (+DI / -DI)" in the lower-panel list (period adjustable, default 14; dashed line at 25).
+- Strategy signals: "ADX (trend strength)" as a data point in "Compare any two data points" (e.g. ADX 14 above 25 on
+  5-minute bars), in the program (`trader/indicators.py` adx(), Wilder's), the relay and the page; back-tests and
+  autopilot use it like any other data point.
+- Tests 99 of 99 (4 new: steady trend > 50, back-and-forth < 20, first reading at bar 2 x period, compare). On NIFTY's
+  daily bars (744 readings): median 20.3, 90th percentile 35.7; 37.2 on Fri 13 Nov 2026 after the November rally. The
+  chart's figures and the program's are identical (last five days to two decimals).
+
 ### Trading mode made explicit (Sat 14 Nov 2026)
 Owner: "The autopilot switch, make it more explicit." The small Manual / Autopilot toggle at the top of Strategies is
 now two cards side by side. The one in force has a coloured border and an "● ON" badge, and says what it is doing:

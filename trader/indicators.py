@@ -23,6 +23,7 @@ Signal types (each a dict from the builder page; "tf" = bar size in minutes, 1 /
                  prev_close, prev_high, prev_low     yesterday's session
                  orb_high, orb_low                   high / low of today's first n minutes (none until they are over)
                  ema, sma, rsi, atr                  of the index's closes on tf-minute bars, period n
+                 adx                                 Wilder's ADX (trend strength, 0-100) on tf-minute bars, period n
                  chg_prev, chg_open                  % move from yesterday's close / today's open
                  opt_price                           the price of the option the strategy would trade (now only)
                  dte                                 days to the traded expiry
@@ -110,15 +111,43 @@ def atr(bars: list[Bar], n: int) -> list[float | None]:
     return out
 
 
+def adx(bars: list[Bar], n: int) -> list[float | None]:
+    """Wilder's ADX (owner, 14 Nov 2026: "add ADX indicator"): trend strength 0-100, whichever the direction."""
+    size = len(bars)
+    out = [None] * size
+    if size < 2 * n:                            # first reading at bar 2n - 1
+        return out
+    tr, pdm, mdm = [], [], []
+    for i in range(1, size):
+        h, l, pc = bars[i][2], bars[i][3], bars[i - 1][4]
+        up, down = h - bars[i - 1][2], bars[i - 1][3] - l
+        tr.append(max(h - l, abs(h - pc), abs(l - pc)))
+        pdm.append(up if up > down and up > 0 else 0.0)
+        mdm.append(down if down > up and down > 0 else 0.0)
+    s_tr, s_p, s_m = sum(tr[:n]), sum(pdm[:n]), sum(mdm[:n])
+    dx = []
+    for j in range(n - 1, len(tr)):
+        if j >= n:
+            s_tr, s_p, s_m = s_tr - s_tr / n + tr[j], s_p - s_p / n + pdm[j], s_m - s_m / n + mdm[j]
+        pdi, mdi = (100 * s_p / s_tr, 100 * s_m / s_tr) if s_tr else (0.0, 0.0)
+        dx.append(100 * abs(pdi - mdi) / (pdi + mdi) if pdi + mdi else 0.0)
+    a = sum(dx[:n]) / n
+    out[2 * n - 1] = a                          # bar index: dx[k] belongs to bar k + n
+    for k in range(n, len(dx)):
+        a = (a * (n - 1) + dx[k]) / n
+        out[k + n] = a
+    return out
+
+
 OPERANDS = {"price", "open", "high", "low", "close", "day_open", "day_high", "day_low", "prev_close", "prev_high",
-            "prev_low", "orb_high", "orb_low", "ema", "sma", "rsi", "atr", "chg_prev", "chg_open", "opt_price", "dte",
-            "value"}
+            "prev_low", "orb_high", "orb_low", "ema", "sma", "rsi", "atr", "adx", "chg_prev", "chg_open", "opt_price",
+            "dte", "value"}
 COMPARE_OPS = {">", "<", ">=", "<=", "crosses_above", "crosses_below"}
 NAMES = {"price": "index", "open": "bar open", "high": "bar high", "low": "bar low", "close": "bar close",
          "day_open": "today's open", "day_high": "today's high", "day_low": "today's low",
          "prev_close": "yesterday's close", "prev_high": "yesterday's high", "prev_low": "yesterday's low",
          "orb_high": "opening-range high", "orb_low": "opening-range low", "ema": "EMA", "sma": "SMA", "rsi": "RSI",
-         "atr": "ATR", "chg_prev": "% from yesterday", "chg_open": "% from open", "opt_price": "option price",
+         "atr": "ATR", "adx": "ADX", "chg_prev": "% from yesterday", "chg_open": "% from open", "opt_price": "option price",
          "dte": "days to expiry", "value": ""}
 
 
@@ -153,6 +182,8 @@ def operand(o: dict, tb: list[Bar], bars1: list[Bar], tf: int, ctx: dict) -> lis
         return rsi(closes, n)
     if src == "atr":
         return atr(tb, n)
+    if src == "adx":
+        return adx(tb, n)
     days = _days(bars1)
     order = sorted(days)
     by_day: dict = {}
@@ -203,7 +234,7 @@ def _label(o: dict) -> str:
     if src == "value":
         return f"{float(o.get('value') or 0):g}"
     name = NAMES.get(src, src)
-    if src in ("ema", "sma", "rsi", "atr"):
+    if src in ("ema", "sma", "rsi", "atr", "adx"):
         return f"{name} {int(o.get('n') or 14)}"
     if src in ("orb_high", "orb_low"):
         return f"{name} ({int(o.get('n') or 15)} min)"

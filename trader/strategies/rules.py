@@ -87,7 +87,7 @@ def _operand(o) -> dict | None:
     out = {"src": o["src"]}
     if o["src"] == "value":
         out["value"] = _num(o.get("value"), -1e9, 1e9, 0)
-    if o["src"] in ("ema", "sma", "rsi", "atr", "orb_high", "orb_low"):
+    if o["src"] in ("ema", "sma", "rsi", "atr", "adx", "orb_high", "orb_low"):
         out["n"] = int(_num(o.get("n"), 1, 500, 15 if o["src"].startswith("orb") else 14))
     return out
 
