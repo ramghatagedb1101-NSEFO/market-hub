@@ -14,8 +14,7 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
   16:00 run on Sat 14 Nov. Then: the every-day option download (owner approved; about 6 more days), then
   `diag.yml -f module=rule_real_fill`.
 - **Owner's own ICICI history files** (Excel, from the ICICI site): the owner saves them on the laptop in
-  `C:
-se_fo_analyser\extras\icici_history\` (outside this public repo). Check what they hold (index or options,
+  `C:\nse_fo_analyser\extras\icici_history\` (outside this public repo). Check what they hold (index or options,
   which days, minute or daily) before using them; prices go to the private repo only.
 - **Strategy chart**: Buy / Sell labels on by default for Supertrend (others per indicator, button "Buy/Sell off").
 - **Trading machine** `market-hub-trader` (Oracle Always Free Arm, 2 cores / 12 GB, Mumbai, Ubuntu 24.04): IBKR gateway
