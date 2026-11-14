@@ -11,10 +11,14 @@ const BT_MODELS = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];   // the same f
 
 function adminGeminiKeySave(token, key) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
-  const k = String(key || '').trim();
-  // 14 Nov 2026: newer Google keys are not only the old "AIza..." 39 characters (one with a dot was refused); accept any
-  // single word of key characters, and let Google itself judge it on the first sentence.
-  if (/\s/.test(k) || !/^[A-Za-z0-9_\-.~+\/=]{20,300}$/.test(k)) return { error: 'That does not look like a Gemini key: copy it again with the copy icon in AI Studio.' };
+  // 14 Nov 2026: a format check refused the owner's real key twice; Google itself now judges it (one free call to
+  // list the models). Spaces, line breaks and quotes picked up by the copy are dropped first.
+  const k = String(key || '').replace(/\s+/g, '').replace(/^["']+|["']+$/g, '');
+  if (k.length < 20 || k.length > 400) return { error: 'Paste the whole key (it is a long line of letters and numbers).' };
+  const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
+    { headers: { 'x-goog-api-key': k }, muteHttpExceptions: true });
+  const code = r.getResponseCode();
+  if (code !== 200) return { error: 'Google did not accept this key (' + code + '). Copy it again from AI Studio.' };
   PropertiesService.getScriptProperties().setProperty('GEMINI_API_KEY', k);
   return { ok: true };
 }
