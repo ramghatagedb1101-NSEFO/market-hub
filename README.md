@@ -75,6 +75,17 @@ already-fetched rows (`hub/multibagger.py`'s `score()`), so the two screens shar
 fetch per company instead of two independent weekly pulls. Output goes to the private repo
 (`market-hub-private`), read by the phone app after sign-in.
 
+## Paper trading program (IBKR, since 14 Nov 2026)
+
+`trader/` trades NSE index options on an IBKR **paper** account from an Oracle Always Free machine (IB gateway in Docker,
+`infra/trader/`). Strategies are built on the dashboard (F&O > Paper trading > Strategies: signals, groups, stop-loss,
+target, trailing stop, intraday or carry, market-condition tags), back-tested on ICICI minute history
+(`trader/backtest.py`, `strategy-backtest.yml`), and run one at a time by hand or by **autopilot** (picks by record in
+today's market condition, `trader/autopilot.py`, `trader/regime.py`). Every option buy carries a stop-loss held at
+IBKR; safety limits cap lots, the day's loss, open legs and orders; the program refuses non-paper accounts. Results
+(daily, monthly, by strategy, every trade) on the phone and dashboard ("Auto trading"), from `algo-sync.yml`.
+Tests: `python -m trader.selftest`.
+
 ## Limits to know
 
 - If NSE blocks GitHub's runners or Kite is unreachable, the price job fails loudly and writes

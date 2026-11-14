@@ -4,6 +4,18 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Docs and handover (Sat 14 Nov 2026, ~10:30 IST)
+Owner: "Update documents and handover".
+- STATUS.md: a new HANDOVER at the top (where everything stands with today's figures, how the pieces fit, the owner's
+  routine, Monday's first live session checks, open items in order, notes for the next session); the 13 Nov notes
+  that it replaces trimmed (they still said "waiting on the paper login", "not started", "untested").
+- CLAUDE.md: the trading program and both Oracle machines in "Where things live"; the new workflows; the OCI_* secrets
+  and the STRAT_* relay properties; IBKR as a data source and its one-session rule; how to update the machine safely;
+  the preview folder.
+- README.md: a short section on the paper trading program.
+- Kept out of these public files on purpose: the paper account's identifiers, the trading machine's address, the
+  SSH key file's name, and anything about the account's passwords.
+
 ### Trading program switched on, watch only (Sat 14 Nov 2026, 10:13 IST)
 Owner: "Go ahead". `trader.service` enabled and started on market-hub-trader (restarts itself, starts on boot).
 Connected to the paper account; mode manual, no strategy on, so it watches and places no orders until a strategy or

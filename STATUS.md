@@ -1,60 +1,103 @@
 # Build status and to-do
 
-As of Fri 13 Nov 2026, ~23:05 IST. Read the dated notes below (newest first), then the 14 Oct HANDOVER, `CHANGELOG.md` (newest
-first) and `CLAUDE.md`.
+As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
+`CHANGELOG.md` (newest first) and `CLAUDE.md`.
+
+## HANDOVER -- Sat 14 Nov 2026 (read this first)
+
+### Where things stand
+- **ICICI minute history** (free, for back-tests): index minutes for NIFTY / BANK NIFTY / SENSEX complete, every session
+  Oct 2023 - 13 Nov 2026 (114 index-months). Option minutes for the day before and the day of each expiry: 36 of 409
+  expiries (NIFTY 16, SENSEX 16, BANK NIFTY 4), back to 28 Jul 2026. About 48,000 requests to go = about 10 days at
+  ICICI's 5,000 a day (shared allowance 4,900, `state/breeze/usage.json`). `breeze.yml` runs at 16:00 and 21:00 IST,
+  only on days with that day's ICICI sign-in (phone, Settings). Its schedule has not been seen firing yet: check the
+  16:00 run on Sat 14 Nov. Then: the every-day option download (owner approved; about 6 more days), then
+  `diag.yml -f module=rule_real_fill`.
+- **Trading machine** `market-hub-trader` (Oracle Always Free Arm, 2 cores / 12 GB, Mumbai, Ubuntu 24.04): IBKR gateway
+  in Docker (`/opt/trader/docker-compose.yml`, IBC, paper mode, API on 127.0.0.1:4002 only) logged in to the paper
+  account; the trading program `trader.service` RUNNING since Sat 14 Nov 10:13 IST, watch only (manual mode, nothing
+  switched on). Program code: `/opt/trader/app` (a clone of this repo; `git pull` there to update, then
+  `sudo systemctl restart trader.service`, outside market hours). Journals `/opt/trader/journal/`, settings from the
+  dashboard in `/opt/trader/strategies.json`, open positions' exits in `/opt/trader/protect.json`, STOP file
+  `/opt/trader/STOP` (closes everything, no new entries for the day). Oracle free trial ends 12 Dec 2026: the machine
+  is at the free size, so it should carry on; check it is still running on 13 Dec.
+- **Trading program** (`trader/`): engine every 2 s in market hours; stop-loss with every option buy, held at IBKR;
+  trailing after a gain; targets, exit-by time, day / good-till-cancelled stops; safety limits (1 lot an order, ₹10,000
+  day's loss, 4 open legs, 20 orders a day, stale-price and wide-spread refusals; changeable on the page); paper only
+  (refuses accounts not starting "DU"); charges = full Indian table (brokerage, STT, exchange, stamp, SEBI, GST).
+- **Screens**: phone F&O tab > "Auto trading" card; dashboard F&O > Paper trading > Auto trading (figures, two profit
+  charts, Daily / Monthly / By strategy / Trades / Open / Pending orders) and Strategies (builder, back-tests,
+  Manual / Autopilot). Data: `site/algo.json` in the private repo, from `algo-sync.yml`.
+- **Strategy builder**: signals (seven quick ones + "compare any two data points": index, today / yesterday,
+  opening range, EMA / SMA / RSI / ATR, % moves, option price, days to expiry, numbers), groups ("(A and B) or (C and
+  D)"), exits, intraday / carry, per-strategy limits, "Market conditions" tags. Placeholders greyed out: put-call ratio,
+  open interest change, futures VWAP. No strategies saved yet.
+- **Autopilot**: built and tested, not switched on. Checks 09:30 / 11:00 / 13:00; picks among strategies tagged for
+  today's condition the best record there (10+ trades, in profit after charges; back-test + paper); else the
+  fallback, else watch. Expect the fallback most days until back-tests cover every day.
+
+### How it fits together
+| Piece | Where | Runs |
+|---|---|---|
+| ICICI download | `hub/breeze_history.py`, `hub/breeze_index.py`, `breeze.yml` (SSH tunnel via `market-hub-ip`, fixed address) | 16:00 / 21:00 IST, needs the day's ICICI sign-in |
+| Trading program | `trader/` on `market-hub-trader`, `trader.service` | always; steps in market hours |
+| Strategies to the machine, journals back | `algo-sync.yml` (relay `?mode=strategies`; machine address via `infra/oci_ip.py`) | every 10 min 08:30-15:20 weekdays, 15:35, 16:10, and at once after any switch on the page |
+| Back-tests | `trader/backtest.py`, `strategy-backtest.yml` (started by the page) | on request; results `state/backtests/` |
+| Strategy storage, switches | `relay/Strategy.gs` (script properties STRAT_*) | relay |
+| Screens | `relay/AdminPage.html` (Auto trading, Strategies), `docs/index.html` (phone) | relay / GitHub Pages |
+
+### Routine (owner)
+- ICICI sign-in on the phone every day until the downloads finish (weekends too).
+- During market hours do not log in to IBKR (main or paper) on the web or the app: IBKR allows one session, and a
+  login there logs the trading machine out until it logs back in.
+- To trade on paper: dashboard Strategies > New strategy > save > Back-test > Trade this (or tag conditions, choose a
+  fallback, Autopilot).
+
+### Monday 16 Nov 2026 (first market session with the program running)
+1. From 09:15: live bid / ask arrive on the paper account (journal "mark" lines, Auto trading screen).
+2. `algo-sync.yml` scheduled runs fire every 10 minutes (GitHub's schedule has failed before: `oci-launch.yml` never
+   ran on its timer). If they do not, add a relay time trigger or a machine-side push.
+3. The gateway's daily restart at 06:30 and the program reconnecting afterwards.
+
+### Open items, in order
+1. Monday checks above.
+2. ICICI expiry download to finish (~10 sign-in days), then the every-day option download (~6), then
+   `rule_real_fill` and the first serious strategy search (keep rule_review's discipline: walk-forward, full costs).
+3. A back-test of autopilot itself (replaying its picks), once every-day data exists.
+4. Options-data signals (put-call ratio, open interest change; futures VWAP) for the placeholders.
+5. Paper password: set one used nowhere else (IBKR's reset gave error PREC100 on 14 Nov; retry, or IBKR chat), then
+   the owner re-runs `/opt/trader/set-login.sh` on the machine.
+6. Proposal pending: move the fixed address 130.210.31.37 to `market-hub-trader` and retire `market-hub-ip`.
+
+### Notes for the next session
+- SSH to both Oracle machines with the owner's Oracle SSH key (the same key as the ORACLE_SSH_KEY secret); users
+  `ubuntu` (trader) and `opc` (`market-hub-ip`). The trader's address is not in this public repo: `infra/oci_ip.py`.
+- The gateway container runs as user 1000, the machine's user is 1001: the password file and `tws_settings` must
+  belong to 1000 (`set-login.sh` does it).
+- IBKR: index `NIFTY50` (trading class NIFTY) and `BANKNIFTY` on NSE; no SENSEX; multiplier 1 (quantities in units).
+- The paper account's username and number stay out of this public repo (a commit naming them was blocked).
+- GitHub's schedules are unreliable for new workflows; anything that must happen soon is started directly
+  (`gh workflow run`, or the relay's dispatch).
+- On this Windows laptop, long inline Python with quotes breaks the shell: write edit scripts to the scratchpad and run them.
+- Chart colours on the new screens were checked for colour-blind readers (dark #1f9a8e / #e06a36, light #067647 /
+  #c4320a); keep them for any new profit / loss chart.
+- Self-tests: `python -m trader.selftest` (95); relay `node relay/check.js`.
+
+
 
 ## Fri 13 Nov 2026
 - Figures fixed: year-to-date read as a quarter (Coal India, Coforge, Hatsun...), P/E checked against profit. Library
   re-checks and re-fetches every company once over the next runs. Peers by BSE classification; chart range fix.
 - Trading rules: both families tested and reviewed (expiry option selling; GIFT gap-follow, run after the 13 Nov Kite
-  login). Every candidate rejected (results in the private repo, `state/rule_test/`), so no paper trading is set up.
+  login). Every candidate rejected (results in the private repo, `state/rule_test/`). (14 Nov: a paper trading
+  program now exists for strategies built on the dashboard; see the HANDOVER.)
 - Second results-reader fix on `main` (evening): quarters tagged as year to date (Ingersoll-Rand, Dhanlaxmi Bank,
   Oswal Pumps) and a filing in the wrong scale (Metro Brands). Every company re-checked once more from NSE (free).
 - Live audit (evening, Kite logged in): every phone tab and every dashboard page checked on real data, plus stock
   reports (Coal India, HDFC Bank, Antelopus, Titan). 13 faults fixed, listed in CHANGELOG (13 Nov, evening).
-- ICICI Breeze history working (night): Oracle Always Free server, fixed address 130.210.31.37, ICICI app registered,
-  secrets and relay property added; first check passed (one-minute F&O candles back to Dec 2023 at least).
-  Next: (1) fixed in `docs/sw.js` v61 (sign-in landing on "405 Not Allowed"; confirmed on the phone 14 Nov);
-  (2) the full download of expiry-week option history to the private repo; (3) re-run the rule tests on real option
-  prices.
-- METHOD.md line-break bug fixed in `hub/method_check.py` (late night; blank lines had doubled on most edits since
-  27 Oct, file 116,691 lines). Rebuilt file (1,845 lines, same text) pushed to the private repo (`db24d5c`) and
-  checked.
-- ICICI download (`hub/breeze_history.py`: whole day before + expiry day, every stored strike, 409 expiries): working,
-  36 of 409 expiries saved (back to 28 Jul 2026; run of Sat 14 Nov: 34 expiries, 3,889 requests, 0 errors), 373 to
-  go, ~10 more runs of 4,000. Each run
-  needs that day's ICICI sign-in. `breeze.yml` now runs it by itself at 16:00 and 21:00 IST (owner approved); without
-  a sign-in that day it skips quietly. Once `_done.json` covers all 409: `diag.yml -f module=rule_real_fill`.
-  `market-hub-ip` restarted and its `dnf-makecache.timer` disabled after it froze.
-- IBKR paper trading (owner, 13 Nov night): IBKR India account, NSE index options first, on an Oracle free Arm
-  machine (`market-hub-trader`, Ubuntu 24.04) running the `gnzsnz/ib-gateway` Docker image (arm64, IBC).
-  Made Sat 14 Nov 2026 by `oci-launch.yml` (now switched off) at 4 cores / 24 GB, then shrunk (owner approved) to
-  2 / 12: Oracle's Always Free page gives 2 / 12 for Arm; 4 / 24 was covered only by the free trial (13 Nov - 12 Dec
-  2026). `infra/oci_launch.py` refuses anything above 2 / 12 and shrinks the machine if it is bigger. Done on it
-  (`infra/trader/`): `bootstrap.sh` (Docker, gateway image, Python, India time),
-  `set-login.sh` (owner types the paper username/password once, hidden), `check.py` (paper-only connection check and
-  how IBKR names NIFTY / BANK NIFTY / SENSEX options; no orders). Waiting on: the owner's paper login in
-  `set-login.sh` (paper login fails while the main IBKR account is signed in: IBKR allows one session across the two).
-  Trading program RUNNING since Sat 14 Nov 10:13 IST (`trader.service`), watch only until a strategy or autopilot is
-  switched on (dashboard F&O > Paper trading > Strategies). First market session Mon 16 Nov: check live bid / ask and
-  the 10-minute sync. Autopilot and strategy-wise profit built (CHANGELOG 14 Nov).
-  Strategy builder (14 Nov): dashboard F&O > Paper trading > Strategies; one strategy trades at a time, switched from
-  the page; back-tests on the ICICI minutes (expiry days only until the every-day option download: owner approved the
-  plan, to start after the expiry download). Greyed-out placeholders on the page for put-call ratio,
-  open interest change, option price level and futures VWAP: enable each once its data is in the program. Index minutes for NIFTY / BANK NIFTY / SENSEX complete Oct 2023 - 13 Nov 2026.
-  Paper trading program built (`trader/`, 14 Nov; CHANGELOG): stop-loss with every buy, trailing after +20%, limits,
-  kill switch, replay on ICICI minutes, 32 self-tests pass. Installed on the machine as `trader.service`, not started.
-  Untested against IBKR until the paper login works. IBKR side (14 Nov): NSE shares and F&O live data are on the account, "Fee Waived"
-  (total ₹0); no BSE, so no SENSEX options data. Owner signed the Market Data API form and set "share market data with
-  paper" to Yes (not read back: IBKR session had ended; the first connection check will show whether prices arrive).
-  Paper password reset fails with IBKR error PREC100 (code not documented): retry Monday, else IBKR chat.
-  Design for real time (owner, 14 Nov: checks every 2-3 seconds, live trades): streamed prices, heavy back-tests stay
-  on GitHub, about 100 streamed contracts at once, no main-account login during market hours.
-  Unverified until the first check: NSE index options and their prices on an IBKR India paper account; whether paper
-  login asks for a second factor.
-  Proposal pending: move fixed address 130.210.31.37 to the new machine and retire `market-hub-ip`.
-  Any strategy search on the ICICI data keeps rule_review's discipline (walk-forward, bar raised for settings tried,
-  full costs); paper trading is the final out-of-sample test.
+- ICICI Breeze history working (night): Oracle Always Free server `market-hub-ip`, fixed address 130.210.31.37, ICICI
+  app registered; METHOD.md line-break bug fixed (rebuilt file pushed, `db24d5c`). IBKR paper trading started that night
+  and finished on 14 Nov: see the 14 Nov HANDOVER above.
 - Dashboard has the phone's Ideas and F&O (night): F&O section with Option ideas (index, NIFTY 50 stocks); Watchlist
   under Shortlist.
 - To do, Sat 14 Nov 2026 morning, after the overnight library run and the insights rebuild:

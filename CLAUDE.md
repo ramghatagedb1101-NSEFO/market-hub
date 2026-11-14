@@ -2,7 +2,8 @@
 
 A private research terminal for one Indian investor: every NSE company scored on 130+ measures, a
 Shortlist with a weekly record against NIFTY, a research dashboard, a phone app, email alerts, plus NIFTY
-forecasts and F&O screens. It runs every day without a PC. Read `STATUS.md` (where things stand) and the
+forecasts and F&O screens, and (since 14 Nov 2026) an automatic index-options trading program on an IBKR paper
+account with a strategy builder, back-tests and autopilot. It runs every day without a PC. Read `STATUS.md` (where things stand) and the
 top of `CHANGELOG.md` (what changed recently and why) before changing anything.
 
 ## Accounts (non-negotiable)
@@ -18,15 +19,24 @@ top of `CHANGELOG.md` (what changed recently and why) before changing anything.
 | Data: library, Shortlist, digest, summaries, state | `ramghatagedb1101-NSEFO/market-hub-private` (`library.json`, `library_compact.json`, `site/`, `state/`) |
 | Relay: Kite login, phone/dashboard API, emails, research dashboard page | Google Apps Script, source in `relay/` |
 | Daily batch | GitHub Actions (`.github/workflows/`) |
+| Trading program (paper) | `trader/` (this repo), running on the Oracle machine `market-hub-trader` as `trader.service`; set-up files `infra/trader/` |
+| ICICI fixed-address hop | Oracle machine `market-hub-ip` (130.210.31.37), used by `breeze.yml` over SSH |
 
 Key workflows: `library.yml` (stock library, daily 06:15 IST, chains itself), `daily.yml` (forecasts),
+`breeze.yml` (ICICI minute history, 16:00 / 21:00 IST, needs the day's ICICI sign-in), `algo-sync.yml` (strategies to the
+trading machine, its journals back, `site/algo.json`; every 10 min in market hours and on every switch from the
+dashboard), `strategy-backtest.yml` (a builder strategy's back-test, started from the dashboard), `oci-launch.yml`
+(switched off; makes / sizes the Oracle machine, never above the Always Free 2 cores / 12 GB),
 `live.yml` (live quotes every 5 min in market hours), `expiry-tape.yml` (expiry days: relay called every minute,
 the day's option-sellers record saved to the private repo's `state/expiry/`), `summaries.yml` (AI summaries), `diag.yml`
 (run a `hub/diag_*` module on GitHub's servers).
 
 Secret names (values are the owner's): BHARATSTOCK_API_KEY, KITE_API_KEY, GEMINI_API_KEY,
-PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY, BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY (GitHub); relay script
-properties hold the Kite token, ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY, BREEZE_API_KEY.
+PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY, BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY, OCI_API_KEY, OCI_TENANCY,
+OCI_USER, OCI_FINGERPRINT, OCI_SSH_PUBKEY (GitHub); relay script properties hold the Kite token, ADMIN_READ_TOKEN, GH_PAT,
+BHARATSTOCK_API_KEY, BREEZE_API_KEY, and the strategy builder's STRAT_* (strategies, active one, mode, fallback,
+limits). The IBKR paper login lives only on the trading machine (`/opt/trader/.env`, `secrets/`), typed by the owner
+through `set-login.sh`.
 
 ## Data sources and budgets
 - **BharatStock** (paid, the only paid data source): 9,000 requests a day. Budget it: fetch only when
@@ -43,6 +53,10 @@ properties hold the Kite token, ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY, B
 - **ICICI Breeze** (free, owner's ICICI account, 13 Nov 2026): minute F&O history for back-tests. The API key works only
   from the fixed address 130.210.31.37 (owner's Oracle Always Free server `market-hub-ip`, Mumbai); `breeze.yml` reaches
   ICICI through it over SSH. One ICICI sign-in a day (phone Settings button). Prices to the private repo only.
+- **IBKR paper account** (owner's IBKR India account, 14 Nov 2026): live NSE prices and paper orders for the trading
+  program, through the IB gateway on `market-hub-trader` (API on the machine only). NSE shares and F&O data are
+  "Fee Waived"; no BSE (no SENSEX options). The program refuses any account not starting "DU". The paper username and
+  account number stay out of this public repo. IBKR allows one session: no IBKR web / app login in market hours.
 - **AI summaries**: Google Gemini free tier (`hub/summaries.py`), not Anthropic, unless the owner says so.
 
 ## Making changes
@@ -81,6 +95,12 @@ properties hold the Kite token, ADMIN_READ_TOKEN, GH_PAT, BHARATSTOCK_API_KEY, B
   the laptop: everything is in GitHub; `git pull` on the laptop and read STATUS.md / CHANGELOG.md.
 - Phone app (`docs/index.html`): bump the cache name in `docs/sw.js` on every change, or phones keep the
   old page. Test at phone width (375 px) before publishing.
+- Trading program (`trader/`): run `python -m trader.selftest` before every push. To update the machine: `git pull` in
+  `/opt/trader/app`, then `sudo systemctl restart trader.service`, outside market hours (09:15-15:30 IST) unless the
+  owner says otherwise; check its journal line "start" afterwards. Never place a test order on the live account; the
+  paper-only guard in `trader/ibkr.py` stays.
+- Previews of the dashboard and phone with sample data: `C:\nse_fo_analyser\extras\dash_preview` (launch config
+  `dash-preview`, port 8765); rebuild its `index.html` / `phone/index.html` from the repo files after changes.
 - Verify on real data where possible (private repo files via `gh api`), not only on samples.
 
 ## Audits: check sense, not just that it loads (owner, 13 Nov 2026)
