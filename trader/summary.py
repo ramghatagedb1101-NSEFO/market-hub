@@ -8,6 +8,8 @@ Built only from the journals (one JSON line per event, trader/journal.py), so it
   days      profit booked each day (trades closed that day), trades, wins, losses
   months    the same by calendar month
   open      positions still held: quantity, entry, latest price, open profit, protection (stop / trailing)
+  pending   orders still working at the broker (entries not filled yet, stop-losses, trailing stops), as of the last
+            profit line
   status    running or not, strategy, stopped-for-the-day reason, last heard from
 
     python -m trader.summary JOURNAL_DIR [--out file.json] [--publish]   (publish: private repo site/algo.json)
@@ -47,6 +49,7 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
     now = now or datetime.now()
     lots = defaultdict(list)          # contract -> open lots [qty signed, price, time, charge per unit, tag]
     trades, marks, protect, stop_of = [], {}, {}, {}
+    pending, pending_at = [], None
     status = {"strategy": None, "killed": None, "last": None, "started": None}
 
     def close(key, qty_signed, px, t, fee, tag):
@@ -88,6 +91,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         elif k == "mark":
             for key, v in (r.get("positions") or {}).items():
                 marks[key] = v[1]
+            if r.get("orders") is not None:
+                pending, pending_at = r["orders"], t
         elif k == "settle":
             for key in [c for c in lots if c.startswith(r["index"] + " " + r["expiry"])]:
                 strike, right = float(key.split(" ")[2][:-1]), key[-1]
@@ -151,6 +156,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
                    "best": max((t["pnl"] for t in trades), default=None),
                    "worst": min((t["pnl"] for t in trades), default=None), "worst_drop": round(dd, 2)},
         "open": open_,
+        "pending": pending,                      # orders still working as of the last profit line
+        "pending_at": pending_at,
         "days": day_list,
         "months": month_list,
         "trades": list(reversed(trades)),        # newest first; every trade, no cut-off

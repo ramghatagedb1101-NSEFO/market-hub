@@ -1289,7 +1289,7 @@
     const body = !A ? `<div class="mut">Loading…</div>` :
       A.error ? `<div class="mut">${A.error === "not published yet" ? "Appears after the program first runs." : esc(A.error)}</div>` :
       `<div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut">IBKR paper</span></div>` +
-      `<div class="row"><span class="l">Today${(A.open || []).length ? " · " + A.open.length + " open" : ""}</span><span class="r">${pSigned((TD.booked || 0) + (TD.open || 0))}</span></div>` +
+      `<div class="row"><span class="l">Today${(A.open || []).length ? " · " + A.open.length + " open" : ""}${(A.pending || []).length ? " · " + A.pending.length + " pending" : ""}</span><span class="r">${pSigned((TD.booked || 0) + (TD.open || 0))}</span></div>` +
       `<div class="row"><span class="l">This month · ${MO.trades || 0} trades</span><span class="r">${pSigned(MO.booked || 0)}</span></div>` +
       `<div class="row"><span class="l">All time · ${T.trades || 0} trades</span><span class="r">${pSigned(T.booked || 0)}</span></div>`;
     el.innerHTML = `<div class="sec">Auto trading</div><div class="panel"><div class="pb">${body}` +
@@ -1304,7 +1304,7 @@
     const A = ALGO;
     if (!A) return `<div class="mut" style="padding:12px">Loading…</div>`;
     if (A.error) return `<div class="mut" style="padding:12px">${A.error === "not published yet" ? "Nothing yet: the summary appears after the program first runs." : esc(A.error)}</div>`;
-    const T = A.totals || {}, D = (A.days || []).slice().reverse(), M = (A.months || []).slice().reverse(), TR = A.trades || [], O = A.open || [], TD = A.today || {}, MO = A.month || {};
+    const T = A.totals || {}, D = (A.days || []).slice().reverse(), M = (A.months || []).slice().reverse(), TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
     const stat = (k, v, s) => `<div style="padding:6px 0"><div class="mut" style="font-size:11px">${k}</div><div style="font-weight:700">${v}</div>${s ? `<div class="mut" style="font-size:11px">${s}</div>` : ""}</div>`;
     const asof = A.asof ? `As of ${String(A.asof).slice(11, 16)} IST · ${dayTxt(parseDay(A.asof))}` : "";
     let h = `<div class="panel"><div class="pb"><div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut" style="font-size:11px">${esc(asof)}</span></div>` +
@@ -1315,14 +1315,15 @@
       stat("Won", T.trades ? Math.round(100 * T.wins / T.trades) + "%" : "–", (T.wins || 0) + " of " + (T.trades || 0)) +
       stat("Avg win / loss", `<span style="white-space:nowrap;font-size:12px">${T.avg_win != null ? pSigned(T.avg_win) : "–"} / ${T.avg_loss != null ? pSigned(T.avg_loss) : "–"}</span>`, "per trade") +
       stat("Worst fall", pSigned(T.worst_drop || 0), "from a high") + `</div></div></div>`;
-    const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length };
-    h += `<div class="seg" style="margin:12px 0 6px">${[["daily", "Daily"], ["monthly", "Monthly"], ["trades", "Trades"], ["open", "Open"]].map(([k, l]) =>
+    const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length, pending: P.length };
+    h += `<div class="seg" style="margin:12px 0 6px">${[["daily", "Daily"], ["monthly", "Month"], ["trades", "Trades"], ["open", "Open"], ["pending", "Orders"]].map(([k, l]) =>
       `<button type="button" class="${ALGO_TAB === k ? "on" : ""}" onclick="algoTab('${k}')">${l}${n[k] ? " · " + n[k] : ""}</button>`).join("")}</div><div class="panel"><div class="pb">`;
     const SHOW = 20, cut = list => ALGO_ALL ? list : list.slice(0, SHOW);
     const more = list => !ALGO_ALL && list.length > SHOW ? `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="algoAll()">Show all ${list.length}</button>` : "";
     if (ALGO_TAB === "daily") h += D.length ? cut(D).map(d => `<div class="row"><span class="l">${esc(dayTxt(parseDay(d.date)))}<br><span class="mut" style="font-size:11px">${d.trades} trade${d.trades === 1 ? "" : "s"} · ${d.wins} won · ${d.losses} lost</span></span><span class="r">${pSigned(d.pnl)}</span></div>`).join("") + more(D) : `<div class="mut">No closed trades yet.</div>`;
     else if (ALGO_TAB === "monthly") h += M.length ? M.map(m => { const d = parseDay(m.month + "-01"); return `<div class="row"><span class="l">${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}<br><span class="mut" style="font-size:11px">${m.trades} trade${m.trades === 1 ? "" : "s"} · ${m.days_up} day${m.days_up === 1 ? "" : "s"} up · ${m.days_down} down</span></span><span class="r">${pSigned(m.pnl)}</span></div>`; }).join("") : `<div class="mut">No closed trades yet.</div>`;
     else if (ALGO_TAB === "trades") h += TR.length ? cut(TR).map(t => `<div class="row"><span class="l">${algoName(t.contract)}<br><span class="mut" style="font-size:11px">${t.dir === "long" ? "Bought" : "Sold"} ${f(t.qty)} · ${f(t.entry, 2)} → ${f(t.exit, 2)} · ${esc(t.why)}<br>${esc(algoWhen(t.exit_t))}</span></span><span class="r">${pSigned(t.pnl)}</span></div>`).join("") + more(TR) : `<div class="mut">No closed trades yet.</div>`;
+    else if (ALGO_TAB === "pending") h += P.length ? P.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${esc(o.type)} · ${o.side === "BUY" ? "Buy" : "Sell"} ${f(o.qty)}${o.waiting_for_entry ? " · after the buy fills" : ""}</span></span><span class="r">${o.price != null ? f(o.price, 2) : o.trail_pct ? o.trail_pct + "% trail" : "–"}</span></div>`).join("") + (A.pending_at ? `<div class="mut" style="font-size:11px;margin-top:6px">As of ${esc(algoWhen(A.pending_at))}</div>` : "") : `<div class="mut">No pending orders.</div>`;
     else h += O.length ? O.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${o.qty > 0 ? "Bought" : "Sold"} ${f(Math.abs(o.qty))} at ${f(o.entry, 2)} · now ${o.mark != null ? f(o.mark, 2) : "–"}<br>${esc(o.protection || (o.qty < 0 ? "Loss capped by a bought option" : ""))}</span></span><span class="r">${pSigned(o.pnl)}</span></div>`).join("") : `<div class="mut">No open positions.</div>`;
     h += `</div></div><div class="note" style="margin:8px 2px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A trade counts on the day it closes.</div>`;
     return h;

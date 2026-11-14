@@ -26,6 +26,10 @@ loss".
   and STT on bought options settling in the money. Live fills now use this table, not IBKR's simulated paper
   commission (which may leave out the taxes); the summary's expiry settlement now adds the exercise STT. Both screens
   say which charges are included.
+- Pending orders (owner: "the pending orders also need to be visible"): each profit line in the journal records the
+  orders still working at the broker (entries not filled yet, stop-losses, trailing stops: type, side, quantity,
+  price); both screens have a "Pending orders" tab (phone: "Orders"), as of that line; the phone card counts them.
+  sw.js v63. Self-tests 42 of 42.
 - Checked locally (preview with sample data from real ICICI replays: 5 condors, a trailing-stop win, a stop-loss loss,
   one open position): figures add up (month = -7,782 + 1,776 - 1,912), expiry settlements at index close minus
   strike, open stop shown 25% under entry; phone at 375 px, no console errors. Self-tests: 40 of 40 (8 new for the

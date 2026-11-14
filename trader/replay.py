@@ -184,6 +184,16 @@ class ReplayBroker:
     def working(self) -> set[Contract]:
         return {r.contract for _, r in self.waiting}
 
+    def open_orders(self) -> list[dict]:
+        """Orders still working: entries not yet filled, and the stop or trailing stop of each long position."""
+        out = [{"id": oid, "contract": r.contract.key(), "side": r.side, "qty": r.lots * r.contract.lot,
+                "type": "Limit" if r.limit is not None else "At market", "price": r.limit, "tag": r.tag}
+               for oid, r in self.waiting]
+        out += [{"id": st["id"], "contract": c.key(), "side": "SELL", "qty": st["qty"],
+                 "type": "Trailing stop" if st["kind"] == "trail" else "Stop-loss", "price": round(st["stop"], 2),
+                 "tag": st["kind"], "waiting_for_entry": not st["live"]} for c, st in self.stops.items()]
+        return out
+
     def end_of_day(self) -> int:
         """Unfilled entry orders are cancelled; stops of open positions stay (IBKR keeps good-till-cancelled stops)."""
         dropped = {oid for oid, _ in self.waiting}

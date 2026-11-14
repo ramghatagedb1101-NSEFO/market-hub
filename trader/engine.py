@@ -101,7 +101,8 @@ class Engine:
                          charges=round(self.book.charges, 2), killed=self.guard.killed or None,
                          positions={c.key(): [q, round(self.book.marks.get(c, 0.0), 2),
                                               (self.protect.get(c) or {}).get("state")]
-                                    for c, q in self.book.qty.items()})
+                                    for c, q in self.book.qty.items()},
+                         orders=self.broker.open_orders() if hasattr(self.broker, "open_orders") else None)
 
     def _protection_after(self, f, now: datetime) -> None:
         c = f.contract

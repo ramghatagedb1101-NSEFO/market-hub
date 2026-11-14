@@ -182,6 +182,15 @@ def test_summary():
     o = s["open"]
     ok("summary: open position with its stop-loss", len(o) == 1 and o[0]["protection"].startswith("Stop-loss at"), o)
     ok("summary: open profit valued at the last price", o[0]["mark"] == 108 and o[0]["pnl"] is not None, o)
+    pend = s["pending"]
+    ok("summary: pending shows the working stop-loss", len(pend) == 1 and pend[0]["type"] == "Stop-loss"
+       and pend[0]["side"] == "SELL" and pend[0]["qty"] == 65, pend)
+    # a limit buy below the market never fills: pending until the day's end
+    e = entry({"25000": walk(0, 30, [100] * 20)})
+    eng, j = go(e, {(0, 30): [OrderRequest(C, "BUY", 1, 90.0, "test")]}, {C})
+    mid = [r for r in j.lines if r["kind"] == "mark" and r["t"].startswith(PREV + "T10:")]
+    ok("summary: unfilled limit order shown as pending during the day",
+       any(o["type"] == "Limit" and o["price"] == 90.0 for o in mid[-1]["orders"]), mid[-1]["orders"] if mid else None)
     # condor settled at expiry: four trades, booked total equals the engine's
     from .strategies.expiry_condor import ExpiryCondor
     strikes = range(24000, 26050, 50)

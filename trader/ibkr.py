@@ -189,6 +189,23 @@ class IBKR:
                 out.add(c)
         return out
 
+    def open_orders(self) -> list[dict]:
+        """Orders still working at IBKR (entries, stop-losses, trailing stops), for the screens' Pending tab."""
+        kinds = {"LMT": "Limit", "STP": "Stop-loss", "TRAIL": "Trailing stop", "MKT": "At market"}
+        out = []
+        for t in self.ib.openTrades():
+            c = self._ours(t.contract)
+            if not c:
+                continue
+            o, st = t.order, t.orderStatus
+            price = o.lmtPrice if o.orderType == "LMT" else (st.__dict__.get("trailStopPrice") or o.auxPrice)
+            ok = lambda x: round(x, 2) if x is not None and not math.isnan(x) and 0 < x < 1e9 else None
+            out.append({"id": str(o.orderId), "contract": c.key(), "side": o.action,
+                        "qty": int(o.totalQuantity - (st.filled or 0)), "type": kinds.get(o.orderType, o.orderType),
+                        "price": ok(price), "tag": o.orderRef, "status": st.status,
+                        "trail_pct": o.trailingPercent if o.orderType == "TRAIL" else None})
+        return out
+
     def poll_fills(self) -> list[Fill]:
         out = []
         for f in self.ib.fills():
