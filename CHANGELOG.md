@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy form: put side editing (Sat 14 Nov 2026)
+Owner: "add put side editing to the strategy form". A both-ways strategy could only be made on the Back-tests page.
+- What to trade > Direction: "One option" / "Trade both ways". Both ways fixes Buy and shows "Buy · call and put";
+  the form then has "When to buy the call" and "When to buy the put", each with its own groups and signals.
+- Save refuses a both-ways strategy with no put signal ("Add at least one signal for the put, or choose One option.").
+  Switching back to One option drops the put side.
+- The summary beside the form, the strategy card ("Buy CE / PE", both sides' signals) and the chart's strategy lines
+  cover the put side. Back-tests > Change details opens such a strategy with both sections filled.
+
 ### Both directions: trade labels (Sat 14 Nov 2026)
 - The first both-ways back-test labelled every trade "(call side)": the side word sat in front of the ":" that the
   summary reads the strategy's name from. The side now follows the ":"; the strategy shows under its own name.

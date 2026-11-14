@@ -78,7 +78,7 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
   signals (`put_groups`); the opposite signal reverses. Checked on the owner's Supertrend sentence since Aug 2026: 92
   trades (46 calls, 46 puts, 37 reversals), 29% won, -Rs 17,638 after charges, 3 Aug - 9 Nov 2026; one day (9 Nov) hit the
   Rs 10,000 day's loss limit and closed. Exits show 15:01: the 15:00 decision fills on the next minute's price.
-  Not yet: the strategy form cannot show or edit the put side (Back-tests page only).
+  The strategy form edits both sides (Direction: One option / Trade both ways), 14 Nov 2026.
 - Back-test jobs that fail on the machine leave the page on "Running…" (the worker only logs). `bt-worker-setup.yml
   -f log_only=true` shows the worker's log without restarting it.
 - To check: the strategy chart's option view opened on the 28 Jul 2026 NIFTY expiry, not the latest; the earlier

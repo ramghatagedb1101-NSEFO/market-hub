@@ -1741,12 +1741,15 @@ function stSideRefresh(){ const el = document.getElementById('st-side'); if (el 
 function stSide(){
   const E = ST_EDIT, X = E.exits, u = (t, v) => t === 'points' ? v + ' points' : v + '%';
   const gs = (E.groups || []).filter(g => g.signals.length);
-  const what = (E.side === 'BUY' ? 'Buys ' : 'Sells ') + E.lots + ' lot' + (E.lots > 1 ? 's' : '') + ' of the ' + stIdx(E.index) + ' ' +
-    (E.strike.mode === 'premium' ? (E.right === 'P' ? 'put' : 'call') + ' priced nearest ₹' + E.strike.near : (E.strike.steps ? Math.abs(E.strike.steps) + '-strike ' + (E.strike.steps > 0 ? 'out-of' : 'in') + '-the-money ' : 'at-the-money ') + (E.right === 'P' ? 'put' : 'call')) +
-    ', ' + E.expiry + ' expiry.';
-  const when = gs.length ? gs.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of: ' : 'all of: ') : '') + g.signals.map(stSigText).join('; ')).join(E.groups_match === 'all' ? ' — and — ' : ' — or — ') : '';
+  const both = stBothOn(E), optW = r => E.strike.mode === 'premium' ? r + ' priced nearest ₹' + E.strike.near : (E.strike.steps ? Math.abs(E.strike.steps) + '-strike ' + (E.strike.steps > 0 ? 'out-of' : 'in') + '-the-money ' : 'at-the-money ') + r;
+  const what = (both || E.side === 'BUY' ? 'Buys ' : 'Sells ') + E.lots + ' lot' + (E.lots > 1 ? 's' : '') + ' of the ' + stIdx(E.index) + ' ' +
+    (both ? optW('call') + ' or ' + optW('put') + ', one at a time' : optW(E.right === 'P' ? 'put' : 'call')) + ', ' + E.expiry + ' expiry.';
+  const whenW = (G, m) => G.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of: ' : 'all of: ') : '') + g.signals.map(stSigText).join('; ')).join(m === 'all' ? ' — and — ' : ' — or — ');
+  const pgs = both ? (E.put_groups || []).filter(g => g.signals.length) : [];
+  const when = gs.length ? (both ? 'buys the call when ' : '') + whenW(gs, E.groups_match) + (both && pgs.length ? '; the put when ' + whenW(pgs, E.put_groups_match) + '. The other side’s signal closes the open option first' : '') : '';
   const warn = [];
   if (!gs.length) warn.push('No signals yet: it will never trade.');
+  if (both && !pgs.length) warn.push('No put signals yet: add one, or choose One option.');
   if (E.window.from >= E.window.until) warn.push('The entry window ends before it starts.');
   if (E.style === 'intraday' && X.exit_by <= E.window.from) warn.push('Exit time is before the entry window opens.');
   if (E.side === 'SELL' && !Number(X.sl)) warn.push('A sold option with no stop-loss has no limit on its loss.');
@@ -1754,7 +1757,7 @@ function stSide(){
   return '<div class="panel"><div class="panel-h"><h3>Summary</h3></div><div class="panel-b">' + stRiskBlock(E) +
     '<b>' + esc(E.name || 'Unnamed') + '</b><ul>' +
     '<li>' + esc(what) + '</li>' +
-    '<li>Enters ' + E.window.from + '–' + E.window.until + (when ? ' when ' + esc(when) : '') + '.</li>' +
+    '<li>' + (both ? 'Between ' + E.window.from + '–' + E.window.until + (when ? ': ' + esc(when) : '') : 'Enters ' + E.window.from + '–' + E.window.until + (when ? ' when ' + esc(when) : '')) + '.</li>' +
     '<li>Stop-loss ' + (Number(X.sl) ? u(X.sl_type, X.sl) + (E.side === 'BUY' ? ' below' : ' above') + ' the entry, held by IBKR' : 'none') +
       (Number(X.target) ? '; target ' + u(X.target_type, X.target) : '') +
       (Number(X.trail) ? '; once ' + u(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + u(X.trail_type, X.trail) + ' behind the best price' : '') + '.</li>' +
@@ -1782,11 +1785,24 @@ function stEdit(id){
   stGroups(ST_EDIT);
   ST_MSG = ''; rerender(); window.scrollTo({ top: 0 });
 }
-function stGroups(E){ if (!Array.isArray(E.groups) || !E.groups.length) { E.groups = [{ match: E.match || 'all', signals: E.signals || [] }]; E.groups_match = 'any'; } delete E.signals; delete E.match; return E; }
+function stGroups(E){ if (!Array.isArray(E.groups) || !E.groups.length) { E.groups = [{ match: E.match || 'all', signals: E.signals || [] }]; E.groups_match = 'any'; } delete E.signals; delete E.match;
+  if (Array.isArray(E.put_groups) && !E.put_groups.length) delete E.put_groups; return E; }
+// Both directions: a strategy with put-side signals (put_groups) buys the call on "groups" and the put on "put_groups".
+function stBothOn(E){ return Array.isArray(E.put_groups) && E.put_groups.length > 0; }
+function stBoth(on){
+  const E = ST_EDIT;
+  if (on && !stBothOn(E)) { E.put_groups = [{ match: 'all', signals: [] }]; E.put_groups_match = 'any'; E.side = 'BUY'; E.right = 'C'; if ((E.max_trades_day || 0) < 10) E.max_trades_day = 10; }
+  if (!on) { delete E.put_groups; delete E.put_groups_match; }
+  rerender();
+}
 function stCopy(id){ const s = (S.strat.items || []).find(x => x.id === id); if (!s) return; ST_EDIT = stGroups(JSON.parse(JSON.stringify(s))); delete ST_EDIT.id; ST_EDIT.name = s.name + ' (copy)'; ST_MSG = ''; rerender(); window.scrollTo({ top: 0 }); }
 function stSave(){
   ST_EDIT.groups = ST_EDIT.groups.filter(g => g.signals.length);
-  if (!ST_EDIT.groups.length) { ST_EDIT.groups = [{ match: 'all', signals: [] }]; ST_MSG = 'Add at least one signal: without one the strategy never trades.'; rerender(); return; }
+  if (!ST_EDIT.groups.length) { ST_EDIT.groups = [{ match: 'all', signals: [] }]; ST_MSG = 'Add at least one signal' + (stBothOn(ST_EDIT) ? ' for the call' : '') + ': without one the strategy never trades.'; rerender(); return; }
+  if (stBothOn(ST_EDIT)) {
+    ST_EDIT.put_groups = ST_EDIT.put_groups.filter(g => g.signals.length);
+    if (!ST_EDIT.put_groups.length) { ST_EDIT.put_groups = [{ match: 'all', signals: [] }]; ST_MSG = 'Add at least one signal for the put, or choose One option.'; rerender(); return; }
+  }
   stDo('adminStrategySave', [ST_EDIT], 'Saving…', d => { ST_EDIT = null; return 'Saved.' + (d.sent ? ' The trading machine gets it in a minute or two.' : ''); });
 }
 async function stDelete(id){
@@ -2351,7 +2367,7 @@ function stcDraw(){
     const seen = new Set();
     const avg = (k3, nn) => { const k = k3 + nn; if (seen.has(k) || seen.size >= 2) return; seen.add(k); over((k3 === 'sma' ? sma : ema)(closes, nn), muted, 'Strategy ' + k3.toUpperCase() + ' ' + nn, { lineStyle: 1 }); };
     const lvl = (f, nm) => over(perDay(f), muted, nm, Object.assign({}, step, { lineStyle: 1 }));
-    (E.groups || []).forEach(g => g.signals.forEach(sg => {
+    (E.groups || []).concat(E.put_groups || []).forEach(g => g.signals.forEach(sg => {
       if (sg.type === 'price_ma') avg(sg.ma || 'ema', sg.period);
       if (sg.type === 'ma_cross') { avg(sg.ma || 'ema', sg.fast); avg(sg.ma || 'ema', sg.slow); }
       if (sg.type === 'orb') lvl((d, b) => { const r = orbOf(d, sg.minutes || 15); return r && b.time >= r[2] ? r[sg.dir === 'down' ? 1 : 0] : null; }, 'Strategy opening ' + (sg.minutes || 15) + ' min ' + (sg.dir === 'down' ? 'low' : 'high'));
@@ -2491,7 +2507,11 @@ function stForm(){
   let h = sec('Strategy', lbl('Name') + '<input class="field" value="' + esc(E.name) + '" oninput="stSet(\'name\', this.value)">' + lbl('Notes (when to use it)') + '<input class="field" placeholder="e.g. trending mornings" value="' + esc(E.notes || '') + '" oninput="stSet(\'notes\', this.value)">');
   const pr = (label, hint, ctl) => '<div class="pr"><div class="pr-l">' + label + (hint ? '<div class="pr-h">' + hint + '</div>' : '') + '</div><div>' + ctl + '</div></div>';
   h += sec('What to trade',
-    pr('Option', '', row(sel('index', E.index, [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']], true), seg('side', E.side, [['BUY', 'Buy'], ['SELL', 'Sell']]), seg('right', E.right, [['C', 'Call (CE)'], ['P', 'Put (PE)']]), sel('expiry', E.expiry, [['nearest', 'Nearest expiry'], ['next', 'Next expiry'], ['monthly', 'Monthly expiry']]))) +
+    pr('Direction', stBothOn(E) ? 'buys the call on one set of signals and the put on another' : '',
+      '<div class="seg"><button type="button" class="' + (stBothOn(E) ? '' : 'on') + '" onclick="stBoth(false)">One option</button><button type="button" class="' + (stBothOn(E) ? 'on' : '') + '" onclick="stBoth(true)">Trade both ways</button></div>') +
+    pr('Option', '', row(sel('index', E.index, [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']], true),
+      stBothOn(E) ? '<span>Buy · call and put</span>' : seg('side', E.side, [['BUY', 'Buy'], ['SELL', 'Sell']]) + seg('right', E.right, [['C', 'Call (CE)'], ['P', 'Put (PE)']]),
+      sel('expiry', E.expiry, [['nearest', 'Nearest expiry'], ['next', 'Next expiry'], ['monthly', 'Monthly expiry']]))) +
     // ITM / ATM / OTM (owner, 14 Nov 2026: "ITM, ATM and OTM can also be selected?"), then how many strikes away;
     // stored as one signed number (minus = in the money), as the program reads it
     pr('Strike', E.strike.mode === 'premium' ? 'the strike whose price is nearest' : (stMoneyOf(E) === 'atm' ? 'the strike nearest the index' : 'strikes away from the money'),
@@ -2506,8 +2526,8 @@ function stForm(){
     return '<select class="field" style="width:auto" onchange="stOperand(\'' + p + '\', this.value)">' + opts + '</select>' +
       (o.src === 'value' ? numIn(p + 'value', o.value == null ? 0 : o.value, 80) : ST_HASN[o.src] ? stSlider(p + 'n', o.n || (o.src.indexOf('orb') === 0 ? 15 : 14), ST_HASN[o.src] === 'minutes' ? ST_RANGE.minutes : ST_RANGE.period, ST_HASN[o.src] === 'minutes' ? 'min' : '', true) : '');
   };
-  const sigRow = (g, gi, i) => {
-    const p = 'groups.' + gi + '.signals.' + i + '.';
+  const sigRow = (g, gi, i, K) => {
+    const p = K + '.' + gi + '.signals.' + i + '.';
     let f = '';
     if (g.type === 'compare') f = opIn(p + 'left.', g.left || { src: 'price' }) + sel(p + 'op', g.op, [['>', 'above'], ['<', 'below'], ['>=', 'at or above'], ['<=', 'at or below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + opIn(p + 'right.', g.right || { src: 'value', value: 0 }) + 'on ' + tfSel(p) + '-min bars';
     else if (g.type === 'price_ma') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + ' its ' + sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
@@ -2520,23 +2540,28 @@ function stForm(){
     else if (g.type === 'orb') f = 'Index breaks the first' + stSlider(p + 'minutes', g.minutes, ST_RANGE.minutes, 'min', true) + 'minutes\' ' + sel(p + 'dir', g.dir, [['up', 'high'], ['down', 'low']]);
     else if (g.type === 'change') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + stSlider(p + 'pct', g.pct, ST_RANGE.pct, '%', true) + '% from ' + sel(p + 'from', g.from, [['prev_close', "yesterday's close"], ['open', "today's open"]]);
     else if (g.type === 'dte') f = sel(p + 'op', g.op, [['<=', 'At most'], ['>=', 'At least']]) + stSlider(p + 'days', g.days, ST_RANGE.days, '', true) + 'days to expiry';
-    else if (g.type === 'weekday') f = 'On ' + [1, 2, 3, 4, 5].map(d => '<label style="margin-right:8px;font-size:13px"><input type="checkbox"' + ((g.days || []).indexOf(d) >= 0 ? ' checked' : '') + ' onchange="stDay(' + gi + ',' + i + ',' + d + ',this.checked)"> ' + DOW3[d] + '</label>').join('');
+    else if (g.type === 'weekday') f = 'On ' + [1, 2, 3, 4, 5].map(d => '<label style="margin-right:8px;font-size:13px"><input type="checkbox"' + ((g.days || []).indexOf(d) >= 0 ? ' checked' : '') + ' onchange="stDay(\'' + K + '\',' + gi + ',' + i + ',' + d + ',this.checked)"> ' + DOW3[d] + '</label>').join('');
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle)">' + row(f) +
-      '<button class="btn sm" type="button" title="Remove this signal" onclick="ST_EDIT.groups[' + gi + '].signals.splice(' + i + ',1);rerender()">×</button></div>';
+      '<button class="btn sm" type="button" title="Remove this signal" onclick="ST_EDIT.' + K + '[' + gi + '].signals.splice(' + i + ',1);rerender()">×</button></div>';
   };
-  const addSel = gi => '<select class="field" style="width:auto;margin-top:8px" onchange="if(this.value){ST_EDIT.groups[' + gi + '].signals.push(JSON.parse(JSON.stringify(ST_SIG[this.value].d)));rerender()}"><option value="">+ Add a signal…</option>' +
+  const addSel = (gi, K) => '<select class="field" style="width:auto;margin-top:8px" onchange="if(this.value){ST_EDIT.' + K + '[' + gi + '].signals.push(JSON.parse(JSON.stringify(ST_SIG[this.value].d)));rerender()}"><option value="">+ Add a signal…</option>' +
     Object.keys(ST_SIG).map(k => '<option value="' + k + '">' + ST_SIG[k].l + '</option>').join('') +
     // Placeholders (owner, 14 Nov 2026: "keep the placeholder on the dashboard. The moment the data is available, we can
     // make enable"): shown greyed out until the program has the data; enabling one = add it to ST_SIG and indicators.py.
     '<optgroup label="Coming when the data is ready">' + ST_SOON.map(l => '<option disabled>' + l + '</option>').join('') + '</optgroup></select>';
-  const groups = E.groups.map((g, gi) => '<div style="border:1px solid var(--border-subtle);border-radius:8px;padding:8px 12px;margin-top:10px">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' + row('<b>Group ' + (gi + 1) + '</b>', 'true when', seg('groups.' + gi + '.match', g.match, [['all', 'all'], ['any', 'any']]), 'of its signals are true') +
-    (E.groups.length > 1 ? '<button class="btn sm" type="button" title="Remove this group" onclick="ST_EDIT.groups.splice(' + gi + ',1);rerender()">Remove group</button>' : '') + '</div>' +
-    (g.signals.map((x, i) => sigRow(x, gi, i)).join('') || '<div class="muted" style="margin-top:8px">No signals in this group yet.</div>') + addSel(gi) + '</div>').join('');
+  const groupsOf = K => E[K].map((g, gi) => '<div style="border:1px solid var(--border-subtle);border-radius:8px;padding:8px 12px;margin-top:10px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' + row('<b>Group ' + (gi + 1) + '</b>', 'true when', seg(K + '.' + gi + '.match', g.match, [['all', 'all'], ['any', 'any']]), 'of its signals are true') +
+    (E[K].length > 1 ? '<button class="btn sm" type="button" title="Remove this group" onclick="ST_EDIT.' + K + '.splice(' + gi + ',1);rerender()">Remove group</button>' : '') + '</div>' +
+    (g.signals.map((x, i) => sigRow(x, gi, i, K)).join('') || '<div class="muted" style="margin-top:8px">No signals in this group yet.</div>') + addSel(gi, K) + '</div>').join('') +
+    '<button class="btn sm" type="button" style="margin-top:10px" onclick="ST_EDIT.' + K + '.push({match:\'all\',signals:[]});ST_EDIT.' + K + '_match=ST_EDIT.' + K + '_match||\'any\';rerender()">+ Add a group (an "or" choice)</button>';
+  const whenOf = K => E[K].length > 1 ? ', when ' + seg(K + '_match', E[K + '_match'] || 'any', [['any', 'any'], ['all', 'all']]) + ' of these groups are true:' : ', when:';
+  const both = stBothOn(E);
   h += stcPanel(E);
-  h += sec('When to enter',
-    row('Between', timeIn('window.from', E.window.from), 'and', timeIn('window.until', E.window.until), (E.groups.length > 1 ? ', when ' + seg('groups_match', E.groups_match || 'any', [['any', 'any'], ['all', 'all']]) + ' of these groups are true:' : ', when:')) +
-    groups + '<button class="btn sm" type="button" style="margin-top:10px" onclick="ST_EDIT.groups.push({match:\'all\',signals:[]});ST_EDIT.groups_match=ST_EDIT.groups_match||\'any\';rerender()">+ Add a group (an "or" choice)</button>');
+  h += sec(both ? 'When to buy the call' : 'When to enter',
+    row('Between', timeIn('window.from', E.window.from), 'and', timeIn('window.until', E.window.until), whenOf('groups')) + groupsOf('groups'));
+  // Both directions (owner, 14 Nov 2026): the put side's own signals; the opposite side's signal closes the open option first.
+  if (both) h += sec('When to buy the put', '<div class="muted" style="font-size:12.5px">Same hours. A put signal closes an open call first, and a call signal closes an open put.</div>' +
+    row(whenOf('put_groups').replace(/^, w/, 'W')) + groupsOf('put_groups'));
   const rng = (k, t) => ST_RANGE[k][t === 'points' ? 'points' : 'pct'];
   const u = t => t === 'points' ? 'pts' : '%';
   h += sec('Exits',
@@ -2555,7 +2580,7 @@ function stForm(){
   return '<div class="st-form"><div>' + h + '</div><aside class="st-side" id="st-side">' + stSide() + '</aside></div>';
 }
 function stCond(c, on){ ST_EDIT.conditions = (ST_EDIT.conditions || []).filter(x => x !== c); if (on) ST_EDIT.conditions.push(c); stSideRefresh(); }
-function stDay(gi, i, d, on){ const g = ST_EDIT.groups[gi].signals[i]; g.days = (g.days || []).filter(x => x !== d); if (on) g.days.push(d); g.days.sort(); }
+function stDay(K, gi, i, d, on){ const g = ST_EDIT[K][gi].signals[i]; g.days = (g.days || []).filter(x => x !== d); if (on) g.days.push(d); g.days.sort(); }
 function ST_EDIT_GET(path){ return path.split('.').reduce((o, k) => o == null ? o : o[k], ST_EDIT); }
 function stOperand(path, src){ const o = { src }; if (src === 'value') o.value = 0; if (ST_HASN[src]) o.n = src.indexOf('orb') === 0 ? 15 : ['rsi', 'atr', 'adx'].indexOf(src) >= 0 ? 14 : 20; stSet(path.replace(/\.$/, ''), o, true); }
 function stBtPanel(){
@@ -2746,11 +2771,13 @@ function pageStrategies(){
   items.forEach(s => {
     const on = s.id === S.strat.active, running = (S.strat.backtest_started || {})[s.id], b = BT[s.id], e = s.exits || {};
     const u = (t, v) => t === 'points' ? v + ' pts' : v + '%';
-    const chips = [(s.side === 'BUY' ? 'Buy' : 'Sell') + ' ' + (s.right === 'P' ? 'PE' : 'CE'), stIdx(s.index),
+    const chips = [stBothOn(s) ? 'Buy CE / PE' : (s.side === 'BUY' ? 'Buy' : 'Sell') + ' ' + (s.right === 'P' ? 'PE' : 'CE'), stIdx(s.index),
       s.strike.mode === 'premium' ? 'Near ₹' + s.strike.near : s.strike.steps ? (s.strike.steps > 0 ? 'OTM ' : 'ITM ') + Math.abs(s.strike.steps) : 'ATM',
       s.expiry[0].toUpperCase() + s.expiry.slice(1) + ' expiry', s.lots + ' lot' + (s.lots > 1 ? 's' : ''), s.style === 'carry' ? 'Carry' : 'Intraday · out by ' + e.exit_by];
     const exits = 'Stop ' + (Number(e.sl) ? u(e.sl_type, e.sl) : 'none') + (Number(e.target) ? ' · target ' + u(e.target_type, e.target) : '') + (Number(e.trail) ? ' · trail ' + u(e.trail_type, e.trail) + ' after ' + u(e.trail_after_type, e.trail_after) : '');
-    const sig = stGroups(JSON.parse(JSON.stringify(s))).groups.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of (' : 'all of (') : '(') + g.signals.map(stSigText).join('; ') + ')').join(s.groups_match === 'all' ? ' and ' : ' or ');
+    const sigOf = (G, m) => G.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of (' : 'all of (') : '(') + g.signals.map(stSigText).join('; ') + ')').join(m === 'all' ? ' and ' : ' or ');
+    const sig = (s.put_groups || []).length ? sigOf(stGroups(JSON.parse(JSON.stringify(s))).groups, s.groups_match) + ' for the call; ' + sigOf(s.put_groups, s.put_groups_match) + ' for the put'
+      : sigOf(stGroups(JSON.parse(JSON.stringify(s))).groups, s.groups_match);
     h += '<div class="panel st-card' + (on ? ' on' : '') + '"><div class="panel-b">' +
       '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start"><div style="min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:15px">' + esc(s.name) + '</b>' + (on ? '<span class="chip up">● Trading</span>' : '') + '</div>' +
         (s.notes ? '<div class="muted" style="font-size:12.5px;margin-top:2px">' + esc(s.notes) + '</div>' : '') + '</div>' +
