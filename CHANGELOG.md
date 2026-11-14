@@ -4,6 +4,17 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Oracle trading machine made, set up, and shrunk to the free size (Sat 14 Nov 2026)
+- The self-continuing retry got `market-hub-trader` on its first ask (4 cores / 24 GB, Mumbai) and switched itself off.
+  `bootstrap.sh` run on it: Docker, the IBKR gateway image (arm64, built 11 Nov 2026), Python with `ib_async` 2.1.0,
+  India time. The gateway listens only inside the machine.
+- Correction: I had said 4 / 24 was inside Oracle's free allowance (from a notice in the Oracle console). Oracle's
+  Always Free page says 2 OCPU / 12 GB for Arm ("For Always Free tenancies, this is equivalent to 2 OCPUs and 12 GB of
+  memory"); the account is on a free trial (13 Nov - 12 Dec 2026), which is the only thing covering 4 / 24. The claim
+  that Pay As You Go keeps 4 / 24 free is not on Oracle's page: upgraded accounts pay for anything above the free size.
+- Owner: "yes shrink it to 2 cores". `infra/oci_launch.py` now shrinks the machine to 2 / 12 if it is bigger (Oracle
+  restarts it; disk, address and setup stay) and refuses to ask for more than the free size.
+
 ### ICICI download: 34 more expiries; Oracle retry schedule re-registered (Sat 14 Nov 2026, 02:35)
 - Owner-started ICICI run: 34 expiries (SENSEX 5 Nov back to NIFTY / BANK NIFTY 28 Jul 2026), 3,889 requests, 0 errors,
   every listed contract except a few untraded far strikes. 36 of 409 saved, 373 to go; the 16:00 / 21:00 IST runs

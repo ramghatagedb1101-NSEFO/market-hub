@@ -27,13 +27,15 @@ first) and `CLAUDE.md`.
   a sign-in that day it skips quietly. Once `_done.json` covers all 409: `diag.yml -f module=rule_real_fill`.
   `market-hub-ip` restarted and its `dnf-makecache.timer` disabled after it froze.
 - IBKR paper trading (owner, 13 Nov night): IBKR India account, NSE index options first, on an Oracle free Arm
-  machine (`market-hub-trader`, Ubuntu 24.04, 4 cores / 24 GB) running the `gnzsnz/ib-gateway` Docker image (arm64,
-  IBC). Mumbai has no A1 capacity (4/24, 2/12, 1/6 all refused), so `oci-launch.yml` asks every 2 minutes: each run lasts 5.5 hours
-  and starts the next one itself (14 Nov: GitHub never started its scheduled runs) and
-  switches itself off once the machine exists. Pay-as-you-go only if no machine after about a week (owner to decide,
-  card needed). Ready for when it exists (`infra/trader/`): `bootstrap.sh` (Docker, gateway image, Python, India time),
+  machine (`market-hub-trader`, Ubuntu 24.04) running the `gnzsnz/ib-gateway` Docker image (arm64, IBC).
+  Made Sat 14 Nov 2026 by `oci-launch.yml` (now switched off) at 4 cores / 24 GB, then shrunk (owner approved) to
+  2 / 12: Oracle's Always Free page gives 2 / 12 for Arm; 4 / 24 was covered only by the free trial (13 Nov - 12 Dec
+  2026). `infra/oci_launch.py` refuses anything above 2 / 12 and shrinks the machine if it is bigger. Done on it
+  (`infra/trader/`): `bootstrap.sh` (Docker, gateway image, Python, India time),
   `set-login.sh` (owner types the paper username/password once, hidden), `check.py` (paper-only connection check and
-  how IBKR names NIFTY / BANK NIFTY / SENSEX options; no orders). Then the paper trading program.
+  how IBKR names NIFTY / BANK NIFTY / SENSEX options; no orders). Waiting on: the owner's paper login in
+  `set-login.sh` (paper login fails while the main IBKR account is signed in: IBKR allows one session across the two).
+  Then the paper trading program.
   Unverified until the first check: NSE index options and their prices on an IBKR India paper account; whether paper
   login asks for a second factor.
   Proposal pending: move fixed address 130.210.31.37 to the new machine and retire `market-hub-ip`.

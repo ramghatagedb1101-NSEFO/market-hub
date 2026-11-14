@@ -3,9 +3,13 @@ Get the free Oracle Arm machine for IBKR paper trading (13 Nov 2026). Mumbai has
 VM.Standard.A1.Flex ("Out of host capacity" for 4/24, 2/12 and 1/6), so .github/workflows/oci-launch.yml runs this every
 few minutes until Oracle has room; "out of capacity" is a normal try-again, not a failure.
 
-What it creates (Always Free only): market-hub-trader, VM.Standard.A1.Flex 4 OCPU / 24 GB, Ubuntu 24.04 for Arm, the
+What it creates (Always Free only): market-hub-trader, VM.Standard.A1.Flex 2 OCPU / 12 GB, Ubuntu 24.04 for Arm, the
 account's existing subnet (the one market-hub-ip uses), a public address, the same SSH key as market-hub-ip.
-Exit codes: 0 = made or already there (the workflow then switches itself off), 75 = no capacity yet, 1 = a real error.
+Always Free for Arm is 2 OCPU / 12 GB (Oracle's Always Free page, checked 14 Nov 2026); the machine was first made at
+4 / 24, which only the free trial (to 12 Dec 2026) covers, so if it is bigger than the free size this shrinks it
+(Oracle restarts it; the disk, address and setup stay).
+Exit codes: 0 = made, shrunk or already right (the workflow then switches itself off), 75 = no capacity yet, 1 = a real
+error.
 
 Settings come from the environment: OCI_TENANCY, OCI_USER, OCI_FINGERPRINT, OCI_REGION, OCI_KEY_FILE (the API private
 key, written by the workflow from the OCI_API_KEY secret), OCI_SSH_PUBKEY. Nothing secret is printed.
@@ -17,7 +21,8 @@ import oci
 
 NAME = "market-hub-trader"
 SHAPE = "VM.Standard.A1.Flex"
-OCPUS, MEMORY_GB = float(os.getenv("OCI_OCPUS") or 4), float(os.getenv("OCI_MEMORY_GB") or 24)
+FREE_OCPUS, FREE_GB = 2.0, 12.0
+OCPUS, MEMORY_GB = float(os.getenv("OCI_OCPUS") or FREE_OCPUS), float(os.getenv("OCI_MEMORY_GB") or FREE_GB)
 NO_CAPACITY = 75
 
 
@@ -64,9 +69,19 @@ def main() -> int:
     compute = oci.core.ComputeClient(cfg)
     network = oci.core.VirtualNetworkClient(cfg)
     identity = oci.identity.IdentityClient(cfg)
+    if OCPUS > FREE_OCPUS or MEMORY_GB > FREE_GB:
+        raise SystemExit(f"{OCPUS:g} OCPU / {MEMORY_GB:g} GB is above the free {FREE_OCPUS:g} / {FREE_GB:g}; not asked")
     have = existing(compute, comp)
     if have:
-        print(f"{NAME} already exists ({have.lifecycle_state}); nothing to do")
+        sc = have.shape_config
+        if sc and (sc.ocpus > OCPUS or sc.memory_in_gbs > MEMORY_GB):
+            compute.update_instance(have.id, oci.core.models.UpdateInstanceDetails(
+                shape_config=oci.core.models.UpdateInstanceShapeConfigDetails(ocpus=OCPUS, memory_in_gbs=MEMORY_GB)))
+            print(f"{NAME} shrunk from {sc.ocpus:g} OCPU / {sc.memory_in_gbs:g} GB to {OCPUS:g} / {MEMORY_GB:g} "
+                  f"(Oracle restarts it)")
+            return 0
+        print(f"{NAME} already exists ({have.lifecycle_state}, {sc.ocpus:g} OCPU / {sc.memory_in_gbs:g} GB); "
+              f"nothing to do")
         return 0
     ad = identity.list_availability_domains(comp).data[0].name
     details = oci.core.models.LaunchInstanceDetails(

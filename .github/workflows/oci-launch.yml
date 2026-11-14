@@ -1,6 +1,6 @@
 name: oci-launch
 
-# Keeps asking Oracle for the free Arm machine (market-hub-trader, 4 OCPU / 24 GB) until Mumbai has room, then switches
+# Keeps asking Oracle for the free Arm machine (market-hub-trader, 2 OCPU / 12 GB, the Always Free size) until Mumbai has room, then switches
 # itself off (13 Nov 2026; infra/oci_launch.py). "No capacity" ends the run green; only real errors are red.
 # Secrets: OCI_API_KEY (the owner's API private key), OCI_TENANCY, OCI_USER, OCI_FINGERPRINT, OCI_SSH_PUBKEY.
 on:
