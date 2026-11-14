@@ -53,6 +53,7 @@ function doPost(e) {
   if (p.mode === 'digest') return json_(sendDigest_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'push_key') return json_(pushKey_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'push_keys_init') return json_(pushKeysInit_(p.key || '', (e.postData && e.postData.contents) || ''));
+  if (p.mode === 'bot_ask') return json_(botAsk_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (p.mode === 'push_drop') return json_(pushDrop_(p.key || '', (e.postData && e.postData.contents) || ''));
   if (/^app_/.test(p.mode || '')) return json_(appApi_(p.mode, (e.postData && e.postData.contents) || ''));
   return json_({ error: 'unknown mode' });

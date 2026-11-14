@@ -30,6 +30,7 @@ from . import config
 from .expiry_history import (IDX, NSE_SYMS, Nse, _b76, chain_stats, load, parse_index, parse_participant, save)
 
 PATH = "state/market/daily.json"
+FLOWS = "state/market/flows.json"           # 14 Nov 2026: the market diary's figures by session (see flows())
 START = date(2022, 1, 3)
 LOOKBACK = 252
 
@@ -129,6 +130,47 @@ def derive(hist: dict) -> None:
         prev = k
 
 
+def _chg(x) -> float | None:
+    v = (x or {}).get("change_pct") if isinstance(x, dict) else None
+    return round(float(v), 2) if isinstance(v, (int, float)) else None
+
+
+def flows() -> dict:
+    """The daily job's market diary (hub/context.py, state/market_diary.json; kept since 14 Nov 2026) and the morning
+    news score (hub/news_score.py, state/news_score_log.json) as one table by session date, for strategy signals and
+    the research bot: fii_cash / dii_cash (net rupees crore, that session), sp500_chg / nasdaq_chg (the US session that
+    evening), crude_chg / gold_chg / usdinr_chg (% on the day, MCX / currency futures at the daily job's time), and
+    news_score (-2..+2, that MORNING's headlines up to 09:00: known before the open of its own day)."""
+    out = {}
+    for k, e in (load("state/market_diary.json") or {}).items():
+        if not isinstance(e, dict):
+            continue
+        day, row = k, {}
+        for f in e.get("fii_dii") or []:
+            try:
+                day = datetime.strptime(f.get("date", ""), "%d-%b-%Y").date().isoformat()
+            except ValueError:
+                pass
+            if str(f.get("category", "")).startswith("FII") and isinstance(f.get("net"), (int, float)):
+                row["fii_cash"] = round(f["net"], 2)
+            elif f.get("category") == "DII" and isinstance(f.get("net"), (int, float)):
+                row["dii_cash"] = round(f["net"], 2)
+        g = e.get("global") or {}
+        row["sp500_chg"], row["nasdaq_chg"] = _chg(g.get("S&P 500")), _chg(g.get("Nasdaq Composite"))
+        com = e.get("commodities") or {}
+        row["gold_chg"] = next((_chg(v) for n, v in com.items() if n.lower().startswith("gold")), None)
+        cu = e.get("crude_usd")
+        row["crude_chg"] = cu.get("change_pct") if isinstance(cu, dict) else None
+        if row["crude_chg"] is None:
+            row["crude_chg"] = next((_chg(v) for n, v in com.items() if n.lower().startswith("crude")), None)
+        row["usdinr_chg"] = _chg(e.get("usd_inr_live"))
+        out.setdefault(day, {}).update({k2: v for k2, v in row.items() if v is not None})
+    for n in load("state/news_score_log.json") or []:
+        if isinstance(n, dict) and n.get("date") and isinstance(n.get("score"), (int, float)):
+            out.setdefault(n["date"], {})["news_score"] = n["score"]
+    return out
+
+
 def main() -> int:
     start = date.fromisoformat(os.getenv("START") or START.isoformat())
     budget = int(os.getenv("BUDGET") or 1500)
@@ -162,6 +204,8 @@ def main() -> int:
     derive(hist)
     left = sum(1 for d in todo if d.isoformat() not in hist and (today - d).days > 7)
     save(PATH, hist, f"market history: {len(hist)} days")
+    fl = flows()
+    save(FLOWS, fl, f"market flows: {len(fl)} days")
     last = max((k for k, v in hist.items() if not v.get("holiday")), default=None)
     e = hist.get(last) or {}
     n = e.get("NIFTY") or {}

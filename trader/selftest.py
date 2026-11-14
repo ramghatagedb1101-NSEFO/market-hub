@@ -548,6 +548,12 @@ def test_market_signals():
     p = m.prev("NIFTY", "2026-11-17")
     check(p["iv_pct"] == 85.0 and p["vix"] == 19.0 and p["fii_fut"] == -31.0, "market: last session before the day, past a holiday", p)
     check(m.prev("NIFTY", "2026-11-01") == {}, "market: nothing before the table starts")
+    fl = Market(t, {"2026-11-12": {"fii_cash": 1500.0}, "2026-11-13": {"fii_cash": -900.0, "sp500_chg": -0.4},
+                    "2026-11-17": {"news_score": 2}})
+    q = fl.prev("NIFTY", "2026-11-17")
+    check(q["fii_cash"] == -900.0 and q["sp500_chg"] == -0.4 and q["news_score"] == 2,
+          "diary: last session's flows, the morning's own news score", q)
+    check(fl.prev("NIFTY", "2026-11-13")["fii_cash"] == 1500.0, "diary: never the same day's flows")
     sig = {"type": "compare", "left": {"src": "iv_pct"}, "op": ">", "right": {"src": "value", "value": 70}, "tf": 5}
     fired, words = sig_check(sig, [], _dt(2026, 11, 17, 9, 30), None, "2026-11-17", dict(p))
     check(fired and "85" in words, "market: IV percentile above 70 fires on the figures", words)

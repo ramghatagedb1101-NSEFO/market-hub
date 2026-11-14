@@ -93,6 +93,18 @@ jobs:
             echo "::warning::could not read the market figures; the machine keeps its copy"
           fi
           rm -f m.json m2.json
+          # the market diary's figures (FII / DII cash, US close, crude, gold, dollar, news mood): the last 30 sessions
+          if curl -sfL -H "Authorization: Bearer $PRIVATE_REPO_TOKEN" -H "Accept: application/vnd.github.raw" \
+               "https://api.github.com/repos/ramghatagedb1101-NSEFO/market-hub-private/contents/state/market/flows.json" -o f.json \
+             && python -c "import json; d=json.load(open('f.json')); k=sorted(d)[-30:]; json.dump({x: d[x] for x in k}, open('f2.json','w'), sort_keys=True)"; then
+            NEW=$(sha256sum f2.json | cut -c1-64)
+            OLD=$($SSH 'sha256sum /opt/trader/flows.json 2>/dev/null | cut -c1-64' || true)
+            if [ "$NEW" != "$OLD" ]; then
+              $SSH 'cat > /opt/trader/flows.json.tmp && mv /opt/trader/flows.json.tmp /opt/trader/flows.json' < f2.json
+              echo "market diary figures: updated on the machine"
+            fi
+          fi
+          rm -f f.json f2.json
           $SSH 'tar czf - -C /opt/trader journal' | tar xzf -
           rm -f "$RUNNER_TEMP/k"
           echo "journal days: $(ls journal | wc -l)"

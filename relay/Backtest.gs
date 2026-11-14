@@ -83,7 +83,9 @@ const BT_GUIDE = [
   '   year, 0-100), iv (ATM implied volatility %), iv_pct (IV percentile over a year, 0-100), pcr (put-call ratio by open',
   '   interest, near expiry), pcr_all (all expiries), oi_chg (% change in option open interest), fii_fut / fii_call /',
   '   fii_put (FIIs’ net long share of index futures / calls / puts, %; negative = net short), client_fut (retail),',
-  '   pro_fut. E.g. "when IV percentile is above 70" = compare {"src":"iv_pct"} > {"src":"value","value":70};',
+  '   pro_fut, fii_cash / dii_cash (FII / DII cash buying, rupees crore), sp500_chg / nasdaq_chg (US close %),',
+  '   crude_chg, gold_chg, usdinr_chg (% change), news_score (THIS morning news mood, -2..+2, known by 09:00).',
+  '   E.g. "when IV percentile is above 70" = compare {"src":"iv_pct"} > {"src":"value","value":70};',
   '   "VIX below 13" = compare vix < 13; "FIIs net short futures" = compare fii_fut < 0.',
   ' {"type":"event","when":"today"|"not_today","kinds":["rbi","budget","election"]}  (RBI policy / budget / election',
   '   result day; "avoid RBI days" = when not_today, kinds ["rbi"])',
@@ -134,6 +136,33 @@ function adminBtParse(token, text) {
     if (code === 429) spent[tries[i][0]] = true;
   }
   return { error: last || "Google's AI did not answer in time. Try again." };
+}
+
+/** The research bot on the trading machine (trader/research.py, 14 Nov 2026) asks Gemini for new strategy ideas through
+ * here (POST ?mode=bot_ask, RELAY_KEY; body {system, prompt}), so the Gemini key stays in the relay. JSON answer only;
+ * the fast model, then the larger one; returns {text} or {error}. */
+function botAsk_(key, body) {
+  const props = PropertiesService.getScriptProperties();
+  const relayKey = props.getProperty('RELAY_KEY') || '';
+  if (!relayKey || key !== relayKey) return { error: 'key does not match RELAY_KEY' };
+  const gkey = props.getProperty('GEMINI_API_KEY');
+  if (!gkey) return { error: 'no Gemini key' };
+  let b;
+  try { b = JSON.parse(body || '{}'); } catch (e) { return { error: 'bad body' }; }
+  const req = { systemInstruction: { parts: [{ text: String(b.system || '').slice(0, 20000) }] },
+                contents: [{ role: 'user', parts: [{ text: String(b.prompt || '').slice(0, 30000) }] }],
+                generationConfig: { responseMimeType: 'application/json', temperature: 0.7 } };
+  let last = '';
+  for (const m of BT_MODELS) {
+    const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent',
+      { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': gkey }, payload: JSON.stringify(req), muteHttpExceptions: true });
+    if (r.getResponseCode() === 200) {
+      try { return { text: JSON.parse(r.getContentText()).candidates[0].content.parts[0].text, model: m }; }
+      catch (e) { last = 'unreadable answer'; continue; }
+    }
+    last = 'HTTP ' + r.getResponseCode();
+  }
+  return { error: last };
 }
 
 /* ---- Back-tests on the trading machine (14 Nov 2026) ----------------------------------------------------------
@@ -225,4 +254,15 @@ function adminBacktestStatus(token, id) {
   const q = JSON.parse(props.getProperty('BT_QUEUE') || '[]'), r = btRunning_()[id];
   return { queued: q.indexOf(id), running: r ? { done: r.done, total: r.total, quiet: Math.round((now - r.upd) / 1000), since: Math.round((now - r.at) / 1000) } : null,
            sent: CacheService.getScriptCache().get('bt_' + id) || '', worker: now - Number(props.getProperty('BT_WORKER_SEEN') || 0) < 90000 };
+}
+
+/** The research bot's report (trader/research.py -> state/bot/report.json in the private repo), for the Back-tests page. */
+function adminBotReport(token) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return { error: 'ADMIN_READ_TOKEN is not set in the script properties.' };
+  const res = privateRaw_(readToken, 'state/bot/report.json');
+  if (res.getResponseCode() === 404) return { none: true };
+  if (res.getResponseCode() !== 200) return { error: 'Could not load the research report (' + res.getResponseCode() + ').' };
+  return JSON.parse(res.getContentText());
 }

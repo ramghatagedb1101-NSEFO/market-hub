@@ -37,7 +37,8 @@ function stratTime_(x, d) { x = String(x || ''); return /^\d\d:\d\d$/.test(x) &&
 const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday', 'compare', 'range_filter', 'supertrend', 'event'];
 // 14 Nov 2026: the market figures (trader/market.py MARKET) and event days (trader/market.py EVENT_KINDS); without
 // them here a saved strategy silently lost those signals.
-const STRAT_MARKET = ['vix', 'vix_pct', 'iv', 'iv_pct', 'pcr', 'pcr_all', 'oi_chg', 'fii_fut', 'fii_call', 'fii_put', 'client_fut', 'pro_fut'];
+const STRAT_MARKET = ['vix', 'vix_pct', 'iv', 'iv_pct', 'pcr', 'pcr_all', 'oi_chg', 'fii_fut', 'fii_call', 'fii_put', 'client_fut', 'pro_fut',
+  'fii_cash', 'dii_cash', 'sp500_chg', 'nasdaq_chg', 'crude_chg', 'gold_chg', 'usdinr_chg', 'news_score'];
 const STRAT_EVENTS = ['rbi', 'budget', 'election'];
 // Multi-leg positions (trader/strategies/rules.py structure)
 const STRAT_KINDS = ['single', 'straddle', 'strangle', 'iron_condor', 'spread'];

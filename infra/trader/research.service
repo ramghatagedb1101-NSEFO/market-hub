@@ -1,0 +1,16 @@
+[Unit]
+Description=Market Hub research bot (trader/research.py): tests strategy ideas, recommends survivors
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/trader/app
+EnvironmentFile=/opt/trader/secrets/bt.env
+Environment=BT_CACHE=/opt/trader/btcache
+Environment=TZ=Asia/Kolkata
+Environment=RESEARCH_MINUTES=150
+ExecStart=/opt/trader/venv/bin/python -u -m trader.research
+TimeoutStartSec=4h
+Nice=15

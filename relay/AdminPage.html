@@ -1719,7 +1719,9 @@ const ST_OPS = [['Index', [['price', 'Index price'], ['open', 'Bar open'], ['hig
   ['Market (yesterday’s close)', [['vix', 'India VIX'], ['vix_pct', 'VIX percentile (1 year)'], ['iv', 'ATM implied volatility %'], ['iv_pct', 'IV percentile (1 year)'],
     ['pcr', 'Put-call ratio (near expiry)'], ['pcr_all', 'Put-call ratio (all expiries)'], ['oi_chg', 'Option OI change %'],
     ['fii_fut', 'FII net index futures %'], ['fii_call', 'FII net index calls %'], ['fii_put', 'FII net index puts %'],
-    ['client_fut', 'Retail net index futures %'], ['pro_fut', 'Pro traders’ net index futures %']]],
+    ['client_fut', 'Retail net index futures %'], ['pro_fut', 'Pro traders’ net index futures %'],
+    ['fii_cash', 'FII cash buying, ₹ crore'], ['dii_cash', 'DII cash buying, ₹ crore'], ['sp500_chg', 'S&P 500 last session %'], ['nasdaq_chg', 'Nasdaq last session %'],
+    ['crude_chg', 'Crude oil change %'], ['gold_chg', 'Gold change %'], ['usdinr_chg', 'US dollar vs rupee change %'], ['news_score', 'This morning’s news mood (−2 to +2)']]],
   ['Number', [['value', 'A number']]]];
 const ST_OPNAME = Object.fromEntries(ST_OPS.flatMap(g => g[1]));
 const ST_MKT = Object.fromEntries(ST_OPS.find(g => g[0].indexOf('Market') === 0)[1]);
@@ -2801,6 +2803,53 @@ async function btDelete(id){
   if (ST_BT && ST_BT.id === id) ST_BT = null;
   stDo('adminStrategyDelete', [id], 'Deleting…', () => 'Deleted.');
 }
+// ---- Research bot (14 Nov 2026, strategy bot step 3; trader/research.py): what it tested and what it recommends.
+// It never switches anything on: "Add to my strategies" saves a recommendation to Paper trading > Strategies.
+const BOT = { r: null, busy: {}, added: {} };
+function botLoad(){ if (BOT.r) return; BOT.r = { loading: true }; call('adminBotReport', token).then(d => { BOT.r = d; rerender(); }).catch(e => { BOT.r = { error: e.message }; rerender(); }); }
+function botAdd(i){
+  const x = (BOT.r.recommended || [])[i]; if (!x) return;
+  BOT.busy[i] = true; rerender();
+  const s = Object.assign({}, x.strategy, { name: x.name, notes: 'From the research bot: ' + x.why, bt: false });
+  call('adminStrategySave', token, s).then(d => { if (d && d.error) throw new Error(d.error); S.strat = Object.assign(S.strat || {}, d); BOT.busy[i] = false; BOT.added[i] = true; rerender(); })
+    .catch(e => { BOT.busy[i] = false; BOT.added[i] = 'Could not add: ' + e.message; rerender(); });
+}
+function botPanel(){
+  botLoad();
+  const R = BOT.r || {};
+  const head = '<div class="panel-h"><h3>Research bot</h3><span class="muted" style="font-size:12px">' + (R.asof ? 'updated ' + esc(algoWhen(R.asof)) : '') + '</span></div>';
+  if (R.loading) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Loading…</div></div>';
+  if (R.error) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + errBlock(R.error) + '</div></div>';
+  if (R.none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Its first run is this evening after the market closes.</div></div>';
+  const st = R.stages || {}, recs = R.recommended || [];
+  const rupee = v => (v < 0 ? '−₹' : '₹') + num(Math.abs(v), 0);
+  const won = s => s && s.trades ? Math.round(100 * s.wins / s.trades) + '% won' : '';
+  let b = '<div class="muted" style="font-size:12.5px;margin-bottom:10px">Tested ' + num(R.tested || 0, 0) + ' ideas · ' + (recs.length ? recs.length + ' passed every test' : 'none has passed every test yet') +
+    '. Each must make money after charges from ' + esc(bDay((R.periods || {}).dev ? R.periods.dev[0] : '')) + ' to ' + esc(bDay((R.periods || {}).dev ? R.periods.dev[1] : '')) + ', with nearby settings too, and then in the months since, which it never saw while choosing.</div>';
+  b += recs.map((x, i) => {
+    const d = x.dev || {}, v = x.vault || {}, n = x.normal || {};
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>' + esc(x.name) + '</b>' +
+      (BOT.added[i] === true ? '<span style="color:var(--up);font-size:13px">Added to your strategies</span>'
+        : '<button class="btn sm primary" type="button" ' + (BOT.busy[i] ? 'disabled' : '') + ' onclick="botAdd(' + i + ')">' + (BOT.busy[i] ? 'Adding…' : 'Add to my strategies') + '</button>') + '</div>' +
+      (typeof BOT.added[i] === 'string' ? '<div style="color:var(--down);font-size:12.5px">' + esc(BOT.added[i]) + '</div>' : '') +
+      '<div class="muted" style="font-size:12.5px;margin:4px 0 8px">' + esc(x.why) + '</div>' +
+      '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:12.5px">' +
+      '<div><div class="faint">While choosing</div><b style="color:' + (d.profit >= 0 ? 'var(--up)' : 'var(--down)') + '">' + rupee(d.profit || 0) + '</b> · ' + (d.trades || 0) + ' trades · ' + won(d) + '</div>' +
+      '<div><div class="faint">Months it never saw</div><b style="color:' + (v.profit >= 0 ? 'var(--up)' : 'var(--down)') + '">' + rupee(v.profit || 0) + '</b> · ' + (v.trades || 0) + ' trades · ' + won(v) + '</div>' +
+      (n.bad_20 != null ? '<div><div class="faint">A bad month can look like</div>' + rupee(n.bad_20) + ' over 20 sessions · ' + n.longest_losing_run + ' losing days in a row</div>' : '') +
+      '</div></div>';
+  }).join('');
+  const near = R.near_misses || [];
+  if (near.length) b += '<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12.5px">Close calls (' + near.length + ')</summary>' +
+    near.map(x => '<div style="font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line2)"><b>' + esc(x.name) + '</b> — ' + esc(x.why_failed || x.stage) + '</div>').join('') + '</details>';
+  const fams = Object.entries(R.families || {});
+  if (fams.length) b += '<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12.5px">What it has tried</summary><table class="t"><thead><tr><th class="l">Idea</th><th>Tested</th><th>Passed the first test</th><th>Recommended</th></tr></thead><tbody>' +
+    fams.map(([k, f]) => '<tr><td class="l">' + esc(BOT_FAM[k] || k) + '</td><td class="num">' + f.tested + '</td><td class="num">' + f.passed_dev + '</td><td class="num">' + f.recommended + '</td></tr>').join('') + '</tbody></table></details>';
+  return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + b + '</div></div>';
+}
+const BOT_FAM = { vol_condor: 'Sell iron condors when volatility is rich', expiry_strangle: 'Sell strangles on expiry day', gap_fade: 'Fade large opening gaps',
+  trend_orb: 'Follow trend days with spreads', cheap_straddle: 'Buy straddles when volatility is cheap', fii_bear: 'Follow heavy FII shorts', pcr_put_sell: 'Sell put spreads on a high put-call ratio', ai: 'Ideas from Gemini' };
 function btShow(id){ stBtLoad(id); setTimeout(() => { const el = $('bt-res'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); }
 function pageBacktests(){
   const v = $('view');
@@ -2825,7 +2874,7 @@ function pageBacktests(){
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" ' + (BTQ.busy ? 'disabled' : '') + ' onclick="btRun()">Run back-test</button>' +
       '<button class="btn" type="button" onclick="btEdit()">Change details</button><button class="btn" type="button" onclick="BTQ.parsed=null;rerender()">Start again</button></div></div></div>';
   }
-  h += '<div id="bt-res"></div>' + stBtPanel();
+  h += '<div id="bt-res"></div>' + stBtPanel() + botPanel();
   if (!P) h += '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">' +
     '<div class="panel"><div class="panel-h"><h3>How to write it</h3></div><div class="panel-b">' + BT_GUIDE.map(([k, e]) => '<div style="margin-bottom:8px"><b>' + k + '</b><div class="muted" style="font-size:12.5px">e.g. ' + esc(e) + '</div></div>').join('') + '</div></div>' +
     '<div class="panel"><div class="panel-h"><h3>Examples</h3><span class="muted" style="font-size:12px">click to use</span></div><div class="panel-b">' +

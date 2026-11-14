@@ -66,6 +66,22 @@ class IndexMinutes:
         return out
 
 
+_CACHE: dict = {}
+
+
+def _market():
+    """The market table, read once per process (the research bot runs hundreds of back-tests)."""
+    if "mkt" not in _CACHE:
+        _CACHE["mkt"] = Market.from_repo()
+    return _CACHE["mkt"]
+
+
+def _records() -> dict:
+    if "recs" not in _CACHE:
+        _CACHE["recs"] = load("state/expiry_history/records.json") or {}
+    return _CACHE["recs"]
+
+
 def uses_market(d: dict) -> bool:
     """Whether any signal reads the market table (it is loaded only then)."""
     sigs = [s for g in (d.get("groups") or []) + (d.get("put_groups") or []) for s in g.get("signals") or []]
@@ -85,9 +101,12 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
     since = defn.get("from")                       # Back-tests page: "since Aug 2026" (14 Nov 2026)
     if isinstance(since, str) and len(since) == 10:
         expiries = [e for e in expiries if e >= since]
-    recs = load("state/expiry_history/records.json") or {}
+    until = defn.get("until")                      # research bot (14 Nov 2026): the development period ends here,
+    if isinstance(until, str) and len(until) == 10:  # so the locked vault after it is never seen
+        expiries = [e for e in expiries if e <= until]
+    recs = _records()
     minutes = IndexMinutes(idx)
-    mkt = Market.from_repo() if uses_market(d) else None     # VIX / IV / put-call ratio / FII signals (14 Nov 2026)
+    mkt = _market() if uses_market(d) else None              # VIX / IV / put-call ratio / FII signals (14 Nov 2026)
     rows, sessions, skipped = [], [], 0
     no_price = set()                       # multi-leg: days the signal fired but a leg's strike has no stored price
     s = Settings(strategy="rules", params=d, stale_seconds=300,
@@ -101,6 +120,12 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
         sess = entry.get("days") or [entry["prev_day"], e]
         if isinstance(since, str) and len(since) == 10 and entry.get("days"):
             keep = [x for x in sess if x >= since]          # "since 1 Aug": an expiry week starting in July is trimmed
+            if not keep:
+                continue
+            if keep != sess:
+                entry, sess = dict(entry, days=keep), keep
+        if isinstance(until, str) and len(until) == 10 and entry.get("days"):
+            keep = [x for x in sess if x <= until]
             if not keep:
                 continue
             if keep != sess:

@@ -16,6 +16,10 @@ on:
         description: "only show the worker's last log lines (no pull, no restart)"
         type: boolean
         default: false
+      research_now:
+        description: "start the research bot once now (it runs on its own each evening and at weekends)"
+        type: boolean
+        default: false
       recorder:
         description: "day recorder: probe (quick IBKR check, writes nothing) or past days YYYY-MM-DD separated by spaces to record (runs on in the background)"
         required: false
@@ -58,6 +62,7 @@ jobs:
             $SSH 'systemctl is-active bt-worker.service; journalctl -u bt-worker.service -n 40 --no-pager -o short-iso'
             $SSH 'systemctl is-active kicker.timer; journalctl -u kicker.service -n 30 --no-pager -o cat | grep -v -e Starting -e Finished -e Deactivated || true'
             $SSH 'systemctl is-active recorder.timer; journalctl -u recorder.service -u recorder-day.service -n 40 --no-pager -o cat || true'
+            $SSH 'systemctl is-active research.timer; journalctl -u research.service -n 40 --no-pager -o cat || true'
             rm -f "$RUNNER_TEMP/k"; exit 0
           fi
           $SSH 'cd /opt/trader/app && git pull -q --ff-only && git log --oneline -1 | cut -c1-7'
@@ -68,6 +73,9 @@ jobs:
           $SSH 'sudo cp /opt/trader/app/infra/trader/kicker.service /opt/trader/app/infra/trader/kicker.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now kicker.timer && systemctl is-active kicker.timer && systemctl list-timers kicker.timer --no-pager | head -2'
           # Day recorder (14 Nov 2026, trader/recorder.py): the session's IBKR minute prices, 15:50 IST on weekdays.
           $SSH 'sudo cp /opt/trader/app/infra/trader/recorder.service /opt/trader/app/infra/trader/recorder.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now recorder.timer && systemctl is-active recorder.timer && systemctl list-timers recorder.timer --no-pager | head -2'
+          # Research bot (14 Nov 2026, trader/research.py): weekday evenings and weekends.
+          $SSH 'sudo cp /opt/trader/app/infra/trader/research.service /opt/trader/app/infra/trader/research.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now research.timer && systemctl is-active research.timer'
+          if [ "${{ inputs.research_now }}" = "true" ]; then $SSH 'sudo systemctl start --no-block research.service && echo research started'; fi
           REC="${{ inputs.recorder }}"
           if [ "$REC" = "probe" ]; then
             $SSH 'cd /opt/trader/app && set -a && . /opt/trader/secrets/bt.env && set +a && TZ=Asia/Kolkata timeout 600 /opt/trader/venv/bin/python -u -m trader.recorder --probe'

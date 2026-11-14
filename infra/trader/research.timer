@@ -1,0 +1,11 @@
+[Unit]
+Description=Market Hub research bot: weekday evenings and weekends, never in market hours
+
+[Timer]
+OnCalendar=Mon..Fri 18:40 Asia/Kolkata
+OnCalendar=Sat,Sun 10:00 Asia/Kolkata
+OnCalendar=Sat,Sun 14:00 Asia/Kolkata
+Persistent=false
+
+[Install]
+WantedBy=timers.target
