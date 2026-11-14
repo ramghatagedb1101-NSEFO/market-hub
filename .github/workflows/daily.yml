@@ -112,6 +112,13 @@ jobs:
           ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
         run: python -m hub.context
 
+      - name: Market history (VIX, FII positions, IV, put-call ratio; hub/market_daily.py)
+        continue-on-error: true
+        env:
+          BUDGET: "60"
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.market_daily
+
       - name: Daily brief (NVIDIA, Gemini fallback)
         continue-on-error: true
         env:

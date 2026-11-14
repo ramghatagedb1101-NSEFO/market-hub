@@ -1,0 +1,43 @@
+name: market-daily
+
+# Daily market history for the strategy bot (14 Nov 2026; hub/market_daily.py): India VIX, FII / client / DII / pro
+# positions, ATM implied volatility and its percentile, put-call ratio and open interest for NIFTY and BANK NIFTY, from
+# NSE's free end-of-day files, every session since 3 Jan 2022. By hand for the backfill (each run starts the next one
+# until done); each evening's new day comes from the daily job's step. NSE blocks the owner's laptop, so it runs here.
+on:
+  workflow_dispatch:
+    inputs:
+      budget:
+        description: "most NSE requests this run (3 a session)"
+        required: false
+        default: "1500"
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: market-daily
+  cancel-in-progress: false
+
+jobs:
+  history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet requests "curl_cffi>=0.7"
+      - name: Market history
+        id: run
+        env:
+          BUDGET: ${{ inputs.budget }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.market_daily
+      - name: Carry on in a fresh run
+        if: steps.run.outputs.more == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run market-daily.yml --repo "${{ github.repository }}" --ref main -f budget="${{ inputs.budget }}"
