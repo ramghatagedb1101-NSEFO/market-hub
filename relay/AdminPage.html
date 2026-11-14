@@ -1805,7 +1805,7 @@ async function stLimits(){
   if (!v) return;
   stDo('adminStrategyLimits', [{ max_lots_per_order: v.lots, max_daily_loss: v.loss }], 'Saving…', () => 'Limits saved.');
 }
-function stBacktest(id){ stDo('adminBacktestStart', [id], 'Starting the back-test…', () => { stBtLoad(id, true); return 'Back-test started: about 1-3 minutes.'; }); }
+function stBacktest(id){ stDo('adminBacktestStart', [id], 'Starting the back-test…', d => { stBtLoad(id, true); return d && d.where === 'machine' ? 'Back-test started on the trading machine: usually under a minute.' : 'Back-test started on GitHub (market hours, or the trading machine is busy): about 2-5 minutes.'; }); }
 function stBtLoad(id, poll){
   ST_BT = ST_BT && ST_BT.id === id ? ST_BT : { id, loading: true }; rerender();
   const started = Date.now(), prev = ST_BT.res && ST_BT.res.ran;
@@ -1813,7 +1813,7 @@ function stBtLoad(id, poll){
     if (!ST_BT || ST_BT.id !== id) return;
     const fresh = !poll || (d.ran && d.ran !== prev && !d.none);
     if (fresh || Date.now() - started > 6 * 60e3) { ST_BT = { id, res: d, waiting: !fresh }; rerender(); }
-    else { ST_BT.waiting = true; rerender(); setTimeout(get, 20e3); }
+    else { ST_BT.waiting = true; rerender(); setTimeout(get, 6e3); }
   }).catch(e => { ST_BT = { id, res: { error: e.message } }; rerender(); });
   get();
 }
@@ -2423,10 +2423,10 @@ function stBtPanel(){
   if (!ST_BT) return '';
   const s = (S.strat.items || []).find(x => x.id === ST_BT.id) || {};
   const head = '<div class="panel-h"><h3>Back-test details</h3><a href="javascript:void 0" onclick="ST_BT=null;rerender()">Close</a></div>';
-  if (ST_BT.loading && !ST_BT.res) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">' + (ST_BT.waiting ? 'Running on GitHub… this refreshes by itself.' : 'Loading…') + '</div></div>';
+  if (ST_BT.loading && !ST_BT.res) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">' + (ST_BT.waiting ? 'Running… this refreshes by itself.' : 'Loading…') + '</div></div>';
   const R = ST_BT.res || {};
   if (R.error) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + errBlock(R.error) + '</div></div>';
-  if (R.none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Not back-tested yet.' + (ST_BT.waiting ? ' Running on GitHub… this refreshes by itself.' : '') + '</div></div>';
+  if (R.none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Not back-tested yet.' + (ST_BT.waiting ? ' Running… this refreshes by itself.' : '') + '</div></div>';
   const T = (R.summary || {}).totals || {}, C = R.coverage || {}, M = (R.summary || {}).months || [], TR = (R.summary || {}).trades || [];
   const stat = (k, val, sub) => '<div><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="w">' + sub + '</div></div>';
   let b = '<div class="muted" style="font-size:12.5px;margin-bottom:10px">' + (C.sessions || 0) + ' sessions with option prices (' + esc(bDay(dayOf(C.from))) + ' to ' + esc(bDay(dayOf(C.to))) + '): the day before and the day of each expiry. Ran ' + esc(algoWhen(R.ran)) + (ST_BT.waiting ? ' · a new run is still going' : '') + '.</div>' +

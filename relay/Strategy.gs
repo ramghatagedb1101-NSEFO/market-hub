@@ -177,6 +177,13 @@ function adminStrategyMode(token, mode, fallback) {
 function adminBacktestStart(token, id) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
   if (!stratList_().some(x => x.id === id)) return { error: 'Save the strategy first.' };
+  // 14 Nov 2026: on the trading machine when its worker is listening and the market is shut (seconds); else GitHub.
+  if (btWorkerReady_()) {
+    btQueuePush_(id);
+    const at0 = Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm");
+    CacheService.getScriptCache().put('bt_' + id, at0, 3600);
+    return { ok: true, started: at0, where: 'machine' };
+  }
   const props = PropertiesService.getScriptProperties();
   const repo = props.getProperty('GH_REPO'), pat = props.getProperty('GH_PAT');
   if (!repo || !pat) return { error: 'GH_REPO / GH_PAT are not set in the script properties.' };
@@ -187,7 +194,7 @@ function adminBacktestStart(token, id) {
   if (r.getResponseCode() !== 204) return { error: 'Could not start the back-test (' + r.getResponseCode() + ').' };
   const at = Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm");
   CacheService.getScriptCache().put('bt_' + id, at, 3600);
-  return { ok: true, started: at };
+  return { ok: true, started: at, where: 'github' };
 }
 
 /** The latest back-test result for one strategy (private repo state/backtests/<id>.json). */

@@ -95,3 +95,41 @@ function adminBtParse(token, text) {
   }
   return { error: last };
 }
+
+/* ---- Back-tests on the trading machine (14 Nov 2026) ----------------------------------------------------------
+ * adminBacktestStart queues a back-test here when the machine's worker (trader/bt_worker.py) has asked in the last
+ * 90 s and it is outside market hours; otherwise it goes to GitHub as before. The worker asks with RELAY_KEY and
+ * waits here up to 20 s for a job, so a queued back-test starts within a second without the worker calling often. */
+function btMarketHours_() {
+  const d = new Date(), wd = Number(Utilities.formatDate(d, 'Asia/Kolkata', 'u')), hm = Utilities.formatDate(d, 'Asia/Kolkata', 'HH:mm');
+  return wd <= 5 && hm >= '09:10' && hm <= '15:35';
+}
+function btWorkerReady_() {
+  const seen = Number(PropertiesService.getScriptProperties().getProperty('BT_WORKER_SEEN') || 0);
+  return !btMarketHours_() && Date.now() - seen < 90000;
+}
+function btQueuePush_(id) {
+  const lock = LockService.getScriptLock(); lock.waitLock(10000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const q = JSON.parse(props.getProperty('BT_QUEUE') || '[]').filter(x => x !== id);
+    q.push(id); props.setProperty('BT_QUEUE', JSON.stringify(q.slice(-20)));
+  } finally { lock.releaseLock(); }
+}
+function btNext_(p) {
+  const props = PropertiesService.getScriptProperties();
+  const relayKey = props.getProperty('RELAY_KEY') || '';
+  if (!relayKey || p.key !== relayKey) return { error: 'key does not match RELAY_KEY' };
+  for (let i = 0; i < 20; i++) {
+    props.setProperty('BT_WORKER_SEEN', String(Date.now()));
+    const lock = LockService.getScriptLock(); lock.waitLock(10000);
+    let id = null;
+    try {
+      const q = JSON.parse(props.getProperty('BT_QUEUE') || '[]');
+      if (q.length) { id = q.shift(); props.setProperty('BT_QUEUE', JSON.stringify(q)); }
+    } finally { lock.releaseLock(); }
+    if (id) return { id: id };
+    Utilities.sleep(1000);
+  }
+  return {};
+}

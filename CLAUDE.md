@@ -35,7 +35,8 @@ Secret names (values are the owner's): BHARATSTOCK_API_KEY, KITE_API_KEY, GEMINI
 PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY, BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY, OCI_API_KEY, OCI_TENANCY,
 OCI_USER, OCI_FINGERPRINT, OCI_SSH_PUBKEY (GitHub); relay script properties hold the Kite token, ADMIN_READ_TOKEN, GH_PAT,
 BHARATSTOCK_API_KEY, BREEZE_API_KEY, and the strategy builder's STRAT_* (strategies, active one, mode, fallback,
-limits). The IBKR paper login lives only on the trading machine (`/opt/trader/.env`, `secrets/`), typed by the owner
+limits). The trading machine also holds `/opt/trader/secrets/bt.env` (PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY) for the
+back-test worker (owner-approved 14 Nov 2026). The IBKR paper login lives only on the trading machine (`/opt/trader/.env`, `secrets/`), typed by the owner
 through `set-login.sh`.
 
 ## Data sources and budgets

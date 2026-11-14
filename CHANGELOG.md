@@ -4,6 +4,17 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Back-tests run on the trading machine (Sat 14 Nov 2026)
+Owner approved putting PRIVATE_REPO_TOKEN on market-hub-trader so back-tests run there instead of GitHub.
+- `trader/bt_worker.py` (service `bt-worker.service`, installed by `bt-worker-setup.yml`): asks the relay for a queued
+  back-test (`?mode=bt_next`, waits there up to 20 s, so pickup is about a second), runs `trader.backtest`, saves the
+  result as the GitHub job does. Minute files more than 5 days past are cached on the machine's disk (`BT_CACHE`,
+  `hub/breeze_history.load_gz`), so only the first run downloads them.
+- The relay (`adminBacktestStart`) queues for the machine when its worker has asked in the last 90 s and the market
+  is shut (09:10-15:35 IST weekdays excluded); otherwise GitHub as before. The page says which, and checks for the
+  result every 6 s instead of 20 s.
+- Secrets on the machine: `/opt/trader/secrets/bt.env` (PRIVATE_REPO_TOKEN, RELAY_URL, RELAY_KEY), chmod 600.
+
 ### Back-tests page: write the back-test in plain English (Sat 14 Nov 2026)
 Owner: "I want the backtest in a separate tab from paper trading. It must have a query builder like ... tradl.ai";
 chose Google Gemini (free tier) to read the English, and the trading machine to run back-tests (that part next).

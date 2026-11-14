@@ -115,13 +115,19 @@ def main() -> int:
     if "--print" in sys.argv:
         print(json.dumps(res["summary"]["totals"], indent=1))
     else:
-        save(OUT.format(id=sid), res, f"Back-test: {res['name']}")
-        idx = load(INDEX) or {}                     # the latest result of each strategy, for the page's cards
-        idx[sid] = {"ran": res["ran"], "trades": t["trades"], "wins": t["wins"], "profit": t["booked"],
-                    "worst_drop": t["worst_drop"], "sessions": res["coverage"]["sessions"],
-                    "by_regime": (res["summary"].get("by_strategy_regime") or {}).get(sid, {})}
-        save(INDEX, idx, f"Back-tests index: {len(idx)} strategies")
+        publish(sid, res)
     return 0
+
+
+def publish(sid: str, res: dict) -> None:
+    """The result to the private repo (state/backtests/<id>.json) and the page's index of latest results."""
+    t = res["summary"]["totals"]
+    save(OUT.format(id=sid), res, f"Back-test: {res['name']}")
+    idx = load(INDEX) or {}                     # the latest result of each strategy, for the page's cards
+    idx[sid] = {"ran": res["ran"], "trades": t["trades"], "wins": t["wins"], "profit": t["booked"],
+                "worst_drop": t["worst_drop"], "sessions": res["coverage"]["sessions"],
+                "by_regime": (res["summary"].get("by_strategy_regime") or {}).get(sid, {})}
+    save(INDEX, idx, f"Back-tests index: {len(idx)} strategies")
 
 
 if __name__ == "__main__":

@@ -22,8 +22,10 @@ import base64
 import gzip
 import json
 import os
+import re
 import sys
 import time
+from datetime import date, timedelta
 
 import requests
 
@@ -147,9 +149,30 @@ def save_gz(path: str, body: dict, message: str) -> int:
     return len(data)
 
 
+def _cache_file(path: str) -> str | None:
+    """14 Nov 2026 (back-tests on the trading machine): with BT_CACHE set, a stored file whose date (YYYY-MM-DD expiry,
+    or YYYY-MM month) is more than 5 days past is kept on the local disk and read from there; it no longer changes.
+    Newer files are always fetched."""
+    root = os.getenv("BT_CACHE")
+    if not root:
+        return None
+    m = re.search(r"(\d{4})-(\d{2})(?:-(\d{2}))?\.json\.gz$", path)
+    if not m:
+        return None
+    y, mo, d = int(m.group(1)), int(m.group(2)), m.group(3)
+    end = date(y, mo, int(d)) if d else (date(y + (mo == 12), mo % 12 + 1, 1) - timedelta(days=1))
+    if end > date.today() - timedelta(days=5):
+        return None
+    return os.path.join(root, path)
+
+
 def load_gz(path: str, tries: int = 4):
     """One stored file, or None if there is none. A broken or refused download is tried again (a back-test reads
     ~150 of these; one dropped connection stopped a whole run on 14 Nov 2026)."""
+    cached = _cache_file(path)
+    if cached and os.path.exists(cached):
+        with open(cached, "rb") as f:
+            return json.loads(gzip.decompress(f.read()))
     url, h = _gh(path)
     for n in range(tries):
         try:
@@ -157,7 +180,13 @@ def load_gz(path: str, tries: int = 4):
             if r.status_code == 404:
                 return None
             r.raise_for_status()
-            return json.loads(gzip.decompress(r.content))
+            body = json.loads(gzip.decompress(r.content))
+            if cached:
+                os.makedirs(os.path.dirname(cached), exist_ok=True)
+                with open(cached + ".tmp", "wb") as f:
+                    f.write(r.content)
+                os.replace(cached + ".tmp", cached)
+            return body
         except (requests.RequestException, OSError, EOFError) as e:
             if n == tries - 1:
                 raise
