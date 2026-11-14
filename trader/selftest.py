@@ -455,6 +455,35 @@ def test_range_filter():
     ok("range filter: signal reads the state", st_ok == (r["state"][-1] == 1) and "Range Filter" in why, why)
 
 
+def test_fast_signals():
+    """Back-test speed (14 Nov 2026): grouping carried on minute by minute and answers kept per tf-minute bar must
+    give exactly what working everything out from scratch gives, every minute, over two sessions."""
+    import random
+    from datetime import datetime, timedelta
+    from . import indicators as I
+    rnd, bars, x = random.Random(7), [], 25000.0
+    for day in (datetime(2026, 11, 12, 9, 15), datetime(2026, 11, 13, 9, 15)):
+        for m in range(375):
+            o = x
+            x += rnd.uniform(-12, 12)
+            bars.append((day + timedelta(minutes=m), o, max(o, x) + 3, min(o, x) - 3, x))
+    sigs = [{"type": "supertrend", "period": 10, "mult": 3, "tf": 5, "dir": d} for d in ("buy", "sell", "up")] +            [{"type": "rsi", "period": 14, "tf": 3, "op": "crosses_above", "level": 55},
+            {"type": "ma_cross", "ma": "ema", "fast": 9, "slow": 21, "tf": 15, "dir": "up"},
+            {"type": "range_filter", "per": 20, "mult": 2, "tf": 5, "dir": "buy"}]
+    I._RS.clear(); I._CHK.clear()
+    same_rs = same_chk = True
+    for n in range(1, len(bars) + 1, 3):
+        now = bars[n - 1][0] + timedelta(minutes=1)
+        b = I.completed(bars, now)
+        same_rs &= b == bars[:n] and all(I.resample(b, tf) == I.resample_plain(b, tf) for tf in (3, 5, 15))
+        for s in sigs:
+            fast = I.check(s, b, now, None, None)
+            slow = I._check_tf(s["type"], s, I.resample_plain(b, int(s["tf"])), int(s["tf"]))
+            same_chk &= fast == slow
+    ok("fast signals: grouping matches the plain one every minute", same_rs)
+    ok("fast signals: kept answers match fresh ones every minute", same_chk)
+
+
 def test_both_directions():
     """Both directions (owner, 14 Nov 2026): the call on the call side's signal, then the put side's signal closes the
     call and buys the put (a reversal), all day-only and closed at the exit time."""
@@ -527,7 +556,7 @@ def test_kicker_matches_crons():
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons]:
+              test_kicker_matches_crons, test_fast_signals]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

@@ -40,7 +40,12 @@ def run_one(sid: str) -> None:
         print(f"{sid}: no such strategy", flush=True)
         return
     t0 = time.time()
-    res = backtest(defn, data.get("limits"), progress=lambda m: None)
+    try:
+        res = backtest(defn, data.get("limits"), progress=lambda m: None)
+    except Exception as exc:                                     # the page shows "could not finish", not "Running..."
+        from .backtest import publish_failed
+        publish_failed(sid, defn.get("name"), exc)
+        raise
     publish(sid, res)
     t = res["summary"]["totals"]
     print(f"{sid}: {res['coverage']['sessions']} sessions, {t['trades']} trades, {time.time() - t0:.0f} s", flush=True)

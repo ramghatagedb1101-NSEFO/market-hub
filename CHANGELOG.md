@@ -44,6 +44,24 @@ No score for 6, 9, 10, 11 and 13 Nov 2026. Evidence (every close-estimate run's 
 - Not fixed here: GitHub's late schedules also leave the close estimate without live entries since 5 Nov and live.yml
   ran twice on 13 Nov (15:39, 23:10 IST).
 
+### Back-tests: about 10x faster, exact times, failed runs say so, option chart opens on the latest expiry (Sat 14 Nov 2026)
+Owner: "fix 1 to 3 and also 5".
+- Speed: a profile showed 97% of a back-test in re-grouping every one-minute bar so far into 5-minute bars and
+  re-working Supertrend over the whole history at every simulated minute. The grouping now carries on from the last
+  minute and a signal's answer is kept until the next tf-minute bar closes (`trader/indicators.py`); `completed()` and
+  today's bars are found without scanning; the replay's date parsing is cached. The owner's Supertrend both-ways test
+  since 1 Aug 2026: 10.6 s on the laptop (cached prices), same 92 trades and -Rs 17,638.42 to the paisa as before;
+  Oct-Nov: 53.6 s -> 6.1 s, identical trades. `trader/selftest.py` checks the fast path against the plain one every
+  minute over two sessions (114/114).
+- Times: a fill was recorded the minute after it happened (when the engine next read its fills), so a 15:00 exit showed
+  15:01 and entries a minute late. A fill now carries its own time (`trader/engine.py`; a time more than an hour off,
+  e.g. another time zone, falls back to the old way). Prices unchanged.
+- Failed runs: a back-test that broke left the page on "Running..." for ever. The machine worker and the GitHub job now
+  save a "failed" result; the page says "This back-test could not finish" with Run again. "Ran" is now IST to the second
+  (GitHub's clock is UTC; and a rerun within the same minute looked unchanged now that runs take seconds).
+- Option chart: it reopened on an expiry picked days before (28 Jul 2026), because the expiry and strike were remembered
+  in the browser. Only call / put is remembered now; it opens on the latest expiry at the money.
+
 ### AI summaries: the bigger model gets 2 minutes (Sat 14 Nov 2026)
 Owner: "just give them a limit ... I don't see any harm in using a bigger model if it is available free of cost."
 Evidence (site/summaries.json and the last 12 runs): gemini-3.8-flash wrote 10-14 summaries a day until 2 Nov 2026 and

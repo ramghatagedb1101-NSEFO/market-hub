@@ -1823,7 +1823,7 @@ async function stLimits(){
   if (!v) return;
   stDo('adminStrategyLimits', [{ max_lots_per_order: v.lots, max_daily_loss: v.loss }], 'Saving…', () => 'Limits saved.');
 }
-function stBacktest(id){ stDo('adminBacktestStart', [id], 'Starting the back-test…', d => { stBtLoad(id, true); return d && d.where === 'machine' ? 'Back-test started on the trading machine: usually under a minute.' : 'Back-test started on GitHub (market hours, or the trading machine is busy): about 2-5 minutes.'; }); }
+function stBacktest(id){ stDo('adminBacktestStart', [id], 'Starting the back-test…', d => { stBtLoad(id, true); return d && d.where === 'machine' ? 'Back-test started on the trading machine: usually well under a minute.' : 'Back-test started on GitHub (market hours, or the trading machine is busy): about 2-5 minutes.'; }); }
 function stBtLoad(id, poll){
   ST_BT = ST_BT && ST_BT.id === id ? ST_BT : { id, loading: true }; rerender();
   const started = Date.now(), prev = ST_BT.res && ST_BT.res.ran;
@@ -2021,7 +2021,7 @@ const STC = (() => {
   const base = { view: 'daily', day: null, strat: true, trades: true,
     ind: { daily: [{ t: 'sma', n: 20, c: 0 }, { t: 'sma', n: 50, c: 1 }, { t: 'sma', n: 200, c: 2 }], intra: [{ t: 'pdh', c: 0 }] } };
   try { const s = JSON.parse(localStorage.getItem('mh_stc_v1') || 'null'); if (s && s.ind) base.ind = s.ind;
-    if (s && s.src === 'option') base.src = 'option'; if (s && s.opt) base.opt = s.opt; if (s && s.optInit) base.optInit = true; } catch (e) {}
+    if (s && s.src === 'option') base.src = 'option'; if (s && s.opt) base.opt = { right: s.opt.right === 'put' ? 'put' : 'call' }; if (s && s.optInit) base.optInit = true; } catch (e) {}
   base.src = base.src || 'index'; base.opt = base.opt || { right: 'call' };
   // 5 colours -> 4; buy / sell labels on unless switched off (owner, 14 Nov 2026: "labels for buy and sell are not appearing":
   // set-ups saved before the labels existed had them off)
@@ -2029,7 +2029,9 @@ const STC = (() => {
   return base;
 })();
 const STD = { daily: {}, month: {}, bt: {}, optList: {}, opt: {} };
-function stcSave(){ try { localStorage.setItem('mh_stc_v1', JSON.stringify({ ind: STC.ind, src: STC.src, opt: STC.opt, optInit: STC.optInit })); } catch (e) {} }
+// 14 Nov 2026: the option view reopened on an expiry picked days earlier (28 Jul 2026); the expiry and strike are no
+// longer kept between visits, so it opens on the latest expiry at the money. Call / put is still remembered.
+function stcSave(){ try { localStorage.setItem('mh_stc_v1', JSON.stringify({ ind: STC.ind, src: STC.src, opt: { right: STC.opt.right }, optInit: STC.optInit })); } catch (e) {} }
 function stcPal(){
   const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
     (document.documentElement.getAttribute('data-theme') !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -2589,6 +2591,9 @@ function stBtPanel(){
   const head = '<div class="panel-h"><h3>Back-test details</h3><a href="javascript:void 0" onclick="ST_BT=null;rerender()">Close</a></div>';
   if (ST_BT.loading && !ST_BT.res) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">' + (ST_BT.waiting ? 'Running… this refreshes by itself.' : 'Loading…') + '</div></div>';
   const R = ST_BT.res || {};
+  // 14 Nov 2026: a run that broke is saved as "failed" (trader/backtest.py publish_failed); before, the page waited for ever
+  if (R.failed) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">This back-test could not finish (' + esc(algoWhen(R.ran)) + '). ' +
+    '<button class="btn sm primary" type="button" onclick="stBacktest(\'' + ST_BT.id + '\')">Run again</button></div></div>';
   if (R.error) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + errBlock(R.error) + '</div></div>';
   if (R.none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Not back-tested yet.' + (ST_BT.waiting ? ' Running… this refreshes by itself.' : ' <button class="btn sm primary" type="button" onclick="stBacktest(\'' + ST_BT.id + '\')">Run back-test</button>') + '</div></div>';
   const T = (R.summary || {}).totals || {}, C = R.coverage || {}, M = (R.summary || {}).months || [], TR = (R.summary || {}).trades || [];

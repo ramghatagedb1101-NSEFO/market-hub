@@ -14,6 +14,7 @@ expiry record (state/expiry_history/records.json).
 import argparse
 import bisect
 import sys
+from functools import lru_cache
 from datetime import datetime, timedelta
 
 from hub.rule_test import charges, slip
@@ -26,9 +27,13 @@ OPEN = (9, 15)
 MINUTES = 376                   # 09:15 .. 15:30
 
 
+@lru_cache(maxsize=4096)
+def _open_of(day: str) -> datetime:
+    return datetime.strptime(day, "%Y-%m-%d").replace(hour=OPEN[0], minute=OPEN[1])
+
+
 def at(day: str, minute: int) -> datetime:
-    d = datetime.strptime(day, "%Y-%m-%d")
-    return d.replace(hour=OPEN[0], minute=OPEN[1]) + timedelta(minutes=minute)
+    return _open_of(day) + timedelta(minutes=minute)   # 14 Nov 2026: the date read once per day, not every minute
 
 
 class ReplayFeed:

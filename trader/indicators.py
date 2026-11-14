@@ -38,10 +38,30 @@ Bar = tuple  # (datetime, o, h, l, c)
 
 
 def completed(bars: list[Bar], now: datetime) -> list[Bar]:
-    return [b for b in bars if b[0] + timedelta(minutes=1) <= now]
+    """The bars that started at least a minute before now (bars are in time order)."""
+    cut, lo, hi = now - timedelta(minutes=1), 0, len(bars)
+    while lo < hi:                               # 14 Nov 2026: binary search, not a scan of every bar each minute
+        mid = (lo + hi) // 2
+        if bars[mid][0] <= cut:
+            lo = mid + 1
+        else:
+            hi = mid
+    return bars[:lo]
 
 
-def resample(bars: list[Bar], tf: int) -> list[Bar]:
+# Back-test speed (14 Nov 2026): a back-test re-grouped every one-minute bar so far into tf-minute bars, and re-worked
+# each indicator over the whole history, at every simulated minute (97% of its time). The bars only ever grow at the
+# end, so the grouping now carries on from where it stopped, and a signal's answer is kept until a new tf-minute bar
+# closes. Same results (trader/selftest.py checks the fast path against the plain one).
+_RS: dict = {}
+_CHK: dict = {}
+
+
+def _group(group: list) -> Bar:
+    return (group[0][0], group[0][1], max(x[2] for x in group), min(x[3] for x in group), group[-1][4])
+
+
+def resample_plain(bars: list[Bar], tf: int) -> list[Bar]:
     """1-minute bars -> tf-minute bars, aligned to 09:15, within each day; a partial last group is dropped."""
     if tf <= 1:
         return list(bars)
@@ -51,12 +71,34 @@ def resample(bars: list[Bar], tf: int) -> list[Bar]:
         k = (b[0].date(), mins // tf)
         if k != key:
             if group and len(group) == tf:
-                out.append((group[0][0], group[0][1], max(x[2] for x in group), min(x[3] for x in group), group[-1][4]))
+                out.append(_group(group))
             group, key = [], k
         group.append(b)
     if group and len(group) == tf:
-        out.append((group[0][0], group[0][1], max(x[2] for x in group), min(x[3] for x in group), group[-1][4]))
+        out.append(_group(group))
     return out
+
+
+def resample(bars: list[Bar], tf: int) -> list[Bar]:
+    """resample_plain, carried on from the last call on the same bars (same first bar, earlier ones unchanged)."""
+    if tf <= 1 or not bars:
+        return list(bars)
+    ck = (tf, bars[0])
+    st = _RS.get(ck)
+    if not st or st["n"] > len(bars) or bars[st["n"] - 1] != st["last"]:
+        if len(_RS) > 64:
+            _RS.clear()
+        st = _RS[ck] = {"n": 0, "last": None, "out": [], "group": [], "key": None}
+    out, group, key = st["out"], st["group"], st["key"]
+    for b in bars[st["n"]:]:
+        k = (b[0].date(), ((b[0].hour * 60 + b[0].minute) - 555) // tf)
+        if k != key:
+            if group and len(group) == tf:
+                out.append(_group(group))
+            group, key = [], k
+        group.append(b)
+    st.update(n=len(bars), last=bars[-1], group=group, key=key)
+    return out + [_group(group)] if group and len(group) == tf else list(out)
 
 
 def sma(xs: list[float], n: int) -> list[float | None]:
@@ -366,7 +408,11 @@ def check(sig: dict, bars: list[Bar], now: datetime, prev_close: float | None, e
         return ok, f"{n} days to expiry"
     if not bars:
         return False, "no index prices yet"
-    day_bars = [b for b in bars if b[0].date() == today]
+    if t in ("change", "orb"):
+        i = len(bars)
+        while i and bars[i - 1][0].date() == today:     # today's bars are the last ones
+            i -= 1
+        day_bars = bars[i:]
     if t == "change":
         base = prev_close if sig.get("from", "prev_close") == "prev_close" else (day_bars[0][1] if day_bars else None)
         if not base:
@@ -383,7 +429,19 @@ def check(sig: dict, bars: list[Bar], now: datetime, prev_close: float | None, e
         ok = last > hi if sig.get("dir", "up") == "up" else last < lo
         return ok, f"index {last:,.1f} vs first-{m}-minute range {lo:,.1f}-{hi:,.1f}"
     tf = int(sig.get("tf", 5))
-    closes = [b[4] for b in resample(bars, tf)]
+    tb = resample(bars, tf)
+    # these depend only on the completed tf-minute bars: the answer stands until the next one closes
+    ck = (repr(sorted(sig.items())), tb[0] if tb else None, len(tb), tb[-1] if tb else None)
+    if ck in _CHK:
+        return _CHK[ck]
+    if len(_CHK) > 4096:
+        _CHK.clear()
+    _CHK[ck] = res = _check_tf(t, sig, tb, tf)
+    return res
+
+
+def _check_tf(t: str, sig: dict, tb: list[Bar], tf: int) -> tuple[bool, str]:
+    closes = [b[4] for b in tb]
     if t == "price_ma":
         n = int(sig.get("period", 20))
         ma = _avg(sig.get("ma", "ema"))(closes, n)
@@ -410,7 +468,7 @@ def check(sig: dict, bars: list[Bar], now: datetime, prev_close: float | None, e
         return ok, f"RSI{n} ({tf}m) {r[-1]:.1f}"
     if t == "supertrend":
         n, k = int(sig.get("period", 10)), float(sig.get("mult", 3.0))
-        st = supertrend(resample(bars, tf), n, k)
+        st = supertrend(tb, n, k)
         if not st["up"] or st["up"][-1] is None:
             return False, f"Supertrend ({n}, {k:g}, {tf}m) not ready"
         d = sig.get("dir", "buy")

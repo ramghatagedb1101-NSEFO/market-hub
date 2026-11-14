@@ -12,7 +12,7 @@ BANK NIFTY Jan 2024 - Oct 2026), else the day before and the day of each downloa
 """
 import json
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from hub.breeze_history import DIR as EXP_DIR, INDEX as EXP_DONE, load_gz
 from hub.icici_files import WEEKS
@@ -26,6 +26,12 @@ from .strategies.rules import Rules, clean
 from .summary import build
 
 OUT = "state/backtests/{id}.json"
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def ran_now() -> str:
+    """IST to the second (14 Nov 2026: GitHub's clock is UTC, and a rerun within the same minute looked unchanged)."""
+    return datetime.now(IST).replace(tzinfo=None).isoformat(timespec="seconds")
 INDEX = "state/backtests/_index.json"
 
 
@@ -105,7 +111,7 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
     note = None
     if d["expiry"] != "nearest":
         note = f"Expiry set to '{d['expiry']}': this data has only the nearest expiry, so no trades could be tested."
-    return {"id": d["id"], "name": d["name"], "ran": datetime.now().isoformat(timespec="minutes"),
+    return {"id": d["id"], "name": d["name"], "ran": ran_now(),
             "strategy": d, "coverage": {"sessions": len(sessions), "expiries": len(expiries) - skipped,
                                         "from": min(sessions) if sessions else None,
                                         "to": max(sessions) if sessions else None, "skipped": skipped},
@@ -121,7 +127,12 @@ def main() -> int:
     if not defn:
         print(f"no strategy {sid}")
         return 1
-    res = backtest(defn, data.get("limits"))
+    try:
+        res = backtest(defn, data.get("limits"))
+    except Exception as exc:
+        if "--print" not in sys.argv:
+            publish_failed(sid, defn.get("name"), exc)
+        raise
     t = res["summary"]["totals"]
     print(f"back-test: {res['coverage']['sessions']} sessions, {t['trades']} trades, {t['wins']} won")
     if "--print" in sys.argv:
@@ -140,6 +151,13 @@ def publish(sid: str, res: dict) -> None:
                 "worst_drop": t["worst_drop"], "sessions": res["coverage"]["sessions"],
                 "by_regime": (res["summary"].get("by_strategy_regime") or {}).get(sid, {})}
     save(INDEX, idx, f"Back-tests index: {len(idx)} strategies")
+
+
+def publish_failed(sid: str, name, exc: Exception) -> None:
+    """A run that broke (14 Nov 2026): the page showed "Running..." for ever. Saved in place of the result so the page
+    says it could not finish; the index of good results is left as it was."""
+    save(OUT.format(id=sid), {"id": sid, "name": name or "", "ran": ran_now(), "failed": True,
+                              "reason": f"{type(exc).__name__}: {str(exc)[:300]}"}, f"Back-test failed: {name or sid}")
 
 
 if __name__ == "__main__":

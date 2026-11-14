@@ -83,10 +83,11 @@ As of Sat 14 Nov 2026, ~18:45 IST. Start with the 14 Nov HANDOVER just below, th
 - Back-tests reader: gemini-3.5-flash-lite first (3.8-flash hung or was out of allowance in every timed call, 14 Nov);
   three live reads after the change answered in 10-20 s. AI summaries: 3.8-flash
   kept first but limited to 2 minutes a document, skipped for the run once it fails (owner, 14 Nov).
-- Back-test jobs that fail on the machine leave the page on "Running…" (the worker only logs). `bt-worker-setup.yml
+- Back-tests (14 Nov evening): ~10x faster (owner's both-ways test 10.6 s on the laptop), fills at their own minute (15:00 not
+  15:01), failed runs show "could not finish", option chart opens on the latest expiry. `bt-worker-setup.yml
   -f log_only=true` shows the worker's log without restarting it.
-- To check: the strategy chart's option view opened on the 28 Jul 2026 NIFTY expiry, not the latest; the earlier
-  back-test was dispatched three times in a minute (two cancelled) -- confirm whether the owner clicked twice.
+- To check: an earlier back-test was dispatched three times in a minute (two cancelled) -- confirm whether the owner
+  clicked twice.
 - Later (owner agreed): multi-leg trades (straddle, strangle, condor) in the shared engine after the first live
   sessions; VWAP (futures data) and IV percentile.
 

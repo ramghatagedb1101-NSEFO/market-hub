@@ -25,7 +25,7 @@ and for the builder's signals index_bars(index), prev_close(index).
 A broker takes orders: submit(request, quote, now, stop, validity) -> order id, trail(contract, by, now, by_type),
 cancel_children(contract), poll_fills() -> fills, working() -> contracts with an order still open.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from .book import Book
@@ -68,7 +68,10 @@ class Engine:
         self.guard.new_day(now, self.book)
         for f in self.broker.poll_fills():
             self.book.apply(f)
-            self.j.write(now, "fill", contract=f.contract.key(), side=f.side, qty=f.qty, price=f.price,
+            # 14 Nov 2026: a fill is recorded at its own time (a back-test's 15:00 exit showed as 15:01, the minute it was
+            # read); a time that is not in the last hour (e.g. another time zone) falls back to now
+            when = f.at if isinstance(f.at, datetime) and timedelta(0) <= now - f.at <= timedelta(hours=1) else now
+            self.j.write(when, "fill", contract=f.contract.key(), side=f.side, qty=f.qty, price=f.price,
                          charges=round(f.charges, 2), tag=f.tag, order=f.order_id)
             self._protection_after(f, now)
         quotes = self.feed.quotes()
