@@ -455,9 +455,29 @@ def test_range_filter():
     ok("range filter: signal reads the state", st_ok == (r["state"][-1] == 1) and "Range Filter" in why, why)
 
 
+def test_both_directions():
+    """Both directions (owner, 14 Nov 2026): the call on the call side's signal, then the put side's signal closes the
+    call and buys the put (a reversal), all day-only and closed at the exit time."""
+    d = {"id": "tb", "name": "Both ways", "index": "NIFTY", "side": "BUY", "right": "C",
+         "strike": {"mode": "atm", "steps": 0}, "expiry": "nearest", "lots": 1,
+         "window": {"from": "09:30", "until": "14:30"},
+         "groups": [{"match": "all", "signals": [{"type": "change", "from": "open", "op": "above", "pct": 0.3}]}],
+         "put_groups": [{"match": "all", "signals": [{"type": "change", "from": "open", "op": "below", "pct": -0.3}]}],
+         "exits": {"sl": 90, "target": 0, "trail": 0, "exit_by": "15:15"}, "style": "intraday", "max_trades_day": 3}
+    path = [25000] * 15 + [25000 + 3 * i for i in range(1, 51)] + [25150 - 4 * i for i in range(1, 101)]
+    path += [path[-1]] * (376 - len(path))
+    flat = {str(k): walk(0, 0, [100] * 376) for k in range(24600, 25400, 50)}
+    eng, j = _rules_case(d, call=flat, put=dict(flat), index_path=path)
+    orders = [r for r in j.lines if r["kind"] == "order"]
+    sides = [(r["contract"][-1], r["side"], bool(r.get("closing"))) for r in orders]
+    ok("both ways: call bought on the call signal", sides[:1] == [("C", "BUY", False)], sides)
+    ok("both ways: put signal closes the call, then buys the put", sides[1:3] == [("C", "SELL", True), ("P", "BUY", False)], sides)
+    ok("both ways: put closed at the exit time", sides[-1:] == [("P", "SELL", True)] and eng.book.open_legs() == 0, sides)
+
+
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
-              test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter]:
+              test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

@@ -53,10 +53,20 @@ def clean(d: dict) -> dict:
                "signals": [x for x in (_signal(y) for y in (g or {}).get("signals") or []) if x][:MAX_SIGNALS]}
               for g in groups[:MAX_GROUPS]]
     groups = [g for g in groups if g["signals"]]
+    # Both directions (owner, 14 Nov 2026: "buy the call on a Supertrend Buy, the put on a Sell"): put_groups are the
+    # put side's entry signals; with them the strategy buys the call when "groups" fire and the put when "put_groups"
+    # fire, one position at a time, and the opposite side's signal closes the open one first.
+    pg = d.get("put_groups") if isinstance(d.get("put_groups"), list) else []
+    pg = [{"match": "any" if (g or {}).get("match") == "any" else "all",
+           "signals": [x for x in (_signal(y) for y in (g or {}).get("signals") or []) if x][:MAX_SIGNALS]}
+          for g in pg[:MAX_GROUPS]]
+    pg = [g for g in pg if g["signals"]]
     return {
+        "put_groups": pg, "put_groups_match": "all" if d.get("put_groups_match") == "all" else "any",
         "id": str(d.get("id") or "")[:40], "name": str(d.get("name") or "Unnamed")[:80],
         "index": d.get("index") if d.get("index") in ("NIFTY", "BANKNIFTY") else "NIFTY",
-        "side": "SELL" if d.get("side") == "SELL" else "BUY", "right": "P" if d.get("right") == "P" else "C",
+        "side": "BUY" if pg else ("SELL" if d.get("side") == "SELL" else "BUY"),
+        "right": "C" if pg else ("P" if d.get("right") == "P" else "C"),
         "strike": ({"mode": "premium", "near": _num(st.get("near"), 1, 5000, 100)} if st.get("mode") == "premium"
                    else {"mode": "atm", "steps": int(_num(st.get("steps"), -10, 20, 0))}),
         "expiry": d.get("expiry") if d.get("expiry") in ("nearest", "next", "monthly") else "nearest",
@@ -147,6 +157,9 @@ class Rules:
         i = min(range(len(ks)), key=lambda i: abs(ks[i] - spot))
         return ks, i, spot
 
+    def _rights(self) -> list[str]:
+        return ["C", "P"] if self.d["put_groups"] else [self.d["right"]]
+
     def wants(self, view) -> set[Contract]:
         e = self._expiry(view)
         if not e:
@@ -154,30 +167,46 @@ class Rules:
         ks, i, _ = self._ladder(view, e)
         if i is None:
             return set()
-        if self.d["strike"]["mode"] == "atm":
-            n = self.d["strike"]["steps"]
-            j = i + n if self.d["right"] == "C" else i - n
-            pick = range(max(0, j - 2), min(len(ks), j + 3))
-        else:
-            pick = range(max(0, i - 12), min(len(ks), i + 13))
-        return {Contract(self.idx, e, ks[j], self.d["right"]) for j in pick}
+        out = set()
+        for right in self._rights():
+            if self.d["strike"]["mode"] == "atm":
+                n = self.d["strike"]["steps"]
+                j = i + n if right == "C" else i - n
+                pick = range(max(0, j - 2), min(len(ks), j + 3))
+            else:
+                pick = range(max(0, i - 12), min(len(ks), i + 13))
+            out |= {Contract(self.idx, e, ks[j], right) for j in pick}
+        return out
 
-    def _contract(self, view, e: str) -> Contract | None:
+    def _contract(self, view, e: str, right: str | None = None) -> Contract | None:
+        right = right or self.d["right"]
         ks, i, _ = self._ladder(view, e)
         if i is None:
             return None
         if self.d["strike"]["mode"] == "atm":
             n = self.d["strike"]["steps"]
-            j = i + n if self.d["right"] == "C" else i - n
+            j = i + n if right == "C" else i - n
             if not 0 <= j < len(ks):
                 return None
-            return Contract(self.idx, e, ks[j], self.d["right"])
+            return Contract(self.idx, e, ks[j], right)
         target = self.d["strike"]["near"]
         have = [(c, q.mid) for c, q in view.quotes.items()
-                if c.index == self.idx and c.expiry == e and c.right == self.d["right"] and q.mid]
+                if c.index == self.idx and c.expiry == e and c.right == right and q.mid]
         return min(have, key=lambda x: abs(x[1] - target))[0] if have else None
 
+    def _fires(self, groups, match, bars, now, pc, e, ctx):
+        met, words = [], []
+        for g in groups:
+            res = [check(sg, bars, now, pc, e, ctx) for sg in g["signals"]]
+            ok = all(r for r, _ in res) if g["match"] == "all" else any(r for r, _ in res)
+            met.append(ok)
+            if ok:
+                words.append(" & ".join(w for r, w in res if r or g["match"] == "all"))
+        return bool(groups) and (all(met) if match == "all" else any(met)), words
+
     def step(self, view) -> list[OrderRequest]:
+        if self.d["put_groups"]:
+            return self._step_both(view)
         now, d = view.now, self.d
         self._new_day(now)
         hhmm = now.strftime("%H:%M")
@@ -215,3 +244,58 @@ class Rules:
         why = f"{self.name}: " + " | ".join(words)
         reg, _ = classify(bars, now, e)
         return [OrderRequest(c, d["side"], d["lots"], None, why[:300], tag=f"s:{self.id}", exits=d["exits"], regime=reg)]
+
+    def _step_both(self, view) -> list[OrderRequest]:
+        """Both directions: the call on the call side's signals, the put on the put side's. Holding one, the other
+        side's signal closes it (its stop cancelled by the engine) and opens the other, as one reversal."""
+        now, d = view.now, self.d
+        self._new_day(now)
+        hhmm = now.strftime("%H:%M")
+        if not (d["window"]["from"] <= hhmm <= d["window"]["until"]):
+            return []
+        held = [c for c in self.mine if view.book.qty.get(c)]
+        if len(held) > 1:
+            return []
+        if d["max_loss_day"] and view.book.pnl() <= -d["max_loss_day"]:
+            return []
+        e = self._expiry(view)
+        if not e:
+            return []
+        bars = completed(view.feed.index_bars(self.idx), now)
+        pc = view.feed.prev_close(self.idx)
+        want = None
+        for right, groups, match in (("C", d["groups"], d["groups_match"]), ("P", d["put_groups"], d["put_groups_match"])):
+            c = self._contract(view, e, right)
+            q = view.quotes.get(c) if c else None
+            if not c or not q or not q.mid:
+                continue
+            ok, words = self._fires(groups, match, bars, now, pc, e, {"opt_price": q.mid})
+            if ok:
+                want = (right, c, words)
+                break
+        if not want:
+            return []
+        right, c, words = want
+        out = []
+        if held:
+            h = held[0]
+            if h.right == right:
+                return []                                   # already on this side
+            qty = view.book.qty.get(h, 0)
+            out.append(OrderRequest(h, "SELL" if qty > 0 else "BUY", abs(qty) // h.lot, None,
+                                    f"{self.name}: reversing to the {'call' if right == 'C' else 'put'}", closing=True,
+                                    tag=f"s:{self.id}"))
+        else:
+            if self.trades >= d["max_trades_day"]:
+                return []
+            if self.last_entry and (now - self.last_entry).total_seconds() < 60 * d["reentry_gap"]:
+                return []
+        if self.trades >= d["max_trades_day"] and not held:
+            return out
+        self.trades += 1
+        self.last_entry = now
+        self.mine.add(c)
+        why = f"{self.name} ({'call' if right == 'C' else 'put'} side): " + " | ".join(words)
+        reg, _ = classify(bars, now, e)
+        out.append(OrderRequest(c, "BUY", d["lots"], None, why[:300], tag=f"s:{self.id}", exits=d["exits"], regime=reg))
+        return out

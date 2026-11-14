@@ -2617,6 +2617,7 @@ function stAutoPanel(items){
 // as a back-test-only strategy (bt) and run on the ICICI minute history; results in the same panel as the builder's.
 const BTQ = { text: '', busy: false, parsed: null, err: '', key: null, keyBusy: false };
 const BT_EXAMPLES = [
+  ['Supertrend both ways', 'On NIFTY 5-minute bars, buy the ATM call when Supertrend gives a Buy and buy the ATM put when it gives a Sell (the opposite signal closes the open option first). Square off at 15:00. Since Aug 2026.'],
   ['Opening-range breakout', 'On NIFTY, buy the at-the-money call when the index breaks the first 15 minutes\' high, between 09:30 and 14:30. Stop 25% on the premium, target 50%, square off at 15:15. Last 1 year.'],
   ['RSI momentum', 'On BANK NIFTY 15-minute bars, buy the ATM call when RSI(14) crosses above 60. Stop 30%, target 50%, square off at 15:15. Last 6 months.'],
   ['Gap-down reversal', 'NIFTY: when the day opens at least 0.5% below yesterday\'s close and the index then closes above the day\'s open on 5-minute bars, buy the ATM call. Stop 25%, square off at 15:15.'],

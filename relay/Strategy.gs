@@ -72,10 +72,14 @@ function stratClean_(s) {
   const raw = Array.isArray(s.groups) && s.groups.length ? s.groups : [{ match: s.match, signals: s.signals }];
   const groups = raw.slice(0, 5).map(g => ({ match: (g && g.match) === 'any' ? 'any' : 'all',
     signals: ((g && g.signals) || []).map(stratSignal_).filter(Boolean).slice(0, 8) })).filter(g => g.signals.length);
+  // Both directions (14 Nov 2026): the put side's entry signals; with them the call is bought on "groups", the put on these.
+  const putGroups = (Array.isArray(s.put_groups) ? s.put_groups : []).slice(0, 5).map(g => ({ match: (g && g.match) === 'any' ? 'any' : 'all',
+    signals: ((g && g.signals) || []).map(stratSignal_).filter(Boolean).slice(0, 8) })).filter(g => g.signals.length);
   return {
+    put_groups: putGroups, put_groups_match: s.put_groups_match === 'all' ? 'all' : 'any',
     id: /^s_[a-z0-9]{6,20}$/.test(s.id || '') ? s.id : 's_' + Utilities.getUuid().replace(/-/g, '').slice(0, 10),
     name: String(s.name || 'Unnamed strategy').slice(0, 80), notes: String(s.notes || '').slice(0, 500),
-    index: pick(s.index, ['NIFTY', 'BANKNIFTY'], 'NIFTY'), side: pick(s.side, ['BUY', 'SELL'], 'BUY'), right: pick(s.right, ['C', 'P'], 'C'),
+    index: pick(s.index, ['NIFTY', 'BANKNIFTY'], 'NIFTY'), side: putGroups.length ? 'BUY' : pick(s.side, ['BUY', 'SELL'], 'BUY'), right: putGroups.length ? 'C' : pick(s.right, ['C', 'P'], 'C'),
     strike: st.mode === 'premium' ? { mode: 'premium', near: stratNum_(st.near, 1, 5000, 100) } : { mode: 'atm', steps: Math.round(stratNum_(st.steps, -10, 20, 0)) },
     expiry: pick(s.expiry, ['nearest', 'next', 'monthly'], 'nearest'), lots: Math.round(stratNum_(s.lots, 1, 50, 1)),
     window: { from: stratTime_(w.from, '09:30'), until: stratTime_(w.until, '14:30') },

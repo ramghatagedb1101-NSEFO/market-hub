@@ -4,6 +4,18 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Both directions: call on one signal, put on the other, in one strategy (Sat 14 Nov 2026)
+Owner: "the engine did not execute any put, why?" then "yes, build both directions". A strategy traded one option in one
+direction, so "call on Supertrend Buy, put on Sell" kept only the call side.
+- `put_groups` (same format as the entry groups): with them a strategy buys the ATM (or chosen) call when its call-side
+  signals fire and the put when its put-side signals fire, one position at a time. Holding one, the other side's
+  signal closes it first (the engine cancels its stop) and then buys the other: a reversal. Exit-by time, stops, the
+  day's loss limit and the safety limits apply as before; reversals are not held back by the trades-a-day count.
+- In the program (`trader/strategies/rules.py`, the live engine and back-tests alike), the server's checks and the
+  plain-English reader (such a sentence is now one strategy); a "Supertrend both ways" example on the Back-tests page.
+  Tests: 112 of 112 (three new: call bought, reversal to the put, put closed at the exit time).
+- Not yet in the strategy form: the put side's signals are kept but not shown for editing there.
+
 ### Back-tests: "since Aug 2026" kept as a start date; the reader knows today's date (Sat 14 Nov 2026)
 Owner: "entry time and exit time is not as per supertrend buy or sell signal and I had specified the period only from
 Aug 2026, but you calculated for a much older period also".
