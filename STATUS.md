@@ -7,15 +7,15 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
 
 ### Where things stand
 - **ICICI minute history** (free, for back-tests): index minutes for NIFTY / BANK NIFTY / SENSEX complete, every session
-  Oct 2023 - 13 Nov 2026 (114 index-months). Option minutes for the day before and the day of each expiry: 36 of 409
-  expiries (NIFTY 16, SENSEX 16, BANK NIFTY 4), back to 28 Jul 2026. About 48,000 requests to go = about 10 days at
-  ICICI's 5,000 a day (shared allowance 4,900, `state/breeze/usage.json`). `breeze.yml` runs at 16:00 and 21:00 IST,
-  only on days with that day's ICICI sign-in (phone, Settings). Its schedule has not been seen firing yet: check the
-  16:00 run on Sat 14 Nov. Then: the every-day option download (owner approved; about 6 more days), then
-  `diag.yml -f module=rule_real_fill`.
-- **Owner's own ICICI history files** (Excel, from the ICICI site): the owner saves them on the laptop in
-  `C:\nse_fo_analyser\extras\icici_history\` (outside this public repo). Check what they hold (index or options,
-  which days, minute or daily) before using them; prices go to the private repo only.
+  Oct 2023 - 13 Nov 2026 (114 index-months). Option minutes: the owner's own ICICI files (laptop
+  `D:\ICICI data historic\NSEData`) imported 14 Nov 2026 by `hub/icici_files.py`: NIFTY 149 and BANK NIFTY 70 expiries,
+  EVERY session 1 Jan 2024 - 30 Oct 2026 under its nearest expiry (`state/breeze/expiry_weeks/`, 373 MB), strikes
+  within ~2% of the index (2025-26) / 5% (2024); identical to the download on all 434,909 overlapping minutes; the
+  download's wider strikes merged in where both exist. Download (two days per expiry, `state/breeze/expiry_days/`):
+  236 of 409 done; 173 to go = 21,254 requests (~5 sign-in days): SENSEX 147, NIFTY / BANK NIFTY Oct-Dec 2023 13 each.
+  Shared allowance 4,900 a day (`state/breeze/usage.json`). `breeze.yml` runs at 16:00 and 21:00 IST, only on days
+  with that day's ICICI sign-in (phone, Settings); check its scheduled runs fire. The every-day option download is no
+  longer needed for NIFTY / BANK NIFTY up to 30 Oct 2026. Then `diag.yml -f module=rule_real_fill`.
 - **Strategy chart**: Buy / Sell labels on by default for Supertrend (others per indicator, button "Buy/Sell off").
 - **Trading machine** `market-hub-trader` (Oracle Always Free Arm, 2 cores / 12 GB, Mumbai, Ubuntu 24.04): IBKR gateway
   in Docker (`/opt/trader/docker-compose.yml`, IBC, paper mode, API on 127.0.0.1:4002 only) logged in to the paper
@@ -65,9 +65,10 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
 
 ### Open items, in order
 1. Monday checks above.
-2. ICICI expiry download to finish (~10 sign-in days), then the every-day option download (~6), then
-   `rule_real_fill` and the first serious strategy search (keep rule_review's discipline: walk-forward, full costs).
-3. A back-test of autopilot itself (replaying its picks), once every-day data exists.
+2. ICICI expiry download to finish (~5 sign-in days, mostly SENSEX), then `rule_real_fill` and the first serious
+   strategy search (keep rule_review's discipline: walk-forward, full costs). Every session from 31 Oct 2026 on is not
+   stored yet beyond the two expiry days: decide whether to record it (ICICI daily, or the trading machine's IBKR prices).
+3. A back-test of autopilot itself (replaying its picks): every-day data now exists for NIFTY / BANK NIFTY 2024-26.
 4. Options-data signals (put-call ratio, open interest change; futures VWAP) for the placeholders.
 5. Decided (owner, 14 Nov): keep the current paper password; no change needed. (A separate paper password was
    offered as extra safety for the copy stored on the machine; `set-login.sh` changes it any time.)

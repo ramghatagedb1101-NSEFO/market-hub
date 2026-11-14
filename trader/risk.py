@@ -24,10 +24,14 @@ class Guard:
         self.killed = ""            # reason, empty while trading is allowed
         self.orders_today = 0
         self.day = None
+        self.day_start = 0.0        # the book's profit when the day began: the loss limit counts from here
 
-    def new_day(self, now: datetime) -> None:
+    def new_day(self, now: datetime, book: Book | None = None) -> None:
+        """A new session: order count, the day's loss and the day's stop start again (one engine can span several
+        sessions in a back-test over a whole expiry week; the live program starts a fresh engine each day)."""
         if self.day != now.date():
-            self.day, self.orders_today = now.date(), 0
+            self.day, self.orders_today, self.killed = now.date(), 0, ""
+            self.day_start = book.pnl() if book is not None else 0.0
 
     def kill(self, reason: str) -> bool:
         """Trip the switch; True only the first time (so the engine closes positions once)."""
@@ -38,8 +42,9 @@ class Guard:
 
     def watch(self, book: Book) -> str:
         """Called after every mark: trips the switch when the day's loss limit is reached."""
-        if not self.killed and book.pnl() <= -self.s.max_daily_loss:
-            self.kill(f"day's loss {-book.pnl():,.0f} reached the limit {self.s.max_daily_loss:,.0f}")
+        lost = self.day_start - book.pnl()
+        if not self.killed and lost >= self.s.max_daily_loss:
+            self.kill(f"day's loss {lost:,.0f} reached the limit {self.s.max_daily_loss:,.0f}")
         return self.killed
 
     def check(self, r: OrderRequest, q: Quote | None, book: Book, now: datetime) -> str:

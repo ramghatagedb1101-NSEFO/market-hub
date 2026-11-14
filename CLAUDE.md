@@ -53,6 +53,10 @@ through `set-login.sh`.
 - **ICICI Breeze** (free, owner's ICICI account, 13 Nov 2026): minute F&O history for back-tests. The API key works only
   from the fixed address 130.210.31.37 (owner's Oracle Always Free server `market-hub-ip`, Mumbai); `breeze.yml` reaches
   ICICI through it over SSH. One ICICI sign-in a day (phone Settings button). Prices to the private repo only.
+  The owner's own ICICI files (laptop `D:\ICICI data historic\NSEData`: NIFTY and BANK NIFTY options, every session
+  1 Jan 2024 - 30 Oct 2026, each session under its nearest expiry) were imported on 14 Nov 2026 by
+  `hub/icici_files.py` into `state/breeze/expiry_weeks/` (identical to the download wherever both exist); the download
+  skips those expiries.
 - **IBKR paper account** (owner's IBKR India account, 14 Nov 2026): live NSE prices and paper orders for the trading
   program, through the IB gateway on `market-hub-trader` (API on the machine only). NSE shares and F&O data are
   "Fee Waived"; no BSE (no SENSEX options). The program refuses any account not starting "DU". The paper username and

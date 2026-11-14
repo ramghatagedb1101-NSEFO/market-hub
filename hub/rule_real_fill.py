@@ -36,9 +36,13 @@ def real_price(candles: list):
 def icici() -> dict:
     """{record key: entry} for every expiry downloaded so far."""
     out = {}
-    for key in sorted(load(INDEX) or {}):
+    from .icici_files import WEEKS, two_days
+    for key, info in sorted((load(INDEX) or {}).items()):
         sym, exp = key.split("_", 1)
         e = load_gz(f"{DIR}/{sym}/{exp}.json.gz")
+        if not e and info.get("source") == "owner files":         # the owner's files: nearer strikes only
+            w = load_gz(f"{WEEKS}/{sym}/{exp}.json.gz")
+            e = two_days(w) if w else None
         if e:
             out[key] = e
     return out
@@ -49,6 +53,9 @@ def real_chain(chain: list, entry: dict) -> list:
     out = []
     for k, ce, pe, ce_oi, pe_oi in chain:
         s = str(int(k) if float(k).is_integer() else k)
+        if entry.get("source") == "owner files" and s not in entry["call"] and s not in entry["put"]:
+            out.append([k, ce, pe, ce_oi, pe_oi])        # a strike the owner's files do not cover: keep the close
+            continue
         out.append([k, real_price(entry["call"].get(s)) or 0.0, real_price(entry["put"].get(s)) or 0.0, ce_oi, pe_oi])
     return out
 

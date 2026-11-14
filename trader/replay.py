@@ -1,6 +1,7 @@
 """
-Replay: run the program over one downloaded expiry (ICICI one-minute candles for the day before expiry and the expiry
-day, every strike in the stored chain; hub/breeze_history.py). The engine steps once a minute.
+Replay: run the program over one expiry's ICICI one-minute candles: the day before expiry and the expiry day
+(hub/breeze_history.py), or every session the expiry was traded in the owner's files (an entry with "days";
+hub/icici_files.py). The engine steps once a minute.
 
 Prices: a contract's quote at a minute is its last one-minute close so far, dated at that candle (so the engine's
 "price too old" limit applies). There is no bid or ask in the history; they are set at the close minus / plus the
@@ -38,7 +39,7 @@ class ReplayFeed:
 
     def __init__(self, index: str, entry: dict, index_days: dict | None = None):
         self.index, self.e = index, entry
-        self.days = [entry["prev_day"], entry["expiry"]]
+        self.days = list(entry.get("days") or [entry["prev_day"], entry["expiry"]])
         self.series: dict[Contract, list] = {}
         self.keys: dict[Contract, list] = {}
         for right, side in (("C", "call"), ("P", "put")):
@@ -51,7 +52,7 @@ class ReplayFeed:
         self.subscribed: set[Contract] = set()
         self.ibars, self.ikeys, self.prev = [], [], {}
         for d in sorted(index_days or {}):
-            if d > self.days[1]:
+            if d > self.days[-1]:
                 continue
             for m, o, h, l, c, *_ in index_days[d]:
                 t = at(d, m)
@@ -105,7 +106,8 @@ class ReplayFeed:
         return sorted({c.strike for c in self.series})
 
     def is_day_before(self, expiry: str) -> bool:
-        return expiry == self.e["expiry"] and self.pos[0] == 0
+        i = self.pos[0] + 1
+        return expiry == self.e["expiry"] and i < len(self.days) and self.days[i] == expiry
 
 
 class ReplayBroker:
@@ -243,13 +245,15 @@ def run(index: str, entry: dict, index_close: float | None, strategy, settings: 
     feed = ReplayFeed(index, entry, index_days)
     broker = ReplayBroker(feed)
     eng = Engine(feed, broker, strategy, settings, journal)
-    for day in (0, 1):
+    for day in range(len(feed.days)):
         for m in range(MINUTES):
             feed.move(day, m)
             eng.step(feed.now())
         if broker.end_of_day():
             journal.write(feed.now(), "note", text="unfilled orders cancelled at the day's end")
-    if index_close is not None:
+    if feed.days[-1] != entry["expiry"]:
+        journal.write(feed.now(), "note", text="the files stop before expiry day: open positions left unsettled")
+    elif index_close is not None:
         eng.settle(feed.now(), index, entry["expiry"], index_close)
     else:
         journal.write(feed.now(), "note", text="no index close on record: open positions left unsettled")

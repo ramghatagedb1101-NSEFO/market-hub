@@ -402,9 +402,39 @@ def test_regime_autopilot_by_strategy():
     ok("by strategy: paper record by condition", sm["by_strategy_regime"]["a"]["trend_up"]["trades"] == 1, sm["by_strategy_regime"])
 
 
+def test_week():
+    """An expiry with every session from the owner's files ("days"): four sessions, the day's loss stop resets."""
+    days = ["2026-10-29", "2026-10-30", PREV, EXP]
+
+    class DayScript(Script):
+        def step(self, view):
+            self.seen = getattr(self, "seen", []) + [(view.now.strftime("%Y-%m-%d"), view.feed.is_day_before(EXP))]
+            key = (view.now.strftime("%Y-%m-%d"), view.now.hour * 60 + view.now.minute - 555)
+            if key in self.plan and key not in self.sent:
+                self.sent.add(key)
+                return self.plan[key]
+            return []
+
+    e = {"days": days, "expiry": EXP, "call": {"25000": walk(0, 30, [100, 95, 90, 85, 80, 78, 76, 74]) +
+                                                      walk(1, 30, [80, 82, 84, 86]) + walk(3, 30, [90, 91])}, "put": {}}
+    s = Settings(strategy="script", stale_seconds=300, max_daily_loss=500, stop_loss=0.5)
+    sc = DayScript({(days[0], 30): [buy()], (days[1], 31): [buy()]}, {C})
+    j = Journal()
+    eng = run("NIFTY", e, 25100.0, sc, s, j)
+    seen = sorted({d for d, _ in sc.seen})
+    ok("week: all four sessions stepped", seen == days, seen)
+    ok("week: day-before only on the day before expiry", {d for d, b in sc.seen if b} == {PREV})
+    kills = [r for r in j.lines if r["kind"] == "kill"]
+    ok("week: day one stopped by its loss limit", len(kills) == 1 and kills[0]["t"].startswith(days[0]), kills)
+    orders = [r for r in j.lines if r["kind"] == "order"]
+    ok("week: next day trades again (the day's stop resets)", any(r["t"].startswith(days[1]) for r in orders),
+       [r["t"] for r in j.lines if r["kind"] in ("order", "refused")])
+    ok("week: settled on expiry day", any(r["kind"] == "settle" for r in j.lines) or eng.book.open_legs() == 0)
+
+
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
-              test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor]:
+              test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

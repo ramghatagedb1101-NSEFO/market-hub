@@ -4,6 +4,25 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### The owner's ICICI files imported: every session of 2024-26 for back-tests (Sat 14 Nov 2026)
+Owner: "where i should save the ICICI historic data for you?", then saved it to `D:\ICICI data historic\NSEData`.
+- What it is: NIFTY and BANK NIFTY option minutes (open, high, low, close, volume, open interest) for every trading day
+  1 Jan 2024 - 30 Oct 2026 (693 sessions each), plus both indexes' minutes. ICICI's own layout; NIFTY 2024 every strike
+  and expiry, 2025-26 the nearest expiry within about 2% of the index.
+- Checked before use: identical to our ICICI download on all 434,909 minute closes the two share (19 expiries).
+- New `hub/icici_files.py` (laptop, run once): each session goes to its nearest expiry only (the 2024 file holds every
+  expiry each day; a first run counted some days twice and was stopped and redone), strikes within 5% of the day's
+  open, one file per expiry in the private repo `state/breeze/expiry_weeks/` (NIFTY 149 expiries 185 MB, BANK NIFTY 70
+  188 MB). Where the download already had the two expiry days, its wider strikes (and days after 30 Oct) are merged in.
+  Expiries imported are marked done, so the ICICI download skips them: 21,254 requests left (~5 sign-in days, mostly
+  SENSEX) instead of ~48,000, and the planned every-day download is not needed for 2024-26.
+- Back-tests (`trader/backtest.py`, `trader/replay.py`) now replay every session of an expiry (an entry with "days");
+  "day before expiry" is the session before expiry day. `hub/rule_real_fill.py` reads the week files too.
+- Fix found on the way: the day's loss limit counted from the start of the run and its stop never lifted, so in a
+  several-day replay one bad Monday would have blocked the rest of the week. The guard now restarts each session
+  (`trader/risk.py`): the day's loss counts from that morning. The live program was not affected (a fresh engine each
+  day). Tests: 104 of 104 (new: a four-session expiry week).
+
 ### Buy / Sell labels on the strategy chart: on by default for Supertrend (Sat 14 Nov 2026)
 Owner: "labels for buy and sell are not appearing". Cause: the labels worked, but each indicator's small "B/S" button was
 off; chart set-ups saved in the browser before the labels existed had no setting, so Supertrend showed none.

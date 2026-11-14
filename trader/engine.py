@@ -65,7 +65,7 @@ class Engine:
         self.exits_of: dict[str, dict] = {}         # order id -> exits for the position it will open
 
     def step(self, now: datetime) -> None:
-        self.guard.new_day(now)
+        self.guard.new_day(now, self.book)
         for f in self.broker.poll_fills():
             self.book.apply(f)
             self.j.write(now, "fill", contract=f.contract.key(), side=f.side, qty=f.qty, price=f.price,

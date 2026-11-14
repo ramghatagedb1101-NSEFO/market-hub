@@ -4,9 +4,9 @@ option prices for the day before and the day of every downloaded expiry (hub/bre
 one-minute bars for every session (hub/breeze_index.py; the session before is included so averages and RSI have
 history). The same engine, limits, stops and charges as the live program (trader/replay.py).
 
-Coverage: only the sessions that have option prices -- two around each expiry, so "nearest" expiry only; a strategy
-set to "next" or "monthly" cannot be tested on this data yet (the result says so). The every-day option download will
-widen this.
+Coverage: the sessions that have option prices, nearest expiry only (a strategy set to "next" or "monthly" cannot be
+tested yet; the result says so): every session of each expiry from the owner's files (hub/icici_files.py, NIFTY and
+BANK NIFTY Jan 2024 - Oct 2026), else the day before and the day of each downloaded expiry.
 
     python -m trader.backtest STRATEGIES_JSON ID [--print]   (writes state/backtests/<ID>.json to the private repo)
 """
@@ -15,6 +15,7 @@ import sys
 from datetime import date, datetime, timedelta
 
 from hub.breeze_history import DIR as EXP_DIR, INDEX as EXP_DONE, load_gz
+from hub.icici_files import WEEKS
 from hub.breeze_index import DIR as IDX_DIR
 from hub.expiry_history import load, save
 
@@ -41,15 +42,15 @@ class IndexMinutes:
             self.months[m] = body.get("days") or {}
         return self.months[m].get(d)
 
-    def around(self, prev_day: str, expiry: str) -> dict:
-        out, d = {}, date.fromisoformat(prev_day)
+    def around(self, days: list) -> dict:
+        out, d = {}, date.fromisoformat(days[0])
         for k in range(1, 8):                                   # the session before prev_day, for history
             back = (d - timedelta(days=k)).isoformat()
             bars = self.day(back)
             if bars:
                 out[back] = bars
                 break
-        for x in (prev_day, expiry):
+        for x in days:
             bars = self.day(x)
             if bars:
                 out[x] = bars
@@ -68,17 +69,19 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
                  max_lots_per_order=int(limits.get("max_lots_per_order") or max(d["lots"], 1)),
                  max_daily_loss=float(limits.get("max_daily_loss") or 10000))
     for n, e in enumerate(expiries, 1):
-        entry = load_gz(f"{EXP_DIR}/{idx}/{e}.json.gz")
+        week = (done.get(f"{idx}_{e}") or {}).get("source") == "owner files" or (done.get(f"{idx}_{e}") or {}).get("weeks")
+        entry = (load_gz(f"{WEEKS}/{idx}/{e}.json.gz") if week else None) or load_gz(f"{EXP_DIR}/{idx}/{e}.json.gz")
         if not entry:
             continue
-        days = minutes.around(entry["prev_day"], e)
-        if entry["prev_day"] not in days or e not in days:
+        sess = entry.get("days") or [entry["prev_day"], e]
+        days = minutes.around(sess)
+        if any(x not in days for x in sess):
             skipped += 1
             continue
         j = Journal()
         run(idx, entry, (recs.get(f"{idx}_{e}") or {}).get("close"), Rules(d), s, j, index_days=days)
         rows += j.lines
-        sessions += [entry["prev_day"], e]
+        sessions += sess
         if n % 10 == 0:
             progress(f"{n} of {len(expiries)} expiries")
     summary = build(rows, now=datetime.now())
