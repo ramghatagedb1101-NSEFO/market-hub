@@ -4,6 +4,23 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Back-tests page: write the back-test in plain English (Sat 14 Nov 2026)
+Owner: "I want the backtest in a separate tab from paper trading. It must have a query builder like ... tradl.ai";
+chose Google Gemini (free tier) to read the English, and the trading machine to run back-tests (that part next).
+- New **F&O > Back-tests** page. A box for the back-test in plain English, a five-part guide (Instrument, Entry,
+  Option, Exit, Period) and five example prompts (click to use). "Read my back-test" sends the sentence to Gemini
+  (`relay/Backtest.gs` adminBtParse), which returns the strategy builder's own settings; the page shows them as five
+  cards plus a plain list of what cannot be tested yet (individual stocks, VWAP, IV percentile, multi-leg trades,
+  next-week / monthly expiries). Run back-test / Change details (opens the strategy form) / Start again.
+- Results use the existing back-test panel (profit after charges, trades and win rate, average win / loss, worst
+  fall, daily profit chart, by market condition, by month, every trade). "Your back-tests" lists each with its
+  sentence: Results, Run again, Use for paper trading, Delete (red, asks first).
+- Back-test-only strategies (`bt`) stay off Paper trading > Strategies until "Use for paper trading". A period
+  ("last 6 months") is kept as `months` and `trader/backtest.py` tests only those expiries.
+- The Gemini key: the Apps Script settings list is read-only above 50 properties, so the page asks for it once
+  (password box) and the relay stores it as GEMINI_API_KEY; never sent back to any page.
+- Still running on GitHub (2-6 minutes); next: the trading machine runs back-tests (seconds to a minute).
+
 ### Strategy chart: date and time under the cursor (Sat 14 Nov 2026)
 Owner: "it must show the date and time when I put the cursor on the chart... basic for any charts". The legend at the
 top left now reads e.g. "BANK NIFTY 57,600 CE · 5 min   Fri 11 Sep 2026 · 10:45   O ... H ... L ... C ...", for the bar

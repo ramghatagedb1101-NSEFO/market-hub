@@ -676,11 +676,12 @@ const NAV = [
   ['F&O', [['fnog', 'Option ideas', [['fno', 'Index options'], ['fnostocks', 'NIFTY 50 stocks']]],
                ['expiryg', 'Expiry meter', [['expiry', 'Expiry meter']]],
                ['positioning', 'Positioning', [['positions', 'Futures and option prices']]],
-               ['paperg', 'Paper trading', [['paper', 'Paper trading'], ['algo', 'Auto trading'], ['strategies', 'Strategies']]]]]
+               ['paperg', 'Paper trading', [['paper', 'Paper trading'], ['algo', 'Auto trading'], ['strategies', 'Strategies']]],
+               ['btg', 'Back-tests', [['backtests', 'Back-tests']]]]]
 ];
 const SETTINGS = ['settings', 'Data and settings', [['health', 'Data health'], ['emails', 'Email alerts'], ['params', 'Measures'], ['tests', 'Back-tests'], ['registry', 'Investor registry']]];
 const NAV_ICON = { today: 'overview', portfolio: 'portfolio', shortlist: 'shortlist', screens: 'screener', rankings: 'factors', companies: 'library',
-                   sectorsg: 'sectors', compare: 'explore', news: 'signals', calendarg: 'calendar', fnog: 'positions', expiryg: 'expiry', positioning: 'positions', paperg: 'paper' };
+                   sectorsg: 'sectors', compare: 'explore', news: 'signals', calendarg: 'calendar', fnog: 'positions', expiryg: 'expiry', positioning: 'positions', paperg: 'paper', btg: 'factors' };
 const NAV_ITEMS = NAV.flatMap(g => g[1]).concat([SETTINGS]);
 function navItemOf(page){ return NAV_ITEMS.find(it => it[2].some(t => t[0] === page)) || null; }
 const NAV_LAST = {};                                        // last tab opened per item, so the menu returns to it
@@ -739,7 +740,7 @@ function chartTheme(){
 function go(h){ location.hash = h; }
 function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 
-const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', fno:'Index options', fnostocks:'NIFTY 50 stock options', paper:'Paper trades', algo:'Auto trading', strategies:'Strategies', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
+const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', fno:'Index options', fnostocks:'NIFTY 50 stock options', paper:'Paper trades', algo:'Auto trading', strategies:'Strategies', backtests:'Back-tests', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
                  registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report',
                  screener:'Build a screen', factors:'Rankings', explore:'Compare measures', sectors:'Sectors', signals:"What's new", expiry:'Expiry meter' };
 function rerender(){
@@ -748,7 +749,7 @@ function rerender(){
   $('tape').style.display = current.page === 'overview' ? 'none' : '';   // the Overview shows the same quotes as tiles
   const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
-              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fno: pageFno, fnostocks: pageFnoStocks, paper: pagePaper, algo: pageAlgo, strategies: pageStrategies, health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
+              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fno: pageFno, fnostocks: pageFnoStocks, paper: pagePaper, algo: pageAlgo, strategies: pageStrategies, backtests: pageBacktests, health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
   if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
   if (current.page !== 'expiry') stopExpiry();
   f(current.arg);
@@ -2472,12 +2473,109 @@ function stAutoPanel(items){
     : '<div class="notice" style="margin-top:12px">No strategy is tagged for any market condition yet: open a strategy, tick the conditions it suits under "Market conditions", and save.</div>';
   return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Autopilot</h3></div><div class="panel-b">' + b + '</div></div>';
 }
+// ---------------- Back-tests (14 Nov 2026; owner: "the backtest in a separate tab ... a query builder like tradl.ai") --
+// Plain English -> Gemini (relay adminBtParse) -> the strategy builder's settings, shown as five cards to check -> saved
+// as a back-test-only strategy (bt) and run on the ICICI minute history; results in the same panel as the builder's.
+const BTQ = { text: '', busy: false, parsed: null, err: '', key: null, keyBusy: false };
+const BT_EXAMPLES = [
+  ['Opening-range breakout', 'On NIFTY, buy the at-the-money call when the index breaks the first 15 minutes\' high, between 09:30 and 14:30. Stop 25% on the premium, target 50%, square off at 15:15. Last 1 year.'],
+  ['RSI momentum', 'On BANK NIFTY 15-minute bars, buy the ATM call when RSI(14) crosses above 60. Stop 30%, target 50%, square off at 15:15. Last 6 months.'],
+  ['Gap-down reversal', 'NIFTY: when the day opens at least 0.5% below yesterday\'s close and the index then closes above the day\'s open on 5-minute bars, buy the ATM call. Stop 25%, square off at 15:15.'],
+  ['Trend with moving averages', 'Buy the NIFTY ATM call when the 9 EMA crosses above the 21 EMA on 5-minute bars and the index is above its 50 EMA. Stop 20%, trail 10% once 20% up, out by 15:15. Last 2 years.'],
+  ['Expiry-day put', 'On NIFTY expiry days only, buy the ATM put at 09:30 if the index is below yesterday\'s close. Stop 30%, target 60%, square off at 15:00.']
+];
+const BT_GUIDE = [['Instrument', 'NIFTY or BANK NIFTY options'], ['Entry', 'when the 9 EMA crosses above the 21 EMA · at 09:30 if the index is below yesterday\'s close'],
+  ['Option', 'buy 1 lot ATM call · ATM+2 put · the call nearest ₹100'], ['Exit', 'stop 25%, target 50% · trail 10% once 20% up · square off 15:15'],
+  ['Period', 'last 6 months · last 2 years (default: all, Jan 2024 on)']];
+function btLoadKey(){ if (BTQ.key !== null) return; BTQ.key = 'loading'; call('adminGeminiKeyStatus', token).then(d => { BTQ.key = !!(d && d.set); rerender(); }).catch(() => { BTQ.key = false; rerender(); }); }
+function btSaveKey(){
+  const el = $('bt-key'), k = el ? el.value.trim() : ''; if (!k) return;
+  BTQ.keyBusy = true; rerender();
+  call('adminGeminiKeySave', token, k).then(d => { BTQ.keyBusy = false; if (d && d.ok) { BTQ.key = true; BTQ.err = ''; } else BTQ.err = (d && d.error) || 'Not saved.'; rerender(); })
+    .catch(e => { BTQ.keyBusy = false; BTQ.err = e.message; rerender(); });
+}
+function btAsk(){
+  const el = $('bt-q'); BTQ.text = el ? el.value : BTQ.text;
+  if (BTQ.text.trim().length < 8) { BTQ.err = 'Describe the back-test in a sentence or two.'; rerender(); return; }
+  BTQ.busy = true; BTQ.err = ''; BTQ.parsed = null; rerender();
+  call('adminBtParse', token, BTQ.text).then(d => {
+    BTQ.busy = false;
+    if (d && d.error === 'no_key') { BTQ.key = false; BTQ.err = 'Paste your Gemini key first (below).'; }
+    else if (d && d.error) BTQ.err = d.error;
+    else BTQ.parsed = d;
+    rerender();
+  }).catch(e => { BTQ.busy = false; BTQ.err = e.message; rerender(); });
+}
+function btExample(i){ BTQ.text = BT_EXAMPLES[i][1]; BTQ.parsed = null; BTQ.err = ''; rerender(); const el = $('bt-q'); if (el) el.focus(); }
+function btStrategy(){
+  const P = BTQ.parsed || {}, s = JSON.parse(JSON.stringify(P.strategy || {}));
+  s.bt = true; s.query = P.query || BTQ.text; s.months = P.period_months || null; s.expiry = 'nearest'; s.style = 'intraday';
+  if (!Array.isArray(s.groups) || !s.groups.length || !s.groups.some(g => (g.signals || []).length)) s.groups = [{ match: 'all', signals: [{ type: 'weekday', days: [1, 2, 3, 4, 5] }] }];
+  return s;
+}
+function btRun(){
+  const s = btStrategy();
+  BTQ.busy = true; rerender();
+  call('adminStrategySave', token, s).then(d => {
+    if (d && d.error) throw new Error(d.error);
+    const id = d && d.saved;
+    if (!id) throw new Error('Not saved.');
+    S.strat = Object.assign(S.strat || {}, d);
+    return call('adminBacktestStart', token, id).then(r => { if (r && r.error) throw new Error(r.error); BTQ.busy = false; BTQ.parsed = null; stLoad(); stBtLoad(id, true); });
+  }).catch(e => { BTQ.busy = false; BTQ.err = e.message; rerender(); });
+}
+function btEdit(){ ST_EDIT = stGroups(btStrategy()); ST_MSG = 'From the Back-tests page: check the details, Save, then Back-test.'; location.hash = '#strategies'; }
+async function btUse(id){
+  const s = ((S.strat && S.strat.items) || []).find(x => x.id === id); if (!s) return;
+  if (!await mhDialog({ title: 'Use "' + s.name + '" for paper trading?', body: 'It moves to Paper trading > Strategies, where you can press Trade this or tag it for autopilot.', ok: 'Use for paper trading' })) return;
+  stDo('adminStrategySave', [Object.assign({}, s, { bt: false })], 'Moving…', () => 'Now in Paper trading > Strategies.');
+}
+async function btDelete(id){
+  const s = ((S.strat && S.strat.items) || []).find(x => x.id === id); if (!s) return;
+  if (!await mhDialog({ title: 'Delete the back-test "' + s.name + '"?', body: 'This cannot be undone.', ok: 'Delete', danger: true })) return;
+  if (ST_BT && ST_BT.id === id) ST_BT = null;
+  stDo('adminStrategyDelete', [id], 'Deleting…', () => 'Deleted.');
+}
+function pageBacktests(){
+  const v = $('view');
+  btLoadKey();
+  if (!S.strat && !S.stratLoading) stLoad();
+  const P = BTQ.parsed, U = (P && P.understood) || {};
+  let h = '<div class="page-head"><div><p class="sub">Describe a back-test in plain English. It is read into five parts for you to check, then run on ICICI\'s minute-by-minute option prices with full charges. Not advice.</p></div></div>';
+  if (BTQ.key === false) h += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Gemini key</h3><span class="muted" style="font-size:12px">once; Google\'s free AI reads your sentence</span></div><div class="panel-b">' +
+    '<div class="muted" style="font-size:12.5px;margin-bottom:8px">Paste the key from aistudio.google.com &gt; Get API key. It is stored on the Market Hub server and never shown again.</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="bt-key" class="field" type="password" autocomplete="off" placeholder="Gemini API key" style="flex:1;min-width:220px"><button class="btn primary" type="button" ' + (BTQ.keyBusy ? 'disabled' : '') + ' onclick="btSaveKey()">' + (BTQ.keyBusy ? 'Saving…' : 'Save key') + '</button></div></div></div>';
+  h += '<div class="panel" style="margin-bottom:14px"><div class="panel-b">' +
+    '<textarea id="bt-q" class="field" rows="3" style="width:100%;resize:vertical;min-height:84px;font-size:14px" placeholder="e.g. On NIFTY, buy the ATM call when the index breaks the first 15 minutes\' high. Stop 25%, target 50%, square off 15:15. Last 1 year." oninput="BTQ.text=this.value">' + esc(BTQ.text) + '</textarea>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap"><span class="faint" style="font-size:12px">NIFTY and BANK NIFTY options, one leg; Jan 2024 to now.</span>' +
+    '<button class="btn primary" type="button" ' + (BTQ.busy ? 'disabled' : '') + ' onclick="btAsk()">' + (BTQ.busy ? 'Working…' : 'Read my back-test') + '</button></div>' +
+    (BTQ.err ? '<div class="notice" style="margin-top:10px;background:var(--down-soft);color:var(--down)">' + esc(BTQ.err) + '</div>' : '') + '</div></div>';
+  if (P) {
+    const card = (k, val) => '<div class="panel kpi" style="min-width:0"><div class="k">' + k + '</div><div style="font-size:13.5px;line-height:1.45;margin-top:4px">' + esc(val || '–') + '</div></div>';
+    h += '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>What I understood</h3><span class="muted" style="font-size:12px">' + esc((P.strategy || {}).name || '') + '</span></div><div class="panel-b">' +
+      '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px">' +
+      card('Instrument', U.instrument) + card('Entry', U.entry) + card('Option', U.option) + card('Exit', U.exit) + card('Period', U.period || (P.period_months ? 'last ' + P.period_months + ' months' : 'all the data, Jan 2024 on')) + '</div>' +
+      ((P.unsupported || []).length ? '<div class="notice" style="margin-bottom:10px"><b>Not tested:</b> ' + P.unsupported.map(esc).join(' · ') + '</div>' : '') +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" ' + (BTQ.busy ? 'disabled' : '') + ' onclick="btRun()">Run back-test</button>' +
+      '<button class="btn" type="button" onclick="btEdit()">Change details</button><button class="btn" type="button" onclick="BTQ.parsed=null;rerender()">Start again</button></div></div></div>';
+  }
+  h += stBtPanel();
+  if (!P) h += '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">' +
+    '<div class="panel"><div class="panel-h"><h3>How to write it</h3></div><div class="panel-b">' + BT_GUIDE.map(([k, e]) => '<div style="margin-bottom:8px"><b>' + k + '</b><div class="muted" style="font-size:12.5px">e.g. ' + esc(e) + '</div></div>').join('') + '</div></div>' +
+    '<div class="panel"><div class="panel-h"><h3>Examples</h3><span class="muted" style="font-size:12px">click to use</span></div><div class="panel-b">' +
+    BT_EXAMPLES.map(([t, q], i) => '<div role="button" tabindex="0" onclick="btExample(' + i + ')" onkeydown="if(event.key===\'Enter\')btExample(' + i + ')" style="cursor:pointer;padding:8px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px"><b>' + esc(t) + '</b><div class="muted" style="font-size:12.5px">' + esc(q) + '</div></div>').join('') + '</div></div></div>';
+  const mine = ((S.strat && S.strat.items) || []).filter(x => x.bt).reverse();
+  if (mine.length) h += '<div class="panel"><div class="panel-h"><h3>Your back-tests</h3><span class="muted" style="font-size:12px">' + mine.length + '</span></div><table class="t"><thead><tr><th class="l">Back-test</th><th class="l">Asked</th><th></th></tr></thead><tbody>' +
+    mine.map(s => '<tr><td class="l"><b>' + esc(s.name) + '</b><div class="faint" style="font-size:11.5px">' + esc(stIdx(s.index)) + (s.months ? ' · last ' + s.months + ' months' : '') + '</div></td><td class="l muted" style="white-space:normal;font-size:12.5px;max-width:520px">' + esc(s.query || '') + '</td>' +
+      '<td style="white-space:nowrap"><button class="btn sm" type="button" onclick="stBtLoad(\'' + s.id + '\')">Results</button> <button class="btn sm" type="button" onclick="stBacktest(\'' + s.id + '\')">Run again</button> <button class="btn sm" type="button" onclick="btUse(\'' + s.id + '\')">Use for paper trading</button> <button class="btn sm" type="button" style="color:var(--down)" onclick="btDelete(\'' + s.id + '\')">Delete</button></td></tr>').join('') + '</tbody></table></div>';
+  v.innerHTML = h;
+}
 function pageStrategies(){
   const v = $('view');
   if (!S.strat) { if (!S.stratLoading) stLoad(); v.innerHTML = loadingBlock('Loading…'); return; }
   if (S.strat.error) { v.innerHTML = errBlock(S.strat.error); return; }
   if (ST_EDIT) { v.innerHTML = stForm(); stcDraw(); return; }
-  const items = S.strat.items || [], act = items.find(x => x.id === S.strat.active), L = S.strat.limits || {};
+  const items = (S.strat.items || []).filter(x => !x.bt), act = items.find(x => x.id === S.strat.active), L = S.strat.limits || {};   // back-test-only ones live on the Back-tests page
   const auto = S.strat.mode === 'autopilot';
   if (auto && !S.algo && !S.algoLoading) algoLoad();
   // Trading mode (owner, 14 Nov 2026: "The autopilot switch, make it more explicit"): two cards, the one in force

@@ -88,6 +88,10 @@ function stratClean_(s) {
              exit_by: style === 'intraday' ? stratTime_(ex.exit_by, '15:15') : null, validity: style === 'intraday' ? 'DAY' : 'GTC' },
     style: style, max_trades_day: Math.round(stratNum_(s.max_trades_day, 1, 50, 2)),
     max_loss_day: stratNum_(s.max_loss_day, 0, 1e7, 5000), reentry_gap: Math.round(stratNum_(s.reentry_gap, 0, 375, 15)),
+    // Back-tests page (14 Nov 2026): a strategy written in plain English there is kept for back-tests only (bt) until
+    // "Use for paper trading"; the sentence and the test period (months back, none = all data) travel with it.
+    bt: s.bt === true, query: String(s.query || '').slice(0, 1500),
+    months: s.months ? Math.round(stratNum_(s.months, 1, 60, 0)) || null : null,
     updated: Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm")
   };
 }
