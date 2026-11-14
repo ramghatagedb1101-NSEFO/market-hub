@@ -82,8 +82,9 @@ As of Sat 14 Nov 2026, ~18:45 IST. Start with the 14 Nov HANDOVER just below, th
   The strategy form edits both sides (Direction: One option / Trade both ways), 14 Nov 2026.
 - Back-tests reader: gemini-3.5-flash-lite first (3.8-flash hung or was out of allowance in every timed call, 14 Nov);
   three live reads after the change answered in 10-20 s. AI summaries: 3.8-flash
-  kept first but limited to 2 minutes a document, skipped for the run once it fails (owner, 14 Nov).
-- Back-tests (14 Nov evening): ~10x faster (owner's both-ways test 10.6 s on the laptop), fills at their own minute (15:00 not
+  kept first but limited to 2 minutes (stopwatch thread), skipped for the run once it fails (owner, 14 Nov). First run
+  after: all 15 documents in ~6 minutes (3.8-flash timed out at 120 s; flash-lite answered in 3-55 s each).
+- Back-tests (14 Nov evening): ~10x faster (owner's both-ways test 245 s -> 21 s on the trading machine), fills at their own minute (15:00 not
   15:01), failed runs show "could not finish", option chart opens on the latest expiry. `bt-worker-setup.yml
   -f log_only=true` shows the worker's log without restarting it.
 - To check: an earlier back-test was dispatched three times in a minute (two cancelled) -- confirm whether the owner
