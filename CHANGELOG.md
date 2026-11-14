@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### IBKR paper account connected (Sat 14 Nov 2026)
+- Owner typed the paper login on the machine. The gateway first restarted endlessly: it runs inside its container as
+  user 1000, the machine's user is 1001, so it could not read the password file or its settings folder. Owners fixed
+  on the machine and in `set-login.sh` (re-running it now works).
+- Logged in to the paper account (Simulated Trading), no phone approval asked. `check.py`: paper account confirmed;
+  NIFTY = index `NIFTY50` on NSE, trading class NIFTY, 18 expiries, 299 strikes; BANK NIFTY 6 monthly expiries; no
+  SENSEX (no BSE on IBKR). IBKR's multiplier is 1, so quantities are units, not lots: `trader/ibkr.py` fixed (it would
+  have sent 1 unit for 1 lot). Prices: the paper account gets the live feed (type 1, no permission errors), so the
+  owner's Market Data API form and "share with paper" both took effect; live bid/ask to be seen Monday 09:15.
+
 ### Paper trading program, first version (Sat 14 Nov 2026)
 Owner: "start the paper trading program while we wait"; "every order to buy options should go with an attached child
 stop loss ... once ... I make a decent amount of profit this stop loss order should cancel and a new trailing stop loss

@@ -1,7 +1,7 @@
 """
-Prices and orders through the IBKR gateway on market-hub-trader (127.0.0.1:4002, paper). Written 14 Nov 2026 before
-the paper login worked: the IBKR names below (IB_SYMBOL) and order behaviour on NSE options are to be confirmed by
-infra/trader/check.py and the first paper session -- until then this file is untested against IBKR.
+Prices and orders through the IBKR gateway on market-hub-trader (127.0.0.1:4002, paper). Written 14 Nov 2026; names and
+quantities confirmed against the paper account by infra/trader/check.py the same day. Order behaviour on NSE options
+(stop and trailing orders) is confirmed only once the first paper orders go through.
 
 Safety:
   - connect() refuses any account whose number does not start with "DU" (IBKR paper accounts); nothing is sent.
@@ -22,7 +22,8 @@ from hub.rule_test import charges as table_charges
 
 from .model import Contract, Fill, OrderRequest, Quote
 
-IB_SYMBOL = {"NIFTY": "NIFTY50", "BANKNIFTY": "BANKNIFTY"}     # to confirm with check.py
+IB_SYMBOL = {"NIFTY": "NIFTY50", "BANKNIFTY": "BANKNIFTY"}     # confirmed by check.py, Sat 14 Nov 2026
+# IBKR lists NSE index options with multiplier 1 (check.py, 14 Nov 2026): order quantities are units, not lots.
 TICK = 0.05
 
 
@@ -124,7 +125,7 @@ class IBKR:
             if not base:
                 return ""
             px = _tick(base + 2 * TICK, True) if r.side == "BUY" else max(_tick(base - 2 * TICK, False), TICK)
-        qty = r.lots                                   # IBKR counts NSE options in contracts (lots); check.py confirms
+        qty = r.lots * r.contract.lot                  # units: IBKR's NSE option multiplier is 1
         parent = LimitOrder(r.side, qty, px, orderRef=r.tag or "entry", tif="DAY")
         parent.orderId = self.ib.client.getReqId()
         self.tags[parent.orderId] = r.tag
@@ -198,7 +199,7 @@ class IBKR:
                 continue
             self.seen.add(f.execution.execId)
             side = "BUY" if f.execution.side == "BOT" else "SELL"
-            units = int(f.execution.shares) * c.lot
+            units = int(f.execution.shares)
             fee = f.commissionReport.commission if f.commissionReport and f.commissionReport.commission else None
             if fee is None or math.isnan(fee) or fee > 1e9:
                 fee = table_charges(f.execution.price, units, side.lower(), c.exchange)
@@ -234,5 +235,5 @@ class IBKR:
                     c = Contract(idx, f"{e[:4]}-{e[4:6]}-{e[6:8]}", float(p.contract.strike), p.contract.right)
                     self.ib_contract[c] = p.contract
             if c and p.position:
-                out[c] = int(p.position) * c.lot
+                out[c] = int(p.position)
         return out
