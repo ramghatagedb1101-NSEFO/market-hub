@@ -1752,6 +1752,9 @@ function stSide(){
   const both = stBothOn(E), optW = r => E.strike.mode === 'premium' ? r + ' priced nearest ₹' + E.strike.near : (E.strike.steps ? Math.abs(E.strike.steps) + '-strike ' + (E.strike.steps > 0 ? 'out-of' : 'in') + '-the-money ' : 'at-the-money ') + r;
   const what = (both || E.side === 'BUY' ? 'Buys ' : 'Sells ') + E.lots + ' lot' + (E.lots > 1 ? 's' : '') + ' of the ' + stIdx(E.index) + ' ' +
     (both ? optW('call') + ' or ' + optW('put') + ', one at a time' : optW(E.right === 'P' ? 'put' : 'call')) + ', ' + E.expiry + ' expiry.';
+  const multi = stKindOf(E) !== 'single', K2 = (ST_KINDS.find(k => k[0] === stKindOf(E)) || [])[1];
+  const whatM = multi ? 'A ' + stIdx(E.index) + ' ' + String(K2).toLowerCase() + ', ' + E.lots + ' lot' + (E.lots > 1 ? 's' : '') + ' a leg, ' + E.expiry + ' expiry: ' + stLegsText(E) + '.' : '';
+  const uM = (t, v) => t === 'points' ? '₹' + num(Number(v), 0) : v + '% of the premium';
   const whenW = (G, m) => G.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of: ' : 'all of: ') : '') + g.signals.map(stSigText).join('; ')).join(m === 'all' ? ' — and — ' : ' — or — ');
   const pgs = both ? (E.put_groups || []).filter(g => g.signals.length) : [];
   const when = gs.length ? (both ? 'buys the call when ' : '') + whenW(gs, E.groups_match) + (both && pgs.length ? '; the put when ' + whenW(pgs, E.put_groups_match) + '. The other side’s signal closes the open option first' : '') : '';
@@ -1760,15 +1763,19 @@ function stSide(){
   if (both && !pgs.length) warn.push('No put signals yet: add one, or choose One option.');
   if (E.window.from >= E.window.until) warn.push('The entry window ends before it starts.');
   if (E.style === 'intraday' && X.exit_by <= E.window.from) warn.push('Exit time is before the entry window opens.');
-  if (E.side === 'SELL' && !Number(X.sl)) warn.push('A sold option with no stop-loss has no limit on its loss.');
+  if (!multi && E.side === 'SELL' && !Number(X.sl)) warn.push('A sold option with no stop-loss has no limit on its loss.');
+  if (multi && ['straddle', 'strangle'].indexOf(stKindOf(E)) >= 0 && (E.structure || {}).side === 'SELL' && !Number(X.sl)) warn.push('No stop-loss: only the emergency stop at 3× each leg’s price limits the loss.');
   if (E.expiry !== 'nearest') warn.push('Back-tests cover the nearest expiry only, for now.');
   return '<div class="panel"><div class="panel-h"><h3>Summary</h3></div><div class="panel-b">' + stRiskBlock(E) +
     '<b>' + esc(E.name || 'Unnamed') + '</b><ul>' +
-    '<li>' + esc(what) + '</li>' +
+    '<li>' + esc(multi ? whatM : what) + '</li>' +
     '<li>' + (both ? 'Between ' + E.window.from + '–' + E.window.until + (when ? ': ' + esc(when) : '') : 'Enters ' + E.window.from + '–' + E.window.until + (when ? ' when ' + esc(when) : '')) + '.</li>' +
-    '<li>Stop-loss ' + (Number(X.sl) ? u(X.sl_type, X.sl) + (E.side === 'BUY' ? ' below' : ' above') + ' the entry, held by IBKR' : 'none') +
+    (multi ? '<li>On the whole position: stop-loss ' + (Number(X.sl) ? uM(X.sl_type, X.sl) : 'none') +
+      (Number(X.target) ? '; target ' + uM(X.target_type, X.target) : '') +
+      (Number(X.trail) ? '; once ' + uM(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + uM(X.trail_type, X.trail) + ' behind the best' : '') + '.</li>'
+    : '<li>Stop-loss ' + (Number(X.sl) ? u(X.sl_type, X.sl) + (E.side === 'BUY' ? ' below' : ' above') + ' the entry, held by IBKR' : 'none') +
       (Number(X.target) ? '; target ' + u(X.target_type, X.target) : '') +
-      (Number(X.trail) ? '; once ' + u(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + u(X.trail_type, X.trail) + ' behind the best price' : '') + '.</li>' +
+      (Number(X.trail) ? '; once ' + u(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + u(X.trail_type, X.trail) + ' behind the best price' : '') + '.</li>') +
     '<li>' + (E.style === 'carry' ? 'Carry: the stop stays good till cancelled; held overnight.' : 'Intraday: everything closed by ' + X.exit_by + '; stops are day orders.') + '</li>' +
     '<li>Autopilot: ' + ((E.conditions || []).length ? 'considered on ' + (E.conditions || []).map(c => COND[c].toLowerCase()).join(', ') + ' days' : 'not considered (no market condition ticked)') + '.</li>' +
     '<li>At most ' + E.max_trades_day + ' trade' + (E.max_trades_day == 1 ? '' : 's') + ' a day' + (Number(E.max_loss_day) ? '; stops for the day after a ₹' + num(Number(E.max_loss_day), 0) + ' loss' : '; no day’s loss limit of its own') + '; waits ' + E.reentry_gap + ' min between trades.</li></ul>' +
@@ -1802,6 +1809,29 @@ function stBoth(on){
   if (on && !stBothOn(E)) { E.put_groups = [{ match: 'all', signals: [] }]; E.put_groups_match = 'any'; E.side = 'BUY'; E.right = 'C'; if ((E.max_trades_day || 0) < 10) E.max_trades_day = 10; }
   if (!on) { delete E.put_groups; delete E.put_groups_match; }
   rerender();
+}
+// Multi-leg positions (14 Nov 2026, strategy bot step 2; trader/strategies/rules.py structure / legs_of): legs opened
+// together and managed as one position on the combined profit.
+const ST_KINDS = [['single', 'One option'], ['straddle', 'Straddle'], ['strangle', 'Strangle'], ['iron_condor', 'Iron condor'], ['spread', 'Spread']];
+const stKindOf = E => ((E && E.structure) || {}).kind || 'single';
+function stStruct(k){
+  const E = ST_EDIT;
+  if (k === 'single') delete E.structure;
+  else {
+    if (stBothOn(E)) { delete E.put_groups; delete E.put_groups_match; }
+    E.structure = { kind: k, side: k === 'spread' ? 'BUY' : 'SELL', width: { straddle: 0, strangle: 2, iron_condor: 2, spread: 0 }[k], wing: 2, right: 'C' };
+  }
+  rerender();
+}
+// The legs in words, relative to the at-the-money strike (e.g. "sell ATM+2 call")
+function stLegsText(E){
+  const S2 = E.structure || {}, k = S2.kind, w = Number(S2.width) || 0, g = Number(S2.wing) || 0, other = S2.side === 'SELL' ? 'buy' : 'sell', me = S2.side === 'SELL' ? 'sell' : 'buy';
+  const at = n => n ? 'ATM' + (n > 0 ? '+' : '−') + Math.abs(n) : 'ATM';
+  if (k === 'straddle') return me + ' the ' + at(0) + ' call and put';
+  if (k === 'strangle') return me + ' the ' + at(w) + ' call and the ' + at(-w) + ' put';
+  if (k === 'iron_condor') return me + ' the ' + at(w) + ' call and ' + at(-w) + ' put; ' + other + ' the ' + at(w + g) + ' call and ' + at(-w - g) + ' put';
+  if (k === 'spread') { const sg = S2.right === 'P' ? -1 : 1, r = S2.right === 'P' ? 'put' : 'call'; return me + ' the ' + at(sg * w) + ' ' + r + ', ' + other + ' the ' + at(sg * (w + g)) + ' ' + r; }
+  return '';
 }
 function stCopy(id){ const s = (S.strat.items || []).find(x => x.id === id); if (!s) return; ST_EDIT = stGroups(JSON.parse(JSON.stringify(s))); delete ST_EDIT.id; ST_EDIT.name = s.name + ' (copy)'; ST_MSG = ''; rerender(); window.scrollTo({ top: 0 }); }
 function stSave(){
@@ -1891,6 +1921,11 @@ function stSigText(g){
 }
 function stLine(s){
   const e = s.exits || {}, u = (t, v) => t === 'points' ? v + ' pts' : v + '%';
+  if (stKindOf(s) !== 'single') {
+    const uM = (t, v) => t === 'points' ? '₹' + v : v + '% of premium', K2 = (ST_KINDS.find(k => k[0] === stKindOf(s)) || [])[1];
+    return K2 + ' · ' + stIdx(s.index) + ' · ' + stLegsText(s) + ' · ' + s.expiry + ' expiry · ' + s.lots + ' lot' + (s.lots > 1 ? 's' : '') + ' a leg · ' +
+      (s.style === 'carry' ? 'carry' : 'intraday, out by ' + e.exit_by) + ' · stop ' + (e.sl ? uM(e.sl_type, e.sl) : 'none') + (e.target ? ' · target ' + uM(e.target_type, e.target) : '');
+  }
   return (s.side === 'BUY' ? 'Buy ' : 'Sell ') + stIdx(s.index) + ' ' + (s.right === 'P' ? 'PE' : 'CE') + ' · ' +
     (s.strike.mode === 'premium' ? 'price near ₹' + s.strike.near : s.strike.steps ? Math.abs(s.strike.steps) + ' strike' + (Math.abs(s.strike.steps) > 1 ? 's' : '') + (s.strike.steps > 0 ? ' out of' : ' in') + ' the money' : 'at the money') +
     ' · ' + s.expiry + ' expiry · ' + s.lots + ' lot' + (s.lots > 1 ? 's' : '') + ' · ' + (s.style === 'carry' ? 'carry' : 'intraday, out by ' + e.exit_by) +
@@ -2539,12 +2574,24 @@ function stForm(){
   const timeIn = (path, v) => '<select class="field" style="width:auto" onchange="stSet(\'' + path + '\', this.value, true)">' + ST_TIMES.map(t => '<option' + (t === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>';
   const sel = (path, v, opts, redraw) => '<select class="field" style="width:auto" onchange="stSet(\'' + path + '\', this.value' + (redraw ? ', true' : '') + ')">' + opts.map(([k, l]) => '<option value="' + k + '"' + (String(k) === String(v) ? ' selected' : '') + '>' + l + '</option>').join('') + '</select>';
   const seg = (path, v, opts) => '<div class="seg">' + opts.map(([k, l]) => '<button type="button" class="' + (v === k ? 'on' : '') + '" onclick="stSet(\'' + path + '\', \'' + k + '\', true)">' + l + '</button>').join('') + '</div>';
-  const unit = (path, v) => seg(path, v || 'pct', [['pct', '%'], ['points', 'pts']]);
+  let unit = (path, v) => seg(path, v || 'pct', [['pct', '%'], ['points', 'pts']]);
   const row = (...xs) => '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + xs.join('') + '</div>';
   const sec = (t, body) => '<div class="panel" style="margin-bottom:12px"><div class="panel-h"><h3>' + t + '</h3></div><div class="panel-b">' + body + '</div></div>';
   let h = sec('Strategy', lbl('Name') + '<input class="field" value="' + esc(E.name) + '" oninput="stSet(\'name\', this.value)">' + lbl('Notes (when to use it)') + '<input class="field" placeholder="e.g. trending mornings" value="' + esc(E.notes || '') + '" oninput="stSet(\'notes\', this.value)">');
   const pr = (label, hint, ctl) => '<div class="pr"><div class="pr-l">' + label + (hint ? '<div class="pr-h">' + hint + '</div>' : '') + '</div><div>' + ctl + '</div></div>';
-  h += sec('What to trade',
+  const KND = stKindOf(E), SX = E.structure || {};
+  const kindSeg = '<div class="seg" style="flex-wrap:wrap">' + ST_KINDS.map(([k, l]) => '<button type="button" class="' + (KND === k ? 'on' : '') + '" onclick="stStruct(\'' + k + '\')">' + l + '</button>').join('') + '</div>';
+  if (KND !== 'single') h += sec('What to trade',
+    pr('Structure', 'all legs open together and are managed as one position', kindSeg) +
+    pr('Index', '', row(sel('index', E.index, [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']], true), sel('expiry', E.expiry, [['nearest', 'Nearest expiry'], ['next', 'Next expiry'], ['monthly', 'Monthly expiry']]))) +
+    (KND === 'straddle' || KND === 'strangle' ? pr('Side', SX.side === 'SELL' ? 'collects the premium; loses on a big move' : 'pays the premium; gains on a big move', seg('structure.side', SX.side, [['SELL', 'Sell'], ['BUY', 'Buy']])) : '') +
+    (KND === 'spread' ? pr('Spread', SX.side === 'BUY' ? 'pays a premium; gains if the index moves your way' : 'collects a premium; gains if the index stays away', row(seg('structure.side', SX.side, [['BUY', 'Buy (debit)'], ['SELL', 'Sell (credit)']]), seg('structure.right', SX.right, [['C', 'Call'], ['P', 'Put']]))) : '') +
+    (KND === 'straddle' ? '' : pr(KND === 'spread' ? 'First leg' : KND === 'iron_condor' ? 'Sold legs' : 'Legs', 'strikes from the money', stSlider('structure.width', SX.width, KND === 'spread' ? [0, 10, 1, [0, 1, 2, 3]] : ST_RANGE.dist, 'strikes out', true))) +
+    (KND === 'iron_condor' || KND === 'spread' ? pr(KND === 'spread' ? 'Second leg' : 'Bought wings', 'strikes further out', stSlider('structure.wing', SX.wing, ST_RANGE.dist, 'strikes further', true)) : '') +
+    '<div class="muted" style="font-size:12.5px;margin:6px 0 10px">Legs: ' + esc(stLegsText(E)) + '.</div>' +
+    pr('Lots', 'of each leg; the safety limit still applies', stSlider('lots', E.lots, ST_RANGE.lots, 'lots')));
+  else h += sec('What to trade',
+    pr('Structure', '', kindSeg) +
     pr('Direction', stBothOn(E) ? 'buys the call on one set of signals and the put on another' : '',
       '<div class="seg"><button type="button" class="' + (stBothOn(E) ? '' : 'on') + '" onclick="stBoth(false)">One option</button><button type="button" class="' + (stBothOn(E) ? 'on' : '') + '" onclick="stBoth(true)">Trade both ways</button></div>') +
     pr('Option', '', row(sel('index', E.index, [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']], true),
@@ -2601,10 +2648,13 @@ function stForm(){
   // Both directions (owner, 14 Nov 2026): the put side's own signals; the opposite side's signal closes the open option first.
   if (both) h += sec('When to buy the put', '<div class="muted" style="font-size:12.5px">Same hours. A put signal closes an open call first, and a call signal closes an open put.</div>' +
     row(whenOf('put_groups').replace(/^, w/, 'W')) + groupsOf('put_groups'));
-  const rng = (k, t) => ST_RANGE[k][t === 'points' ? 'points' : 'pct'];
-  const u = t => t === 'points' ? 'pts' : '%';
+  // a multi-leg position: exits on its combined profit, as % of the premium or in rupees (trader/engine.py _manage_groups)
+  const MULTI = stKindOf(E) !== 'single', RUPEES = { sl: [0, 20000, 250, [1000, 2000, 3000, 5000]], target: [0, 20000, 250, [1000, 2000, 3000, 5000]], trail_after: [0, 20000, 250, [1000, 2000, 3000]], trail: [0, 10000, 250, [500, 1000, 2000]] };
+  const rng = (k, t) => MULTI && t === 'points' ? RUPEES[k] : MULTI && t !== 'points' && k === 'sl' ? [0, 300, 5, [0, 50, 100, 150, 200]] : ST_RANGE[k][t === 'points' ? 'points' : 'pct'];
+  const u = t => t === 'points' ? (MULTI ? '₹' : 'pts') : (MULTI ? '% of premium' : '%');
+  unit = (path, v) => seg(path, v || 'pct', MULTI ? [['pct', '% of premium'], ['points', '₹']] : [['pct', '%'], ['points', 'pts']]);
   h += sec('Exits',
-    pr('Stop-loss', (E.side === 'BUY' ? 'below' : 'above') + ' the entry, held by IBKR · 0 = none', unit('exits.sl_type', X.sl_type) + '<div style="margin-top:8px">' + stSlider('exits.sl', X.sl, rng('sl', X.sl_type), u(X.sl_type)) + '</div>') +
+    pr('Stop-loss', MULTI ? 'loss on the whole position · 0 = none' : (E.side === 'BUY' ? 'below' : 'above') + ' the entry, held by IBKR · 0 = none', unit('exits.sl_type', X.sl_type) + '<div style="margin-top:8px">' + stSlider('exits.sl', X.sl, rng('sl', X.sl_type), u(X.sl_type)) + '</div>') +
     pr('Target', 'close in profit · 0 = none', unit('exits.target_type', X.target_type) + '<div style="margin-top:8px">' + stSlider('exits.target', X.target, rng('target', X.target_type), u(X.target_type)) + '</div>') +
     pr('Trailing stop starts', 'once this far in profit', unit('exits.trail_after_type', X.trail_after_type) + '<div style="margin-top:8px">' + stSlider('exits.trail_after', X.trail_after, rng('trail_after', X.trail_after_type), u(X.trail_after_type)) + '</div>') +
     pr('Trailing distance', 'behind the best price · 0 = no trailing', unit('exits.trail_type', X.trail_type) + '<div style="margin-top:8px">' + stSlider('exits.trail', X.trail, rng('trail', X.trail_type), u(X.trail_type)) + '</div>') +
@@ -2818,8 +2868,9 @@ function pageStrategies(){
   items.forEach(s => {
     const on = s.id === S.strat.active, running = (S.strat.backtest_started || {})[s.id], b = BT[s.id], e = s.exits || {};
     const u = (t, v) => t === 'points' ? v + ' pts' : v + '%';
-    const chips = [stBothOn(s) ? 'Buy CE / PE' : (s.side === 'BUY' ? 'Buy' : 'Sell') + ' ' + (s.right === 'P' ? 'PE' : 'CE'), stIdx(s.index),
-      s.strike.mode === 'premium' ? 'Near ₹' + s.strike.near : s.strike.steps ? (s.strike.steps > 0 ? 'OTM ' : 'ITM ') + Math.abs(s.strike.steps) : 'ATM',
+    const MK = stKindOf(s) !== 'single', SK = s.structure || {};
+    const chips = [MK ? ((SK.kind === 'iron_condor' ? '' : SK.side === 'BUY' ? 'Buy ' : 'Sell ') + (ST_KINDS.find(k => k[0] === SK.kind) || [])[1] + (SK.kind === 'spread' ? (SK.right === 'P' ? ' · PE' : ' · CE') : '')) : stBothOn(s) ? 'Buy CE / PE' : (s.side === 'BUY' ? 'Buy' : 'Sell') + ' ' + (s.right === 'P' ? 'PE' : 'CE'), stIdx(s.index),
+      MK ? stLegsText(s) : s.strike.mode === 'premium' ? 'Near ₹' + s.strike.near : s.strike.steps ? (s.strike.steps > 0 ? 'OTM ' : 'ITM ') + Math.abs(s.strike.steps) : 'ATM',
       s.expiry[0].toUpperCase() + s.expiry.slice(1) + ' expiry', s.lots + ' lot' + (s.lots > 1 ? 's' : ''), s.style === 'carry' ? 'Carry' : 'Intraday · out by ' + e.exit_by];
     const exits = 'Stop ' + (Number(e.sl) ? u(e.sl_type, e.sl) : 'none') + (Number(e.target) ? ' · target ' + u(e.target_type, e.target) : '') + (Number(e.trail) ? ' · trail ' + u(e.trail_type, e.trail) + ' after ' + u(e.trail_after_type, e.trail_after) : '');
     const sigOf = (G, m) => G.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of (' : 'all of (') : '(') + g.signals.map(stSigText).join('; ') + ')').join(m === 'all' ? ' and ' : ' or ');

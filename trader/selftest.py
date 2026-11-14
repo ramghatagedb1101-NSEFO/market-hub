@@ -564,6 +564,68 @@ def test_market_signals():
     check(sg[0]["left"]["src"] == "iv_pct" and sg[1]["kinds"] == ["rbi"] and len(sg[2]["kinds"]) == 3, "market: kept by the cleaner", sg)
 
 
+def test_packages():
+    """Multi-leg positions (14 Nov 2026, step 2): all legs or none, wings first, one combined stop, shorts closed first,
+    one trade in the summary; a strangle and a condor built from the strategy's settings."""
+    from .summary import build
+    sc, sp = Contract("NIFTY", EXP, 25100.0, "C"), Contract("NIFTY", EXP, 24900.0, "P")
+    wc, wp = Contract("NIFTY", EXP, 25200.0, "C"), Contract("NIFTY", EXP, 24800.0, "P")
+    ex = {"sl_type": "pct", "sl": 50, "target_type": "pct", "target": 0, "trail": 0, "exit_by": "15:15"}
+    pk = lambda: [OrderRequest(sc, "SELL", 1, None, "t", group="g1", group_exits=ex),
+                  OrderRequest(sp, "SELL", 1, None, "t", group="g1", group_exits=ex),
+                  OrderRequest(wc, "BUY", 1, None, "t", group="g1", group_exits=ex, hedge=True),
+                  OrderRequest(wp, "BUY", 1, None, "t", group="g1", group_exits=ex, hedge=True)]
+    n = 12
+    calls = {"25100": walk(0, 30, [50, 50, 60, 70, 85, 100, 110, 110, 110, 110, 110, 110]),
+             "25200": walk(0, 30, [20, 20, 24, 28, 33, 38, 40, 40, 40, 40, 40, 40])}
+    puts = {"24900": walk(0, 30, [50] * n), "24800": walk(0, 30, [20] * n)}
+    eng, j = go(entry(calls, puts), {(0, 30): pk()}, {sc, sp, wc, wp})
+    fills = [r for r in j.lines if r["kind"] == "fill"]
+    ok("package: four legs filled, wings first", len(fills) >= 4 and [f["side"] for f in fills[:4]] == ["BUY", "BUY", "SELL", "SELL"],
+       [(f["side"], f["contract"]) for f in fills[:4]])
+    po = next((r for r in j.lines if r["kind"] == "package-open"), None)
+    ok("package: opened as a credit", po and po["credit"] and po["premium"] > 0, po)
+    ok("package: no stop on the hedged legs", all(not r.get("stop") for r in j.lines if r["kind"] == "order"))
+    closes = fills[4:]
+    ok("package: combined stop closed all four, shorts bought back first",
+       len(closes) == 4 and {f["tag"] for f in closes} == {"stop"} and [f["side"] for f in closes[:2]] == ["BUY", "BUY"],
+       [(f["side"], f["tag"]) for f in closes])
+    ok("package: flat afterwards, closed in the journal", eng.book.open_legs() == 0 and j.count("package-closed") == 1)
+    sm = build(j.lines)
+    ok("package: one trade in the summary with four legs", len(sm["trades"]) == 1 and len(sm["trades"][0]["legs"]) == 4,
+       [t.get("contract") for t in sm["trades"]])
+    ok("package: summary profit matches the book", abs(sm["trades"][0]["pnl"] - eng.book.pnl()) < 1,
+       (sm["trades"][0]["pnl"], round(eng.book.pnl(), 2)))
+    # a leg without a price: the whole package is refused, nothing is sent
+    eng, j = go(entry(calls, {"24900": walk(0, 30, [50] * n)}), {(0, 30): pk()}, {sc, sp, wc, wp})
+    ok("package: refused whole when a leg has no price", j.count("fill") == 0 and
+       any(r["kind"] == "refused" and r["side"] == "package" for r in j.lines))
+    # built from a strategy's settings: a sold strangle 2 strikes out, flat index
+    base = {"id": "pk", "name": "Strangle", "index": "NIFTY", "lots": 1, "expiry": "nearest",
+            "structure": {"kind": "strangle", "side": "SELL", "width": 2},
+            "window": {"from": "09:30", "until": "14:30"}, "match": "all",
+            "signals": [{"type": "weekday", "days": [1, 2, 3, 4, 5]}],
+            "exits": {"sl_type": "pct", "sl": 50, "target_type": "pct", "target": 40, "trail": 0}, "style": "intraday",
+            "max_trades_day": 1}
+    strikes = range(24700, 25350, 50)
+    falling = {str(k): walk(0, 0, [max(1.0, (60 - (k - 25000) * 0.3) * (1 - min(i, 120) / 200)) for i in range(376)]) for k in strikes}
+    eng, j = _rules_case(base, call=falling, put=falling, index_path=[25000] * 376)
+    orders = [r for r in j.lines if r["kind"] == "order" and not r.get("closing")]
+    ok("strangle: two sold legs, 2 strikes out", sorted(o["contract"][-6:] for o in orders) == ["24900P", "25100C"]
+       and all(o["side"] == "SELL" for o in orders), [(o["side"], o["contract"]) for o in orders])
+    ok("strangle: emergency stops at IBKR on the unhedged short legs", all(o["stop"] for o in orders), [o["stop"] for o in orders])
+    ok("strangle: closed together at the target", j.count("package-closed") == 1 and
+       {r["tag"] for r in j.lines if r["kind"] == "fill" and r["side"] == "BUY"} == {"target"})
+    # condor legs from the settings
+    from .strategies.rules import legs_of, structure
+    ks = [24700 + 50 * i for i in range(13)]
+    legs = legs_of(structure({"kind": "iron_condor", "width": 2, "wing": 2}), ks, 6)
+    ok("condor: sells 2 out, buys 4 out", legs == [(25100, "C", "SELL"), (24900, "P", "SELL"), (25200, "C", "BUY"), (24800, "P", "BUY")], legs)
+    legs = legs_of(structure({"kind": "spread", "right": "P", "width": 0, "wing": 3}), ks, 6)
+    ok("spread: put debit spread from ATM", legs == [(25000, "P", "BUY"), (24850, "P", "SELL")], legs)
+    ok("condor: too short a chain gives none", legs_of(structure({"kind": "iron_condor", "width": 5, "wing": 5}), ks, 6) is None)
+
+
 def test_kicker_matches_crons():
     """The trading machine's on-time starts (trader/kicker.py, 14 Nov 2026) use the same times as each workflow's own
     GitHub schedule (kept as the backup), so the two never drift apart."""
@@ -616,7 +678,7 @@ def test_kicker_matches_crons():
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals]:
+              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

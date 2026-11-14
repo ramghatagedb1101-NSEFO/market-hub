@@ -34,10 +34,25 @@ function stratLimits_() {
 }
 function stratNum_(x, lo, hi, d) { const v = Number(x); return isFinite(v) ? Math.min(Math.max(v, lo), hi) : d; }
 function stratTime_(x, d) { x = String(x || ''); return /^\d\d:\d\d$/.test(x) && x >= '09:15' && x <= '15:30' ? x : d; }
-const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday', 'compare', 'range_filter', 'supertrend'];
+const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'weekday', 'compare', 'range_filter', 'supertrend', 'event'];
+// 14 Nov 2026: the market figures (trader/market.py MARKET) and event days (trader/market.py EVENT_KINDS); without
+// them here a saved strategy silently lost those signals.
+const STRAT_MARKET = ['vix', 'vix_pct', 'iv', 'iv_pct', 'pcr', 'pcr_all', 'oi_chg', 'fii_fut', 'fii_call', 'fii_put', 'client_fut', 'pro_fut'];
+const STRAT_EVENTS = ['rbi', 'budget', 'election'];
+// Multi-leg positions (trader/strategies/rules.py structure)
+const STRAT_KINDS = ['single', 'straddle', 'strangle', 'iron_condor', 'spread'];
+function stratStructure_(x) {
+  x = x || {};
+  if (STRAT_KINDS.indexOf(x.kind) <= 0) return null;
+  const out = { kind: x.kind, side: x.side === 'BUY' ? 'BUY' : 'SELL' };
+  if (x.kind !== 'straddle') out.width = Math.round(stratNum_(x.width, x.kind === 'spread' ? 0 : 1, 20, x.kind === 'spread' ? 0 : 2));
+  if (x.kind === 'iron_condor' || x.kind === 'spread') out.wing = Math.round(stratNum_(x.wing, 1, 20, 2));
+  if (x.kind === 'spread') out.right = x.right === 'P' ? 'P' : 'C';
+  return out;
+}
 // The general comparison's data points (trader/indicators.py OPERANDS) and comparisons.
 const STRAT_OPERANDS = ['price', 'open', 'high', 'low', 'close', 'day_open', 'day_high', 'day_low', 'prev_close', 'prev_high',
-  'prev_low', 'orb_high', 'orb_low', 'ema', 'sma', 'rsi', 'atr', 'adx', 'chg_prev', 'chg_open', 'opt_price', 'dte', 'value'];
+  'prev_low', 'orb_high', 'orb_low', 'ema', 'sma', 'rsi', 'atr', 'adx', 'chg_prev', 'chg_open', 'opt_price', 'dte', 'value'].concat(STRAT_MARKET);
 const STRAT_OPS = ['>', '<', '>=', '<=', 'crosses_above', 'crosses_below'];
 function stratOperand_(o) {
   if (!o || STRAT_OPERANDS.indexOf(o.src) < 0) return null;
@@ -54,6 +69,10 @@ function stratSignal_(x) {
     let op = STRAT_OPS.indexOf(x.op) >= 0 ? x.op : '>';
     if (/^crosses/.test(op) && (l.src === 'opt_price' || r.src === 'opt_price')) op = op === 'crosses_above' ? '>' : '<';
     return { type: 'compare', left: l, op: op, right: r, tf: [1, 3, 5, 15].indexOf(Number(x.tf)) >= 0 ? Number(x.tf) : 5 };
+  }
+  if (x.type === 'event') {
+    const kinds = (Array.isArray(x.kinds) ? x.kinds : []).filter(k => STRAT_EVENTS.indexOf(k) >= 0);
+    return { type: 'event', when: x.when === 'not_today' ? 'not_today' : 'today', kinds: kinds.length ? kinds : STRAT_EVENTS.slice() };
   }
   const o = { type: x.type };
   ['ma', 'op', 'dir', 'from'].forEach(k => { if (x[k] != null) o[k] = String(x[k]).slice(0, 20); });
@@ -75,8 +94,10 @@ function stratClean_(s) {
   // Both directions (14 Nov 2026): the put side's entry signals; with them the call is bought on "groups", the put on these.
   const putGroups = (Array.isArray(s.put_groups) ? s.put_groups : []).slice(0, 5).map(g => ({ match: (g && g.match) === 'any' ? 'any' : 'all',
     signals: ((g && g.signals) || []).map(stratSignal_).filter(Boolean).slice(0, 8) })).filter(g => g.signals.length);
+  const structure = stratStructure_(s.structure);
   return {
-    put_groups: putGroups, put_groups_match: s.put_groups_match === 'all' ? 'all' : 'any',
+    structure: structure || undefined,
+    put_groups: structure ? [] : putGroups, put_groups_match: s.put_groups_match === 'all' ? 'all' : 'any',
     id: /^s_[a-z0-9]{6,20}$/.test(s.id || '') ? s.id : 's_' + Utilities.getUuid().replace(/-/g, '').slice(0, 10),
     name: String(s.name || 'Unnamed strategy').slice(0, 80), notes: String(s.notes || '').slice(0, 500),
     index: pick(s.index, ['NIFTY', 'BANKNIFTY'], 'NIFTY'), side: putGroups.length ? 'BUY' : pick(s.side, ['BUY', 'SELL'], 'BUY'), right: putGroups.length ? 'C' : pick(s.right, ['C', 'P'], 'C'),

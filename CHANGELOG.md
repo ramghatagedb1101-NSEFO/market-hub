@@ -4,6 +4,27 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy bot, step 2: multi-leg positions (Sat 14 Nov 2026, night)
+- Strategy builder > What to trade > Structure: One option, Straddle, Strangle, Iron condor, Spread (call / put, debit /
+  credit). Legs are set in strikes from the at-the-money strike (`trader/strategies/rules.py` structure / legs_of).
+- The engine treats the legs as ONE position (`trader/engine.py` _manage_groups): all legs pass the safety limits
+  together or none is sent; bought legs (wings) go first; once all are filled it is managed on the COMBINED profit:
+  stop-loss, target and trailing stop as % of the premium received or paid, or in rupees, and the exit time; closing
+  buys back the sold legs first. A leg not filled within 2 minutes, or one that leaves early, closes the rest: never half
+  a structure. Bought legs carry no stop (they cap the sold legs); sold legs of a straddle / strangle (no wing) carry an
+  emergency stop at IBKR at 3x their price, which works even if the machine is down.
+- Trades summary: the legs of one position show as ONE trade (legs kept for detail; profit summed). Back-tests report
+  days the signal fired but a leg had no price at that minute (a strike beyond the stored range, or not traded yet).
+- Real-data check (iron condor, NIFTY, sold 3 strikes out, wings 3 further, 09:30 on the last 2 days before expiry, 50%
+  target / 100% stop, Jun - Nov 2026): 36 trades, 20 won, -Rs 9,118 after charges; 10 signal days had a leg without a
+  price. Strikes checked against the index (NIFTY rallied 22,750 -> 25,000 from 27 Oct to 9 Nov 2026 in both the ICICI
+  minutes and the NSE closes).
+- Found and fixed: the relay's strategy cleaner (`relay/Strategy.gs`) did not know the step-1 market signals and event
+  days, so saving a strategy would have dropped them silently; it now keeps them and the structure.
+- The English reader (Gemini) builds structures ("short straddle", "iron condor 200 points out", "bull put spread").
+- Tests: `trader.selftest` 181/181 (14 new: all legs or none, wings first, combined stop, shorts closed first, one
+  trade in the summary, strangle / condor / spread legs, emergency stops).
+
 ### Strategy bot, step 1 finished: market history and market signals (Sat 14 Nov 2026, ~23:00 IST)
 - `hub/market_daily.py` -> `state/market/daily.json` (private): every session from 3 Jan 2022, from NSE's free
   end-of-day files (F&O bhavcopy, participant-wise open interest, all-index closes): India VIX and its 1-year

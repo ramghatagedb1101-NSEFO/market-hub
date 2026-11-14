@@ -89,15 +89,15 @@ As of Sat 14 Nov 2026, ~22:20 IST. Start with the 14 Nov HANDOVER just below, th
   -f log_only=true` shows the worker's log without restarting it.
 - To check: an earlier back-test was dispatched three times in a minute (two cancelled) -- confirm whether the owner
   clicked twice.
-- Later (owner agreed): multi-leg trades (straddle, strangle, condor) in the shared engine after the first live
+- Multi-leg trades (straddle, strangle, condor, spreads): built 14 Nov night (step 2 below); VWAP still later.
   sessions; VWAP (futures data) and IV percentile.
 
 ### Strategy bot (owner, 14 Nov 2026 night) -- plan agreed, step 1 under way
 Goal: strategies with a real chance of making money live, found and tested by a bot; the bot RECOMMENDS, the owner
 switches strategies on / off (paper). Gemini free tier as its AI. Steps: (1) data -- DONE 14 Nov: daily IBKR recording (`trader/recorder.py`), market
 diary (`state/market_diary.json`), market history since 2022 (`hub/market_daily.py`: VIX, IV + percentile, put-call
-ratio, OI, FII / retail / pro positions) and those as strategy signals (`trader/market.py`), event-day signal; (2) multi-leg trades (straddle, strangle, condor, spreads) in
-back-test, form and live program, with a cap on the whole position; (3) the bot: ideas must name who pays us
+ratio, OI, FII / retail / pro positions) and those as strategy signals (`trader/market.py`), event-day signal; (2) multi-leg trades -- DONE 14 Nov night: straddle, strangle,
+iron condor, spreads in back-test, form and live program, managed as one position (first live check: Monday); (3) the bot: ideas must name who pays us
 (volatility premium, time decay, event IV drop, gap / trend days); judged on post-Nov-2024 rules data, days-to-expiry
 not weekday; a locked 6-month vault tested once; survival tests (neighbouring settings, without best 5 days, each
 period, both indices, crash days incl. 4 Jun 2024, enough trades, a higher bar the more ideas tried); real costs from
@@ -107,7 +107,8 @@ the recorded bid / ask; portfolio of small uncorrelated strategies sharing the d
   `state/ibkr/days/`. Backfill 31 Oct - 13 Nov running (started ~22:00 14 Nov, ~8 min per index-day, done ~01:30).
 - NIFTY 31 Oct - 10 Nov option minutes: fetch from ICICI on a sign-in day (IBKR no longer serves expired options).
 - Market history backfill (`market-daily.yml`) started 23:06 14 Nov, chains itself; check `state/market/daily.json`
-  reaches 13 Nov 2026 and spot-check figures. Next: step 2 (multi-leg trades).
+  reaches 13 Nov 2026 and spot-check figures. Next: step 3 (the research bot). Watch the first paper multi-leg orders: IBKR's handling of sold NSE options (margin,
+  short orders) is unverified until a live session.
 
 ### Open items, in order
 0. Fixed 21:15 14 Nov: the machine starts `breeze.yml` as a manual run, whose default was the sign-in test

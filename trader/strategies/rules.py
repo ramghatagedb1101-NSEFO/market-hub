@@ -61,7 +61,11 @@ def clean(d: dict) -> dict:
            "signals": [x for x in (_signal(y) for y in (g or {}).get("signals") or []) if x][:MAX_SIGNALS]}
           for g in pg[:MAX_GROUPS]]
     pg = [g for g in pg if g["signals"]]
+    stc = structure(d.get("structure"))
+    if stc["kind"] != "single":
+        pg = []                                   # a multi-leg position is one direction-free trade
     return {
+        "structure": stc,
         "put_groups": pg, "put_groups_match": "all" if d.get("put_groups_match") == "all" else "any",
         "id": str(d.get("id") or "")[:40], "name": str(d.get("name") or "Unnamed")[:80],
         "index": d.get("index") if d.get("index") in ("NIFTY", "BANKNIFTY") else "NIFTY",
@@ -89,6 +93,58 @@ def clean(d: dict) -> dict:
         "max_loss_day": _num(d.get("max_loss_day"), 0, 1e7, 5000),
         "reentry_gap": int(_num(d.get("reentry_gap"), 0, 375, 15)),
     }
+
+
+# Multi-leg positions (14 Nov 2026, strategy bot step 2). width = strikes from the at-the-money strike to the sold (or
+# near) legs; wing = strikes further out to the bought wings (iron condor) or the far leg (spread).
+KINDS = {"single": "One option", "straddle": "Straddle", "strangle": "Strangle", "iron_condor": "Iron condor",
+         "spread": "Spread"}
+DEFAULT_WIDTH = {"straddle": 0, "strangle": 2, "iron_condor": 2, "spread": 0}
+
+
+def structure(x) -> dict:
+    x = x if isinstance(x, dict) else {}
+    kind = x.get("kind") if x.get("kind") in KINDS else "single"
+    if kind == "single":
+        return {"kind": "single"}
+    side = "BUY" if x.get("side") == "BUY" else "SELL"
+    if kind == "spread" and x.get("side") not in ("BUY", "SELL"):
+        side = "BUY"
+    out = {"kind": kind, "side": side,
+           "width": 0 if kind == "straddle" else int(_num(x.get("width"), 0 if kind == "spread" else 1, 20, DEFAULT_WIDTH[kind]))}
+    if kind in ("iron_condor", "spread"):
+        out["wing"] = int(_num(x.get("wing"), 1, 20, 2))
+    if kind == "spread":
+        out["right"] = "P" if x.get("right") == "P" else "C"
+    return out
+
+
+def legs_of(stc: dict, ks: list, i: int) -> list | None:
+    """[(strike, right, side)] around the at-the-money strike ks[i]; None if the chain is too short."""
+    w, g, kind, side = stc.get("width", 0), stc.get("wing", 0), stc["kind"], stc["side"]
+    other = "BUY" if side == "SELL" else "SELL"
+    want = []
+    if kind == "straddle":
+        want = [(i, "C", side), (i, "P", side)]
+    elif kind == "strangle":
+        want = [(i + w, "C", side), (i - w, "P", side)]
+    elif kind == "iron_condor":
+        want = [(i + w, "C", side), (i - w, "P", side), (i + w + g, "C", other), (i - w - g, "P", other)]
+    elif kind == "spread":
+        sgn = 1 if stc["right"] == "C" else -1
+        want = [(i + sgn * w, stc["right"], side), (i + sgn * (w + g), stc["right"], other)]
+    if any(not 0 <= j < len(ks) for j, _, _ in want):
+        return None
+    return [(ks[j], r, sd) for j, r, sd in want]
+
+
+def describe(stc: dict, legs: list) -> str:
+    k = lambda x: f"{x:g}"
+    if stc["kind"] == "single":
+        return ""
+    verb = "sell" if stc["side"] == "SELL" else "buy"
+    parts = ", ".join(f"{sd.lower()} {k(st)}{'CE' if r == 'C' else 'PE'}" for st, r, sd in legs)
+    return f"{KINDS[stc['kind']]} ({parts})" if stc["kind"] in ("iron_condor", "spread") else f"{verb} {KINDS[stc['kind']].lower()} ({parts})"
 
 
 def _operand(o) -> dict | None:
@@ -140,6 +196,7 @@ class Rules:
         self.id, self.name = self.d["id"], self.d["name"]
         self.day, self.trades, self.last_entry = None, 0, None
         self.mine: set[Contract] = set()
+        self.no_price: set = set()                          # days a multi-leg entry had a leg without a price
         self.idx = self.d["index"]
 
     def _new_day(self, now: datetime):
@@ -171,6 +228,11 @@ class Rules:
         ks, i, _ = self._ladder(view, e)
         if i is None:
             return set()
+        stc = self.d["structure"]
+        if stc["kind"] != "single":
+            reach = stc.get("width", 0) + stc.get("wing", 0) + 2
+            return {Contract(self.idx, e, ks[j], r) for j in range(max(0, i - reach), min(len(ks), i + reach + 1))
+                    for r in ("C", "P")}
         out = set()
         for right in self._rights():
             if self.d["strike"]["mode"] == "atm":
@@ -209,6 +271,8 @@ class Rules:
         return bool(groups) and (all(met) if match == "all" else any(met)), words
 
     def step(self, view) -> list[OrderRequest]:
+        if self.d["structure"]["kind"] != "single":
+            return self._step_package(view)
         if self.d["put_groups"]:
             return self._step_both(view)
         now, d = view.now, self.d
@@ -248,6 +312,54 @@ class Rules:
         why = f"{self.name}: " + " | ".join(words)
         reg, _ = classify(bars, now, e)
         return [OrderRequest(c, d["side"], d["lots"], None, why[:300], tag=f"s:{self.id}", exits=d["exits"], regime=reg)]
+
+    def _step_package(self, view) -> list[OrderRequest]:
+        """A multi-leg position: all legs at once when the signals fire, managed by the engine as one position on its
+        combined profit (exits: % of the premium or rupees). Bought legs carry no stop (they cap the sold legs); sold legs
+        of a straddle / strangle (no wing) carry an emergency stop at IBKR at three times their price."""
+        now, d, stc = view.now, self.d, self.d["structure"]
+        self._new_day(now)
+        hhmm = now.strftime("%H:%M")
+        if not (d["window"]["from"] <= hhmm <= d["window"]["until"]):
+            return []
+        if any(view.book.qty.get(c) for c in self.mine) or self.trades >= d["max_trades_day"]:
+            return []
+        if d["max_loss_day"] and view.book.pnl() <= -d["max_loss_day"]:
+            return []
+        if self.last_entry and (now - self.last_entry).total_seconds() < 60 * d["reentry_gap"]:
+            return []
+        e = self._expiry(view)
+        if not e or not d["groups"]:
+            return []
+        ks, i, _ = self._ladder(view, e)
+        legs = legs_of(stc, ks, i) if i is not None else None
+        cs = [(Contract(self.idx, e, st, r), sd) for st, r, sd in legs or []]
+        qs = [view.quotes.get(c) for c, _ in cs]
+        priced = bool(legs) and all(q and q.mid for q in qs)
+        bars = completed(view.feed.index_bars(self.idx), now)
+        net = sum((q.mid if sd == "SELL" else -q.mid) for (c, sd), q in zip(cs, qs)) if priced else None
+        ok, words = self._fires(d["groups"], d["groups_match"], bars, now, view.feed.prev_close(self.idx), e,
+                                dict(self._market(view, now), opt_price=net))
+        if not ok:
+            return []
+        if not priced:
+            self.no_price.add(now.date())                   # the signal fired but a leg has no price: no trade
+            return []                                       # (never half a structure); back-tests report these days
+        self.trades += 1
+        self.last_entry = now
+        self.mine |= {c for c, _ in cs}
+        why = (f"{self.name}: {describe(stc, legs)} | " + " | ".join(words))[:300]
+        reg, _ = classify(bars, now, e)
+        gid = f"{self.id}-{now:%Y%m%d%H%M}"
+        hedged = stc["kind"] in ("iron_condor", "spread")
+        emergency = {"sl_type": "pct", "sl": 200, "target": 0, "trail": 0, "exit_by": None,
+                     "validity": d["exits"].get("validity") or "GTC"}
+        out = []
+        for c, sd in cs:
+            out.append(OrderRequest(c, sd, d["lots"], None, why, tag=f"s:{self.id}", regime=reg, group=gid,
+                                    group_exits=d["exits"], hedge=sd == "BUY",
+                                    exits=emergency if (sd == "SELL" and not hedged) else None))
+        return out
 
     def _market(self, view, now) -> dict:
         """The previous session's market figures (VIX, IV, put-call ratio, FII positions) for the compare signal."""

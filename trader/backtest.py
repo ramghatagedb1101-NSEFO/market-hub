@@ -89,6 +89,7 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
     minutes = IndexMinutes(idx)
     mkt = Market.from_repo() if uses_market(d) else None     # VIX / IV / put-call ratio / FII signals (14 Nov 2026)
     rows, sessions, skipped = [], [], 0
+    no_price = set()                       # multi-leg: days the signal fired but a leg's strike has no stored price
     s = Settings(strategy="rules", params=d, stale_seconds=300,
                  max_lots_per_order=int(limits.get("max_lots_per_order") or max(d["lots"], 1)),
                  max_daily_loss=float(limits.get("max_daily_loss") or 10000))
@@ -109,7 +110,9 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
             skipped += 1
             continue
         j = Journal()
-        run(idx, entry, (recs.get(f"{idx}_{e}") or {}).get("close"), Rules(d), s, j, index_days=days, market=mkt)
+        strat = Rules(d)
+        run(idx, entry, (recs.get(f"{idx}_{e}") or {}).get("close"), strat, s, j, index_days=days, market=mkt)
+        no_price |= strat.no_price
         rows += j.lines
         sessions += sess
         if n % 10 == 0:
@@ -120,6 +123,11 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
     note = None
     if d["expiry"] != "nearest":
         note = f"Expiry set to '{d['expiry']}': this data has only the nearest expiry, so no trades could be tested."
+    if no_price:
+        n = len(no_price)
+        note = ((note + " ") if note else "") + (f"On {n} day{'s' if n > 1 else ''} the signal fired but a leg had no price "
+                                                 "at that minute (a strike beyond the stored range, or not traded yet), "
+                                                 "so no trade was taken.")
     return {"id": d["id"], "name": d["name"], "ran": ran_now(),
             "strategy": d, "coverage": {"sessions": len(sessions), "expiries": len(expiries) - skipped,
                                         "from": min(sessions) if sessions else None,

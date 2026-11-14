@@ -59,6 +59,37 @@ def strategy_of(tag: str) -> str:
     return "other"
 
 
+def merge_groups(trades: list[dict]) -> list[dict]:
+    """The legs of one multi-leg position (straddle, strangle, condor, spread) as ONE trade (14 Nov 2026): profit
+    summed, opened at the first leg's entry and closed at the last leg's exit; legs kept for the detail view."""
+    out, by = [], {}
+    for tr in trades:
+        g = tr.get("group")
+        if not g:
+            out.append(tr)
+            continue
+        if g not in by:
+            by[g] = dict(tr, legs=[], pnl=0.0, contract="", dir="position")
+            out.append(by[g])
+        m = by[g]
+        m["legs"].append({k: tr[k] for k in ("contract", "dir", "qty", "entry", "exit", "pnl")})
+        m["pnl"] = round(m["pnl"] + tr["pnl"], 2)
+        m["entry_t"] = min(m["entry_t"], tr["entry_t"])
+        if tr["exit_t"] >= m["exit_t"]:
+            m["exit_t"], m["why"] = tr["exit_t"], tr["why"]
+    for m in by.values():
+        ks = [l["contract"] for l in m["legs"]]
+        head = ks[0].rsplit(" ", 1)[0] if ks else ""
+        m["contract"] = head + " " + " / ".join(("-" if l["dir"] == "short" else "+") + l["contract"].rsplit(" ", 1)[1]
+                                                for l in m["legs"])
+        m["entry"] = round(sum((l["entry"] if l["dir"] == "short" else -l["entry"]) * l["qty"] for l in m["legs"])
+                           / max(1, m["legs"][0]["qty"]), 2)             # net premium a unit: + credit, - debit
+        m["exit"] = round(sum((l["exit"] if l["dir"] == "short" else -l["exit"]) * l["qty"] for l in m["legs"])
+                          / max(1, m["legs"][0]["qty"]), 2)
+        m["qty"] = m["legs"][0]["qty"]
+    return out
+
+
 def build(rows: list[dict], now: datetime | None = None) -> dict:
     now = now or datetime.now()
     lots = defaultdict(list)          # contract -> open lots [qty signed, price, time, charge per unit, tag, regime]
@@ -67,6 +98,7 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
     status = {"strategy": None, "killed": None, "last": None, "started": None, "autopilot": None}
     names = {"expiry_condor": "Expiry condor", "other": "Other trades"}
     order_regime = {}                 # order id -> market condition at entry
+    order_group = {}                  # order id -> multi-leg position it opened (14 Nov 2026)
 
     def close(key, qty_signed, px, t, fee, tag):
         """Match a fill against open lots of the other side; returns the quantity left over (opens a new lot)."""
@@ -80,7 +112,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
             trades.append({"contract": key, "dir": "long" if sign > 0 else "short", "qty": n,
                            "entry_t": lot[2], "entry": round(lot[1], 2), "exit_t": t, "exit": round(px, 2),
                            "pnl": round(pnl, 2), "why": WHY.get(tag, "Strategy exit" if tag else "Exit"),
-                           "entry_tag": lot[4], "strategy_id": sid, "regime": lot[5] if len(lot) > 5 else None})
+                           "entry_tag": lot[4], "strategy_id": sid, "regime": lot[5] if len(lot) > 5 else None,
+                           "group": lot[6] if len(lot) > 6 else None})
             lot[0] -= sign * n
             left += sign * n
             if lot[0] == 0:
@@ -106,6 +139,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
                 stop_of[r["contract"]] = r["stop"]
             if r.get("order"):
                 order_regime[r["order"]] = r.get("regime")
+                if r.get("group") and not r.get("closing"):
+                    order_group[r["order"]] = r["group"]
             tag = r.get("tag") or ""
             if tag.startswith("s:") and tag[2:] not in names and ":" in (r.get("reason") or ""):
                 names[tag[2:]] = r["reason"].split(":", 1)[0]
@@ -116,7 +151,7 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
             left = close(r["contract"], q, r["price"], t, r.get("charges", 0.0), r.get("tag", ""))
             if left:
                 lots[r["contract"]].append([left, r["price"], t, r.get("charges", 0.0) / abs(q), r.get("tag", ""),
-                                            order_regime.get(r.get("order"))])
+                                            order_regime.get(r.get("order")), order_group.get(r.get("order"))])
                 if r["side"] == "BUY" and r["contract"] in stop_of:
                     protect[r["contract"]] = f"Stop-loss at {stop_of[r['contract']]:g}"
         elif k == "mark":
@@ -149,6 +184,7 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
                       "pnl": round((mark - entry) * q, 2) if mark is not None else None,
                       "protection": protect.get(key) if q > 0 else None})
 
+    trades = merge_groups(trades)
     days = defaultdict(lambda: {"pnl": 0.0, "trades": 0, "wins": 0, "losses": 0})
     for tr in trades:
         d = days[tr["exit_t"][:10]]

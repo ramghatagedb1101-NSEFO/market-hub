@@ -62,6 +62,10 @@ class OrderRequest:
     hedge: bool = False   # a bought wing that caps a sold leg's loss: no stop-loss (a stop would remove the cap)
     exits: dict | None = None   # the strategy's exits for the position this opens (trader/engine.py default_exits)
     regime: str | None = None   # market condition at entry (trader/regime.py), for records by condition
+    # 14 Nov 2026 (strategy bot step 2): legs opened together as one position (straddle, strangle, condor, spread) share
+    # a group id; group_exits are that position's exits on its COMBINED profit (trader/engine.py _manage_groups)
+    group: str = ""
+    group_exits: dict | None = None
 
 
 @dataclass

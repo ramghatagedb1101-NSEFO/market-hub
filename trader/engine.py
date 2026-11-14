@@ -63,6 +63,7 @@ class Engine:
         self.last_mark = None
         self.protect: dict[Contract, dict] = {}     # protected positions: entry, direction, exits, "stop" / "trail"
         self.exits_of: dict[str, dict] = {}         # order id -> exits for the position it will open
+        self.groups: dict[str, dict] = {}           # multi-leg positions by group id (see _manage_groups)
 
     def step(self, now: datetime) -> None:
         self.guard.new_day(now, self.book)
@@ -74,9 +75,10 @@ class Engine:
             self.j.write(when, "fill", contract=f.contract.key(), side=f.side, qty=f.qty, price=f.price,
                          charges=round(f.charges, 2), tag=f.tag, order=f.order_id)
             self._protection_after(f, now)
+            self._group_fill(f, now)
         quotes = self.feed.quotes()
         self.book.mark(quotes)
-        managed = self._manage(quotes, now)
+        managed = self._manage(quotes, now) + self._manage_groups(quotes, now)
         if hasattr(self.broker, "ratchet"):
             self.broker.ratchet(quotes)
 
@@ -96,6 +98,7 @@ class Engine:
             if self.strategy:
                 reqs += self.strategy.step(View(now, quotes, self.book, self.feed, self.s))
 
+        reqs = self._package_check(reqs, quotes, now)
         for r in reqs:
             q = quotes.get(r.contract)
             why = self.guard.check(r, q, self.book, now)
@@ -119,10 +122,14 @@ class Engine:
             oid = self.broker.submit(r, q, now, stop=stop, validity=validity)
             if ex and oid:
                 self.exits_of[oid] = ex
+            if r.group and not r.closing:
+                g = self.groups.setdefault(r.group, {"legs": {}, "entry": {}, "ex": r.group_exits or {}, "state": "opening",
+                                                     "opened": now, "tag": r.tag, "peak": None, "basis": None})
+                g["legs"][r.contract] = (1 if r.side == "BUY" else -1) * r.lots * r.contract.lot
             self.guard.sent()
             self.j.write(now, "order", contract=r.contract.key(), side=r.side, lots=r.lots, limit=r.limit,
                          reason=r.reason, closing=r.closing, order=oid, stop=stop, tag=r.tag,
-                         validity=validity if stop else None, regime=r.regime)
+                         validity=validity if stop else None, regime=r.regime, group=r.group or None)
 
         if self.last_mark is None or (now - self.last_mark).total_seconds() >= self.MARK_EVERY:
             self.last_mark = now
@@ -170,6 +177,98 @@ class Engine:
                     p["state"] = "trail"
                     self.j.write(now, "trail-on", contract=c.key(), entry=e, price=q.mid, by=ex["trail"],
                                  by_type=ex.get("trail_type", "pct"), order=oid)
+        return out
+
+    # ---- multi-leg positions (14 Nov 2026, strategy bot step 2) -------------------------------------------------
+    # A straddle, strangle, iron condor or spread is sent as legs sharing a group id. All legs pass the safety limits
+    # together or none is sent. Bought legs go first (a sold leg is never alone without its wing). Once every leg has
+    # filled, the position is managed on its combined profit: stop-loss, target and trailing stop as a % of the premium
+    # (credit received or debit paid) or in rupees, and the exit time. A leg that does not fill within two minutes, or a
+    # leg that leaves early (its emergency stop at IBKR), closes the rest: the program never keeps half a structure.
+    GROUP_FILL_SECONDS = 120
+
+    def _package_check(self, reqs: list, quotes: dict, now: datetime) -> list:
+        packs: dict[str, list] = {}
+        for r in reqs:
+            if r.group and not r.closing:
+                packs.setdefault(r.group, []).append(r)
+        bad = set()
+        for gid, legs in packs.items():
+            probs = []
+            for r in legs:
+                w = self.guard.check(r, quotes.get(r.contract), self.book, now)
+                if w:
+                    probs.append(f"{r.contract.key()}: {w}")
+            if self.guard.orders_today + len(legs) > self.s.max_orders_per_day:
+                probs.append(f"{len(legs)} orders would pass the day's limit of {self.s.max_orders_per_day}")
+            if self.book.open_legs() + len(legs) > self.s.max_open_legs:
+                probs.append(f"{len(legs)} more legs would pass the limit of {self.s.max_open_legs} open legs")
+            if probs:
+                bad.add(gid)
+                self.j.write(now, "refused", contract=" + ".join(r.contract.key() for r in legs), side="package",
+                             lots=legs[0].lots, reason="; ".join(probs)[:400], wanted=legs[0].reason)
+        out = [r for r in reqs if not (r.group in bad and not r.closing)]
+        # within an opening package: bought legs (wings) first
+        return sorted(out, key=lambda r: 0 if (r.group and not r.closing and r.side == "BUY") else 1)
+
+    def _group_fill(self, f, now: datetime) -> None:
+        for gid, g in self.groups.items():
+            if f.contract not in g["legs"]:
+                continue
+            want = g["legs"][f.contract]
+            if g["state"] == "opening" and (want > 0) == (f.side == "BUY") and f.contract not in g["entry"]:
+                g["entry"][f.contract] = f.price
+                if len(g["entry"]) == len(g["legs"]):
+                    net = sum(-u * g["entry"][c] for c, u in g["legs"].items())       # + = credit received
+                    g["state"], g["basis"], g["net"] = "open", abs(net), net
+                    self.j.write(now, "package-open", group=gid, legs=[c.key() for c in g["legs"]],
+                                 premium=round(net, 2), credit=net > 0)
+            return
+
+    def _manage_groups(self, quotes: dict, now: datetime) -> list:
+        out = []
+        hhmm = now.strftime("%H:%M")
+        for gid, g in list(self.groups.items()):
+            held = {c: self.book.qty.get(c, 0) for c in g["legs"]}
+            if g["state"] != "opening" and not any(held.values()):
+                self.j.write(now, "package-closed", group=gid)
+                del self.groups[gid]
+                continue
+            if g["state"] == "opening":
+                if (now - g["opened"]).total_seconds() > self.GROUP_FILL_SECONDS:
+                    g["state"], g["why"], g["tagx"] = "closing", "not every leg filled: closing the rest", "close-all"
+                    self.j.write(now, "package-incomplete", group=gid,
+                                 missing=[c.key() for c in g["legs"] if c not in g["entry"]])
+                else:
+                    continue
+            if g["state"] == "open":
+                ex, basis = g["ex"], g["basis"] or 0.0
+
+                def amt(kind, size):
+                    return basis * float(size) / 100 if kind == "pct" else float(size)
+                if any(held[c] == 0 for c in g["legs"]):
+                    g["state"], g["why"], g["tagx"] = "closing", "a leg left early: closing the rest", "stop"
+                elif ex.get("exit_by") and hhmm >= ex["exit_by"]:
+                    g["state"], g["why"], g["tagx"] = "closing", f"exit time {ex['exit_by']}", "time-exit"
+                else:
+                    mids = {c: (quotes.get(c).mid if quotes.get(c) else None) for c in g["legs"]}
+                    if all(mids.values()):
+                        pnl = sum(held[c] * (mids[c] - g["entry"][c]) for c in g["legs"])
+                        g["peak"] = pnl if g["peak"] is None else max(g["peak"], pnl)
+                        if ex.get("sl") and -pnl >= amt(ex.get("sl_type", "pct"), ex["sl"]):
+                            g["state"], g["why"], g["tagx"] = "closing", f"stop-loss on the position ({pnl:,.0f})", "stop"
+                        elif ex.get("target") and pnl >= amt(ex.get("target_type", "pct"), ex["target"]):
+                            g["state"], g["why"], g["tagx"] = "closing", f"target reached ({pnl:,.0f})", "target"
+                        elif (ex.get("trail") and g["peak"] > 0
+                              and g["peak"] >= amt(ex.get("trail_after_type", "pct"), ex.get("trail_after") or 0)
+                              and g["peak"] - pnl >= amt(ex.get("trail_type", "pct"), ex["trail"])):
+                            g["state"], g["why"], g["tagx"] = ("closing", f"trailing stop ({pnl:,.0f} from a best of "
+                                                               f"{g['peak']:,.0f})", "trail")
+            if g["state"] == "closing":
+                # sold legs bought back first, so a wing is never sold while its short leg is still open
+                for c in sorted((c for c in g["legs"] if held[c]), key=lambda c: 0 if held[c] < 0 else 1):
+                    out.append(OrderRequest(c, "BUY" if held[c] < 0 else "SELL", abs(held[c]) // c.lot, None, g["why"],
+                                            closing=True, tag=g.get("tagx") or "close-all", group=gid))
         return out
 
     def settle(self, now: datetime, index: str, expiry: str, index_close: float) -> None:
