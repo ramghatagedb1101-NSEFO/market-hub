@@ -52,6 +52,7 @@ jobs:
           KEY: ${{ secrets.ORACLE_SSH_KEY }}
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_KEY: ${{ secrets.RELAY_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
           OCI_API_KEY: ${{ secrets.OCI_API_KEY }}
           OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
           OCI_USER: ${{ secrets.OCI_USER }}
@@ -80,6 +81,18 @@ jobs:
             echo "::warning::could not read the strategies from the relay; the machine keeps its copy"
           fi
           rm -f s.json s2.json
+          # market figures for the VIX / IV / put-call ratio / FII signals (trader/market.py): the last 30 sessions
+          if curl -sfL -H "Authorization: Bearer $PRIVATE_REPO_TOKEN" -H "Accept: application/vnd.github.raw"                "https://api.github.com/repos/ramghatagedb1101-NSEFO/market-hub-private/contents/state/market/daily.json" -o m.json              && python -c "import json; d=json.load(open('m.json')); k=sorted(d)[-30:]; json.dump({x: d[x] for x in k}, open('m2.json','w'), sort_keys=True)"; then
+            NEW=$(sha256sum m2.json | cut -c1-64)
+            OLD=$($SSH 'sha256sum /opt/trader/market.json 2>/dev/null | cut -c1-64' || true)
+            if [ "$NEW" != "$OLD" ]; then
+              $SSH 'cat > /opt/trader/market.json.tmp && mv /opt/trader/market.json.tmp /opt/trader/market.json' < m2.json
+              echo "market figures: updated on the machine"
+            fi
+          else
+            echo "::warning::could not read the market figures; the machine keeps its copy"
+          fi
+          rm -f m.json m2.json
           $SSH 'tar czf - -C /opt/trader journal' | tar xzf -
           rm -f "$RUNNER_TEMP/k"
           echo "journal days: $(ls journal | wc -l)"

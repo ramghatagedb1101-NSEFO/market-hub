@@ -120,6 +120,13 @@ class IBKR:
                 self.bars[index] = [b for b in bars if b[0] >= cut]
         return self.bars[index]
 
+    def market(self, index: str, day) -> dict:
+        """The previous session's market figures from /opt/trader/market.json (trader/market.py; algo-sync copies it)."""
+        if not hasattr(self, "_mkt"):
+            from .market import LiveMarket
+            self._mkt = LiveMarket()
+        return self._mkt.prev(index, day)
+
     def prev_close(self, index: str) -> float | None:
         t = self._index(index)
         return t.close if t.close == t.close and t.close and t.close > 0 else None

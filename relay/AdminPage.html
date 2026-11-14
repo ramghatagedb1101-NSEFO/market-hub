@@ -1702,9 +1702,11 @@ const ST_SIG = {
   orb: { l: 'Opening range break', d: { type: 'orb', minutes: 15, dir: 'up' } },
   change: { l: 'Move from yesterday / open', d: { type: 'change', from: 'prev_close', op: 'above', pct: 0.5 } },
   dte: { l: 'Days to expiry', d: { type: 'dte', op: '<=', days: 2 } },
-  weekday: { l: 'Day of week', d: { type: 'weekday', days: [1, 2, 3, 4, 5] } }
+  weekday: { l: 'Day of week', d: { type: 'weekday', days: [1, 2, 3, 4, 5] } },
+  event: { l: 'Event day (RBI, budget, election)', d: { type: 'event', when: 'today', kinds: ['rbi', 'budget', 'election'] } }
 };
-const ST_SOON = ['Put-call ratio', 'Change in open interest', 'VWAP (from futures volume)'];
+const ST_SOON = ['VWAP (from futures volume)'];
+const ST_EVENTS = { rbi: 'RBI policy', budget: 'Union budget', election: 'Election result' };
 // Data points for "Compare any two data points" (trader/indicators.py OPERANDS), grouped as on the page.
 const ST_OPS = [['Index', [['price', 'Index price'], ['open', 'Bar open'], ['high', 'Bar high'], ['low', 'Bar low'], ['close', 'Bar close']]],
   ['Today', [['day_open', "Today's open"], ['day_high', "Today's high"], ['day_low', "Today's low"], ['chg_open', '% move from today\'s open']]],
@@ -1713,8 +1715,14 @@ const ST_OPS = [['Index', [['price', 'Index price'], ['open', 'Bar open'], ['hig
   ['Indicators', [['ema', 'EMA'], ['sma', 'SMA'], ['rsi', 'RSI'], ['atr', 'ATR (average range)'], ['adx', 'ADX (trend strength)']]],
   ['Option', [['opt_price', 'Option price (the one this strategy trades)']]],
   ['Calendar', [['dte', 'Days to expiry']]],
+  // 14 Nov 2026 (trader/market.py): yesterday’s close figures, the same all day
+  ['Market (yesterday’s close)', [['vix', 'India VIX'], ['vix_pct', 'VIX percentile (1 year)'], ['iv', 'ATM implied volatility %'], ['iv_pct', 'IV percentile (1 year)'],
+    ['pcr', 'Put-call ratio (near expiry)'], ['pcr_all', 'Put-call ratio (all expiries)'], ['oi_chg', 'Option OI change %'],
+    ['fii_fut', 'FII net index futures %'], ['fii_call', 'FII net index calls %'], ['fii_put', 'FII net index puts %'],
+    ['client_fut', 'Retail net index futures %'], ['pro_fut', 'Pro traders’ net index futures %']]],
   ['Number', [['value', 'A number']]]];
 const ST_OPNAME = Object.fromEntries(ST_OPS.flatMap(g => g[1]));
+const ST_MKT = Object.fromEntries(ST_OPS.find(g => g[0].indexOf('Market') === 0)[1]);
 const ST_HASN = { ema: 'period', sma: 'period', rsi: 'period', atr: 'period', adx: 'period', orb_high: 'minutes', orb_low: 'minutes' };
 function stNew(){
   return { name: 'New strategy', notes: '', index: 'NIFTY', side: 'BUY', right: 'C', strike: { mode: 'atm', steps: 0 }, expiry: 'nearest', lots: 1,
@@ -1874,9 +1882,10 @@ function stSigText(g){
   if (g.type === 'change') return 'Index ' + g.op + ' ' + (g.pct > 0 ? '+' : '') + g.pct + '% from ' + (g.from === 'open' ? "today's open" : "yesterday's close");
   if (g.type === 'dte') return (g.op === '>=' ? 'At least ' : 'At most ') + g.days + ' days to expiry';
   if (g.type === 'weekday') return 'On ' + (g.days || []).map(d => DOW3[d]).join(', ');
+  if (g.type === 'event') return (g.when === 'not_today' ? 'Not on ' : 'On ') + (g.kinds || []).map(k => ST_EVENTS[k] || k).join(' / ') + ' days';
   if (g.type === 'compare') {
     const w = o => !o ? '?' : o.src === 'value' ? String(o.value) : (ST_OPNAME[o.src] || o.src).replace(' (the one this strategy trades)', '') + (ST_HASN[o.src] ? ' ' + (o.n || (o.src.indexOf('orb') === 0 ? 15 : 14)) + (o.src.indexOf('orb') === 0 ? ' min' : '') : '');
-    return w(g.left) + ' ' + { '>': 'above', '<': 'below', '>=': 'at or above', '<=': 'at or below', crosses_above: 'crosses above', crosses_below: 'crosses below' }[g.op] + ' ' + w(g.right) + ([g.left, g.right].some(o => o && ['value', 'dte', 'opt_price'].indexOf(o.src) < 0) ? ' (' + (g.tf || 5) + '-min bars)' : '');
+    return w(g.left) + ' ' + { '>': 'above', '<': 'below', '>=': 'at or above', '<=': 'at or below', crosses_above: 'crosses above', crosses_below: 'crosses below' }[g.op] + ' ' + w(g.right) + ([g.left, g.right].some(o => o && ['value', 'dte', 'opt_price'].indexOf(o.src) < 0 && !ST_MKT[o.src]) ? ' (' + (g.tf || 5) + '-min bars)' : '');
   }
   return g.type;
 }
@@ -2558,7 +2567,7 @@ function stForm(){
   const sigRow = (g, gi, i, K) => {
     const p = K + '.' + gi + '.signals.' + i + '.';
     let f = '';
-    if (g.type === 'compare') f = opIn(p + 'left.', g.left || { src: 'price' }) + sel(p + 'op', g.op, [['>', 'above'], ['<', 'below'], ['>=', 'at or above'], ['<=', 'at or below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + opIn(p + 'right.', g.right || { src: 'value', value: 0 }) + 'on ' + tfSel(p) + '-min bars';
+    if (g.type === 'compare') f = opIn(p + 'left.', g.left || { src: 'price' }) + sel(p + 'op', g.op, [['>', 'above'], ['<', 'below'], ['>=', 'at or above'], ['<=', 'at or below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + opIn(p + 'right.', g.right || { src: 'value', value: 0 }) + ([g.left, g.right].some(o => o && ['value', 'dte', 'opt_price'].indexOf(o.src) < 0 && !ST_MKT[o.src]) ? 'on ' + tfSel(p) + '-min bars' : '');
     else if (g.type === 'price_ma') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + ' its ' + sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
     else if (g.type === 'ma_cross') f = sel(p + 'ma', g.ma, [['ema', 'EMA'], ['sma', 'SMA']]) + stSlider(p + 'fast', g.fast, ST_RANGE.period, '', true) + ' crosses ' + sel(p + 'dir', g.dir, [['up', 'above'], ['down', 'below']]) + stSlider(p + 'slow', g.slow, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars';
     else if (g.type === 'rsi') f = 'RSI' + stSlider(p + 'period', g.period, ST_RANGE.period, '', true) + ' on ' + tfSel(p) + '-min bars ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below'], ['crosses_above', 'crosses above'], ['crosses_below', 'crosses below']]) + stSlider(p + 'level', g.level, ST_RANGE.level, '', true);
@@ -2570,6 +2579,7 @@ function stForm(){
     else if (g.type === 'change') f = 'Index ' + sel(p + 'op', g.op, [['above', 'above'], ['below', 'below']]) + stSlider(p + 'pct', g.pct, ST_RANGE.pct, '%', true) + '% from ' + sel(p + 'from', g.from, [['prev_close', "yesterday's close"], ['open', "today's open"]]);
     else if (g.type === 'dte') f = sel(p + 'op', g.op, [['<=', 'At most'], ['>=', 'At least']]) + stSlider(p + 'days', g.days, ST_RANGE.days, '', true) + 'days to expiry';
     else if (g.type === 'weekday') f = 'On ' + [1, 2, 3, 4, 5].map(d => '<label style="margin-right:8px;font-size:13px"><input type="checkbox"' + ((g.days || []).indexOf(d) >= 0 ? ' checked' : '') + ' onchange="stDay(\'' + K + '\',' + gi + ',' + i + ',' + d + ',this.checked)"> ' + DOW3[d] + '</label>').join('');
+    else if (g.type === 'event') f = sel(p + 'when', g.when || 'today', [['today', 'Only on'], ['not_today', 'Not on']]) + Object.keys(ST_EVENTS).map(k => '<label style="margin-right:8px;font-size:13px"><input type="checkbox"' + ((g.kinds || []).indexOf(k) >= 0 ? ' checked' : '') + ' onchange="stKind(\'' + K + '\',' + gi + ',' + i + ',\'' + k + '\',this.checked)"> ' + ST_EVENTS[k] + '</label>').join('') + 'days';
     return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border-subtle)">' + row(f) +
       '<button class="btn sm" type="button" title="Remove this signal" onclick="ST_EDIT.' + K + '[' + gi + '].signals.splice(' + i + ',1);rerender()">×</button></div>';
   };
@@ -2609,6 +2619,7 @@ function stForm(){
   return '<div class="st-form"><div>' + h + '</div><aside class="st-side" id="st-side">' + stSide() + '</aside></div>';
 }
 function stCond(c, on){ ST_EDIT.conditions = (ST_EDIT.conditions || []).filter(x => x !== c); if (on) ST_EDIT.conditions.push(c); stSideRefresh(); }
+function stKind(K, gi, i, k, on){ const g = ST_EDIT[K][gi].signals[i]; g.kinds = (g.kinds || []).filter(x => x !== k); if (on) g.kinds.push(k); }
 function stDay(K, gi, i, d, on){ const g = ST_EDIT[K][gi].signals[i]; g.days = (g.days || []).filter(x => x !== d); if (on) g.days.push(d); g.days.sort(); }
 function ST_EDIT_GET(path){ return path.split('.').reduce((o, k) => o == null ? o : o[k], ST_EDIT); }
 function stOperand(path, src){ const o = { src }; if (src === 'value') o.value = 0; if (ST_HASN[src]) o.n = src.indexOf('orb') === 0 ? 15 : ['rsi', 'atr', 'adx'].indexOf(src) >= 0 ? 14 : 20; stSet(path.replace(/\.$/, ''), o, true); }

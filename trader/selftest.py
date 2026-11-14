@@ -530,6 +530,40 @@ def test_recorder_merge():
     assert store[R.EXP_DONE]["NIFTY_2026-11-17"]["weeks"] is True
 
 
+def test_market_signals():
+    """Market signals (14 Nov 2026): the PREVIOUS session's figures only, shares as %, event days, cleaning."""
+    from datetime import datetime as _dt
+    from trader.indicators import check as sig_check
+    from trader.market import Market
+    from trader.strategies.rules import clean
+    say = ok
+
+    def check(cond, name, detail=""):
+        say(name, cond, detail)
+    t = {"2026-11-12": {"vix": 14.0, "NIFTY": {"iv": 12.0, "iv_pct": 40.0, "pcr": 0.9}, "fii": {"fut": -0.2}},
+         "2026-11-13": {"vix": 19.0, "NIFTY": {"iv": 18.0, "iv_pct": 85.0, "pcr": 1.3}, "fii": {"fut": -0.31}},
+         "2026-11-16": {"holiday": True}}
+    m = Market(t)
+    check(m.prev("NIFTY", "2026-11-13")["iv_pct"] == 40.0, "market: the day's own figures are never used", m.prev("NIFTY", "2026-11-13"))
+    p = m.prev("NIFTY", "2026-11-17")
+    check(p["iv_pct"] == 85.0 and p["vix"] == 19.0 and p["fii_fut"] == -31.0, "market: last session before the day, past a holiday", p)
+    check(m.prev("NIFTY", "2026-11-01") == {}, "market: nothing before the table starts")
+    sig = {"type": "compare", "left": {"src": "iv_pct"}, "op": ">", "right": {"src": "value", "value": 70}, "tf": 5}
+    fired, words = sig_check(sig, [], _dt(2026, 11, 17, 9, 30), None, "2026-11-17", dict(p))
+    check(fired and "85" in words, "market: IV percentile above 70 fires on the figures", words)
+    fired, _ = sig_check(sig, [], _dt(2026, 11, 13, 9, 30), None, "2026-11-17", m.prev("NIFTY", "2026-11-13"))
+    check(not fired, "market: and not on the day before")
+    fired, _ = sig_check(sig, [], _dt(2026, 11, 17, 9, 30), None, "2026-11-17", {})
+    check(not fired, "market: no table, no entry")
+    ev = {"type": "event", "when": "today", "kinds": ["rbi"]}
+    check(sig_check(ev, [], _dt(2026, 10, 7, 10, 0), None, None)[0] and not sig_check(ev, [], _dt(2026, 10, 8, 10, 0), None, None)[0],
+          "event: RBI policy day only")
+    check(sig_check(dict(ev, when="not_today"), [], _dt(2026, 10, 8, 10, 0), None, None)[0], "event: 'not today' outside it")
+    d = clean({"name": "x", "groups": [{"match": "all", "signals": [sig, ev, {"type": "event", "kinds": ["bogus"]}]}]})
+    sg = d["groups"][0]["signals"]
+    check(sg[0]["left"]["src"] == "iv_pct" and sg[1]["kinds"] == ["rbi"] and len(sg[2]["kinds"]) == 3, "market: kept by the cleaner", sg)
+
+
 def test_kicker_matches_crons():
     """The trading machine's on-time starts (trader/kicker.py, 14 Nov 2026) use the same times as each workflow's own
     GitHub schedule (kept as the backup), so the two never drift apart."""
@@ -582,7 +616,7 @@ def test_kicker_matches_crons():
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons, test_fast_signals, test_recorder_merge]:
+              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

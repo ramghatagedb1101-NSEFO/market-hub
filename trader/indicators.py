@@ -29,10 +29,14 @@ Signal types (each a dict from the builder page; "tf" = bar size in minutes, 1 /
                  chg_prev, chg_open                  % move from yesterday's close / today's open
                  opt_price                           the price of the option the strategy would trade (now only)
                  dte                                 days to the traded expiry
+                 vix, vix_pct, iv, iv_pct, pcr, pcr_all, oi_chg, fii_fut, fii_call, fii_put, client_fut, pro_fut
+                                                     the previous session's market figures (trader/market.py)
                  value                               a number
                "crosses" compares the last two completed bars; it cannot use opt_price.
 """
 from datetime import date, datetime, timedelta
+
+from .market import EVENT_KINDS, MARKET, event_today
 
 Bar = tuple  # (datetime, o, h, l, c)
 
@@ -185,14 +189,14 @@ def adx(bars: list[Bar], n: int) -> list[float | None]:
 
 OPERANDS = {"price", "open", "high", "low", "close", "day_open", "day_high", "day_low", "prev_close", "prev_high",
             "prev_low", "orb_high", "orb_low", "ema", "sma", "rsi", "atr", "adx", "chg_prev", "chg_open", "opt_price",
-            "dte", "value"}
+            "dte", "value"} | set(MARKET)
 COMPARE_OPS = {">", "<", ">=", "<=", "crosses_above", "crosses_below"}
 NAMES = {"price": "index", "open": "bar open", "high": "bar high", "low": "bar low", "close": "bar close",
          "day_open": "today's open", "day_high": "today's high", "day_low": "today's low",
          "prev_close": "yesterday's close", "prev_high": "yesterday's high", "prev_low": "yesterday's low",
          "orb_high": "opening-range high", "orb_low": "opening-range low", "ema": "EMA", "sma": "SMA", "rsi": "RSI",
          "atr": "ATR", "adx": "ADX", "chg_prev": "% from yesterday", "chg_open": "% from open", "opt_price": "option price",
-         "dte": "days to expiry", "value": ""}
+         "dte": "days to expiry", "value": "", **MARKET}
 
 
 def supertrend(bars: list, n: int = 10, k: float = 3.0) -> dict:
@@ -285,8 +289,8 @@ def operand(o: dict, tb: list[Bar], bars1: list[Bar], tf: int, ctx: dict) -> lis
     size = len(tb)
     if src == "value":
         return [float(o.get("value") or 0)] * size
-    if src == "dte":
-        return [ctx.get("dte")] * size
+    if src == "dte" or src in MARKET:
+        return [ctx.get(src)] * size
     if src == "opt_price":
         return [None] * (size - 1) + [ctx.get("opt_price")] if size else []
     closes = [b[4] for b in tb]
@@ -365,7 +369,7 @@ def compare(sig: dict, bars1: list[Bar], ctx: dict) -> tuple[bool, str]:
     words = f"{_label(left)} {op.replace('_', ' ')} {_label(right)}"
     tb = resample(bars1, tf)
     if not tb:
-        if not {left.get("src"), right.get("src")} <= {"value", "dte", "opt_price"}:
+        if not {left.get("src"), right.get("src")} <= {"value", "dte", "opt_price"} | set(MARKET):
             return False, "no index prices yet"
         tb = [(None, 0, 0, 0, 0)]
     a_s, b_s = operand(left, tb, bars1, tf, ctx), operand(right, tb, bars1, tf, ctx)
@@ -397,6 +401,10 @@ def check(sig: dict, bars: list[Bar], now: datetime, prev_close: float | None, e
     if t == "compare":
         c = dict(ctx or {}, prev_close=prev_close, dte=(date.fromisoformat(expiry) - today).days if expiry else None)
         return compare(sig, bars, c)
+    if t == "event":                                    # 14 Nov 2026: scheduled market-moving days
+        hit = event_today(today, sig.get("kinds"))
+        on = sig.get("when", "today") == "today"
+        return (bool(hit) if on else not hit), ("event day: " + ", ".join(EVENT_KINDS.get(k, k) for k in hit) if hit else "no event day")
     if t == "weekday":
         ok = now.isoweekday() in [int(d) for d in sig.get("days") or []]
         return ok, f"weekday {now.strftime('%a')}"

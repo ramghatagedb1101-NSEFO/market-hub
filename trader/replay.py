@@ -42,7 +42,8 @@ class ReplayFeed:
     (hub/breeze_index.py), including at least one session before prev_day so the builder's signals have history.
     """
 
-    def __init__(self, index: str, entry: dict, index_days: dict | None = None):
+    def __init__(self, index: str, entry: dict, index_days: dict | None = None, market=None):
+        self.mkt = market
         self.index, self.e = index, entry
         self.days = list(entry.get("days") or [entry["prev_day"], entry["expiry"]])
         self.series: dict[Contract, list] = {}
@@ -70,6 +71,10 @@ class ReplayFeed:
         if index != self.index:
             return []
         return self.ibars[:bisect.bisect_right(self.ikeys, self.now())]
+
+    def market(self, index: str, day) -> dict:
+        """The previous session's market figures (trader/market.py), or none."""
+        return self.mkt.prev(index, day) if self.mkt else {}
 
     def prev_close(self, index: str) -> float | None:
         today = self.days[self.pos[0]]
@@ -246,8 +251,8 @@ class ReplayBroker:
 
 
 def run(index: str, entry: dict, index_close: float | None, strategy, settings: Settings, journal: Journal,
-        index_days: dict | None = None) -> Engine:
-    feed = ReplayFeed(index, entry, index_days)
+        index_days: dict | None = None, market=None) -> Engine:
+    feed = ReplayFeed(index, entry, index_days, market)
     broker = ReplayBroker(feed)
     eng = Engine(feed, broker, strategy, settings, journal)
     for day in range(len(feed.days)):

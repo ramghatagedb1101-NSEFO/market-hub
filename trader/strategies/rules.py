@@ -24,7 +24,7 @@ from ..indicators import COMPARE_OPS, OPERANDS, check, completed
 from ..model import LOT, Contract, OrderRequest
 from ..regime import REGIMES, classify
 
-SIGNALS = {"price_ma", "ma_cross", "rsi", "orb", "change", "dte", "weekday", "compare", "range_filter", "supertrend"}
+SIGNALS = {"price_ma", "ma_cross", "rsi", "orb", "change", "dte", "weekday", "compare", "range_filter", "supertrend", "event"}
 MAX_GROUPS, MAX_SIGNALS = 5, 8
 
 
@@ -114,6 +114,10 @@ def _signal(x) -> dict | None:
             op = ">" if op == "crosses_above" else "<"      # the option price has no history to cross on
         tf = int(x.get("tf")) if str(x.get("tf")) in ("1", "3", "5", "15") else 5
         return {"type": "compare", "left": left, "op": op, "right": right, "tf": tf}
+    if x["type"] == "event":
+        from ..market import EVENT_KINDS
+        kinds = [k for k in (x.get("kinds") or []) if k in EVENT_KINDS] or list(EVENT_KINDS)
+        return {"type": "event", "when": "not_today" if x.get("when") == "not_today" else "today", "kinds": kinds}
     return {k: v for k, v in x.items() if isinstance(v, (str, int, float, list))}
 
 
@@ -228,7 +232,7 @@ class Rules:
         if not c or not q or not q.mid:
             return []
         bars = completed(view.feed.index_bars(self.idx), now)
-        ctx, pc = {"opt_price": q.mid}, view.feed.prev_close(self.idx)
+        ctx, pc = dict(self._market(view, now), opt_price=q.mid), view.feed.prev_close(self.idx)
         met, words = [], []
         for g in d["groups"]:
             res = [check(sg, bars, now, pc, e, ctx) for sg in g["signals"]]
@@ -244,6 +248,11 @@ class Rules:
         why = f"{self.name}: " + " | ".join(words)
         reg, _ = classify(bars, now, e)
         return [OrderRequest(c, d["side"], d["lots"], None, why[:300], tag=f"s:{self.id}", exits=d["exits"], regime=reg)]
+
+    def _market(self, view, now) -> dict:
+        """The previous session's market figures (VIX, IV, put-call ratio, FII positions) for the compare signal."""
+        f = getattr(view.feed, "market", None)
+        return f(self.idx, now.date()) if f else {}
 
     def _step_both(self, view) -> list[OrderRequest]:
         """Both directions: the call on the call side's signals, the put on the put side's. Holding one, the other
@@ -269,7 +278,7 @@ class Rules:
             q = view.quotes.get(c) if c else None
             if not c or not q or not q.mid:
                 continue
-            ok, words = self._fires(groups, match, bars, now, pc, e, {"opt_price": q.mid})
+            ok, words = self._fires(groups, match, bars, now, pc, e, dict(self._market(view, now), opt_price=q.mid))
             if ok:
                 want = (right, c, words)
                 break

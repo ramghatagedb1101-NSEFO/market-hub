@@ -20,6 +20,7 @@ from hub.breeze_index import DIR as IDX_DIR
 from hub.expiry_history import load, save
 
 from .journal import Journal
+from .market import MARKET, Market
 from .model import Settings
 from .replay import run
 from .strategies.rules import Rules, clean
@@ -65,6 +66,13 @@ class IndexMinutes:
         return out
 
 
+def uses_market(d: dict) -> bool:
+    """Whether any signal reads the market table (it is loaded only then)."""
+    sigs = [s for g in (d.get("groups") or []) + (d.get("put_groups") or []) for s in g.get("signals") or []]
+    return any(s.get("type") == "compare" and ({(s.get("left") or {}).get("src"), (s.get("right") or {}).get("src")} & set(MARKET))
+               for s in sigs)
+
+
 def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
     d = clean(defn)
     idx, limits = d["index"], limits or {}
@@ -79,6 +87,7 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
         expiries = [e for e in expiries if e >= since]
     recs = load("state/expiry_history/records.json") or {}
     minutes = IndexMinutes(idx)
+    mkt = Market.from_repo() if uses_market(d) else None     # VIX / IV / put-call ratio / FII signals (14 Nov 2026)
     rows, sessions, skipped = [], [], 0
     s = Settings(strategy="rules", params=d, stale_seconds=300,
                  max_lots_per_order=int(limits.get("max_lots_per_order") or max(d["lots"], 1)),
@@ -100,7 +109,7 @@ def backtest(defn: dict, limits: dict | None = None, progress=print) -> dict:
             skipped += 1
             continue
         j = Journal()
-        run(idx, entry, (recs.get(f"{idx}_{e}") or {}).get("close"), Rules(d), s, j, index_days=days)
+        run(idx, entry, (recs.get(f"{idx}_{e}") or {}).get("close"), Rules(d), s, j, index_days=days, market=mkt)
         rows += j.lines
         sessions += sess
         if n % 10 == 0:
