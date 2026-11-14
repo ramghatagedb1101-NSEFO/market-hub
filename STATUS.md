@@ -74,6 +74,13 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
 - Strategy chart: green / red defaults (Colours window), a settings window per indicator (Inputs / Style /
   Visibility), labels pointing at their candle with a details box on hover, collapsible legend, full screen / Normal
   view, ten warm-up sessions on intraday views.
+- Both directions (14 Nov evening): one strategy buys the call on its call-side signals and the put on its put-side
+  signals (`put_groups`); the opposite signal reverses. Checked on the owner's Supertrend sentence since Aug 2026: 92
+  trades (46 calls, 46 puts, 37 reversals), 29% won, -Rs 17,638 after charges, 3 Aug - 9 Nov 2026; one day (9 Nov) hit the
+  Rs 10,000 day's loss limit and closed. Exits show 15:01: the 15:00 decision fills on the next minute's price.
+  Not yet: the strategy form cannot show or edit the put side (Back-tests page only).
+- Back-test jobs that fail on the machine leave the page on "Running…" (the worker only logs). `bt-worker-setup.yml
+  -f log_only=true` shows the worker's log without restarting it.
 - To check: the strategy chart's option view opened on the 28 Jul 2026 NIFTY expiry, not the latest; the earlier
   back-test was dispatched three times in a minute (two cancelled) -- confirm whether the owner clicked twice.
 - Later (owner agreed): multi-leg trades (straddle, strangle, condor) in the shared engine after the first live

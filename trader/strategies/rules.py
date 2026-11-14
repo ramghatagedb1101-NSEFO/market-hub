@@ -295,7 +295,7 @@ class Rules:
         self.trades += 1
         self.last_entry = now
         self.mine.add(c)
-        why = f"{self.name} ({'call' if right == 'C' else 'put'} side): " + " | ".join(words)
+        why = f"{self.name}: {'call' if right == 'C' else 'put'} side, " + " | ".join(words)   # name before ":" (summary)
         reg, _ = classify(bars, now, e)
         out.append(OrderRequest(c, "BUY", d["lots"], None, why[:300], tag=f"s:{self.id}", exits=d["exits"], regime=reg))
         return out

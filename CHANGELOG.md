@@ -4,6 +4,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Both directions: trade labels (Sat 14 Nov 2026)
+- The first both-ways back-test labelled every trade "(call side)": the side word sat in front of the ":" that the
+  summary reads the strategy's name from. The side now follows the ":"; the strategy shows under its own name.
+- `bt-worker-setup.yml`: `log_only` shows the back-test worker's last log lines without pulling or restarting.
+
 ### Back-tests: the reader can no longer hang (Sat 14 Nov 2026)
 - One "Read my back-test" sat on "Working…" for over three minutes (the page's call to Google never came back; a
   retry right after answered in 20 s). The page now gives up after 90 s with "Google's AI did not answer in time.
