@@ -206,7 +206,29 @@ def main() -> dict:
     out["crude_usd"] = _crude_usd_derived(out.get("commodities"), out.get("usd_inr_live"), out.get("fx"))
     CONTEXT_FILE.parent.mkdir(parents=True, exist_ok=True)
     CONTEXT_FILE.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    diary(out)
     return out
+
+
+DIARY = config.REPO / "state" / "market_diary.json"
+
+
+def diary(out: dict) -> None:
+    """Keeps every day's context (14 Nov 2026, owner: the strategy bot should be able to use the brief's information).
+    context.json is overwritten each day, so without this nothing could be tested on past flows, commodities or news.
+    One entry per IST date (a rerun replaces it); headlines kept as titles and sources only. Private repo (state/)."""
+    try:
+        d = json.loads(DIARY.read_text(encoding="utf-8")) if DIARY.exists() else {}
+    except ValueError:
+        d = {}
+    day = out["ts"][:10]
+    rec = {k: out.get(k) for k in ("ts", "fii_dii", "fx", "global", "commodities", "india_vix", "usd_inr_live",
+                                    "crude_usd", "errors")}
+    rec["headlines"] = [{"title": h.get("title"), "source": h.get("source"), "time": h.get("time")}
+                        for h in (out.get("headlines") or []) if isinstance(h, dict)]
+    d[day] = rec
+    DIARY.parent.mkdir(parents=True, exist_ok=True)
+    DIARY.write_text(json.dumps(d, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
 
 if __name__ == "__main__":
