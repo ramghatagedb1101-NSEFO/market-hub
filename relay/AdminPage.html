@@ -1838,7 +1838,8 @@ function stBtLoad(id, poll, where, since){
     const fresh = !poll || (d.ran && !d.none && d.ran !== prev && (!since || d.ran.slice(0, 16) >= since));
     const secs = (Date.now() - started) / 1000;
     const lost = poll && st && mine.where === 'machine' && st.queued < 0 && !st.running && secs > 75;
-    if (fresh || lost || secs > 20 * 60) {
+    const moving = st && st.running && st.running.quiet < 240;   // still reporting progress: keep waiting
+    if (fresh || lost || (secs > 20 * 60 && !moving)) {
       ST_BT = { id, res: d, waiting: false, lost: !fresh && lost, slow: !fresh && !lost };
       if (fresh && poll) { stLoad(); ST_BT.done = Date.now(); }
       rerender(); return;
@@ -2619,7 +2620,7 @@ function stBtPanel(){
   if (ST_BT.loading && !ST_BT.res) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Loading…</div></div>';
   const again = '<button class="btn sm primary" type="button" onclick="stBacktest(\'' + ST_BT.id + '\')">Run again</button>';
   if (ST_BT.lost) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">This back-test did not start. ' + again + '</div></div>';
-  if (ST_BT.slow && (ST_BT.res || {}).none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">No result after 20 minutes. ' + again + '</div></div>';
+  if (ST_BT.slow && (ST_BT.res || {}).none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">No progress for a long time. ' + again + '</div></div>';
   const R = ST_BT.res || {};
   // 14 Nov 2026: a run that broke is saved as "failed" (trader/backtest.py publish_failed); before, the page waited for ever
   if (R.failed) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">This back-test could not finish (' + esc(algoWhen(R.ran)) + '). ' +
@@ -2628,7 +2629,7 @@ function stBtPanel(){
   if (R.none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Not back-tested yet.' + (ST_BT.waiting ? ' Running… this refreshes by itself.' : ' <button class="btn sm primary" type="button" onclick="stBacktest(\'' + ST_BT.id + '\')">Run back-test</button>') + '</div></div>';
   const T = (R.summary || {}).totals || {}, C = R.coverage || {}, M = (R.summary || {}).months || [], TR = (R.summary || {}).trades || [];
   const stat = (k, val, sub) => '<div><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="w">' + sub + '</div></div>';
-  let b = '<div class="muted" style="font-size:12.5px;margin-bottom:10px">' + (C.sessions || 0) + ' sessions with option prices (' + esc(bDay(dayOf(C.from))) + ' to ' + esc(bDay(dayOf(C.to))) + '): the day before and the day of each expiry. Ran ' + esc(algoWhen(R.ran)) + (ST_BT.slow ? ' · the new run had not finished after 20 minutes' : ST_BT.done ? ' · <b style="color:var(--up)">just finished</b>' : '') + '.</div>' +
+  let b = '<div class="muted" style="font-size:12.5px;margin-bottom:10px">' + (C.sessions || 0) + ' sessions with option prices (' + esc(bDay(dayOf(C.from))) + ' to ' + esc(bDay(dayOf(C.to))) + '): the day before and the day of each expiry. Ran ' + esc(algoWhen(R.ran)) + (ST_BT.slow ? ' · the new run stopped reporting progress' : ST_BT.done ? ' · <b style="color:var(--up)">just finished</b>' : '') + '.</div>' +
     (R.note ? '<div class="notice" style="margin-bottom:10px">' + esc(R.note) + '</div>' : '') +
     '<div class="strip" style="margin-bottom:12px">' + stat('Profit', ppSigned(T.booked || 0), 'after all charges') + stat('Trades', num(T.trades || 0, 0), T.trades ? Math.round(100 * T.wins / T.trades) + '% won' : '') +
     stat('Average win / loss', '<span style="white-space:nowrap;font-size:.78em">' + (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–') + '</span>', 'per trade') + stat('Worst fall', ppSigned(T.worst_drop || 0), 'from a high') + '</div>';

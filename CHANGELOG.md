@@ -14,7 +14,9 @@ updates (`bt-worker-setup.yml` restarts it); the job had already left the queue,
 - The page (`adminBacktestStatus`, polled every 3-5 s): "Starting..." / "Waiting its turn" / "Running on the trading
   machine - 20 of 120 expiries" with a progress bar and a clock, or "Running on GitHub - usually 2-5 minutes"; on
   finish the results open marked "just finished" and the list's Results button turns green; "This back-test did not
-  start - Run again" when it is neither queued nor running; "No result after 20 minutes - Run again".
+  start - Run again" when it is neither queued nor running; it keeps waiting as long as progress keeps coming (a first full-history run on the
+  machine took ~15-25 minutes while the recorder backfill ran); "No progress for a long time - Run again" after 20
+  minutes without any.
 - Fixed with it: a new run showed the PREVIOUS run's results as its own at once when the panel had none loaded (only a
   result saved after the run was started now counts).
 
