@@ -4,7 +4,7 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
-### Back-tests say what is happening, and a worker restart no longer loses one (Sat 14 Nov 2026, ~23:00 IST)
+### Back-tests say what is happening, and a worker restart no longer loses one (Sat 14 Nov 2026, ~22:15 IST)
 Owner: "Running... this refreshes by itself" gave no way to tell what was going on. Cause found: the owner's "Gap Down and
 Open Recovery" test was handed to the trading machine's worker, and the worker was restarted by tonight's machine
 updates (`bt-worker-setup.yml` restarts it); the job had already left the queue, so nothing ever finished it.

@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Sat 14 Nov 2026, ~22:45 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
+As of Sat 14 Nov 2026, ~22:20 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
 `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
@@ -104,7 +104,7 @@ period, both indices, crash days incl. 4 Jun 2024, enough trades, a higher bar t
 the recorded bid / ask; portfolio of small uncorrelated strategies sharing the day's loss limit; (4) a written
 "normal" range per strategy and an automatic switch-off plus email when paper results leave it.
 - Recorder: first daily run Mon 16 Nov 15:50; check its log (`bt-worker-setup.yml -f log_only=true`) and the files in
-  `state/ibkr/days/`. Backfill 31 Oct - 13 Nov running (started 22:30 14 Nov).
+  `state/ibkr/days/`. Backfill 31 Oct - 13 Nov running (started ~22:00 14 Nov, ~8 min per index-day, done ~01:30).
 - NIFTY 31 Oct - 10 Nov option minutes: fetch from ICICI on a sign-in day (IBKR no longer serves expired options).
 
 ### Open items, in order
