@@ -2565,7 +2565,7 @@ function stBtPanel(){
   if (ST_BT.loading && !ST_BT.res) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">' + (ST_BT.waiting ? 'Running… this refreshes by itself.' : 'Loading…') + '</div></div>';
   const R = ST_BT.res || {};
   if (R.error) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + errBlock(R.error) + '</div></div>';
-  if (R.none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Not back-tested yet.' + (ST_BT.waiting ? ' Running… this refreshes by itself.' : '') + '</div></div>';
+  if (R.none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Not back-tested yet.' + (ST_BT.waiting ? ' Running… this refreshes by itself.' : ' <button class="btn sm primary" type="button" onclick="stBacktest(\'' + ST_BT.id + '\')">Run back-test</button>') + '</div></div>';
   const T = (R.summary || {}).totals || {}, C = R.coverage || {}, M = (R.summary || {}).months || [], TR = (R.summary || {}).trades || [];
   const stat = (k, val, sub) => '<div><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="w">' + sub + '</div></div>';
   let b = '<div class="muted" style="font-size:12.5px;margin-bottom:10px">' + (C.sessions || 0) + ' sessions with option prices (' + esc(bDay(dayOf(C.from))) + ' to ' + esc(bDay(dayOf(C.to))) + '): the day before and the day of each expiry. Ran ' + esc(algoWhen(R.ran)) + (ST_BT.waiting ? ' · a new run is still going' : '') + '.</div>' +
