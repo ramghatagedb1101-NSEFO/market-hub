@@ -65,9 +65,8 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
    `rule_real_fill` and the first serious strategy search (keep rule_review's discipline: walk-forward, full costs).
 3. A back-test of autopilot itself (replaying its picks), once every-day data exists.
 4. Options-data signals (put-call ratio, open interest change; futures VWAP) for the placeholders.
-5. Optional, not blocking (the paper login works and the machine is logged in): a paper password used nowhere else,
-   as extra safety for the copy stored on the machine. Only if the owner wants it: reset in IBKR (the 14 Nov attempt
-   gave error PREC100), then the owner re-runs `/opt/trader/set-login.sh`.
+5. Decided (owner, 14 Nov): keep the current paper password; no change needed. (A separate paper password was
+   offered as extra safety for the copy stored on the machine; `set-login.sh` changes it any time.)
 6. Proposal pending: move the fixed address 130.210.31.37 to `market-hub-trader` and retire `market-hub-ip`.
 
 ### Notes for the next session
