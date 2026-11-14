@@ -94,9 +94,9 @@ As of Sat 14 Nov 2026, ~22:20 IST. Start with the 14 Nov HANDOVER just below, th
 
 ### Strategy bot (owner, 14 Nov 2026 night) -- plan agreed, step 1 under way
 Goal: strategies with a real chance of making money live, found and tested by a bot; the bot RECOMMENDS, the owner
-switches strategies on / off (paper). Gemini free tier as its AI. Steps: (1) data: daily IBKR recording (done,
-`trader/recorder.py`), market diary (done), IV history + IV percentile signal, India VIX history, NSE put-call ratio /
-open interest / participant positions, events calendar; (2) multi-leg trades (straddle, strangle, condor, spreads) in
+switches strategies on / off (paper). Gemini free tier as its AI. Steps: (1) data -- DONE 14 Nov: daily IBKR recording (`trader/recorder.py`), market
+diary (`state/market_diary.json`), market history since 2022 (`hub/market_daily.py`: VIX, IV + percentile, put-call
+ratio, OI, FII / retail / pro positions) and those as strategy signals (`trader/market.py`), event-day signal; (2) multi-leg trades (straddle, strangle, condor, spreads) in
 back-test, form and live program, with a cap on the whole position; (3) the bot: ideas must name who pays us
 (volatility premium, time decay, event IV drop, gap / trend days); judged on post-Nov-2024 rules data, days-to-expiry
 not weekday; a locked 6-month vault tested once; survival tests (neighbouring settings, without best 5 days, each
@@ -106,6 +106,8 @@ the recorded bid / ask; portfolio of small uncorrelated strategies sharing the d
 - Recorder: first daily run Mon 16 Nov 15:50; check its log (`bt-worker-setup.yml -f log_only=true`) and the files in
   `state/ibkr/days/`. Backfill 31 Oct - 13 Nov running (started ~22:00 14 Nov, ~8 min per index-day, done ~01:30).
 - NIFTY 31 Oct - 10 Nov option minutes: fetch from ICICI on a sign-in day (IBKR no longer serves expired options).
+- Market history backfill (`market-daily.yml`) started 23:06 14 Nov, chains itself; check `state/market/daily.json`
+  reaches 13 Nov 2026 and spot-check figures. Next: step 2 (multi-leg trades).
 
 ### Open items, in order
 0. Fixed 21:15 14 Nov: the machine starts `breeze.yml` as a manual run, whose default was the sign-in test

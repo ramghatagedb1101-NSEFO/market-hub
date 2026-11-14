@@ -4,6 +4,25 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy bot, step 1 finished: market history and market signals (Sat 14 Nov 2026, ~23:00 IST)
+- `hub/market_daily.py` -> `state/market/daily.json` (private): every session from 3 Jan 2022, from NSE's free
+  end-of-day files (F&O bhavcopy, participant-wise open interest, all-index closes): India VIX and its 1-year
+  percentile; FII / retail / DII / pro net long share of index futures, calls and puts; for NIFTY and BANK NIFTY the ATM
+  implied volatility (Black-76 from the ATM call and put closes of the nearest expiry with 2+ days to go) and its
+  1-year percentile, put-call ratio (near expiry within 3%, and all expiries), option OI and its change, max pain,
+  walls. Backfill: `market-daily.yml` (chains itself, ~500 sessions a run); each evening: a step in `daily.yml`.
+  First check (28 Jan 2022): VIX 20.7, NIFTY ATM IV 28% (the week of the budget), FIIs net short 20% of index futures.
+- Strategy signals (`trader/market.py`, "Compare any two data points" > Market): yesterday's close values of VIX, VIX
+  percentile, ATM IV, IV percentile, put-call ratios, OI change, FII futures / calls / puts, retail and pro futures.
+  Always the PREVIOUS session's figures (known before the open), so a back-test cannot peek; the same in back-tests
+  (table loaded only when a strategy uses it) and live (algo-sync copies the last 30 sessions to
+  `/opt/trader/market.json`). New "Event day" signal: only on / not on RBI policy, budget and election-result days
+  (`hub/expiry_history.py` EVENTS, now with the RBI days 4 Dec 2026 and 5 Feb 2027 from RBI's FY27 schedule). The
+  English reader (Gemini) knows them ("when IV percentile is above 70", "avoid RBI days"). Put-call ratio and OI
+  change are no longer greyed out; VWAP still is.
+- Tests: `trader.selftest` 167/167 (new: the day's own figures are never used; holidays skipped; event days;
+  cleaning).
+
 ### Back-tests say what is happening, and a worker restart no longer loses one (Sat 14 Nov 2026, ~22:15 IST)
 Owner: "Running... this refreshes by itself" gave no way to tell what was going on. Cause found: the owner's "Gap Down and
 Open Recovery" test was handed to the trading machine's worker, and the worker was restarted by tonight's machine
