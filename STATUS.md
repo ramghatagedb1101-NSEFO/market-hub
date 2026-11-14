@@ -35,7 +35,12 @@ first) and `CLAUDE.md`.
   `set-login.sh` (owner types the paper username/password once, hidden), `check.py` (paper-only connection check and
   how IBKR names NIFTY / BANK NIFTY / SENSEX options; no orders). Waiting on: the owner's paper login in
   `set-login.sh` (paper login fails while the main IBKR account is signed in: IBKR allows one session across the two).
-  Then the paper trading program.
+  Then the paper trading program. IBKR side (14 Nov): NSE shares and F&O live data are on the account, "Fee Waived"
+  (total ₹0); no BSE, so no SENSEX options data. Owner signed the Market Data API form and set "share market data with
+  paper" to Yes (not read back: IBKR session had ended; the first connection check will show whether prices arrive).
+  Paper password reset fails with IBKR error PREC100 (code not documented): retry Monday, else IBKR chat.
+  Design for real time (owner, 14 Nov: checks every 2-3 seconds, live trades): streamed prices, heavy back-tests stay
+  on GitHub, about 100 streamed contracts at once, no main-account login during market hours.
   Unverified until the first check: NSE index options and their prices on an IBKR India paper account; whether paper
   login asks for a second factor.
   Proposal pending: move fixed address 130.210.31.37 to the new machine and retire `market-hub-ip`.
