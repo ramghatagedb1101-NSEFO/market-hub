@@ -1932,6 +1932,62 @@ const stcOpt = () => STC.src === 'option';
 const stcApplies = t => !(stcOpt() ? STC_CAT[t].idx : STC_CAT[t].opt);
 const STC_SOON = ['VWAP (needs futures volume)'];
 // buy / sell labels start on for Supertrend; the others start off (a button on each), so the chart stays readable
+// Indicator settings window (owner, 14 Nov 2026: "need such style configuration options for the charts", as
+// TradingView's Inputs / Style / Visibility) and the chart's Colours window. Remembered in this browser.
+const STC_TFS = [['D', 'Daily'], ['15', '15 min'], ['5', '5 min'], ['3', '3 min'], ['1', '1 min']];
+function stcModal(title, tabs, onOk, onReset){
+  const bg = document.createElement('div');
+  bg.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;width:min(440px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.35)';
+  const keys = Object.keys(tabs);
+  box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px"><b style="font-size:16px">' + esc(title) + '</b><button type="button" data-x style="border:0;background:none;font-size:20px;cursor:pointer;color:var(--text-3)">×</button></div>' +
+    (keys.length > 1 ? '<div style="display:flex;gap:18px;padding:0 16px;border-bottom:1px solid var(--border)">' + keys.map((k, j) => '<button type="button" data-tab="' + j + '" style="border:0;background:none;padding:8px 0;cursor:pointer;font-weight:600;color:var(--text);border-bottom:2px solid ' + (j ? 'transparent' : 'var(--text)') + '">' + k + '</button>').join('') + '</div>' : '') +
+    keys.map((k, j) => '<div data-pane="' + j + '" style="padding:14px 16px;overflow:auto;' + (j ? 'display:none' : '') + '">' + tabs[k] + '</div>').join('') +
+    '<div style="display:flex;justify-content:space-between;gap:8px;padding:12px 16px;border-top:1px solid var(--border)">' + (onReset ? '<button type="button" class="btn" data-reset>Reset to defaults</button>' : '<span></span>') +
+    '<span style="display:flex;gap:8px"><button type="button" class="btn" data-x>Cancel</button><button type="button" class="btn primary" data-ok>Ok</button></span></div>';
+  bg.append(box); document.body.append(bg);
+  const close = () => bg.remove();
+  box.querySelectorAll('[data-x]').forEach(b => b.onclick = close);
+  bg.onclick = e => { if (e.target === bg) close(); };
+  box.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { box.querySelectorAll('[data-tab]').forEach(x => x.style.borderBottomColor = x === b ? 'var(--text)' : 'transparent');
+    box.querySelectorAll('[data-pane]').forEach(x => x.style.display = x.dataset.pane === b.dataset.tab ? '' : 'none'); });
+  box.querySelector('[data-ok]').onclick = () => { onOk(box); close(); };
+  if (onReset) box.querySelector('[data-reset]').onclick = () => { onReset(); close(); };
+}
+const stcRow = (label, ctl) => '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px"><span style="font-size:13px">' + label + '</span>' + ctl + '</div>';
+const stcColorIn = (k, v) => '<input type="color" data-k="' + k + '" value="' + esc(v) + '" style="width:44px;height:28px;padding:0;border:1px solid var(--border);border-radius:6px;background:none;cursor:pointer">';
+const stcCheck = (k, on, label) => '<label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;cursor:pointer"><input type="checkbox" data-k="' + k + '"' + (on ? ' checked' : '') + '> ' + label + '</label>';
+function stcHex(c){ if (/^#[0-9a-f]{6}$/i.test(c || '')) return c; const d = document.createElement('div'); d.style.color = c; document.body.append(d); const m = getComputedStyle(d).color.match(/\d+/g); d.remove(); return m ? '#' + m.slice(0, 3).map(x => (+x).toString(16).padStart(2, '0')).join('') : '#2a78d6'; }
+function stcCfg(i){
+  const kind = stcKind(), it = STC.ind[kind][i], def = STC_CAT[it.t], P = stcPal();
+  const inputs = Object.keys(def.p).length ? Object.keys(def.p).map(k => stcRow(def.p[k][1].replace(/^./, c => c.toUpperCase()), '<input class="field num" data-k="p_' + k + '" value="' + esc(it[k]) + '" style="width:90px">')).join('') : '<div class="muted">No inputs.</div>';
+  const bands = { rf: 'High / low targets', bb: 'Upper / lower bands' }[it.t];
+  const style = (def.low ? '' : stcRow('Line colour', stcColorIn('col', stcHex(it.col || P[it.c] || P[0]))) +
+      stcRow('Line thickness', '<select class="field" data-k="w" style="width:auto">' + [1, 2, 3, 4].map(w => '<option value="' + w + '"' + ((it.w || 2) === w ? ' selected' : '') + '>' + w + ' px</option>').join('') + '</select>') +
+      stcRow('Line style', '<select class="field" data-k="dash" style="width:auto"><option value="0">Solid</option><option value="1"' + (it.dash ? ' selected' : '') + '>Dashed</option></select>')) +
+    (bands ? stcCheck('bands', !it.nb, bands) : '') +
+    (STC_SIGS[it.t] ? stcCheck('sig', !!it.sig, 'Buy / Sell labels') + '<div class="faint" style="font-size:12px">Buy / Sell and candle colours: the Colours button next to the indicators.</div>' : '');
+  const vis = '<div class="muted" style="font-size:12px;margin-bottom:10px">Show this indicator on:</div>' +
+    STC_TFS.filter(([k]) => kind === 'daily' ? k === 'D' : k !== 'D').map(([k, l]) => stcCheck('tf_' + k, !it.tfs || it.tfs.indexOf(k) >= 0, l)).join('');
+  stcModal(def.l, { Inputs: inputs, Style: style || '<div class="muted">This panel has no line settings.</div>', Visibility: vis }, box => {
+    const get = k => box.querySelector('[data-k="' + k + '"]');
+    Object.keys(def.p).forEach(k => { const v = Number(get('p_' + k).value); if (isFinite(v) && v > 0) it[k] = v; });
+    if (get('col')) { it.col = get('col').value; it.w = Number(get('w').value) || 2; it.dash = get('dash').value === '1'; }
+    if (get('bands')) it.nb = !get('bands').checked;
+    if (get('sig')) it.sig = get('sig').checked;
+    const tfs = STC_TFS.map(([k]) => k).filter(k => get('tf_' + k) && get('tf_' + k).checked);
+    const offered = STC_TFS.map(([k]) => k).filter(k => get('tf_' + k));
+    it.tfs = tfs.length === offered.length ? null : tfs;
+    stcSave(); rerender();
+  }, () => { ['col', 'w', 'dash', 'nb', 'tfs'].forEach(k => delete it[k]); Object.keys(def.p).forEach(k => it[k] = def.p[k][0]); it.sig = stcSigDefault(it.t); stcSave(); rerender(); });
+}
+function stcColours(){
+  const tab = stcRow('Candle up', stcColorIn('up', STC_COL.up)) + stcRow('Candle down', stcColorIn('down', STC_COL.down)) +
+    stcRow('Buy (labels, lines in a buy state)', stcColorIn('buy', STC_COL.buy)) + stcRow('Sell', stcColorIn('sell', STC_COL.sell));
+  stcModal('Chart colours', { Colours: tab }, box => { ['up', 'down', 'buy', 'sell'].forEach(k => STC_COL[k] = box.querySelector('[data-k="' + k + '"]').value); stcColSave(); rerender(); },
+    () => { Object.assign(STC_COL, STC_COL_DEF); stcColSave(); rerender(); });
+}
 function stcSigDefault(t){ return t === 'st' || t === 'rf'; }
 const STC = (() => {
   const base = { view: 'daily', day: null, strat: true, trades: true,
@@ -1954,11 +2010,12 @@ function stcPal(){
 }
 // Buy / sell colours for signal-coloured lines and labels (owner: "line is green when its buy signal, [red when sell]"):
 // the validated profit / loss pair of the profit charts
-function stcBS(){
-  const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
-    (document.documentElement.getAttribute('data-theme') !== 'light' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-  return dark ? { buy: '#1f9a8e', sell: '#e06a36' } : { buy: '#067647', sell: '#c4320a' };
-}
+// 14 Nov 2026 (owner: "by default green and red are used for various models"): TradingView's green / red for candles
+// and Buy / Sell, changeable in the chart's Colours window and remembered in this browser.
+const STC_COL_DEF = { up: '#089981', down: '#f23645', buy: '#089981', sell: '#f23645' };
+const STC_COL = (() => { try { return Object.assign({}, STC_COL_DEF, JSON.parse(localStorage.getItem('mh_stc_col') || '{}')); } catch (e) { return Object.assign({}, STC_COL_DEF); } })();
+function stcColSave(){ try { localStorage.setItem('mh_stc_col', JSON.stringify(STC_COL)); } catch (e) {} }
+function stcBS(){ return { buy: STC_COL.buy, sell: STC_COL.sell }; }
 const stcKind = () => STC.view === 'daily' ? 'daily' : 'intra';
 function stcSet(k, v){ STC[k] = v; rerender(); }
 function stcAdd(t){
@@ -2074,11 +2131,12 @@ function stcPanel(E){
   ctl += '</div>';
   // the indicators added: a pill each (colour, name, its settings, remove)
   const pills = L.map((it, i) => {
-    const def = STC_CAT[it.t], BS = stcBS(), col = def.low ? P[2] : it.t === 'st' ? 'linear-gradient(to right,' + BS.buy + ' 50%,' + BS.sell + ' 50%)' : P[it.c];
+    const def = STC_CAT[it.t], BS = stcBS(), col = def.low ? (it.col || P[2]) : (it.t === 'st' || it.t === 'rf') ? 'linear-gradient(to right,' + BS.buy + ' 50%,' + BS.sell + ' 50%)' : (it.col || P[it.c]);
     const pars = Object.keys(def.p).map(k => '<input class="field num" title="' + def.p[k][1] + '" aria-label="' + def.p[k][1] + '" style="width:46px;height:24px;padding:0 4px" value="' + it[k] + '" onchange="stcPar(' + i + ', \'' + k + '\', this.value)">').join('');
     return '<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:2px 4px 2px 10px;font-size:12px;background:var(--surface)">' +
       '<span style="width:12px;height:3px;border-radius:2px;background:' + col + '"></span>' + esc(it.t === 'sma' ? (kind === 'daily' ? 'DMA' : 'SMA') : def.l) + (def.low ? ' <span class="faint">(own panel)</span>' : '') + (stcApplies(it.t) ? '' : ' <span class="faint">(' + (def.opt ? 'option chart only' : 'index chart only') + ')</span>') + pars +
       (STC_SIGS[it.t] ? '<button type="button" title="Show or hide the buy / sell labels on the chart' + (it.t === 'st' ? '' : ' (and the line green / red)') + '" onclick="stcSig(' + i + ')" style="border:1px solid ' + (it.sig ? 'var(--accent)' : 'var(--border)') + ';background:' + (it.sig ? 'var(--accent-soft)' : 'none') + ';color:' + (it.sig ? 'var(--accent-text)' : 'var(--text-3)') + ';border-radius:999px;font-size:11px;font-weight:600;padding:1px 7px;cursor:pointer">' + (it.sig ? '✓ Buy/Sell' : 'Buy/Sell off') + '</button>' : '') +
+      '<button type="button" title="Settings: inputs, style, visibility" aria-label="Settings for ' + esc(def.l) + '" onclick="stcCfg(' + i + ')" style="border:0;background:none;cursor:pointer;color:var(--text-3);font-size:13px;padding:0 2px">⚙</button>' +
       '<button type="button" title="Remove" aria-label="Remove ' + esc(def.l) + '" onclick="stcDel(' + i + ')" style="border:0;background:none;cursor:pointer;color:var(--text-3);font-size:14px;padding:0 4px">×</button></span>';
   }).join('');
   const groups = {};
@@ -2086,7 +2144,7 @@ function stcPanel(E){
   const add = '<select class="field" style="width:auto;height:28px" onchange="if(this.value){stcAdd(this.value)}"><option value="">+ Add indicator…</option>' +
     Object.keys(groups).map(g => '<optgroup label="' + g + '">' + groups[g].map(t => '<option value="' + t + '">' + STC_CAT[t].l + '</option>').join('') + '</optgroup>').join('') +
     '<optgroup label="Coming when the data is ready">' + STC_SOON.map(l => '<option disabled>' + l + '</option>').join('') + '</optgroup></select>';
-  ctl += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">' + pills + add + '</div>';
+  ctl += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">' + pills + add + '<button class="btn sm" type="button" onclick="stcColours()" title="Candle and Buy / Sell colours">Colours</button></div>';
   const note = !D || D.loading ? 'Loading index prices…' : D.error ? D.error : OPT && O && O.msg ? O.msg : '';
   const name = idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx;
   const head = OPT ? (O && O.k ? name + ' ' + num(Number(O.k), 0) + (O.right === 'put' ? ' PE' : ' CE') + ' · expiry ' + bDay(dayOf(O.exp)) : name + ' options') : name;
@@ -2187,7 +2245,7 @@ function stcDraw(){
   if (!el || !E || typeof LightweightCharts === 'undefined') return;
   const idx = E.index || 'NIFTY', D = STD.daily[idx];
   if (!D || !D.days || !D.days.length) return;
-  const P = stcPal(), BS = stcBS(), text = cssVar('--text-3'), grid = cssVar('--border-subtle'), up = cssVar('--up'), down = cssVar('--down'), muted = cssVar('--text-4') || text;
+  const P = stcPal(), BS = stcBS(), text = cssVar('--text-3'), grid = cssVar('--border-subtle'), up = STC_COL.up, down = STC_COL.down, muted = cssVar('--text-4') || text;
   const OPT = stcOpt(), daily = STC.view === 'daily' && !OPT, kind = stcKind(), L = STC.ind[kind].filter(x => stcApplies(x.t));
   // ---- bars
   let bars = [], sessions = [], O = null;
@@ -2217,7 +2275,7 @@ function stcDraw(){
     const t0 = bars.find(b => stcDayKey(b.time) === d), rows = bars.filter(b => stcDayKey(b.time) === d && b.time < t0.time + m * 60);
     return (cache[k] = rows.length ? [Math.max(...rows.map(b => b.high)), Math.min(...rows.map(b => b.low)), t0.time + m * 60] : null); }; })();
   // ---- panels
-  const lows = L.filter(x => STC_CAT[x.t].low);
+  const lows = L.filter(x => STC_CAT[x.t].low && (!x.tfs || x.tfs.indexOf(daily ? 'D' : String(STC.view)) >= 0));   // Visibility tab
   el.innerHTML = ''; el.style.height = 'auto';
   const mk = (h, last) => { const d = document.createElement('div'); d.style.cssText = 'position:relative;height:' + h + 'px;' + (last ? '' : 'border-bottom:1px solid var(--border-subtle);'); el.append(d); return d; };
   const mainDiv = mk(daily ? 380 : 400, !lows.length), lowDivs = lows.map((_, k) => mk(130, k === lows.length - 1));
@@ -2232,24 +2290,28 @@ function stcDraw(){
   const legendMain = [];                               // [colour, name, values by bar or null]
   const pts = (vals, colorOf) => bars.map((b, i) => vals[i] == null || !isFinite(vals[i]) ? { time: b.time } : Object.assign({ time: b.time, value: vals[i] }, colorOf ? { color: colorOf(i) } : {}));
   const line = (target, vals, color, name, o) => { target.addLineSeries(Object.assign({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }, o || {})).setData(pts(vals, o && o.colorOf)); };
-  const over = (vals, color, name, o) => { line(main, vals, color, name, o); legendMain.push([o && o.colorOf ? BS.buy : color, name, vals]); };
+  let CUR = null;                                      // the indicator being drawn: its own width / dash (Style tab)
+  const sty = o => Object.assign({}, o || {}, CUR && CUR.w ? { lineWidth: CUR.w } : {}, CUR && CUR.dash ? { lineStyle: 2 } : {});
+  const over = (vals, color, name, o) => { line(main, vals, color, name, sty(o)); legendMain.push([o && o.colorOf ? BS.buy : color, name, vals]); };
   // ---- buy / sell (owner: labels at each signal; one-line indicators green while buy, red while sell)
   const many = L.filter(x => x.sig && STC_SIGS[x.t]).length > 1, flags = [];
   const flag = (i, buy, code) => { if (i > 0 && i < n) flags.push({ i, buy, text: (buy ? 'Buy' : 'Sell') + (many ? ' · ' + code : '') }); };
   const crosses = (a, b, code, cond) => { for (let i = 1; i < n; i++) { if ([a[i], a[i - 1], b[i], b[i - 1]].some(v => v == null)) continue;
     if (a[i - 1] <= b[i - 1] && a[i] > b[i] && (!cond || cond(i, true))) flag(i, true, code); else if (a[i - 1] >= b[i - 1] && a[i] < b[i] && (!cond || cond(i, false))) flag(i, false, code); } };
   const step = { lineType: 1, lineWidth: 1 };
+  const tfKey = daily ? 'D' : String(STC.view);
   L.forEach(it => {
     const def = STC_CAT[it.t];
-    if (def.low) return;
-    const col = P[it.c] || P[0], code = STC_SIGS[it.t] + (it.n && it.t !== 'st' ? ' ' + it.n : '');
+    if (def.low || (it.tfs && it.tfs.indexOf(tfKey) < 0)) return;
+    CUR = it;
+    const col = it.col || P[it.c] || P[0], code = STC_SIGS[it.t] + (it.n && it.t !== 'st' ? ' ' + it.n : '');
     if (it.t === 'sma' || it.t === 'ema') { const m = (it.t === 'sma' ? sma : ema)(closes, it.n), nm = (it.t === 'ema' ? 'EMA ' : daily ? 'DMA ' : 'SMA ') + it.n;
       if (it.sig) { over(m, col, nm, { colorOf: i => closes[i] >= m[i] ? BS.buy : BS.sell }); crosses(closes, m, code); } else over(m, col, nm); }
     else if (it.t === 'bb') { const b = bollinger(closes, it.n, it.k); over(b.up, col, 'BB ' + it.n + ', ' + it.k + ' upper', { lineWidth: 1 }); line(main, b.mid, col, '', { lineWidth: 1, lineStyle: 2 }); over(b.lo, col, 'lower', { lineWidth: 1 });
       if (it.sig) for (let i = 1; i < n; i++) { if (b.lo[i - 1] != null && closes[i - 1] < b.lo[i - 1] && closes[i] >= b.lo[i]) flag(i, true, 'BB'); else if (b.up[i - 1] != null && closes[i - 1] > b.up[i - 1] && closes[i] <= b.up[i]) flag(i, false, 'BB'); } }
     else if (it.t === 'rf') { const rf = stcRangeFilter(closes, it.n, it.k);
       over(rf.filt, BS.buy, 'Range Filter ' + it.n + ', ' + it.k, { lineWidth: 2, colorOf: i => rf.state[i] === 1 ? BS.buy : rf.state[i] === -1 ? BS.sell : col });
-      over(rf.hi, col, 'High target', { lineWidth: 1, lineStyle: 2 }); over(rf.lo, col, 'Low target', { lineWidth: 1, lineStyle: 2 });
+      if (!it.nb) { over(rf.hi, col, 'High target', { lineWidth: 1, lineStyle: 2 }); over(rf.lo, col, 'Low target', { lineWidth: 1, lineStyle: 2 }); }
       if (it.sig) for (let i = 1; i < n; i++) { if (rf.buy[i]) flag(i, true, 'RF'); else if (rf.sell[i]) flag(i, false, 'RF'); } }
     else if (it.t === 'st') { const st = stcSupertrend(bars, it.n, it.k);
       over(st, BS.buy, 'Supertrend ' + it.n + ', ' + it.k, { colorOf: i => st.up[i] ? BS.buy : BS.sell });

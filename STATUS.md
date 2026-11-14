@@ -97,7 +97,8 @@ As of Sat 14 Nov 2026, ~10:30 IST. Start with the 14 Nov HANDOVER just below, th
 - GitHub's schedules are unreliable for new workflows; anything that must happen soon is started directly
   (`gh workflow run`, or the relay's dispatch).
 - On this Windows laptop, long inline Python with quotes breaks the shell: write edit scripts to the scratchpad and run them.
-- Chart colours on the new screens were checked for colour-blind readers (dark #1f9a8e / #e06a36, light #067647 /
+- Strategy chart: green / red by default since 14 Nov 2026 (owner), changeable in its Colours window. Profit charts:
+  colours were checked for colour-blind readers (dark #1f9a8e / #e06a36, light #067647 /
   #c4320a); keep them for any new profit / loss chart.
 - Self-tests: `python -m trader.selftest` (95); relay `node relay/check.js`.
 

@@ -4,6 +4,16 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy chart: settings window for each indicator, green / red by default (Sat 14 Nov 2026)
+Owner: "need such style configuration options for the charts" (TradingView's Inputs / Style / Visibility window) and
+"by default green and red are used".
+- A ⚙ on each indicator opens its window: **Inputs** (its numbers), **Style** (line colour, thickness 1-4 px, solid /
+  dashed; Range Filter's targets and Bollinger's bands on / off; Buy / Sell labels on / off), **Visibility** (which
+  views show it: Daily, or 15 / 5 / 3 / 1 min). Ok / Cancel / Reset to defaults. Remembered in this browser.
+- **Colours** button: candle up / down and Buy / Sell colours, defaults TradingView's green #089981 / red #f23645
+  (were the colour-blind-safe teal / orange); Reset to defaults.
+- The profit charts and the app's +/− figures keep their colours (not part of this request).
+
 ### Range Filter: a new indicator for strategies, back-tests and the chart (Sat 14 Nov 2026)
 Owner: "add a new custom indicator: Range Filter" (their TradingView script "Range Filter Buy and Sell").
 - `trader/indicators.py` `range_filter()` follows the script line for line: smoothed average range = EMA(EMA(|close -
