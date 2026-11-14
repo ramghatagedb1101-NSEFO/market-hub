@@ -85,8 +85,13 @@ function adminBtParse(token, text) {
                  contents: [{ role: 'user', parts: [{ text: q }] }],
                  generationConfig: { responseMimeType: 'application/json', temperature: 0 } };
   let last = '';
-  for (let i = 0; i < BT_MODELS.length; i++) {
-    const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + BT_MODELS[i] + ':generateContent',
+  // 14 Nov 2026: Google answered 503 (busy) on both free models for a few minutes; each model is now tried three
+  // times, 2 and 5 s apart, before giving up with a plain message.
+  const tries = [];
+  BT_MODELS.forEach(m => { tries.push([m, 0], [m, 2000], [m, 5000]); });
+  for (let i = 0; i < tries.length; i++) {
+    if (tries[i][1]) Utilities.sleep(tries[i][1]);
+    const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + tries[i][0] + ':generateContent',
       { method: 'post', contentType: 'application/json', headers: { 'x-goog-api-key': key },
         payload: JSON.stringify(body), muteHttpExceptions: true });
     const code = r.getResponseCode();
@@ -100,7 +105,7 @@ function adminBtParse(token, text) {
       } catch (e) { last = 'the AI answer could not be read'; continue; }
     }
     last = code === 400 || code === 403 ? 'Google refused the Gemini key; paste it again under Data and settings'
-         : code === 429 ? 'the free Gemini allowance is busy; try again in a minute' : 'Gemini did not answer (' + code + ')';
+         : code === 429 || code >= 500 ? "Google's free AI is busy right now. Try again in a minute." : "Google's AI did not answer (" + code + '). Try again in a minute.';
     if (code === 400 || code === 403) break;
   }
   return { error: last };
