@@ -4,6 +4,15 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### AI summaries: the bigger model gets 2 minutes (Sat 14 Nov 2026)
+Owner: "just give them a limit ... I don't see any harm in using a bigger model if it is available free of cost."
+Evidence (site/summaries.json and the last 12 runs): gemini-3.8-flash wrote 10-14 summaries a day until 2 Nov 2026 and
+none since; every summary from 3 Nov came from gemini-3.5-flash-lite after the bigger model hung (up to 4 minutes,
+20 s, 4 minutes again), so a document took 8-12 minutes, 1-3 got done a day and four hit the 15-minute cap.
+- `hub/summaries.py`: the bigger model first, one try of at most 2 minutes (GEMINI_BIG_WAIT_S). If it times out or says
+  its free allowance is used up, it is skipped for the rest of that run (the next run tries it again); then the lighter
+  model, twice, as before.
+
 ### Back-tests reader: the fast Gemini model first (Sat 14 Nov 2026)
 Owner: "fix the Gemini read stalling". Evidence (`hub/diag_gemini_speed.py` on GitHub, 12 timed calls with the page's own
 prompt and the owner's Supertrend sentence): gemini-3.8-flash never answered (two waits past 100 s, ten "quota
@@ -11,8 +20,7 @@ exceeded"); gemini-3.5-flash-lite answered in 3.5 and 8.7 s with both sides read
 asked 3.8-flash first, three times, and Apps Script cannot put a time limit on a call, so one read could sit for minutes.
 - Now: flash-lite up to three times (2 and 5 s apart when busy), then 3.8-flash once, only if under 20 s have passed.
   A model that says its free allowance is used up is not asked again in that read.
-- Same slow model in the daily AI summaries (`hub/summaries.py`): 8-11 minutes a document on 14 Nov, one failed after
-  10 minutes. Not changed (owner's call: summaries read whole filings, where the bigger model's quality may matter).
+- Same slow model in the daily AI summaries: see the entry above.
 
 ### Strategy form: put side editing (Sat 14 Nov 2026)
 Owner: "add put side editing to the strategy form". A both-ways strategy could only be made on the Back-tests page.

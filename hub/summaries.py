@@ -48,7 +48,12 @@ MAX_PDF_BYTES = 30 * 1024 * 1024
 MAX_TEXT_CHARS = 600_000            # roughly 150k tokens of annual-report text
 TIME_BUDGET_S = 35 * 60             # stop starting new documents after this; the job's limit is 45 minutes
 JOB_LIMIT_S = 41 * 60                # 29 Oct 2026: no single document may run past this (the save step needs the rest)
-DOC_LIMIT_S = 15 * 60                # nor longer than this: four Gemini attempts at 240 s each, plus the download
+DOC_LIMIT_S = 15 * 60                # nor longer than this: Gemini attempts (120 + 240 + 30 + 240 s), plus the download
+# 14 Nov 2026 (owner: "give them a limit ... no harm in using a bigger model if it is available free"): the bigger model
+# gets one try of at most BIG_WAIT_S a document. It wrote 10-14 summaries a day until 2 Nov 2026 and none since (it hung
+# or said its free allowance was used up), while each document waited 8+ minutes for it before the lighter model.
+BIG_WAIT_S = int(os.getenv("GEMINI_BIG_WAIT_S", "120"))
+BIG_OFF = {"why": ""}                # set when the bigger model times out or is out of allowance: skipped for this run
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"}
 
 SCHEMA = {
@@ -163,21 +168,41 @@ def _transient(exc) -> bool:
     return any(w in str(exc).lower() for w in TRANSIENT_WORDS)
 
 
+_BIG_CLIENT = {}
+
+
+def _big_client():
+    """A client that gives up on the bigger model after BIG_WAIT_S (the lighter model keeps the 4-minute client)."""
+    if "c" not in _BIG_CLIENT:
+        from google import genai
+        from google.genai import types
+        _BIG_CLIENT["c"] = genai.Client(http_options=types.HttpOptions(timeout=BIG_WAIT_S * 1000))
+    return _BIG_CLIENT["c"]
+
+
 def ask_gemini(client, pdf: bytes | None, text: str | None, instructions: str) -> tuple[str, str]:
-    """(JSON text, model used). On a rate limit, an overload or a dropped connection: the same model again
-    after 20 s, then the lighter free model (GEMINI_FALLBACK_MODEL), twice."""
+    """(JSON text, model used). The bigger model once, for at most BIG_WAIT_S; if it times out or is out of free
+    allowance it is skipped for the rest of the run. Then the lighter free model (GEMINI_FALLBACK_MODEL), twice."""
     part = ({"type": "document", "data": base64.b64encode(pdf).decode("ascii"), "mime_type": "application/pdf"}
             if pdf is not None else {"type": "text", "text": text})
     fmt = {"type": "text", "mime_type": "application/json", "schema": SCHEMA}
     last = None
-    for model, wait in ((GEMINI_MODEL, 0), (GEMINI_MODEL, 20), (GEMINI_FALLBACK_MODEL, 0), (GEMINI_FALLBACK_MODEL, 30)):
+    tries = ([] if BIG_OFF["why"] else [(GEMINI_MODEL, 0)]) + [(GEMINI_FALLBACK_MODEL, 0), (GEMINI_FALLBACK_MODEL, 30)]
+    for model, wait in tries:
         if wait:
             time.sleep(wait)
+        big = model == GEMINI_MODEL
         try:
-            r = client.interactions.create(model=model, input=[part, {"type": "text", "text": instructions}],
-                                           response_format=fmt)
+            r = (_big_client() if big else client).interactions.create(
+                model=model, input=[part, {"type": "text", "text": instructions}], response_format=fmt)
             return r.output_text, model
         except Exception as exc:
+            if big:                                  # whatever went wrong, the lighter model still gets its turn
+                if _transient(exc):
+                    BIG_OFF["why"] = str(exc)[:120]
+                    print(f"[summaries] {GEMINI_MODEL} skipped for the rest of this run: {BIG_OFF['why']}", flush=True)
+                last = exc
+                continue
             if not _transient(exc):
                 raise
             last = exc
