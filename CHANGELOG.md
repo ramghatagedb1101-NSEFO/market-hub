@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Trading mode made explicit (Sat 14 Nov 2026)
+Owner: "The autopilot switch, make it more explicit." The small Manual / Autopilot toggle at the top of Strategies is
+now two cards side by side. The one in force has a coloured border and an "● ON" badge, and says what it is doing:
+Manual "Trading now: <strategy> · Switch off" or "Nothing switched on: watching only"; Autopilot the market condition,
+the strategy running and the fallback. The other card reads "Switch to ..." and asks first (the same confirmation as
+before). Checked in the preview in both modes; Cancel leaves the mode unchanged; no console errors.
+
 ### Strategy chart: add any indicator; ITM / ATM / OTM; 3-minute view (Sat 14 Nov 2026)
 Owner: "give me a option to add various parameters"; "ITM, ATM and OTM can also be selected?"; "need 3 min option also
 on the chart".

@@ -300,6 +300,19 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
 .risk-bar i{position:absolute;top:-4px;width:4px;height:16px;border-radius:2px;background:var(--text);transform:translateX(-2px)}
 .risk-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--text-3)}
 @media (max-width:700px){ .pr{grid-template-columns:1fr} }
+
+/* Trading mode cards (14 Nov 2026) */
+.mode-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:-6px 0 14px}
+.mode-card{display:flex;flex-direction:column;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;font:inherit;color:inherit}
+.mode-card:hover{border-color:var(--border-strong)}
+.mode-card.on{border:2px solid var(--accent);padding:13px 15px;background:var(--accent-soft);cursor:default}
+.mode-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mode-title{font-size:16px;font-weight:700}
+.mode-badge{font-size:11.5px;font-weight:700;color:#fff;background:var(--accent);border-radius:999px;padding:2px 10px}
+.mode-off{font-size:12px;color:var(--accent-text);font-weight:600}
+.mode-line{font-size:12.5px;color:var(--text-2)}
+.mode-state{font-size:12.5px;color:var(--text-3)}
+@media (max-width:700px){ .mode-wrap{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -2281,10 +2294,19 @@ function pageStrategies(){
   const items = S.strat.items || [], act = items.find(x => x.id === S.strat.active), L = S.strat.limits || {};
   const auto = S.strat.mode === 'autopilot';
   if (auto && !S.algo && !S.algoLoading) algoLoad();
-  let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-8px 0 12px">' +
-    '<span style="display:flex;gap:10px;align-items:center"><div class="seg"><button type="button" class="' + (auto ? '' : 'on') + '" onclick="stMode(\'manual\')">Manual</button><button type="button" class="' + (auto ? 'on' : '') + '" onclick="stMode(\'autopilot\')">Autopilot</button></div>' +
-    (auto ? '' : act ? '<span class="chip up">Trading: ' + esc(act.name) + '</span> <a href="javascript:void 0" onclick="stOn(\'\')">Switch off</a>' : '<span class="chip">Watching only</span>') + '</span>' +
-    '<span class="muted" style="font-size:12px">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></span></div>';
+  // Trading mode (owner, 14 Nov 2026: "The autopilot switch, make it more explicit"): two cards, the one in force
+  // marked ON with what it is doing now; pressing the other asks first.
+  const apNow = ((S.algo && !S.algo.error && S.algo.status) || {}).autopilot;
+  const card = (k, title, line, on, state) => '<button type="button" class="mode-card' + (on ? ' on' : '') + '" ' + (on ? 'aria-pressed="true"' : 'onclick="stMode(\'' + k + '\')"') + '>' +
+    '<span class="mode-top"><span class="mode-title">' + title + '</span>' + (on ? '<span class="mode-badge">● ON</span>' : '<span class="mode-off">Switch to ' + title.toLowerCase() + '</span>') + '</span>' +
+    '<span class="mode-line">' + line + '</span><span class="mode-state">' + state + '</span></button>';
+  let h = '<div class="mode-wrap">' +
+    card('manual', 'Manual', 'You choose the strategy: press Trade this on one.', !auto,
+      !auto ? (act ? 'Trading now: <b>' + esc(act.name) + '</b> · <a href="javascript:void 0" onclick="event.stopPropagation();stOn(\'\')">Switch off</a>' : 'Nothing switched on: watching only') : '&nbsp;') +
+    card('autopilot', 'Autopilot', 'The program picks a strategy by market condition at 09:30, 11:00 and 13:00.', auto,
+      auto ? (apNow ? 'Market: <b>' + esc(COND[apNow.regime] || 'not read yet') + '</b> · running: <b>' + esc(apNow.strategy || 'nothing (watching)') + '</b>' : 'On · first check at 09:30 on a market day') +
+        ' · fallback: <b>' + esc(((items.find(x => x.id === S.strat.fallback) || {}).name) || 'none') + '</b>' : '&nbsp;') +
+    '</div><div class="muted" style="font-size:12px;margin:-4px 0 12px">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div>';
   if (ST_MSG) h += '<div class="notice" style="margin-bottom:12px">' + esc(ST_MSG) + '</div>';
   if (auto) h += stAutoPanel(items);
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span class="muted" style="font-size:13px">' + items.length + ' strateg' + (items.length === 1 ? 'y' : 'ies') + '</span><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div>';
