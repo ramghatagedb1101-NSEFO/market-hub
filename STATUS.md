@@ -90,7 +90,6 @@ As of Sat 14 Nov 2026, ~22:20 IST. Start with the 14 Nov HANDOVER just below, th
 - To check: an earlier back-test was dispatched three times in a minute (two cancelled) -- confirm whether the owner
   clicked twice.
 - Multi-leg trades (straddle, strangle, condor, spreads): built 14 Nov night (step 2 below); VWAP still later.
-  sessions; VWAP (futures data) and IV percentile.
 
 ### Strategy bot (owner, 14 Nov 2026 night) -- plan agreed, step 1 under way
 Goal: strategies with a real chance of making money live, found and tested by a bot; the bot RECOMMENDS, the owner
