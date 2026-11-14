@@ -1949,7 +1949,7 @@ function stcSet(k, v){ STC[k] = v; rerender(); }
 function stcAdd(t){
   const L = STC.ind[stcKind()], def = STC_CAT[t];
   if (!def) return;
-  if (def.low) { for (let i = L.length - 1; i >= 0; i--) if (STC_CAT[L[i].t].low) L.splice(i, 1); }   // one lower panel
+  if (def.low) { if (L.filter(x => STC_CAT[x.t].low).length >= 3) { ST_MSG = 'At most three panels under the price: remove one first.'; rerender(); return; } }
   else {
     const used = new Set(L.filter(x => !STC_CAT[x.t].low && x.c >= 0).map(x => x.c));
     if (t !== 'st' && used.size >= 4) { ST_MSG = 'At most four coloured lines on the price: remove one first.'; rerender(); return; }
@@ -2000,7 +2000,7 @@ function stcPanel(E){
     const def = STC_CAT[it.t], BS = stcBS(), col = def.low ? P[2] : it.t === 'st' ? 'linear-gradient(to right,' + BS.buy + ' 50%,' + BS.sell + ' 50%)' : P[it.c];
     const pars = Object.keys(def.p).map(k => '<input class="field num" title="' + def.p[k][1] + '" aria-label="' + def.p[k][1] + '" style="width:46px;height:24px;padding:0 4px" value="' + it[k] + '" onchange="stcPar(' + i + ', \'' + k + '\', this.value)">').join('');
     return '<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:2px 4px 2px 10px;font-size:12px;background:var(--surface)">' +
-      '<span style="width:12px;height:3px;border-radius:2px;background:' + col + '"></span>' + esc(it.t === 'sma' ? (kind === 'daily' ? 'DMA' : 'SMA') : def.l) + (def.low ? ' <span class="faint">(lower panel)</span>' : '') + pars +
+      '<span style="width:12px;height:3px;border-radius:2px;background:' + col + '"></span>' + esc(it.t === 'sma' ? (kind === 'daily' ? 'DMA' : 'SMA') : def.l) + (def.low ? ' <span class="faint">(own panel)</span>' : '') + pars +
       (STC_SIGS[it.t] ? '<button type="button" title="Buy / sell labels on the chart' + (it.t === 'st' ? '' : ' (and the line green / red)') + '" onclick="stcSig(' + i + ')" style="border:1px solid ' + (it.sig ? 'var(--accent)' : 'var(--border)') + ';background:' + (it.sig ? 'var(--accent-soft)' : 'none') + ';color:' + (it.sig ? 'var(--accent-text)' : 'var(--text-3)') + ';border-radius:999px;font-size:11px;font-weight:600;padding:1px 7px;cursor:pointer">' + (it.sig ? '✓ ' : '') + 'B/S</button>' : '') +
       '<button type="button" title="Remove" aria-label="Remove ' + esc(def.l) + '" onclick="stcDel(' + i + ')" style="border:0;background:none;cursor:pointer;color:var(--text-3);font-size:14px;padding:0 4px">×</button></span>';
   }).join('');
@@ -2010,10 +2010,10 @@ function stcPanel(E){
     Object.keys(groups).map(g => '<optgroup label="' + g + '">' + groups[g].map(t => '<option value="' + t + '">' + STC_CAT[t].l + '</option>').join('') + '</optgroup>').join('') +
     '<optgroup label="Coming when the data is ready">' + STC_SOON.map(l => '<option disabled>' + l + '</option>').join('') + '</optgroup></select>';
   ctl += '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">' + pills + add + '</div>';
-  const low = L.find(x => STC_CAT[x.t].low);
   const note = !D || D.loading ? 'Loading index prices…' : D.error ? D.error : '';
   return '<div class="panel" style="margin-bottom:12px"><div class="panel-h"><h3>Chart · ' + esc(idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + '</h3><span class="muted" style="font-size:12px">ICICI minute history' + (days.length ? ' · ' + bDay(dayOf(days[0][0])) + ' to ' + bDay(dayOf(days[days.length - 1][0])) : '') + '</span></div><div class="panel-b">' +
-    ctl + (note ? '<div class="muted">' + esc(note) + '</div>' : '') + '<div id="st-chart" style="height:' + (low ? 430 : 340) + 'px;position:relative"></div><div id="st-chart-legend" class="muted" style="font-size:12px;margin-top:6px"></div></div></div>';
+    ctl + (note ? '<div class="muted">' + esc(note) + '</div>' : '') + '<div id="st-chart" style="position:relative;min-height:' + (380 + 130 * L.filter(x => STC_CAT[x.t].low).length) + 'px"></div>' +
+    (STC.view !== 'daily' ? '<div class="faint" style="font-size:11px;margin-top:6px">The chosen session and the four before it.</div>' : '') + '</div></div>';
 }
 function stcBars(dayRows, day, tf){
   const [y, m, d] = day.split('-').map(Number), out = [];
@@ -2072,151 +2072,177 @@ function stcPrevPeriod(days, date, kind){
   const k1 = key(prev[prev.length - 1][0]), grp = prev.filter(r => key(r[0]) === k1);
   return { h: Math.max(...grp.map(r => r[2])), l: Math.min(...grp.map(r => r[3])), c: grp[grp.length - 1][4] };
 }
+// Drawing, TradingView style (owner, 14 Nov 2026: "give it in two views, just like how tradingview gives. One below
+// the other", with a screenshot): the price panel on top and one panel per lower indicator underneath, each with its
+// own scale, all sharing one time axis (only the bottom one shows it), scroll / zoom and crosshair kept in step.
+// Intraday shows the chosen session and the four before it, continuous; levels (previous day, pivots, opening range)
+// step day by day. Names and values sit top-left in each panel; buy / sell show as filled flags above / below the bar.
+const STC_SPAN = 5;                                   // sessions shown on intraday views
+function stcDayKey(t){ return typeof t === 'number' ? new Date(t * 1000).toISOString().slice(0, 10) : String(t).slice(0, 10); }
 function stcDraw(){
   const el = $('st-chart'), E = ST_EDIT;
   if (!el || !E || typeof LightweightCharts === 'undefined') return;
   const idx = E.index || 'NIFTY', D = STD.daily[idx];
   if (!D || !D.days || !D.days.length) return;
-  const P = stcPal(), text = cssVar('--text-3'), grid = cssVar('--border-subtle'), up = cssVar('--up'), down = cssVar('--down'), muted = cssVar('--text-4') || text;
-  const daily = STC.view === 'daily', legend = [], kind = stcKind();
-  let bars = [], prevDay = null, day = null;
+  const P = stcPal(), BS = stcBS(), text = cssVar('--text-3'), grid = cssVar('--border-subtle'), up = cssVar('--up'), down = cssVar('--down'), muted = cssVar('--text-4') || text;
+  const daily = STC.view === 'daily', kind = stcKind(), L = STC.ind[kind];
+  // ---- bars
+  let bars = [], sessions = [];
   if (daily) bars = D.days.map(r => ({ time: r[0], open: r[1], high: r[2], low: r[3], close: r[4] }));
   else {
-    day = STC.day || D.days[D.days.length - 1][0];
-    const mo = stcLoad(idx, day.slice(0, 7));
-    if (!mo || mo.loading || mo.error) { if (mo && mo.error) el.innerHTML = '<div class="muted">' + esc(mo.error) + '</div>'; return; }
-    const di = D.days.findIndex(r => r[0] === day);
-    prevDay = di > 0 ? D.days[di - 1] : null;
-    let warm = [];                                   // the session before, so averages and RSI start with history
-    if (prevDay) {
-      const pm = prevDay[0].slice(0, 7) === day.slice(0, 7) ? mo : stcLoad(idx, prevDay[0].slice(0, 7));
-      if (pm && pm.days && pm.days[prevDay[0]]) warm = stcBars(pm.days[prevDay[0]], prevDay[0], STC.view);
+    const day = STC.day || D.days[D.days.length - 1][0], di = Math.max(0, D.days.findIndex(r => r[0] === day));
+    sessions = D.days.slice(Math.max(0, di - STC_SPAN + 1), di + 1).map(r => r[0]);
+    for (const d of sessions) {
+      const mo = stcLoad(idx, d.slice(0, 7));
+      if (!mo || mo.loading) return;                 // a month still loading: drawn again when it arrives
+      if (mo.error) { el.innerHTML = '<div class="muted">' + esc(mo.error) + '</div>'; return; }
+      bars = bars.concat(stcBars((mo.days || {})[d] || [], d, STC.view));
     }
-    bars = warm.concat(stcBars((mo.days || {})[day] || [], day, STC.view));
-    bars.warmN = warm.length;
   }
   if (!bars.length) { el.innerHTML = '<div class="muted">No prices for that day.</div>'; return; }
-  const L = STC.ind[kind], lowItem = L.find(x => STC_CAT[x.t].low);
-  const chart = LightweightCharts.createChart(el, { autoSize: true,
+  const closes = bars.map(b => b.close), n = bars.length;
+  const dayIdx = Object.fromEntries(D.days.map((r, i) => [r[0], i]));
+  const prevOf = d => { const i = dayIdx[d]; return i > 0 ? D.days[i - 1] : null; };
+  const perDay = f => bars.map(b => f(stcDayKey(b.time), b));          // a value per bar from its own session
+  const orbOf = (() => { const cache = {}; return (d, m) => { const k = d + m; if (k in cache) return cache[k];
+    const t0 = bars.find(b => stcDayKey(b.time) === d), rows = bars.filter(b => stcDayKey(b.time) === d && b.time < t0.time + m * 60);
+    return (cache[k] = rows.length ? [Math.max(...rows.map(b => b.high)), Math.min(...rows.map(b => b.low)), t0.time + m * 60] : null); }; })();
+  // ---- panels
+  const lows = L.filter(x => STC_CAT[x.t].low);
+  el.innerHTML = ''; el.style.height = 'auto';
+  const mk = (h, last) => { const d = document.createElement('div'); d.style.cssText = 'position:relative;height:' + h + 'px;' + (last ? '' : 'border-bottom:1px solid var(--border-subtle);'); el.append(d); return d; };
+  const mainDiv = mk(daily ? 380 : 400, !lows.length), lowDivs = lows.map((_, k) => mk(130, k === lows.length - 1));
+  const opts = showTime => ({ autoSize: true,
     layout: { background: { type: 'solid', color: 'transparent' }, textColor: text, fontFamily: cssVar('--font'), attributionLogo: false },
-    grid: { vertLines: { color: grid }, horzLines: { color: grid } }, rightPriceScale: { borderVisible: false },
-    timeScale: { borderVisible: false, timeVisible: !daily, secondsVisible: false }, crosshair: { mode: 0 } });
-  lwcCharts.push(chart);
-  if (lowItem) chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.06, bottom: 0.3 } });
-  const main = chart.addCandlestickSeries({ upColor: up, downColor: down, borderVisible: false, wickUpColor: up, wickDownColor: down });
-  main.setData(bars.map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
-  const closes = bars.map(b => b.close);
-  const line = (vals, color, title, opt) => {
-    const pts = bars.map((b, i) => ({ time: b.time, value: vals[i] })).filter(p => p.value != null && isFinite(p.value));
-    if (pts.length) chart.addLineSeries(Object.assign({ color, lineWidth: 2, title, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }, opt || {})).setData(pts);
-  };
-  const level = (price, color, title) => { if (price != null && isFinite(price)) main.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title }); };
-  const today = daily ? [] : bars.slice(bars.warmN || 0), t0 = today.length ? today[0].time : null;
-  const orb = m => { const r = today.filter(b => b.time < t0 + m * 60); return r.length ? [Math.max(...r.map(b => b.high)), Math.min(...r.map(b => b.low))] : null; };
-  const name = it => { const def = STC_CAT[it.t]; return (it.t === 'sma' ? (daily ? 'DMA' : 'SMA') : def.l.replace(' (classic)', '')) + (Object.keys(def.p).length ? ' ' + Object.keys(def.p).map(k => it[k]).join(', ') : ''); };
-  // a level per bar, from the previous week / month (daily view: steps)
-  const stepLevels = (kind2, pick) => bars.map(b => { const pp = stcPrevPeriod(D.days, b.time, kind2); return pp ? pick(pp) : null; });
-  // Buy / sell (owner, 14 Nov 2026: "put a label of buy or sell based on chart type and indicator. for example in
-  // super trend when it changes the direction"; "line is green when its buy signal"). Per indicator, when its B/S
-  // switch is on: labels where its rule fires, and (one-line indicators) the line green while the rule says buy, red
-  // while it says sell. Rules: Supertrend flips; price crosses SMA / EMA; close back inside a Bollinger band; Donchian
-  // breakout; RSI up through 30 / down through 70; MACD crosses its signal; Stochastic %K crosses %D below 20 / above
-  // 80; +DI crosses -DI while ADX is 20 or more.
-  const BS = stcBS(), mk = [];
-  // one indicator with labels: "Buy" / "Sell"; several: short "B·ST" / "S·EMA 20" so they do not pile up
-  const many = L.filter(x => x.sig && STC_SIGS[x.t]).length > 1;
-  const mark = (i, buy, code) => { if (i > 0 && i < bars.length && (!daily ? i >= (bars.warmN || 0) : true)) mk.push({ time: bars[i].time, position: buy ? 'belowBar' : 'aboveBar', color: buy ? BS.buy : BS.sell, shape: buy ? 'arrowUp' : 'arrowDown', text: many ? (buy ? 'B·' : 'S·') + code : (buy ? 'Buy' : 'Sell') }); };
-  const crosses = (a, b, code, cond) => { for (let i = 1; i < bars.length; i++) { if ([a[i], a[i - 1], b[i], b[i - 1]].some(v => v == null)) continue;
-    if (a[i - 1] <= b[i - 1] && a[i] > b[i] && (!cond || cond(i, true))) mark(i, true, code);
-    else if (a[i - 1] >= b[i - 1] && a[i] < b[i] && (!cond || cond(i, false))) mark(i, false, code); } };
-  const stateLine = (vals, state, title) => {                // a line in buy / sell colour, point by point
-    const pts = bars.map((b, i) => vals[i] == null || !isFinite(vals[i]) ? null : { time: b.time, value: vals[i], color: state(i) ? BS.buy : BS.sell }).filter(Boolean);
-    if (pts.length) chart.addLineSeries({ color: BS.buy, lineWidth: 2, title, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }).setData(pts);
-  };
+    grid: { vertLines: { color: grid }, horzLines: { color: grid } }, rightPriceScale: { borderVisible: false, minimumWidth: 76 },
+    timeScale: { borderVisible: false, visible: showTime, timeVisible: !daily, secondsVisible: false, rightOffset: 4 }, crosshair: { mode: 0 } });
+  const main = LightweightCharts.createChart(mainDiv, opts(!lows.length));
+  lwcCharts.push(main);
+  const candles = main.addCandlestickSeries({ upColor: up, downColor: down, borderVisible: false, wickUpColor: up, wickDownColor: down, priceLineVisible: true });
+  candles.setData(bars.map(b => ({ time: b.time, open: b.open, high: b.high, low: b.low, close: b.close })));
+  const legendMain = [];                               // [colour, name, values by bar or null]
+  const pts = (vals, colorOf) => bars.map((b, i) => vals[i] == null || !isFinite(vals[i]) ? { time: b.time } : Object.assign({ time: b.time, value: vals[i] }, colorOf ? { color: colorOf(i) } : {}));
+  const line = (target, vals, color, name, o) => { target.addLineSeries(Object.assign({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }, o || {})).setData(pts(vals, o && o.colorOf)); };
+  const over = (vals, color, name, o) => { line(main, vals, color, name, o); legendMain.push([o && o.colorOf ? BS.buy : color, name, vals]); };
+  // ---- buy / sell (owner: labels at each signal; one-line indicators green while buy, red while sell)
+  const many = L.filter(x => x.sig && STC_SIGS[x.t]).length > 1, flags = [];
+  const flag = (i, buy, code) => { if (i > 0 && i < n) flags.push({ i, buy, text: (buy ? 'Buy' : 'Sell') + (many ? ' · ' + code : '') }); };
+  const crosses = (a, b, code, cond) => { for (let i = 1; i < n; i++) { if ([a[i], a[i - 1], b[i], b[i - 1]].some(v => v == null)) continue;
+    if (a[i - 1] <= b[i - 1] && a[i] > b[i] && (!cond || cond(i, true))) flag(i, true, code); else if (a[i - 1] >= b[i - 1] && a[i] < b[i] && (!cond || cond(i, false))) flag(i, false, code); } };
+  const step = { lineType: 1, lineWidth: 1 };
   L.forEach(it => {
     const def = STC_CAT[it.t];
     if (def.low) return;
-    const col = P[it.c] || P[0], nm = name(it), code = STC_SIGS[it.t] + (it.n && it.t !== 'st' ? ' ' + it.n : '');
-    if (it.t === 'sma' || it.t === 'ema') {
-      const m = (it.t === 'sma' ? sma : ema)(closes, it.n), title = (it.t === 'ema' ? 'EMA ' : daily ? 'DMA ' : 'SMA ') + it.n;
-      if (it.sig) { stateLine(m, i => closes[i] >= m[i], title); crosses(closes, m, code); } else line(m, col, title);
-    }
-    else if (it.t === 'bb') { const b = bollinger(closes, it.n, it.k); line(b.up, col, 'BB upper', { lineWidth: 1 }); line(b.mid, col, 'BB ' + it.n + ', ' + it.k, { lineWidth: 1, lineStyle: 2 }); line(b.lo, col, 'BB lower', { lineWidth: 1 });
-      if (it.sig) for (let i = 1; i < bars.length; i++) { if (b.lo[i - 1] != null && closes[i - 1] < b.lo[i - 1] && closes[i] >= b.lo[i]) mark(i, true, 'BB'); else if (b.up[i - 1] != null && closes[i - 1] > b.up[i - 1] && closes[i] <= b.up[i]) mark(i, false, 'BB'); } }
+    const col = P[it.c] || P[0], code = STC_SIGS[it.t] + (it.n && it.t !== 'st' ? ' ' + it.n : '');
+    if (it.t === 'sma' || it.t === 'ema') { const m = (it.t === 'sma' ? sma : ema)(closes, it.n), nm = (it.t === 'ema' ? 'EMA ' : daily ? 'DMA ' : 'SMA ') + it.n;
+      if (it.sig) { over(m, col, nm, { colorOf: i => closes[i] >= m[i] ? BS.buy : BS.sell }); crosses(closes, m, code); } else over(m, col, nm); }
+    else if (it.t === 'bb') { const b = bollinger(closes, it.n, it.k); over(b.up, col, 'BB ' + it.n + ', ' + it.k + ' upper', { lineWidth: 1 }); line(main, b.mid, col, '', { lineWidth: 1, lineStyle: 2 }); over(b.lo, col, 'lower', { lineWidth: 1 });
+      if (it.sig) for (let i = 1; i < n; i++) { if (b.lo[i - 1] != null && closes[i - 1] < b.lo[i - 1] && closes[i] >= b.lo[i]) flag(i, true, 'BB'); else if (b.up[i - 1] != null && closes[i - 1] > b.up[i - 1] && closes[i] <= b.up[i]) flag(i, false, 'BB'); } }
     else if (it.t === 'st') { const st = stcSupertrend(bars, it.n, it.k);
-      stateLine(st, i => st.up[i], 'Supertrend ' + it.n + ', ' + it.k);
-      if (it.sig) for (let i = 1; i < bars.length; i++) if (st.up[i] != null && st.up[i - 1] != null && st.up[i] !== st.up[i - 1]) mark(i, st.up[i], 'ST'); }
-    else if (it.t === 'dc') { const hi = [], lo = []; bars.forEach((b, i) => { if (i < it.n - 1) { hi.push(null); lo.push(null); return; } const w = bars.slice(i - it.n + 1, i + 1); hi.push(Math.max(...w.map(x => x.high))); lo.push(Math.min(...w.map(x => x.low))); }); line(hi, col, 'Donchian high ' + it.n, { lineWidth: 1 }); line(lo, col, 'Donchian low ' + it.n, { lineWidth: 1 });
-      if (it.sig) for (let i = 1; i < bars.length; i++) { if (hi[i - 1] != null && closes[i] > hi[i - 1]) mark(i, true, 'DC'); else if (lo[i - 1] != null && closes[i] < lo[i - 1]) mark(i, false, 'DC'); } }
+      over(st, BS.buy, 'Supertrend ' + it.n + ', ' + it.k, { colorOf: i => st.up[i] ? BS.buy : BS.sell });
+      if (it.sig) for (let i = 1; i < n; i++) if (st.up[i] != null && st.up[i - 1] != null && st.up[i] !== st.up[i - 1]) flag(i, st.up[i], 'ST'); }
+    else if (it.t === 'dc') { const hi = [], lo = []; bars.forEach((b, i) => { if (i < it.n - 1) { hi.push(null); lo.push(null); return; } const w = bars.slice(i - it.n + 1, i + 1); hi.push(Math.max(...w.map(x => x.high))); lo.push(Math.min(...w.map(x => x.low))); });
+      over(hi, col, 'Donchian ' + it.n + ' high', { lineWidth: 1 }); over(lo, col, 'low', { lineWidth: 1 });
+      if (it.sig) for (let i = 1; i < n; i++) { if (hi[i - 1] != null && closes[i] > hi[i - 1]) flag(i, true, 'DC'); else if (lo[i - 1] != null && closes[i] < lo[i - 1]) flag(i, false, 'DC'); } }
     else if (it.t === 'piv') {
-      if (daily) { const pv = stepLevels('week', pp => stcPivots(pp.h, pp.l, pp.c)); ['R2', 'R1', 'P', 'S1', 'S2'].forEach(k => line(pv.map(x => x && x[k]), col, 'Weekly ' + k, { lineWidth: 1, lineStyle: k === 'P' ? 0 : 2, lineType: 1 })); }
-      else if (prevDay) { const pv = stcPivots(prevDay[2], prevDay[3], prevDay[4]); ['R3', 'R2', 'R1', 'P', 'S1', 'S2', 'S3'].forEach(k => level(pv[k], col, k)); }
-    }
-    else if (it.t === 'pdh' && prevDay) { level(prevDay[2], col, "Prev day high"); level(prevDay[3], col, "Prev day low"); level(prevDay[4], col, "Prev day close"); }
-    else if (it.t === 'pwh' || it.t === 'pmh') {
-      const k2 = it.t === 'pwh' ? 'week' : 'month', w = k2 === 'week' ? 'Prev week' : 'Prev month';
-      if (daily) { line(stepLevels(k2, pp => pp.h), col, w + ' high', { lineWidth: 1, lineType: 1 }); line(stepLevels(k2, pp => pp.l), col, w + ' low', { lineWidth: 1, lineType: 1 }); }
-      else { const pp = stcPrevPeriod(D.days, day, k2); if (pp) { level(pp.h, col, w + ' high'); level(pp.l, col, w + ' low'); } }
-    }
-    else if (it.t === 'orb' && today.length) { const r = orb(it.n); if (r) { level(r[0], col, 'Opening ' + it.n + ' min high'); level(r[1], col, 'Opening ' + it.n + ' min low'); } }
-    legend.push([it.t === 'st' || ((it.t === 'sma' || it.t === 'ema') && it.sig) ? BS.buy : col, nm + (it.sig ? ' · buy / sell shown' : '')]);
+      const pv = daily ? bars.map(b => { const pp = stcPrevPeriod(D.days, b.time, 'week'); return pp ? stcPivots(pp.h, pp.l, pp.c) : null; })
+                       : perDay(d => { const p = prevOf(d); return p ? stcPivots(p[2], p[3], p[4]) : null; });
+      ['R2', 'R1', 'P', 'S1', 'S2'].forEach(k => over(pv.map(x => x && x[k]), col, (k === 'R2' ? (daily ? 'Weekly pivots ' : 'Pivots ') : '') + k, Object.assign({}, step, { lineStyle: k === 'P' ? 0 : 2 }))); }
+    else if (it.t === 'pdh' && !daily) { ['high', 'low', 'close'].forEach((w, j) => over(perDay(d => { const p = prevOf(d); return p ? p[2 + j] : null; }), col, (j ? '' : 'Prev day ') + w, Object.assign({}, step, { lineStyle: 2 }))); }
+    else if (it.t === 'pwh' || it.t === 'pmh') { const k2 = it.t === 'pwh' ? 'week' : 'month';
+      ['h', 'l'].forEach((w, j) => over(bars.map(b => { const pp = stcPrevPeriod(D.days, stcDayKey(b.time), k2); return pp ? pp[w] : null; }), col, (j ? '' : 'Prev ' + k2 + ' ') + (j ? 'low' : 'high'), Object.assign({}, step, { lineStyle: 2 }))); }
+    else if (it.t === 'orb' && !daily) { [0, 1].forEach(j => over(perDay((d, b) => { const r = orbOf(d, it.n); return r && b.time >= r[2] ? r[j] : null; }), col, j ? 'low' : 'Opening ' + it.n + ' min high', Object.assign({}, step, { lineStyle: 2 }))); }
   });
-  if (!daily) {
-    if (STC.strat) {
-      // the strategy's own lines, from its signals (worked out on this chart's bars), in the neutral ink
-      const seen = new Set();
-      const avg = (kind3, n) => { const k = kind3 + n; if (seen.has(k) || seen.size >= 2) return; seen.add(k); line((kind3 === 'sma' ? sma : ema)(closes, n), muted, 'Strategy ' + kind3.toUpperCase() + ' ' + n, { lineStyle: 1 }); legend.push([muted, 'Strategy ' + kind3.toUpperCase() + ' ' + n]); };
-      (E.groups || []).forEach(g => g.signals.forEach(s => {
-        if (s.type === 'price_ma') avg(s.ma || 'ema', s.period);
-        if (s.type === 'ma_cross') { avg(s.ma || 'ema', s.fast); avg(s.ma || 'ema', s.slow); }
-        if (s.type === 'orb' && today.length) { const r = orb(s.minutes || 15); if (r) level(s.dir === 'down' ? r[1] : r[0], muted, 'Strategy opening ' + (s.minutes || 15) + ' min ' + (s.dir === 'down' ? 'low' : 'high')); }
-        if (s.type === 'compare') [s.left, s.right].forEach(o => { if (!o) return;
-          if (o.src === 'ema' || o.src === 'sma') avg(o.src, o.n || 14);
-          if ((o.src === 'prev_high' || o.src === 'prev_low') && prevDay) level(o.src === 'prev_high' ? prevDay[2] : prevDay[3], muted, o.src === 'prev_high' ? 'Strategy: yesterday high' : 'Strategy: yesterday low');
-          if ((o.src === 'orb_high' || o.src === 'orb_low') && today.length) { const r = orb(o.n || 15); if (r) level(o.src === 'orb_high' ? r[0] : r[1], muted, 'Strategy opening ' + (o.n || 15) + ' min ' + (o.src === 'orb_high' ? 'high' : 'low')); }
-          if (o.src === 'value' && Math.abs(Number(o.value)) > 1000) level(Number(o.value), muted, 'Strategy level ' + num(Number(o.value), 0)); });
-      }));
-    }
-    const bt = E.id && STD.bt[E.id];
-    if (STC.trades && bt && bt.summary && t0 != null) {
-      const toT = s => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], Math.floor(+m[5] / STC.view) * STC.view) / 1000 : null; };
-      let n0 = 0;
-      (bt.summary.trades || []).filter(t => String(t.entry_t).slice(0, 10) === day || String(t.exit_t).slice(0, 10) === day).forEach(t => {
-        const a = toT(t.entry_t), z = toT(t.exit_t);
-        if (String(t.entry_t).slice(0, 10) === day && a) { mk.push({ time: a, position: 'belowBar', color: P[0], shape: 'circle', text: 'Back-test ' + (t.dir === 'long' ? 'buy ' : 'sell ') + num(t.entry, 2) }); n0++; }
-        if (String(t.exit_t).slice(0, 10) === day && z) mk.push({ time: z, position: 'aboveBar', color: P[0], shape: 'circle', text: t.why + ' ' + (t.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(t.pnl), 0) });
-      });
-      if (n0) legend.push([P[0], 'Back-test trades that day (circles)']);
-    }
+  if (!daily && STC.strat) {
+    // the strategy's own lines, from its signals, in the neutral ink
+    const seen = new Set();
+    const avg = (k3, nn) => { const k = k3 + nn; if (seen.has(k) || seen.size >= 2) return; seen.add(k); over((k3 === 'sma' ? sma : ema)(closes, nn), muted, 'Strategy ' + k3.toUpperCase() + ' ' + nn, { lineStyle: 1 }); };
+    const lvl = (f, nm) => over(perDay(f), muted, nm, Object.assign({}, step, { lineStyle: 1 }));
+    (E.groups || []).forEach(g => g.signals.forEach(sg => {
+      if (sg.type === 'price_ma') avg(sg.ma || 'ema', sg.period);
+      if (sg.type === 'ma_cross') { avg(sg.ma || 'ema', sg.fast); avg(sg.ma || 'ema', sg.slow); }
+      if (sg.type === 'orb') lvl((d, b) => { const r = orbOf(d, sg.minutes || 15); return r && b.time >= r[2] ? r[sg.dir === 'down' ? 1 : 0] : null; }, 'Strategy opening ' + (sg.minutes || 15) + ' min ' + (sg.dir === 'down' ? 'low' : 'high'));
+      if (sg.type === 'compare') [sg.left, sg.right].forEach(o => { if (!o) return;
+        if (o.src === 'ema' || o.src === 'sma') avg(o.src, o.n || 14);
+        if (o.src === 'prev_high' || o.src === 'prev_low') lvl(d => { const p = prevOf(d); return p ? p[o.src === 'prev_high' ? 2 : 3] : null; }, 'Strategy: yesterday ' + (o.src === 'prev_high' ? 'high' : 'low'));
+        if (o.src === 'orb_high' || o.src === 'orb_low') lvl((d, b) => { const r = orbOf(d, o.n || 15); return r && b.time >= r[2] ? r[o.src === 'orb_high' ? 0 : 1] : null; }, 'Strategy opening ' + (o.n || 15) + ' min ' + (o.src === 'orb_high' ? 'high' : 'low')); });
+    }));
   }
-  if (lowItem) {
-    const it = lowItem, cA = P[2], cB = P[1];
-    const low = (vals, color, title) => { const s = chart.addLineSeries({ priceScaleId: 'ind', color, lineWidth: 1.5, title, priceLineVisible: false, lastValueVisible: true }); s.setData(bars.map((b, i) => ({ time: b.time, value: vals[i] })).filter(p => p.value != null && isFinite(p.value))); return s; };
-    if (it.t === 'rsi') { const r = rsi(closes, it.n), s = low(r, cA, 'RSI ' + it.n); [70, 30].forEach(v => s.createPriceLine({ price: v, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: String(v) }));
-      if (it.sig) for (let i = 1; i < bars.length; i++) { if (r[i - 1] != null && r[i - 1] < 30 && r[i] >= 30) mark(i, true, 'RSI'); else if (r[i - 1] != null && r[i - 1] > 70 && r[i] <= 70) mark(i, false, 'RSI'); } }
+  // back-test trades: blue circles with the price / result
+  const bt = E.id && STD.bt[E.id], marks = [];
+  if (!daily && STC.trades && bt && bt.summary) {
+    const inView = new Set(sessions), toT = s => { const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/); return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], Math.floor(+m[5] / STC.view) * STC.view) / 1000 : null; };
+    (bt.summary.trades || []).forEach(t => {
+      if (inView.has(String(t.entry_t).slice(0, 10))) marks.push({ time: toT(t.entry_t), position: 'belowBar', color: P[0], shape: 'circle', text: 'Back-test ' + (t.dir === 'long' ? 'buy ' : 'sell ') + num(t.entry, 2) });
+      if (inView.has(String(t.exit_t).slice(0, 10))) marks.push({ time: toT(t.exit_t), position: 'aboveBar', color: P[0], shape: 'circle', text: t.why + ' ' + (t.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(t.pnl), 0) });
+    });
+    if (marks.length) candles.setMarkers(marks.filter(m => m.time).sort((a, b) => a.time - b.time));
+  }
+  // ---- lower panels, one per indicator
+  const lowCharts = [];
+  lows.forEach((it, k) => {
+    const ch = LightweightCharts.createChart(lowDivs[k], opts(k === lows.length - 1));
+    lwcCharts.push(ch);
+    const leg = [], add = (vals, color, name, o) => { const s = ch.addLineSeries(Object.assign({ color, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false }, o || {})); s.setData(pts(vals)); leg.push([color, name, vals]); return s; };
+    const guide = (s, v) => s.createPriceLine({ price: v, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+    let first = null;
+    if (it.t === 'rsi') { const r = rsi(closes, it.n); first = add(r, P[2], 'RSI ' + it.n); guide(first, 70); guide(first, 30);
+      if (it.sig) for (let i = 1; i < n; i++) { if (r[i - 1] != null && r[i - 1] < 30 && r[i] >= 30) flag(i, true, 'RSI'); else if (r[i - 1] != null && r[i - 1] > 70 && r[i] <= 70) flag(i, false, 'RSI'); } }
     else if (it.t === 'macd') { const m = macd(closes, it.f, it.s, it.g);
-      chart.addHistogramSeries({ priceScaleId: 'ind', priceLineVisible: false, lastValueVisible: false }).setData(bars.map((b, i) => ({ time: b.time, value: m.hist[i], color: (m.hist[i] >= 0 ? BS.buy : BS.sell) + '88' })).filter(p => p.value != null));
-      low(m.macd, P[0], 'MACD'); low(m.signal, cB, 'Signal'); if (it.sig) crosses(m.macd, m.signal, 'MACD'); }
-    else if (it.t === 'sto') { const k = bars.map((b, i) => { if (i < it.n - 1) return null; const w = bars.slice(i - it.n + 1, i + 1), hh = Math.max(...w.map(x => x.high)), ll = Math.min(...w.map(x => x.low)); return hh > ll ? (b.close - ll) / (hh - ll) * 100 : 50; });
-      const kk = k.map(v => v == null ? 0 : v), d = sma(kk, it.d).map((v, i) => k[i] == null || i < it.n + it.d - 2 ? null : v);
-      const s = low(k, P[0], '%K ' + it.n); low(d, cB, '%D ' + it.d); [80, 20].forEach(v => s.createPriceLine({ price: v, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: String(v) }));
-      if (it.sig) crosses(k, d, 'STO', (i, buy) => buy ? k[i - 1] <= 20 : k[i - 1] >= 80); }
-    else if (it.t === 'atr') low(stcAtr(bars, it.n), cA, 'ATR ' + it.n);
-    else if (it.t === 'adx') { const x = stcAdx(bars, it.n), s = low(x.adx, cA, 'ADX ' + it.n);
-      low(x.pdi, BS.buy, '+DI'); low(x.mdi, BS.sell, '−DI');
-      s.createPriceLine({ price: 25, color: muted, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '25' });
+      ch.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false }).setData(bars.map((b, i) => m.hist[i] == null ? { time: b.time } : { time: b.time, value: m.hist[i], color: (m.hist[i] >= 0 ? BS.buy : BS.sell) + '88' }));
+      first = add(m.macd, P[0], 'MACD ' + it.f + ', ' + it.s + ', ' + it.g); add(m.signal, P[1], 'Signal'); if (it.sig) crosses(m.macd, m.signal, 'MACD'); }
+    else if (it.t === 'sto') { const kv = bars.map((b, i) => { if (i < it.n - 1) return null; const w = bars.slice(i - it.n + 1, i + 1), hh = Math.max(...w.map(x => x.high)), ll = Math.min(...w.map(x => x.low)); return hh > ll ? (b.close - ll) / (hh - ll) * 100 : 50; });
+      const dv = sma(kv.map(v => v == null ? 0 : v), it.d).map((v, i) => kv[i] == null || i < it.n + it.d - 2 ? null : v);
+      first = add(kv, P[0], 'Stochastic %K ' + it.n); add(dv, P[1], '%D ' + it.d); guide(first, 80); guide(first, 20);
+      if (it.sig) crosses(kv, dv, 'STO', (i, buy) => buy ? kv[i - 1] <= 20 : kv[i - 1] >= 80); }
+    else if (it.t === 'atr') first = add(stcAtr(bars, it.n), P[2], 'ATR ' + it.n);
+    else if (it.t === 'adx') { const x = stcAdx(bars, it.n); first = add(x.adx, P[2], 'ADX ' + it.n); add(x.pdi, BS.buy, '+DI'); add(x.mdi, BS.sell, '−DI'); guide(first, 25);
       if (it.sig) crosses(x.pdi, x.mdi, 'ADX', i => x.adx[i] != null && x.adx[i] >= 20); }
-    legend.push([cA, name(it) + ' (lower panel)' + (it.sig ? ' · buy / sell shown' : '')]);
-    // the panel's place is set after its lines exist (set before, the library ignores it and draws over the candles)
-    chart.priceScale('ind').applyOptions({ scaleMargins: { top: 0.74, bottom: 0.02 } });
-  }
-  if (mk.length) main.setMarkers(mk.sort((x, y) => (x.time < y.time ? -1 : x.time > y.time ? 1 : 0)));
-  const n = bars.length;
-  if (daily) chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 260), to: n + 2 });
-  else chart.timeScale().setVisibleLogicalRange({ from: bars.warmN || 0, to: n + 1 });
-  const lg = $('st-chart-legend');
-  if (lg) { lg.textContent = ''; legend.forEach(([c, t]) => { const s = document.createElement('span'); s.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-right:14px';
-    const k = document.createElement('span'); k.style.cssText = 'width:14px;height:2px;background:' + c; s.append(k, document.createTextNode(t)); lg.append(s); }); }
+    lowCharts.push({ ch, first, leg, div: lowDivs[k] });
+  });
+  // ---- in step: scroll / zoom and crosshair across all panels
+  const all = [main].concat(lowCharts.map(x => x.ch));
+  let busy = false;
+  all.forEach(c => c.timeScale().subscribeVisibleLogicalRangeChange(r => { if (busy || !r) return; busy = true; all.forEach(o => { if (o !== c) o.timeScale().setVisibleLogicalRange(r); }); busy = false; }));
+  // ---- top-left legends (TradingView style): name and value at the crosshair (or the last bar)
+  const legBox = (div) => { const b = document.createElement('div'); b.style.cssText = 'position:absolute;left:8px;top:6px;z-index:3;font-size:12px;line-height:1.5;pointer-events:none;color:var(--text-2);max-width:calc(100% - 100px)'; div.append(b); return b; };
+  const mainLeg = legBox(mainDiv), lowLegs = lowCharts.map(x => legBox(x.div));
+  const fmt = v => v == null || !isFinite(v) ? '–' : num(v, 2);
+  const tf = daily ? 'D' : STC.view + ' min';
+  const paint = i => {
+    const b = bars[i];
+    mainLeg.textContent = '';
+    const head = document.createElement('div'); head.style.fontWeight = '600'; head.style.color = 'var(--text)';
+    head.textContent = (idx === 'BANKNIFTY' ? 'BANK NIFTY' : idx) + ' · ' + tf + '   O ' + fmt(b.open) + '  H ' + fmt(b.high) + '  L ' + fmt(b.low) + '  C ' + fmt(b.close);
+    mainLeg.append(head);
+    legendMain.filter(x => x[1]).forEach(([c, nm, vals]) => { const r = document.createElement('div'); r.style.cssText = 'display:flex;gap:6px;align-items:center';
+      const k = document.createElement('span'); k.style.cssText = 'width:12px;height:2px;background:' + c; r.append(k, document.createTextNode(nm + '  ' + fmt(vals[i]))); mainLeg.append(r); });
+    lowCharts.forEach((x, j) => { lowLegs[j].textContent = ''; x.leg.forEach(([c, nm, vals]) => { const s = document.createElement('span'); s.style.cssText = 'margin-right:10px;white-space:nowrap';
+      const k = document.createElement('span'); k.style.cssText = 'display:inline-block;width:10px;height:2px;margin-right:4px;vertical-align:middle;background:' + c; s.append(k, document.createTextNode(nm + ' ' + fmt(vals[i]))); lowLegs[j].append(s); }); });
+  };
+  const timeIdx = new Map(bars.map((b, i) => [typeof b.time === 'number' ? b.time : String(b.time), i]));
+  const atTime = t => timeIdx.get(typeof t === 'number' ? t : (t && t.year ? t.year + '-' + String(t.month).padStart(2, '0') + '-' + String(t.day).padStart(2, '0') : String(t)));
+  all.forEach(c => c.subscribeCrosshairMove(p => {
+    const i = p && p.time != null ? atTime(p.time) : null;
+    paint(i != null ? i : n - 1);
+    all.forEach(o => { if (o === c) return; const tgt = o === main ? candles : (lowCharts.find(x => x.ch === o) || {}).first;
+      if (i == null || !tgt) o.clearCrosshairPosition(); else { try { o.setCrosshairPosition(o === main ? closes[i] : 0, bars[i].time, tgt); } catch (e) {} } });
+  }));
+  paint(n - 1);
+  // ---- buy / sell flags: filled boxes above (sell) / below (buy) the bar, kept in place as the chart moves
+  const layer = document.createElement('div'); layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2'; mainDiv.append(layer);
+  const els = flags.map(f => { const d = document.createElement('div'); d.textContent = f.text;
+    d.style.cssText = 'position:absolute;transform:translate(-50%,' + (f.buy ? '6px' : 'calc(-100% - 6px)') + ');background:' + (f.buy ? BS.buy : BS.sell) + ';color:#fff;font-size:11px;font-weight:600;padding:1px 6px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.25)';
+    layer.append(d); return d; });
+  const place = () => flags.forEach((f, k) => { const x = main.timeScale().timeToCoordinate(bars[f.i].time), y = candles.priceToCoordinate(f.buy ? bars[f.i].low : bars[f.i].high);
+    if (x == null || y == null || x < 0 || x > mainDiv.clientWidth - 76) { els[k].style.display = 'none'; return; }
+    els[k].style.display = 'block'; els[k].style.left = x + 'px'; els[k].style.top = y + 'px'; });
+  main.timeScale().subscribeVisibleLogicalRangeChange(() => requestAnimationFrame(place));
+  if (window.ResizeObserver) new ResizeObserver(() => requestAnimationFrame(place)).observe(mainDiv);
+  // ---- first view
+  if (daily) main.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 260), to: n + 4 });
+  else main.timeScale().fitContent();
+  requestAnimationFrame(place);
 }
 
 function stForm(){

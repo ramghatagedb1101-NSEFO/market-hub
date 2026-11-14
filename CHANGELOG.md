@@ -4,6 +4,23 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Strategy chart rebuilt the TradingView way (Sat 14 Nov 2026)
+Owner: "You are complicating the graphs. You should give it in two views, just like how tradingview gives. One below the
+other", with a TradingView screenshot (NIFTY 3-minute over several days, Buy / Sell flags, ADX panel underneath).
+- Panels: the price on top and one panel per lower indicator underneath (up to three: RSI, MACD, Stochastic, ATR,
+  ADX), each with its own scale; one time axis at the bottom; scrolling, zooming and the crosshair move all panels
+  together (separate charts kept in step, since the chart library has no panes).
+- Intraday views show the chosen session and the four before it, continuous; previous day's high / low / close,
+  pivots and the opening range step day by day (they were single lines for one day).
+- Names and values top-left in each panel, TradingView style (price panel: index, timeframe, open / high / low /
+  close at the crosshair, then each line with its value); value labels on the price scale only for the price and
+  the lower panels' lines.
+- Buy / Sell as filled flags (green below the bar, red above), drawn over the chart and kept in place on scroll /
+  zoom / resize. Back-test trades stay as blue circles.
+- No volume panel: the index has no traded volume in the ICICI data.
+- Checked in the preview: 3-minute 9-13 Nov 2026 with Supertrend flags (14 over five sessions) and ADX in its own
+  panel; daily with DMA 20 / 50 / 200, Supertrend, RSI and MACD as three panels; no console errors.
+
 ### Chart buy / sell labels; colours without pink; lower-panel fix (Sat 14 Nov 2026)
 Owner: "put a label of buy or sell based on chart type and indicator. for example in super trend when it changes the
 direction. also use different color. pink is confusing with red bars on the chart"; "line is green when its buy signal".
