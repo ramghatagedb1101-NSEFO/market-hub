@@ -2350,7 +2350,7 @@ function stForm(){
   let h = sec('Strategy', lbl('Name') + '<input class="field" value="' + esc(E.name) + '" oninput="stSet(\'name\', this.value)">' + lbl('Notes (when to use it)') + '<input class="field" placeholder="e.g. trending mornings" value="' + esc(E.notes || '') + '" oninput="stSet(\'notes\', this.value)">');
   const pr = (label, hint, ctl) => '<div class="pr"><div class="pr-l">' + label + (hint ? '<div class="pr-h">' + hint + '</div>' : '') + '</div><div>' + ctl + '</div></div>';
   h += sec('What to trade',
-    pr('Option', '', row(sel('index', E.index, [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']]), seg('side', E.side, [['BUY', 'Buy'], ['SELL', 'Sell']]), seg('right', E.right, [['C', 'Call (CE)'], ['P', 'Put (PE)']]), sel('expiry', E.expiry, [['nearest', 'Nearest expiry'], ['next', 'Next expiry'], ['monthly', 'Monthly expiry']]))) +
+    pr('Option', '', row(sel('index', E.index, [['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']], true), seg('side', E.side, [['BUY', 'Buy'], ['SELL', 'Sell']]), seg('right', E.right, [['C', 'Call (CE)'], ['P', 'Put (PE)']]), sel('expiry', E.expiry, [['nearest', 'Nearest expiry'], ['next', 'Next expiry'], ['monthly', 'Monthly expiry']]))) +
     // ITM / ATM / OTM (owner, 14 Nov 2026: "ITM, ATM and OTM can also be selected?"), then how many strikes away;
     // stored as one signed number (minus = in the money), as the program reads it
     pr('Strike', E.strike.mode === 'premium' ? 'the strike whose price is nearest' : (stMoneyOf(E) === 'atm' ? 'the strike nearest the index' : 'strikes away from the money'),

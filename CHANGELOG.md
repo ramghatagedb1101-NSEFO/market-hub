@@ -13,6 +13,7 @@ Owner: "a chart for the option prices is better, just give that as an option".
 - The same indicators and Buy / Sell labels work on the option's own price. Index-only levels (pivots, previous day /
   week / month) are left off the option chart and say so; Volume and Open interest say "option chart only" on the index.
 - A back-tested strategy's trades in that very contract are marked on it.
+- Fix: changing the index under What to trade did not redraw the chart (index or option); it does now.
 - Relay: `adminOptionExpiries` (from `state/breeze/expiry_days/_done.json`) and `adminOptionChart` (one expiry's file,
   the owner's full weeks first, else the download's two days, gzipped). The largest (a BANK NIFTY month, 8.6 MB) opens
   in about a quarter of a second in the browser.
