@@ -17,7 +17,7 @@ on:
         type: boolean
         default: false
       recorder:
-        description: "day recorder: probe (quick IBKR check, writes nothing) or past days "YYYY-MM-DD YYYY-MM-DD ..." to record (runs on in the background)"
+        description: "day recorder: probe (quick IBKR check, writes nothing) or past days YYYY-MM-DD separated by spaces to record (runs on in the background)"
         required: false
         default: ""
 
