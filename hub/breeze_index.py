@@ -21,7 +21,7 @@ import time
 from datetime import date, timedelta
 
 from .breeze import Breeze
-from .breeze_history import DAILY, _num, allowance, load_gz, record_usage, save_gz
+from .breeze_history import DAILY, _num, allowance, load_gz, record_usage, save_gz, today_ist
 from .expiry_history import load, save
 
 SPOT = {"NIFTY": ("NIFTY", "NSE"), "BANKNIFTY": ("CNXBAN", "NSE"), "SENSEX": ("BSESEN", "BSE")}
@@ -109,15 +109,15 @@ def rebuild_daily(index: str) -> int:
     """From every month file already saved (one-off, or to repair)."""
     done = load(DONE) or {}
     bodies = [load_gz(f"{DIR}/{index}/{k.split('_', 1)[1]}.json.gz") or {} for k in sorted(done) if k.startswith(index + "_")]
-    this_month = date.today().strftime("%Y-%m")
+    this_month = date.fromisoformat(today_ist()).strftime("%Y-%m")
     cur = load_gz(f"{DIR}/{index}/{this_month}.json.gz")
     return update_daily(index, bodies + ([cur] if cur else []))
 
 
 def run(b: Breeze | None, budget: int, stop_at: float):
     """Fetch what is missing within the budget. Returns (Breeze used, error text or None)."""
-    until = date.today() - timedelta(days=1)
-    this_month = date.today().strftime("%Y-%m")
+    until = date.fromisoformat(today_ist()) - timedelta(days=1)
+    this_month = date.fromisoformat(today_ist()).strftime("%Y-%m")
     done = load(DONE) or {}
     queue = [(i, m) for i in SPOT for m in months(until) if f"{i}_{m}" not in done or m == this_month]
     print(f"index minutes: {len(done)} index-months saved, {len(queue)} to fetch")

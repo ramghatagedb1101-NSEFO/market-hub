@@ -20,6 +20,10 @@ on:
         description: "start the research bot once now (it runs on its own each evening and at weekends)"
         type: boolean
         default: false
+      kick_once:
+        description: "start a job once at an IST time via the machine's clock, e.g. 2026-11-15 00:10 breeze.yml"
+        required: false
+        default: ""
       recorder:
         description: "day recorder: probe (quick IBKR check, writes nothing) or past days YYYY-MM-DD separated by spaces to record (runs on in the background)"
         required: false
@@ -76,6 +80,13 @@ jobs:
           # Research bot (14 Nov 2026, trader/research.py): weekday evenings and weekends.
           $SSH 'sudo cp /opt/trader/app/infra/trader/research.service /opt/trader/app/infra/trader/research.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now research.timer && systemctl is-active research.timer'
           if [ "${{ inputs.research_now }}" = "true" ]; then $SSH 'sudo systemctl start --no-block research.service && echo research started'; fi
+          # One-off start at a set IST time (14 Nov 2026, owner: ICICI run at 00:10 after a 00:01 sign-in), through the relay
+          # like the kicker; a systemd timer on the machine, so it does not depend on GitHub's schedule.
+          ONCE="${{ inputs.kick_once }}"
+          if echo "$ONCE" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} [a-z0-9-]+\.yml$'; then
+            WHEN="${ONCE% *}"; WF="${ONCE##* }"; U="once-$(echo "$WHEN" | tr -dc 0-9)-${WF%.yml}"
+            $SSH "sudo systemd-run --unit=$U --on-calendar='$WHEN:00 Asia/Kolkata' --timer-property=AccuracySec=1s -p User=ubuntu -p WorkingDirectory=/opt/trader/app -p EnvironmentFile=/opt/trader/secrets/bt.env /opt/trader/venv/bin/python -c 'from trader.kicker import call_relay; print(call_relay([\"$WF\"]))' && systemctl list-timers $U.timer --no-pager | head -2"
+          fi
           REC="${{ inputs.recorder }}"
           if [ "$REC" = "probe" ]; then
             $SSH 'cd /opt/trader/app && set -a && . /opt/trader/secrets/bt.env && set +a && TZ=Asia/Kolkata timeout 600 /opt/trader/venv/bin/python -u -m trader.recorder --probe'

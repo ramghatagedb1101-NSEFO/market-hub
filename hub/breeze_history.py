@@ -161,7 +161,7 @@ def _cache_file(path: str) -> str | None:
         return None
     y, mo, d = int(m.group(1)), int(m.group(2)), m.group(3)
     end = date(y, mo, int(d)) if d else (date(y + (mo == 12), mo % 12 + 1, 1) - timedelta(days=1))
-    if end > date.today() - timedelta(days=5):
+    if end > date.fromisoformat(today_ist()) - timedelta(days=5):
         return None
     return os.path.join(root, path)
 
