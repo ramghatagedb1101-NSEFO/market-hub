@@ -119,7 +119,7 @@ class Engine:
             self.guard.sent()
             self.j.write(now, "order", contract=r.contract.key(), side=r.side, lots=r.lots, limit=r.limit,
                          reason=r.reason, closing=r.closing, order=oid, stop=stop, tag=r.tag,
-                         validity=validity if stop else None)
+                         validity=validity if stop else None, regime=r.regime)
 
         if self.last_mark is None or (now - self.last_mark).total_seconds() >= self.MARK_EVERY:
             self.last_mark = now

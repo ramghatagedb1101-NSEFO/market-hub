@@ -9,10 +9,21 @@
  *   starts that job at once (stratPushNow_), so it lands in a minute or two; it also runs every 10 minutes in market
  *   hours.
  *   Back-tests: a GitHub job (strategy-backtest.yml) per request; results in the private repo state/backtests/<id>.json.
+ * Autopilot (14 Nov 2026; owner's choices: record + tags, checks at 09:30 / 11:00 / 13:00, a fallback strategy):
+ *   STRAT_MODE 'manual' | 'autopilot', STRAT_FALLBACK (a strategy id or ''); each strategy's "conditions" are the
+ *   market conditions it suits (trader/regime.py). The batch read carries the back-test records by condition.
  * The program on the machine checks every field again (trader/strategies/rules.py clean()); this side keeps the
  * stored copy tidy and small.
  */
 const STRAT_MAX = 60;
+const STRAT_CONDITIONS = ['trend_up', 'trend_down', 'range', 'volatile', 'expiry_day'];
+function stratMode_() { return PropertiesService.getScriptProperties().getProperty('STRAT_MODE') === 'autopilot' ? 'autopilot' : 'manual'; }
+function stratFallback_() { return PropertiesService.getScriptProperties().getProperty('STRAT_FALLBACK') || ''; }
+function stratBacktests_() {
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return {};
+  try { const r = privateRaw_(readToken, 'state/backtests/_index.json'); return r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : {}; } catch (e) { return {}; }
+}
 
 function stratList_() { return paperStoreLoad_('STRAT_'); }
 function stratSave_(list) { paperStoreSave_('STRAT_', list, STRAT_MAX); }
@@ -69,6 +80,7 @@ function stratClean_(s) {
     expiry: pick(s.expiry, ['nearest', 'next', 'monthly'], 'nearest'), lots: Math.round(stratNum_(s.lots, 1, 50, 1)),
     window: { from: stratTime_(w.from, '09:30'), until: stratTime_(w.until, '14:30') },
     groups: groups, groups_match: s.groups_match === 'all' ? 'all' : 'any',
+    conditions: (Array.isArray(s.conditions) ? s.conditions : []).filter(c => STRAT_CONDITIONS.indexOf(c) >= 0),
     exits: { sl_type: ex.sl_type === 'points' ? 'points' : 'pct', sl: stratNum_(ex.sl, 0, 1000, 25),
              target_type: ex.target_type === 'points' ? 'points' : 'pct', target: stratNum_(ex.target, 0, 5000, 0),
              trail_after_type: ex.trail_after_type === 'points' ? 'points' : 'pct', trail_after: stratNum_(ex.trail_after, 0, 5000, 20),
@@ -98,10 +110,8 @@ function stratView_() {
   const items = stratList_();
   const bt = {}; items.forEach(s => { const v = cache.get('bt_' + s.id); if (v) bt[s.id] = v; });
   // the latest back-test of each strategy (trader/backtest.py keeps state/backtests/_index.json), for the cards
-  let backtests = {};
-  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
-  if (readToken) { try { const r = privateRaw_(readToken, 'state/backtests/_index.json'); if (r.getResponseCode() === 200) backtests = JSON.parse(r.getContentText()); } catch (e) {} }
-  return { items: items, active: stratActive_(), limits: stratLimits_(), backtest_started: bt, backtests: backtests };
+  return { items: items, active: stratActive_(), limits: stratLimits_(), backtest_started: bt, backtests: stratBacktests_(),
+           mode: stratMode_(), fallback: stratFallback_() };
 }
 
 function adminStrategies(token) {
@@ -123,6 +133,7 @@ function adminStrategySave(token, s) {
 function adminStrategyDelete(token, id) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
   if (id === stratActive_()) return { error: 'Switch this strategy off before deleting it.' };
+  if (id === stratFallback_()) return { error: 'This is the autopilot fallback: choose another fallback first.' };
   stratSave_(stratList_().filter(x => x.id !== id));
   return stratView_();
 }
@@ -133,6 +144,7 @@ function adminStrategyActivate(token, id) {
   if (id && !stratList_().some(x => x.id === id)) return { error: 'No such strategy.' };
   const props = PropertiesService.getScriptProperties();
   props.setProperty('STRAT_ACTIVE', id || '');
+  if (id) props.setProperty('STRAT_MODE', 'manual');           // picking one by hand turns autopilot off
   props.setProperty('STRAT_CHANGED', Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm"));
   const v = stratView_(); v.sent = stratPushNow_(); return v;
 }
@@ -142,6 +154,18 @@ function adminStrategyLimits(token, l) {
   l = l || {};
   PropertiesService.getScriptProperties().setProperty('STRAT_LIMITS', JSON.stringify({
     max_lots_per_order: Math.round(stratNum_(l.max_lots_per_order, 1, 50, 1)), max_daily_loss: stratNum_(l.max_daily_loss, 500, 1e7, 10000) }));
+  const v = stratView_(); v.sent = stratPushNow_(); return v;
+}
+
+/** Manual or autopilot, and the autopilot's fallback strategy ('' = watch only when nothing qualifies). */
+function adminStrategyMode(token, mode, fallback) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  if (fallback && !stratList_().some(x => x.id === fallback)) return { error: 'No such strategy.' };
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('STRAT_MODE', mode === 'autopilot' ? 'autopilot' : 'manual');
+  props.setProperty('STRAT_FALLBACK', fallback || '');
+  if (mode === 'autopilot') props.setProperty('STRAT_ACTIVE', '');
+  props.setProperty('STRAT_CHANGED', Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm"));
   const v = stratView_(); v.sent = stratPushNow_(); return v;
 }
 
@@ -178,6 +202,9 @@ function adminBacktestResult(token, id) {
 function strategiesForBatch_(p) {
   const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
   if (!relayKey || p.key !== relayKey) return { error: 'key does not match RELAY_KEY' };
-  return { active: stratActive_() || null, items: stratList_(), limits: stratLimits_(),
+  const bt = stratBacktests_(), slim = {};
+  Object.keys(bt).forEach(k => { slim[k] = { by_regime: bt[k].by_regime || {} }; });   // autopilot needs only the records by condition
+  return { active: stratActive_() || null, items: stratList_(), limits: stratLimits_(), mode: stratMode_(),
+           fallback: stratFallback_() || null, backtests: slim,
            changed: PropertiesService.getScriptProperties().getProperty('STRAT_CHANGED') || null };
 }

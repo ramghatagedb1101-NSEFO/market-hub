@@ -4,6 +4,40 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Autopilot and strategy-wise profit (Sat 14 Nov 2026)
+Owner: "an auto pilot mode for the strategies based on market conditions the engine should be able to take a call and
+decide which is the best strategy"; "a strategy wise profit and loss as to which strategy made the maximum profit and
+which strategy contributed to the losses". Choices: record + own tags; checks at 09:30, 11:00, 13:00; a fallback
+strategy when nothing qualifies.
+- Strategy-wise profit: every trade carries its strategy (from the order tag) and the market condition at entry.
+  `trader/summary.py` adds `by_strategy` (profit after charges, trades, won, best, worst, average; largest profit
+  first) and `by_strategy_regime`. Dashboard Auto trading: a "By strategy" tab (a bar per strategy from a zero line,
+  profit right, loss left, share of all profit and loss moved, trades, won, best, worst) and a Strategy column in
+  Trades. Phone: a "By strategy" section under the charts; each trade names its strategy. sw.js v65.
+- Market condition (`trader/regime.py`), read from the index's one-minute bars: expiry day, volatile (5-minute swings
+  1.5x the session before's over the same minutes, no steady direction), trend up / down (move from the open beyond
+  the 70th percentile for that time of day and steadier than the median), else range-bound. Thresholds set from
+  NIFTY's 767 sessions (Oct 2023 - Nov 2026). Mix on that history: about 67% range-bound, 26% trend, 5-8% volatile, at
+  09:30, 11:00 and 13:00 alike. A trend read at 11:00 carried on the same way for the rest of the day 56% of the time
+  (119 of 213): the condition describes the morning, it does not forecast, which is why the pick goes by record.
+- Autopilot (`trader/autopilot.py`, run by `trader/live.py`): at 09:30, 11:00, 13:00 (and at once after any change on
+  the dashboard) it reads the condition per index, takes the strategies tagged for it ("Suited to"), and picks the
+  best average profit per trade among those with 10+ trades in that condition and a profit after charges (back-test
+  record + paper record). None: the fallback strategy, or watch only. Journalled with the reason; open trades keep
+  their exits; all safety limits unchanged. Back-tests now record results by condition; the relay passes them to the
+  machine with the strategies.
+- Dashboard Strategies: Manual / Autopilot switch (confirmation explains it); in autopilot, a panel with the market
+  now, what is running and why, the fallback picker, and each tagged strategy's back-test record by condition
+  (qualifying cells shaded); "Suited to" and "Fallback" chips on cards; "Trade this" turns autopilot off (picking by
+  hand); the form has "Market conditions (for autopilot)" and the summary says when autopilot considers it; back-test
+  details show results by condition. Relay: STRAT_MODE, STRAT_FALLBACK, strategy "conditions", `adminStrategyMode`;
+  the fallback cannot be deleted while it is the fallback.
+- Tests 95 of 95 (16 new: conditions on made-up days, every autopilot rule incl. a losing record never qualifying,
+  per-strategy profit and conditions). Checked in the preview: both pages and the phone at 375 px; figures add up
+  (-136 + -8,457 = -8,593); no console errors.
+- Not done yet: a back-test of autopilot itself (replaying its picks over history); worth adding once the every-day
+  option download gives enough sessions.
+
 ### Design pass: Auto trading and Strategies (Sat 14 Nov 2026)
 Owner asked whether the screens look top notch; my answer was no (no charts, browser pop-ups, a long dense form,
 cluttered cards, back-test results away from their strategy, cramped phone tabs, bare empty states). Owner: "Go ahead".

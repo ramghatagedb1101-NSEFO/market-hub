@@ -1589,14 +1589,31 @@ function algoName(k){
   const r = p[2].slice(-1), strike = p[2].slice(0, -1), d = dayOf(p[1]);
   return '<b>' + esc(p[0] === 'BANKNIFTY' ? 'BANK NIFTY' : p[0]) + ' ' + esc(strike) + ' ' + (r === 'C' ? 'CE' : 'PE') + '</b> <span class="faint">' + (d ? d.getUTCDate() + ' ' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear() : '') + '</span>';
 }
+const COND = { trend_up: 'Trend up', trend_down: 'Trend down', range: 'Range-bound', volatile: 'Volatile', expiry_day: 'Expiry day' };
+// Strategy-wise profit (owner, 14 Nov 2026: "which strategy made the maximum profit and which strategy contributed to
+// the losses"): one horizontal bar per strategy from a zero line, profit to the right, loss to the left, largest profit
+// first; the same validated colours as the profit charts; the value sits at the bar's end; the table beside carries
+// trades, % won, best and worst trade.
+function byStratChart(rows){
+  if (!rows.length) return '';
+  const C = pnlColors(), max = Math.max(...rows.map(r => Math.abs(r.pnl)), 1);
+  const bar = r => { const w = Math.abs(r.pnl) / max * 50;
+    return '<div style="position:relative;height:18px;background:linear-gradient(to right,transparent calc(50% - .5px),' + C.axis + ' calc(50% - .5px),' + C.axis + ' calc(50% + .5px),transparent calc(50% + .5px))">' +
+      '<div title="' + esc(r.name) + ': ' + (r.pnl >= 0 ? '+' : '−') + '₹' + num(Math.abs(r.pnl), 0) + '" style="position:absolute;top:3px;height:12px;border-radius:' + (r.pnl >= 0 ? '0 4px 4px 0' : '4px 0 0 4px') + ';background:' + (r.pnl >= 0 ? C.pos : C.neg) + ';' + (r.pnl >= 0 ? 'left:50%' : 'right:50%') + ';width:' + Math.max(w, .4) + '%"></div></div>'; };
+  return '<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>Profit by strategy</h3><span class="muted" style="font-size:12px">after charges · largest profit first</span></div><div class="panel-b" style="overflow-x:auto"><table class="t"><thead><tr><th>Strategy</th><th style="width:38%"></th><th class="num">Profit</th><th class="num">Share</th><th class="num">Trades</th><th class="num">Won</th><th class="num">Best</th><th class="num">Worst</th></tr></thead><tbody>' +
+    (() => { const gross = rows.reduce((a, r) => a + Math.abs(r.pnl), 0) || 1;
+      return rows.map(r => '<tr><td class="l"><b>' + esc(r.name) + '</b></td><td>' + bar(r) + '</td><td class="num">' + ppSigned(r.pnl) + '</td><td class="num">' + Math.round(100 * Math.abs(r.pnl) / gross) + '%</td><td class="num">' + r.trades + '</td><td class="num">' + Math.round(100 * r.wins / r.trades) + '%</td><td class="num">' + ppSigned(r.best) + '</td><td class="num">' + ppSigned(r.worst) + '</td></tr>').join(''); })() +
+    '</tbody></table><div class="faint" style="font-size:11px;margin-top:6px">Share: each strategy\'s part of all profit and loss moved, by size.</div></div></div>';
+}
 function algoStatus(A){
   const st = A.status || {};
   if (!st.last) return '<span class="chip">Not started yet</span>';
   const mins = (Date.now() - new Date(st.last + '+05:30').getTime()) / 60000;
   if (st.killed) return '<span class="chip down">Stopped for the day: ' + esc(st.killed) + '</span>';
   if (marketHoursIst() && mins > 15) return '<span class="chip warn">Not heard from since ' + esc(algoWhen(st.last)) + '</span>';
-  const on = st.strategy && st.strategy !== 'watch only';
-  return '<span class="chip ' + (on ? 'up' : '') + '">' + (on ? 'Trading · ' + esc(st.strategy.replace(/_/g, ' ')) : 'Watching only') + '</span>';
+  const on = st.strategy && st.strategy !== 'watch only' && st.strategy !== 'autopilot';
+  const ap = st.autopilot ? '<span class="chip brand" title="' + esc(st.autopilot.why || '') + '">Autopilot · ' + esc(COND[st.autopilot.regime] || 'reading the market') + '</span> ' : '';
+  return ap + '<span class="chip ' + (on ? 'up' : '') + '">' + (on ? 'Trading · ' + esc(st.strategy.replace(/_/g, ' ')) : 'Watching only') + '</span>';
 }
 function pageAlgo(){
   const v = $('view');
@@ -1622,13 +1639,15 @@ function pageAlgo(){
     return;
   }
   html += pnlBlock('algo', D);
-  const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length, pending: P.length };
-  html += '<div class="tabs">' + [['daily', 'Daily'], ['monthly', 'Monthly'], ['trades', 'Trades'], ['open', 'Open'], ['pending', 'Pending orders']].map(([k, l]) => '<a href="javascript:void 0" class="' + (ALGO_TAB === k ? 'on' : '') + '" onclick="ALGO_TAB=\'' + k + '\';rerender()">' + l + (n[k] ? ' <span class="faint">' + n[k] + '</span>' : '') + '</a>').join('') + '</div>';
+  const BS = A.by_strategy || [];
+  const n = { daily: D.length, monthly: M.length, strategy: BS.length, trades: TR.length, open: O.length, pending: P.length };
+  html += '<div class="tabs">' + [['daily', 'Daily'], ['monthly', 'Monthly'], ['strategy', 'By strategy'], ['trades', 'Trades'], ['open', 'Open'], ['pending', 'Pending orders']].map(([k, l]) => '<a href="javascript:void 0" class="' + (ALGO_TAB === k ? 'on' : '') + '" onclick="ALGO_TAB=\'' + k + '\';rerender()">' + l + (n[k] ? ' <span class="faint">' + n[k] + '</span>' : '') + '</a>').join('') + '</div>';
   const none = t => '<div class="panel"><div class="panel-b muted">' + t + '</div></div>';
   const tbl = (head, rows) => '<div class="panel"><div class="panel-b" style="overflow-x:auto"><table class="t"><thead><tr>' + head.map((h, i) => '<th' + (i ? ' class="num"' : '') + '>' + h + '</th>').join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table></div></div>';
   if (ALGO_TAB === 'daily') html += D.length ? tbl(['Day', 'Profit', 'Trades', 'Won', 'Lost'], D.slice().reverse().map(d => '<tr><td class="l">' + esc(bDay(dayOf(d.date))) + '</td><td class="num">' + ppSigned(d.pnl) + '</td><td class="num">' + d.trades + '</td><td class="num">' + d.wins + '</td><td class="num">' + d.losses + '</td></tr>')) : none('No closed trades yet.');
   else if (ALGO_TAB === 'monthly') html += M.length ? tbl(['Month', 'Profit', 'Trades', 'Days up', 'Days down'], M.slice().reverse().map(m => { const d = dayOf(m.month + '-01'); return '<tr><td class="l">' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + '</td><td class="num">' + ppSigned(m.pnl) + '</td><td class="num">' + m.trades + '</td><td class="num">' + m.days_up + '</td><td class="num">' + m.days_down + '</td></tr>'; })) : none('No closed trades yet.');
-  else if (ALGO_TAB === 'trades') html += TR.length ? tbl(['Option', 'Closed', 'Side', 'Qty', 'Entry', 'Exit', 'Profit', 'Why'], TR.map(t => '<tr><td class="l">' + algoName(t.contract) + '</td><td class="num" style="white-space:nowrap">' + esc(algoWhen(t.exit_t)) + '</td><td class="num">' + (t.dir === 'long' ? 'Bought' : 'Sold') + '</td><td class="num">' + num(t.qty, 0) + '</td><td class="num">' + num(t.entry, 2) + '</td><td class="num">' + num(t.exit, 2) + '</td><td class="num">' + ppSigned(t.pnl) + '</td><td class="num">' + esc(t.why) + '</td></tr>')) : none('No closed trades yet.');
+  else if (ALGO_TAB === 'strategy') html += BS.length ? byStratChart(BS) : none('No closed trades yet.');
+  else if (ALGO_TAB === 'trades') html += TR.length ? tbl(['Option', 'Strategy', 'Closed', 'Side', 'Qty', 'Entry', 'Exit', 'Profit', 'Why'], TR.map(t => '<tr><td class="l">' + algoName(t.contract) + '</td><td class="num">' + esc(t.strategy || '') + (t.regime ? '<div class="faint" style="font-size:11px">' + esc(COND[t.regime] || '') + '</div>' : '') + '</td><td class="num" style="white-space:nowrap">' + esc(algoWhen(t.exit_t)) + '</td><td class="num">' + (t.dir === 'long' ? 'Bought' : 'Sold') + '</td><td class="num">' + num(t.qty, 0) + '</td><td class="num">' + num(t.entry, 2) + '</td><td class="num">' + num(t.exit, 2) + '</td><td class="num">' + ppSigned(t.pnl) + '</td><td class="num">' + esc(t.why) + '</td></tr>')) : none('No closed trades yet.');
   else if (ALGO_TAB === 'pending') html += P.length ? tbl(['Option', 'Order', 'Side', 'Qty', 'Price'], P.map(o => '<tr><td class="l">' + algoName(o.contract) + '</td><td class="num">' + esc(o.type) + (o.waiting_for_entry ? ' <span class="faint">(after the buy fills)</span>' : '') + '</td><td class="num">' + (o.side === 'BUY' ? 'Buy' : 'Sell') + '</td><td class="num">' + num(o.qty, 0) + '</td><td class="num">' + (o.price != null ? num(o.price, 2) : o.trail_pct ? o.trail_pct + '% under the high' : '–') + '</td></tr>')) + (A.pending_at ? '<div class="faint" style="font-size:11px;margin-top:6px">As of ' + esc(algoWhen(A.pending_at)) + '</div>' : '') : none('No pending orders.');
   else html += O.length ? tbl(['Option', 'Qty', 'Entry', 'Last', 'Open profit', 'Protection'], O.map(o => '<tr><td class="l">' + algoName(o.contract) + '</td><td class="num">' + num(o.qty, 0) + '</td><td class="num">' + num(o.entry, 2) + '</td><td class="num">' + (o.mark != null ? num(o.mark, 2) : '–') + '</td><td class="num">' + ppSigned(o.pnl) + '</td><td class="num">' + esc(o.protection || (o.qty < 0 ? 'Sold; loss capped by a bought option' : '–')) + '</td></tr>')) : none('No open positions.');
   html += '<div class="faint" style="font-size:11px;margin-top:12px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A trade counts on the day it closes.</div>';
@@ -1705,6 +1724,7 @@ function stSide(){
       (Number(X.target) ? '; target ' + u(X.target_type, X.target) : '') +
       (Number(X.trail) ? '; once ' + u(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + u(X.trail_type, X.trail) + ' behind the best price' : '') + '.</li>' +
     '<li>' + (E.style === 'carry' ? 'Carry: the stop stays good till cancelled; held overnight.' : 'Intraday: everything closed by ' + X.exit_by + '; stops are day orders.') + '</li>' +
+    '<li>Autopilot: ' + ((E.conditions || []).length ? 'considered on ' + (E.conditions || []).map(c => COND[c].toLowerCase()).join(', ') + ' days' : 'not considered (no market condition ticked)') + '.</li>' +
     '<li>At most ' + E.max_trades_day + ' trade' + (E.max_trades_day == 1 ? '' : 's') + ' a day; stops for the day after a ₹' + num(Number(E.max_loss_day) || 0, 0) + ' loss; waits ' + E.reentry_gap + ' min between trades.</li></ul>' +
     warn.map(w => '<div class="st-warn">⚠ ' + esc(w) + '</div>').join('') +
     '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn primary" type="button" onclick="stSave()">Save</button><button class="btn" type="button" onclick="ST_EDIT=null;ST_MSG=\'\';rerender()">Cancel</button></div>' +
@@ -1832,9 +1852,12 @@ function stForm(){
     lbl('Trailing stop') + row('after', numIn('exits.trail_after', X.trail_after), unit('exits.trail_after_type', X.trail_after_type), 'in profit, replace the stop with one trailing', numIn('exits.trail', X.trail), unit('exits.trail_type', X.trail_type), 'behind the best price', '<span class="muted" style="font-size:12px">· 0 = no trailing</span>') +
     lbl('Order type') + row(seg('style', E.style, [['intraday', 'Intraday (day order)'], ['carry', 'Carry (good till cancelled)']]),
       E.style === 'intraday' ? 'close everything by ' + timeIn('exits.exit_by', X.exit_by) : '<span class="muted" style="font-size:12px">held overnight; the stop stays at IBKR until hit or expiry</span>'));
+  h += sec('Market conditions (for autopilot)', '<div class="muted" style="font-size:12.5px;margin-bottom:8px">Tick the conditions this strategy suits. Autopilot only considers it on those days.</div>' +
+    Object.keys(COND).map(c => '<label style="margin-right:16px;font-size:13px;white-space:nowrap"><input type="checkbox"' + ((E.conditions || []).indexOf(c) >= 0 ? ' checked' : '') + ' onchange="stCond(\'' + c + '\', this.checked)"> ' + COND[c] + '</label>').join(''));
   h += sec('Limits for this strategy', row('At most', numIn('max_trades_day', E.max_trades_day, 60), 'trades a day; stop for the day after a loss of ₹', numIn('max_loss_day', E.max_loss_day, 100), '; wait', numIn('reentry_gap', E.reentry_gap, 60), 'minutes between trades'));
   return '<div class="st-form"><div>' + h + '</div><aside class="st-side" id="st-side">' + stSide() + '</aside></div>';
 }
+function stCond(c, on){ ST_EDIT.conditions = (ST_EDIT.conditions || []).filter(x => x !== c); if (on) ST_EDIT.conditions.push(c); stSideRefresh(); }
 function stDay(gi, i, d, on){ const g = ST_EDIT.groups[gi].signals[i]; g.days = (g.days || []).filter(x => x !== d); if (on) g.days.push(d); g.days.sort(); }
 function ST_EDIT_GET(path){ return path.split('.').reduce((o, k) => o == null ? o : o[k], ST_EDIT); }
 function stOperand(path, src){ const o = { src }; if (src === 'value') o.value = 0; if (ST_HASN[src]) o.n = src.indexOf('orb') === 0 ? 15 : src === 'rsi' || src === 'atr' ? 14 : 20; stSet(path.replace(/\.$/, ''), o, true); }
@@ -1853,11 +1876,44 @@ function stBtPanel(){
     '<div class="strip" style="margin-bottom:12px">' + stat('Profit', ppSigned(T.booked || 0), 'after all charges') + stat('Trades', num(T.trades || 0, 0), T.trades ? Math.round(100 * T.wins / T.trades) + '% won' : '') +
     stat('Average win / loss', '<span style="white-space:nowrap;font-size:.78em">' + (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–') + '</span>', 'per trade') + stat('Worst fall', ppSigned(T.worst_drop || 0), 'from a high') + '</div>';
   b += pnlBlock('bt_' + ST_BT.id, (R.summary || {}).days);
+  const RG = ((R.summary || {}).by_strategy_regime || {})[ST_BT.id] || {};
+  if (Object.keys(RG).length) b += '<table class="t" style="margin-bottom:12px"><thead><tr><th>Market condition at entry</th><th class="num">Profit</th><th class="num">Trades</th><th class="num">Won</th><th class="num">Per trade</th></tr></thead><tbody>' +
+    Object.keys(COND).filter(c => RG[c]).map(c => { const r = RG[c]; return '<tr><td class="l">' + COND[c] + '</td><td class="num">' + ppSigned(r.pnl) + '</td><td class="num">' + r.trades + '</td><td class="num">' + Math.round(100 * r.wins / r.trades) + '%</td><td class="num">' + ppSigned(r.pnl / r.trades) + '</td></tr>'; }).join('') + '</tbody></table>';
   if (M.length) b += '<table class="t" style="margin-bottom:12px"><thead><tr><th>Month</th><th class="num">Profit</th><th class="num">Trades</th></tr></thead><tbody>' + M.slice().reverse().map(m => { const d = dayOf(m.month + '-01'); return '<tr><td class="l">' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + '</td><td class="num">' + ppSigned(m.pnl) + '</td><td class="num">' + m.trades + '</td></tr>'; }).join('') + '</tbody></table>';
   if (TR.length) b += '<details><summary>All ' + TR.length + ' trades</summary><div style="overflow-x:auto"><table class="t" style="margin-top:6px"><thead><tr><th>Option</th><th class="num">Entry</th><th class="num">Exit</th><th class="num">Profit</th><th class="num">Why</th></tr></thead><tbody>' +
     TR.map(t => '<tr><td class="l">' + algoName(t.contract) + '</td><td class="num" style="white-space:nowrap">' + num(t.entry, 2) + ' · ' + esc(algoWhen(t.entry_t)) + '</td><td class="num" style="white-space:nowrap">' + num(t.exit, 2) + ' · ' + esc(String(t.exit_t).slice(11, 16)) + '</td><td class="num">' + ppSigned(t.pnl) + '</td><td class="num">' + esc(t.why) + '</td></tr>').join('') + '</tbody></table></div></details>';
   else b += '<div class="muted">No trades: the signals never lined up on these sessions.</div>';
   return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + b + '</div></div>';
+}
+async function stMode(mode){
+  if (mode === S.strat.mode || (mode === 'manual' && S.strat.mode !== 'autopilot')) return;
+  const ok = await mhDialog(mode === 'autopilot'
+    ? { title: 'Turn on autopilot?', body: 'At 09:30, 11:00 and 13:00 the program reads the market and picks, from the strategies tagged for that condition, the one with the best record there (at least 10 trades, in profit after charges). If none qualifies it runs your fallback, or watches. The safety limits stay.', ok: 'Turn on' }
+    : { title: 'Back to manual?', body: 'Nothing trades until you press Trade this on a strategy. Open trades keep their stops.', ok: 'Manual' });
+  if (!ok) return;
+  stDo('adminStrategyMode', [mode, S.strat.fallback || ''], 'Switching…', d => (mode === 'autopilot' ? 'Autopilot on.' : 'Manual.') + (d.sent ? ' The trading machine follows in a minute or two.' : ''));
+}
+function stFallback(id){ stDo('adminStrategyMode', ['autopilot', id], 'Saving…', () => id ? 'Fallback saved.' : 'No fallback: autopilot watches when nothing qualifies.'); }
+function stAutoPanel(items){
+  const st = ((S.algo && !S.algo.error) ? S.algo.status : null) || {}, ap = st.autopilot;
+  const tagged = items.filter(s => (s.conditions || []).length);
+  const BT = S.strat.backtests || {};
+  const cell = (s, c) => { const r = ((BT[s.id] || {}).by_regime || {})[c]; if (!(s.conditions || []).includes(c)) return '<td class="num faint">–</td>';
+    if (!r || !r.trades) return '<td class="num muted">0 trades</td>';
+    const okq = r.trades >= 10 && r.pnl > 0;
+    return '<td class="num"' + (okq ? ' style="background:var(--up-soft)"' : '') + '>' + ppSigned(r.pnl) + '<div class="faint" style="font-size:11px">' + r.trades + ' trades · ' + Math.round(100 * r.wins / r.trades) + '% won</div></td>'; };
+  let b = '<div style="display:flex;gap:18px;flex-wrap:wrap;align-items:baseline">' +
+    '<div><div class="muted" style="font-size:12px">Market now (NIFTY)</div><div style="font-size:16px;font-weight:600">' + esc(ap ? COND[ap.regime] || 'Not read yet' : 'Not read yet') + '</div>' + (ap && ap.regime_why ? '<div class="muted" style="font-size:12px">' + esc(ap.regime_why) + '</div>' : '') + '</div>' +
+    '<div><div class="muted" style="font-size:12px">Running</div><div style="font-size:16px;font-weight:600">' + esc(ap ? ap.strategy || 'Nothing: watching' : '–') + '</div>' + (ap ? '<div class="muted" style="font-size:12px">' + esc(ap.why || '') + ' · ' + esc(algoWhen(ap.t)) + '</div>' : '<div class="muted" style="font-size:12px">first check at 09:30 on a market day</div>') + '</div></div>' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap"><span class="muted" style="font-size:12.5px">When nothing qualifies, run</span><select class="field" style="width:auto" onchange="stFallback(this.value)"><option value="">nothing (watch only)</option>' +
+      items.map(s => '<option value="' + s.id + '"' + (s.id === S.strat.fallback ? ' selected' : '') + '>' + esc(s.name) + '</option>').join('') + '</select>' +
+      '<span class="faint" style="font-size:11.5px">Checks at 09:30, 11:00 and 13:00. A switch applies to new trades; open trades keep their stops.</span></div>';
+  b += tagged.length
+    ? '<div style="overflow-x:auto;margin-top:14px"><table class="t"><thead><tr><th>Back-test record by condition</th>' + Object.keys(COND).map(c => '<th class="num">' + COND[c] + '</th>').join('') + '</tr></thead><tbody>' +
+      tagged.map(s => '<tr><td class="l">' + esc(s.name) + '</td>' + Object.keys(COND).map(c => cell(s, c)).join('') + '</tr>').join('') + '</tbody></table>' +
+      '<div class="faint" style="font-size:11px;margin-top:6px">Shaded: qualifies (10+ trades, in profit). – : not tagged for that condition. Paper trades are added on the machine as they happen.</div></div>'
+    : '<div class="notice" style="margin-top:12px">No strategy is tagged for any market condition yet: open a strategy, tick the conditions it suits under "Market conditions", and save.</div>';
+  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Autopilot</h3></div><div class="panel-b">' + b + '</div></div>';
 }
 function pageStrategies(){
   const v = $('view');
@@ -1865,10 +1921,14 @@ function pageStrategies(){
   if (S.strat.error) { v.innerHTML = errBlock(S.strat.error); return; }
   if (ST_EDIT) { v.innerHTML = stForm(); return; }
   const items = S.strat.items || [], act = items.find(x => x.id === S.strat.active), L = S.strat.limits || {};
+  const auto = S.strat.mode === 'autopilot';
+  if (auto && !S.algo && !S.algoLoading) algoLoad();
   let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-8px 0 12px">' +
-    (act ? '<span><span class="chip up">Trading: ' + esc(act.name) + '</span> <a href="javascript:void 0" onclick="stOn(\'\')">Switch off</a></span>' : '<span class="chip">No strategy trading: watching only</span>') +
+    '<span style="display:flex;gap:10px;align-items:center"><div class="seg"><button type="button" class="' + (auto ? '' : 'on') + '" onclick="stMode(\'manual\')">Manual</button><button type="button" class="' + (auto ? 'on' : '') + '" onclick="stMode(\'autopilot\')">Autopilot</button></div>' +
+    (auto ? '' : act ? '<span class="chip up">Trading: ' + esc(act.name) + '</span> <a href="javascript:void 0" onclick="stOn(\'\')">Switch off</a>' : '<span class="chip">Watching only</span>') + '</span>' +
     '<span class="muted" style="font-size:12px">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></span></div>';
   if (ST_MSG) h += '<div class="notice" style="margin-bottom:12px">' + esc(ST_MSG) + '</div>';
+  if (auto) h += stAutoPanel(items);
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span class="muted" style="font-size:13px">' + items.length + ' strateg' + (items.length === 1 ? 'y' : 'ies') + '</span><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div>';
   if (!items.length) h += '<div class="panel"><div class="panel-b" style="text-align:center;padding:36px 16px"><div style="font-size:15px;font-weight:600">No strategies yet</div><div class="muted" style="margin:6px 0 14px">Build one from signals, a stop-loss and exits, then back-test it.</div><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div></div>';
   const BT = S.strat.backtests || {};
@@ -1884,14 +1944,16 @@ function pageStrategies(){
       '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start"><div style="min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b style="font-size:15px">' + esc(s.name) + '</b>' + (on ? '<span class="chip up">● Trading</span>' : '') + '</div>' +
         (s.notes ? '<div class="muted" style="font-size:12.5px;margin-top:2px">' + esc(s.notes) + '</div>' : '') + '</div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
-        (on ? '<button class="btn sm" type="button" onclick="stOn(\'\')">Switch off</button>' : '<button class="btn sm primary" type="button" onclick="stOn(\'' + s.id + '\')">Trade this</button>') +
+        (auto ? '' : on ? '<button class="btn sm" type="button" onclick="stOn(\'\')">Switch off</button>' : '<button class="btn sm primary" type="button" onclick="stOn(\'' + s.id + '\')">Trade this</button>') +
         '<button class="btn sm" type="button" onclick="stEdit(\'' + s.id + '\')">Edit</button>' +
         '<button class="btn sm" type="button" onclick="stBacktest(\'' + s.id + '\')">Back-test</button>' +
         '<details class="st-more"><summary class="btn sm" aria-label="More actions">More ▾</summary><div class="menu">' +
           '<button type="button" onclick="this.closest(\'details\').open=false;stCopy(\'' + s.id + '\')">Duplicate</button>' +
           (on ? '' : '<button type="button" class="danger" onclick="this.closest(\'details\').open=false;stDelete(\'' + s.id + '\')">Delete…</button>') +
         '</div></details></div></div>' +
-      '<div class="st-chips">' + chips.map(c => '<span class="chip">' + esc(c) + '</span>').join('') + '</div>' +
+      '<div class="st-chips">' + chips.map(c => '<span class="chip">' + esc(c) + '</span>').join('') +
+        ((s.conditions || []).length ? '<span class="chip brand">Suited to: ' + esc(s.conditions.map(c => COND[c]).join(', ')) + '</span>' : '') +
+        (auto && s.id === S.strat.fallback ? '<span class="chip warn">Fallback</span>' : '') + '</div>' +
       '<div class="st-sig" title="' + esc(sig) + '">Enters ' + s.window.from + '–' + s.window.until + ' when ' + esc(sig || 'no signals') + '</div>' +
       '<div class="muted" style="font-size:12.5px;margin-top:4px">' + esc(exits) + '</div>' +
       '<div class="st-bt">' + (b ? '<span class="muted">Back-test · ' + esc(bDay(dayOf(b.ran))) + '</span>' +

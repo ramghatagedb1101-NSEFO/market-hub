@@ -10,7 +10,10 @@ Built only from the journals (one JSON line per event, trader/journal.py), so it
   open      positions still held: quantity, entry, latest price, open profit, protection (stop / trailing)
   pending   orders still working at the broker (entries not filled yet, stop-losses, trailing stops), as of the last
             profit line
-  status    running or not, strategy, stopped-for-the-day reason, last heard from
+  status    running or not, strategy, stopped-for-the-day reason, last heard from; autopilot's latest pick
+  by_strategy   profit, trades, won, best and worst trade per strategy (owner, 14 Nov 2026: "which strategy made the
+            maximum profit and which strategy contributed to the losses"), largest profit first
+  by_strategy_regime   the same split by the market condition at entry (autopilot's paper record)
 
     python -m trader.summary JOURNAL_DIR [--out file.json] [--publish]   (publish: private repo site/algo.json)
 """
@@ -46,12 +49,24 @@ def _expiry(key: str) -> str:
     return key.split(" ")[1]
 
 
+def strategy_of(tag: str) -> str:
+    """Which strategy a trade belongs to, from its order tag: s:<id> (builder), condor-* (expiry condor), else other."""
+    tag = tag or ""
+    if tag.startswith("s:"):
+        return tag[2:]
+    if tag.startswith("condor"):
+        return "expiry_condor"
+    return "other"
+
+
 def build(rows: list[dict], now: datetime | None = None) -> dict:
     now = now or datetime.now()
-    lots = defaultdict(list)          # contract -> open lots [qty signed, price, time, charge per unit, tag]
+    lots = defaultdict(list)          # contract -> open lots [qty signed, price, time, charge per unit, tag, regime]
     trades, marks, protect, stop_of = [], {}, {}, {}
     pending, pending_at = [], None
-    status = {"strategy": None, "killed": None, "last": None, "started": None}
+    status = {"strategy": None, "killed": None, "last": None, "started": None, "autopilot": None}
+    names = {"expiry_condor": "Expiry condor", "other": "Other trades"}
+    order_regime = {}                 # order id -> market condition at entry
 
     def close(key, qty_signed, px, t, fee, tag):
         """Match a fill against open lots of the other side; returns the quantity left over (opens a new lot)."""
@@ -61,10 +76,11 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
             n = min(abs(left), abs(lot[0]))
             sign = 1 if lot[0] > 0 else -1          # long lot: profit = exit - entry
             pnl = sign * (px - lot[1]) * n - (lot[3] + fee_unit) * n
+            sid = strategy_of(lot[4])
             trades.append({"contract": key, "dir": "long" if sign > 0 else "short", "qty": n,
                            "entry_t": lot[2], "entry": round(lot[1], 2), "exit_t": t, "exit": round(px, 2),
                            "pnl": round(pnl, 2), "why": WHY.get(tag, "Strategy exit" if tag else "Exit"),
-                           "entry_tag": lot[4]})
+                           "entry_tag": lot[4], "strategy_id": sid, "regime": lot[5] if len(lot) > 5 else None})
             lot[0] -= sign * n
             left += sign * n
             if lot[0] == 0:
@@ -74,21 +90,33 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
     for r in rows:
         k, t = r.get("kind"), r.get("t")
         status["last"] = t
+        if r.get("strategy_id") and r.get("strategy"):
+            names[r["strategy_id"]] = r["strategy"]
         if k == "start":
             status.update(strategy=r.get("strategy"), started=t, killed=None)
         elif k == "switch":
             status["strategy"] = r.get("strategy")
+        elif k == "autopilot":
+            status["autopilot"] = {k2: r.get(k2) for k2 in ("t", "regime", "regime_why", "strategy", "why")}
+            status["strategy"] = r.get("strategy") or "watch only"
         elif k == "kill":
             status["killed"] = r.get("reason")
-        elif k == "order" and r.get("stop"):
-            stop_of[r["contract"]] = r["stop"]
+        if k == "order":
+            if r.get("stop"):
+                stop_of[r["contract"]] = r["stop"]
+            if r.get("order"):
+                order_regime[r["order"]] = r.get("regime")
+            tag = r.get("tag") or ""
+            if tag.startswith("s:") and tag[2:] not in names and ":" in (r.get("reason") or ""):
+                names[tag[2:]] = r["reason"].split(":", 1)[0]
         elif k == "trail-on":
             protect[r["contract"]] = "Trailing stop"
         elif k == "fill":
             q = r["qty"] if r["side"] == "BUY" else -r["qty"]
             left = close(r["contract"], q, r["price"], t, r.get("charges", 0.0), r.get("tag", ""))
             if left:
-                lots[r["contract"]].append([left, r["price"], t, r.get("charges", 0.0) / abs(q), r.get("tag", "")])
+                lots[r["contract"]].append([left, r["price"], t, r.get("charges", 0.0) / abs(q), r.get("tag", ""),
+                                            order_regime.get(r.get("order"))])
                 if r["side"] == "BUY" and r["contract"] in stop_of:
                     protect[r["contract"]] = f"Stop-loss at {stop_of[r['contract']]:g}"
         elif k == "mark":
@@ -136,6 +164,28 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         m["days_up" if d["pnl"] > 0 else "days_down"] += 1
     month_list = [{"month": m, **{k: (round(v, 2) if k == "pnl" else v) for k, v in x.items()}} for m, x in sorted(months.items())]
 
+    for tr in trades:
+        tr["strategy"] = names.get(tr["strategy_id"], tr["strategy_id"])
+    by = defaultdict(lambda: {"pnl": 0.0, "trades": 0, "wins": 0, "best": None, "worst": None})
+    by_reg = defaultdict(lambda: defaultdict(lambda: {"pnl": 0.0, "trades": 0, "wins": 0}))
+    for tr in trades:
+        b = by[tr["strategy_id"]]
+        b["pnl"] += tr["pnl"]
+        b["trades"] += 1
+        b["wins"] += tr["pnl"] > 0
+        b["best"] = tr["pnl"] if b["best"] is None else max(b["best"], tr["pnl"])
+        b["worst"] = tr["pnl"] if b["worst"] is None else min(b["worst"], tr["pnl"])
+        if tr.get("regime"):
+            g = by_reg[tr["strategy_id"]][tr["regime"]]
+            g["pnl"] += tr["pnl"]
+            g["trades"] += 1
+            g["wins"] += tr["pnl"] > 0
+    by_strategy = sorted(({"id": k, "name": names.get(k, k), "pnl": round(v["pnl"], 2), "trades": v["trades"],
+                           "wins": v["wins"], "best": v["best"], "worst": v["worst"],
+                           "avg": round(v["pnl"] / v["trades"], 2)} for k, v in by.items()), key=lambda x: -x["pnl"])
+    by_strategy_regime = {k: {r: {"pnl": round(x["pnl"], 2), "trades": x["trades"], "wins": x["wins"]} for r, x in v.items()}
+                          for k, v in by_reg.items()}
+
     run, peak, dd = 0.0, 0.0, 0.0
     for d in day_list:
         run += d["pnl"]
@@ -164,6 +214,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         "days": day_list,
         "months": month_list,
         "trades": list(reversed(trades)),        # newest first; every trade, no cut-off
+        "by_strategy": by_strategy,
+        "by_strategy_regime": by_strategy_regime,
     }
 
 

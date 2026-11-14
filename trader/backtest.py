@@ -110,7 +110,8 @@ def main() -> int:
         save(OUT.format(id=sid), res, f"Back-test: {res['name']}")
         idx = load(INDEX) or {}                     # the latest result of each strategy, for the page's cards
         idx[sid] = {"ran": res["ran"], "trades": t["trades"], "wins": t["wins"], "profit": t["booked"],
-                    "worst_drop": t["worst_drop"], "sessions": res["coverage"]["sessions"]}
+                    "worst_drop": t["worst_drop"], "sessions": res["coverage"]["sessions"],
+                    "by_regime": (res["summary"].get("by_strategy_regime") or {}).get(sid, {})}
         save(INDEX, idx, f"Back-tests index: {len(idx)} strategies")
     return 0
 

@@ -8,6 +8,8 @@ The paper trading program as it runs on market-hub-trader (a systemd service, tr
              {"active": id or null, "items": [...], "limits": {...}}. The active one trades (watch only when none);
              a change is picked up within seconds of the file arriving, for new trades only (open positions keep the
              exits they started with). "limits" may raise or lower max_lots_per_order and max_daily_loss.
+             "mode": "autopilot" instead: at 09:30, 11:00 and 13:00 the program reads the market condition and picks
+             the strategy itself (trader/autopilot.py), or the "fallback", or watches; every pick is journalled.
   journal    /opt/trader/journal/YYYY-MM-DD.jsonl, one line per decision, order, fill, refusal and profit mark
   stop       create /opt/trader/STOP to close everything and stop new entries for the day
 
@@ -24,7 +26,12 @@ from pathlib import Path
 
 from hub.holidays import is_session
 
+from .autopilot import CHECKS, choose
 from .engine import Engine, default_exits
+from .indicators import completed
+from .regime import classify
+from .strategies.rules import pick_expiry
+from . import summary as summary_mod
 from .ibkr import IBKR
 from .journal import Journal
 from .model import Settings
@@ -53,10 +60,47 @@ def settings() -> Settings:
         s.max_lots_per_order = int(min(max(float(lim["max_lots_per_order"]), 1), 50))
     if lim.get("max_daily_loss"):
         s.max_daily_loss = float(min(max(float(lim["max_daily_loss"]), 500), 1e7))
+    if b.get("mode") == "autopilot":
+        return s                                   # autopilot picks the strategy itself at its check times
     act = next((x for x in b.get("items") or [] if x.get("id") and x.get("id") == b.get("active")), None)
     if act:
         s.strategy, s.params = "rules", act
     return s
+
+
+def builder() -> dict:
+    try:
+        return json.loads(STRATS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def use(eng: Engine, item: dict | None) -> None:
+    """Run this builder strategy (or none) from now on; the day's count carries over if it is the same one."""
+    old = eng.strategy
+    eng.strategy = make(Settings(strategy="rules", params=item)) if item else None
+    if old is not None and eng.strategy is not None and getattr(old, "id", None) == getattr(eng.strategy, "id", None):
+        eng.strategy.day, eng.strategy.trades = old.day, old.trades
+        eng.strategy.last_entry, eng.strategy.mine = old.last_entry, old.mine
+
+
+def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
+    items = b.get("items") or []
+    regimes, words = {}, {}
+    for idx in sorted({it.get("index") or "NIFTY" for it in items} or {"NIFTY"}):
+        bars = completed(br.index_bars(idx), now)
+        exp = pick_expiry(br.expiries(idx), now.date(), "nearest")
+        regimes[idx], words[idx] = classify(bars, now, exp)
+    try:
+        paper = summary_mod.build(summary_mod.read(str(JOURNALS)))["by_strategy_regime"]
+    except Exception:
+        paper = {}
+    item, why, scores = choose(items, regimes, b.get("backtests") or {}, paper, b.get("fallback"))
+    use(eng, item)
+    main = "NIFTY" if "NIFTY" in regimes else next(iter(regimes))
+    eng.j.write(now, "autopilot", regime=regimes.get(main), regime_why=words.get(main), regimes=regimes,
+                strategy=item.get("name") if item else None, strategy_id=item.get("id") if item else None,
+                why=why, scores=scores)
 
 
 def builder_stamp():
@@ -71,6 +115,9 @@ def switch(eng: Engine, now: datetime) -> None:
     s = settings()
     old = eng.strategy
     eng.s, eng.guard.s = s, s
+    if builder().get("mode") == "autopilot":
+        eng.j.write(now, "switch", strategy="autopilot", max_lots=s.max_lots_per_order, max_daily_loss=s.max_daily_loss)
+        return                                     # the next autopilot check (at once) picks the strategy
     eng.strategy = make(s)
     if old is not None and eng.strategy is not None and getattr(old, "id", None) == getattr(eng.strategy, "id", None):
         eng.strategy.day, eng.strategy.trades = old.day, old.trades           # the day's count survives an edit
@@ -124,16 +171,26 @@ def main() -> int:
     br.connect()
     day = date.today()
     eng = start(br, s, day)
-    stamp, kept = builder_stamp(), ""
+    stamp, kept, done = builder_stamp(), "", set()
     while True:
         now = datetime.now()
-        if now.date() != day:                      # new day: fresh journal, fresh limits
-            day, s = now.date(), settings()
+        if now.date() != day:                      # new day: fresh journal, fresh limits, autopilot checks again
+            day, s, done = now.date(), settings(), set()
             eng = start(br, s, day)
             stamp = builder_stamp()
         elif builder_stamp() != stamp:
             stamp = builder_stamp()
             switch(eng, now)
+            done = set()                           # autopilot: a change on the dashboard means a fresh look now
+        b = builder()
+        if b.get("mode") == "autopilot" and market_open(now):
+            due = [c for c in CHECKS if now.strftime("%H:%M") >= c and c not in done]
+            if due:
+                done |= set(due)
+                try:
+                    autopilot_check(br, eng, now, b)
+                except Exception as e:             # a failed check keeps whatever was running; journalled
+                    eng.j.write(now, "note", text=f"autopilot check failed ({type(e).__name__}); keeping the current choice")
         try:
             if market_open(now):
                 eng.step(now)

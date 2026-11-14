@@ -61,6 +61,7 @@ class OrderRequest:
     tag: str = ""         # the strategy's own label, e.g. "condor-entry"
     hedge: bool = False   # a bought wing that caps a sold leg's loss: no stop-loss (a stop would remove the cap)
     exits: dict | None = None   # the strategy's exits for the position this opens (trader/engine.py default_exits)
+    regime: str | None = None   # market condition at entry (trader/regime.py), for records by condition
 
 
 @dataclass

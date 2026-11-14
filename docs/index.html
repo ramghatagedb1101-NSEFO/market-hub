@@ -1285,7 +1285,9 @@
     const ist = new Date(Date.now() + 5.5 * 3600e3), m = ist.getUTCHours() * 60 + ist.getUTCMinutes();
     const open = ist.getUTCDay() >= 1 && ist.getUTCDay() <= 5 && m >= 555 && m <= 930;
     if (open && (Date.now() - new Date(st.last + "+05:30").getTime()) / 60000 > 15) return `<span class="dn">Not heard from since ${esc(algoWhen(st.last))}</span>`;
-    return st.strategy && st.strategy !== "watch only" ? `<span class="up">Trading · ${esc(st.strategy.replace(/_/g, " "))}</span>` : "Watching only";
+    const COND = { trend_up: "Trend up", trend_down: "Trend down", range: "Range-bound", volatile: "Volatile", expiry_day: "Expiry day" };
+    const ap = st.autopilot ? `Autopilot · ${esc(COND[st.autopilot.regime] || "reading the market")} · ` : "";
+    return st.strategy && !["watch only", "autopilot"].includes(st.strategy) ? `<span class="up">${ap}${esc(st.strategy.replace(/_/g, " "))}</span>` : ap + "Watching only";
   }
   function drawAlgoCard(){
     const el = $("#fno-algo"); if (!el) return;
@@ -1387,6 +1389,14 @@
         `<div class="mut" style="margin-top:6px">They appear here once a strategy is switched on (dashboard › Paper trading › Strategies).</div></div></div>`;
     }
     h += pnlBlockP("algo", A.days);
+    // Strategy-wise profit (owner, 14 Nov 2026): largest profit first; a bar from the middle line, profit right, loss left.
+    const BS = A.by_strategy || [];
+    if (BS.length) {
+      const mx = Math.max(...BS.map(r => Math.abs(r.pnl)), 1), dark = parseInt((getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#fff").slice(1, 3), 16) < 128;
+      const pos = dark ? "#1f9a8e" : "#067647", neg = dark ? "#e06a36" : "#c4320a";
+      h += `<div class="sec">By strategy</div><div class="panel"><div class="pb">` + BS.map(r => `<div class="row" style="display:block"><div style="display:flex;justify-content:space-between"><span class="l">${esc(r.name)}<br><span class="mut" style="font-size:11px">${r.trades} trade${r.trades === 1 ? "" : "s"} · ${Math.round(100 * r.wins / r.trades)}% won · best ${pSigned(r.best)} · worst ${pSigned(r.worst)}</span></span><span class="r">${pSigned(r.pnl)}</span></div>` +
+        `<div style="position:relative;height:8px;margin-top:6px;background:linear-gradient(to right,transparent calc(50% - .5px),var(--ln2) calc(50% - .5px),var(--ln2) calc(50% + .5px),transparent calc(50% + .5px))"><div style="position:absolute;top:1px;height:6px;border-radius:${r.pnl >= 0 ? "0 3px 3px 0" : "3px 0 0 3px"};background:${r.pnl >= 0 ? pos : neg};${r.pnl >= 0 ? "left" : "right"}:50%;width:${Math.max(Math.abs(r.pnl) / mx * 50, .5)}%"></div></div></div>`).join("") + `</div></div>`;
+    }
     if (ALGO_TAB === "pending") ALGO_TAB = "open";
     const n = { daily: D.length, monthly: M.length, trades: TR.length, open: O.length + P.length };
     h += `<div class="seg" style="margin:12px 0 6px">${[["daily", "Daily"], ["monthly", "Monthly"], ["trades", "Trades"], ["open", "Open"]].map(([k, l]) =>
@@ -1395,7 +1405,7 @@
     const more = list => !ALGO_ALL && list.length > SHOW ? `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="algoAll()">Show all ${list.length}</button>` : "";
     if (ALGO_TAB === "daily") h += D.length ? cut(D).map(d => `<div class="row"><span class="l">${esc(dayTxt(parseDay(d.date)))}<br><span class="mut" style="font-size:11px">${d.trades} trade${d.trades === 1 ? "" : "s"} · ${d.wins} won · ${d.losses} lost</span></span><span class="r">${pSigned(d.pnl)}</span></div>`).join("") + more(D) : `<div class="mut">No closed trades yet.</div>`;
     else if (ALGO_TAB === "monthly") h += M.length ? M.map(m => { const d = parseDay(m.month + "-01"); return `<div class="row"><span class="l">${MON[d.getUTCMonth()]} ${d.getUTCFullYear()}<br><span class="mut" style="font-size:11px">${m.trades} trade${m.trades === 1 ? "" : "s"} · ${m.days_up} day${m.days_up === 1 ? "" : "s"} up · ${m.days_down} down</span></span><span class="r">${pSigned(m.pnl)}</span></div>`; }).join("") : `<div class="mut">No closed trades yet.</div>`;
-    else if (ALGO_TAB === "trades") h += TR.length ? cut(TR).map(t => `<div class="row"><span class="l">${algoName(t.contract)}<br><span class="mut" style="font-size:11px">${t.dir === "long" ? "Bought" : "Sold"} ${f(t.qty)} · ${f(t.entry, 2)} → ${f(t.exit, 2)} · ${esc(t.why)}<br>${esc(algoWhen(t.exit_t))}</span></span><span class="r">${pSigned(t.pnl)}</span></div>`).join("") + more(TR) : `<div class="mut">No closed trades yet.</div>`;
+    else if (ALGO_TAB === "trades") h += TR.length ? cut(TR).map(t => `<div class="row"><span class="l">${algoName(t.contract)}<br><span class="mut" style="font-size:11px">${t.dir === "long" ? "Bought" : "Sold"} ${f(t.qty)} · ${f(t.entry, 2)} → ${f(t.exit, 2)} · ${esc(t.why)}<br>${t.strategy ? esc(t.strategy) + " · " : ""}${esc(algoWhen(t.exit_t))}</span></span><span class="r">${pSigned(t.pnl)}</span></div>`).join("") + more(TR) : `<div class="mut">No closed trades yet.</div>`;
     else h += (O.length ? `<div class="mut" style="font-size:11px;font-weight:600;letter-spacing:.04em;margin-bottom:2px">POSITIONS</div>` : "") + (O.length ? O.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${o.qty > 0 ? "Bought" : "Sold"} ${f(Math.abs(o.qty))} at ${f(o.entry, 2)} · now ${o.mark != null ? f(o.mark, 2) : "–"}<br>${esc(o.protection || (o.qty < 0 ? "Loss capped by a bought option" : ""))}</span></span><span class="r">${pSigned(o.pnl)}</span></div>`).join("") : "") + (P.length ? `<div class="mut" style="font-size:11px;font-weight:600;letter-spacing:.04em;margin:${O.length ? 12 : 0}px 0 2px">WORKING ORDERS</div>` + P.map(o => `<div class="row"><span class="l">${algoName(o.contract)}<br><span class="mut" style="font-size:11px">${esc(o.type)} · ${o.side === "BUY" ? "Buy" : "Sell"} ${f(o.qty)}${o.waiting_for_entry ? " · after the buy fills" : ""}</span></span><span class="r">${o.price != null ? f(o.price, 2) : o.trail_pct ? o.trail_pct + "% trail" : "–"}</span></div>`).join("") + (A.pending_at ? `<div class="mut" style="font-size:11px;margin-top:6px">Orders as of ${esc(algoWhen(A.pending_at))}</div>` : "") : "") + (!O.length && !P.length ? `<div class="mut">No open positions or working orders.</div>` : "");
     h += `</div></div><div class="note" style="margin:8px 2px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A trade counts on the day it closes.</div>`;
     return h;

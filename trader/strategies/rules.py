@@ -22,6 +22,7 @@ from datetime import date, datetime
 
 from ..indicators import COMPARE_OPS, OPERANDS, check, completed
 from ..model import LOT, Contract, OrderRequest
+from ..regime import REGIMES, classify
 
 SIGNALS = {"price_ma", "ma_cross", "rsi", "orb", "change", "dte", "weekday", "compare"}
 MAX_GROUPS, MAX_SIGNALS = 5, 8
@@ -63,6 +64,7 @@ def clean(d: dict) -> dict:
         "window": {"from": _hhmm((d.get("window") or {}).get("from"), "09:30"),
                    "until": _hhmm((d.get("window") or {}).get("until"), "14:30")},
         "groups": groups, "groups_match": "all" if d.get("groups_match") == "all" else "any",
+        "conditions": [c for c in (d.get("conditions") or []) if c in REGIMES],     # autopilot: "Suited to"
         "exits": {"sl_type": "points" if ex.get("sl_type") == "points" else "pct", "sl": _num(ex.get("sl"), 0, 1000, 25),
                   "target_type": "points" if ex.get("target_type") == "points" else "pct",
                   "target": _num(ex.get("target"), 0, 5000, 0),
@@ -211,4 +213,5 @@ class Rules:
         self.last_entry = now
         self.mine.add(c)
         why = f"{self.name}: " + " | ".join(words)
-        return [OrderRequest(c, d["side"], d["lots"], None, why[:300], tag=f"s:{self.id}", exits=d["exits"])]
+        reg, _ = classify(bars, now, e)
+        return [OrderRequest(c, d["side"], d["lots"], None, why[:300], tag=f"s:{self.id}", exits=d["exits"], regime=reg)]

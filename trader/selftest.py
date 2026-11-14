@@ -335,8 +335,67 @@ def test_compare_and_groups():
        len(c["groups"][0]["signals"]) == 1 and c["groups"][0]["signals"][0]["op"] == ">", c["groups"])
 
 
+def test_regime_autopilot_by_strategy():
+    from datetime import datetime as dt, timedelta as td
+    from .autopilot import choose, MIN_TRADES
+    from .regime import classify
+    from .summary import build
+    y0, t0 = dt(2026, 10, 30, 9, 15), dt(2026, 11, 2, 9, 15)
+    calm = [(y0 + td(minutes=i), 100 + (i % 2) * .2, 100.3 + (i % 2) * .2, 99.9 + (i % 2) * .2, 100.1 + (i % 2) * .2) for i in range(376)]
+    def day(path, wiggle=0.1):
+        return [(t0 + td(minutes=i), p, p + wiggle, p - wiggle, p) for i, p in enumerate(path)]
+    now = t0 + td(minutes=60)
+    up = calm + day([100 + i * 0.02 for i in range(60)])
+    ok("regime: steady rise is a trend up", classify(up, now, "2026-11-05")[0] == "trend_up", classify(up, now, "2026-11-05"))
+    down = calm + day([100 - i * 0.02 for i in range(60)])
+    ok("regime: steady fall is a trend down", classify(down, now, "2026-11-05")[0] == "trend_down")
+    flat = calm + day([100 + (0.05 if i % 10 < 5 else -0.05) for i in range(60)])
+    ok("regime: back and forth is range-bound", classify(flat, now, "2026-11-05")[0] == "range", classify(flat, now, "2026-11-05"))
+    wild = calm + day([100 + (1.5 if (i // 5) % 2 else -1.5) for i in range(60)], wiggle=1.0)
+    ok("regime: wide swings going nowhere are volatile", classify(wild, now, "2026-11-05")[0] == "volatile", classify(wild, now, "2026-11-05"))
+    ok("regime: expiry day comes first", classify(up, now, "2026-11-02")[0] == "expiry_day")
+    ok("regime: no reading before 09:30", classify(calm + day([100] * 10), t0 + td(minutes=10), "2026-11-05")[0] is None)
+
+    items = [{"id": "a", "name": "A", "index": "NIFTY", "conditions": ["trend_up"]},
+             {"id": "b", "name": "B", "index": "NIFTY", "conditions": ["trend_up", "range"]},
+             {"id": "c", "name": "C", "index": "NIFTY", "conditions": ["range"]},
+             {"id": "f", "name": "F", "index": "NIFTY", "conditions": []}]
+    bt = {"a": {"by_regime": {"trend_up": {"trades": 12, "wins": 7, "pnl": 2400}}},
+          "b": {"by_regime": {"trend_up": {"trades": 20, "wins": 12, "pnl": 3000}}},
+          "c": {"by_regime": {"range": {"trades": 4, "wins": 3, "pnl": 900}}}}
+    it, why, sc = choose(items, {"NIFTY": "trend_up"}, bt, {}, "f")
+    ok("autopilot: best average among tagged and qualified", it["id"] == "a", (it, why))
+    paper = {"b": {"trend_up": {"trades": 5, "wins": 5, "pnl": 3000}}}
+    it, why, sc = choose(items, {"NIFTY": "trend_up"}, bt, paper, "f")
+    ok("autopilot: paper results add to the record", it["id"] == "b", (it, why))
+    it, why, sc = choose(items, {"NIFTY": "range"}, bt, {}, "f")
+    ok("autopilot: too few trades -> fallback", it["id"] == "f" and "fallback" in why, (it, why))
+    it, why, sc = choose(items, {"NIFTY": "range"}, bt, {}, None)
+    ok("autopilot: no fallback -> watch only", it is None and "watching only" in why, why)
+    it, why, sc = choose(items, {"NIFTY": "volatile"}, bt, {}, None)
+    ok("autopilot: untagged condition -> watch only", it is None)
+    loser = {"a": {"by_regime": {"trend_up": {"trades": 30, "wins": 5, "pnl": -4000}}}}
+    it, why, sc = choose(items[:1], {"NIFTY": "trend_up"}, loser, {}, None)
+    ok("autopilot: a losing record never qualifies", it is None)
+
+    rows = [{"t": "2026-11-02T09:20:00", "kind": "start", "strategy": "A one", "strategy_id": "a"},
+            {"t": "2026-11-02T09:30:00", "kind": "order", "contract": "NIFTY 2026-11-03 25000C", "side": "BUY", "order": "1", "tag": "s:a", "reason": "A one: x", "regime": "trend_up"},
+            {"t": "2026-11-02T09:30:00", "kind": "fill", "contract": "NIFTY 2026-11-03 25000C", "side": "BUY", "qty": 65, "price": 100, "charges": 20, "tag": "s:a", "order": "1"},
+            {"t": "2026-11-02T10:00:00", "kind": "fill", "contract": "NIFTY 2026-11-03 25000C", "side": "SELL", "qty": 65, "price": 130, "charges": 20, "tag": "target", "order": "2"},
+            {"t": "2026-11-02T10:30:00", "kind": "order", "contract": "NIFTY 2026-11-03 24900P", "side": "BUY", "order": "3", "tag": "s:b", "reason": "B two: y", "regime": "range"},
+            {"t": "2026-11-02T10:30:00", "kind": "fill", "contract": "NIFTY 2026-11-03 24900P", "side": "BUY", "qty": 65, "price": 80, "charges": 20, "tag": "s:b", "order": "3"},
+            {"t": "2026-11-02T11:00:00", "kind": "fill", "contract": "NIFTY 2026-11-03 24900P", "side": "SELL", "qty": 65, "price": 60, "charges": 20, "tag": "stop", "order": "4"}]
+    sm = build(rows, now=dt(2026, 11, 2, 16))
+    bs = sm["by_strategy"]
+    ok("by strategy: two strategies, biggest profit first", [x["name"] for x in bs] == ["A one", "B two"], bs)
+    ok("by strategy: profit after charges", bs[0]["pnl"] == 30 * 65 - 40 and bs[1]["pnl"] == -20 * 65 - 40, bs)
+    ok("by strategy: each trade names its strategy and condition",
+       {(t["strategy"], t["regime"]) for t in sm["trades"]} == {("A one", "trend_up"), ("B two", "range")}, sm["trades"])
+    ok("by strategy: paper record by condition", sm["by_strategy_regime"]["a"]["trend_up"]["trades"] == 1, sm["by_strategy_regime"])
+
+
 def main() -> int:
-    for t in [test_indicators, test_rules, test_compare_and_groups, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor]:
         t()
     bad = [n for n, good in R if not good]
