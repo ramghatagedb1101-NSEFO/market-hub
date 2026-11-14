@@ -4,6 +4,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-14
 
+### Buy / Sell labels on the strategy chart: on by default for Supertrend (Sat 14 Nov 2026)
+Owner: "labels for buy and sell are not appearing". Cause: the labels worked, but each indicator's small "B/S" button was
+off; chart set-ups saved in the browser before the labels existed had no setting, so Supertrend showed none.
+- Supertrend's labels now start on, including in set-ups saved earlier; the other indicators start off (all on at once
+  crowds the chart) and are switched on per indicator.
+- The button now reads "✓ Buy/Sell" or "Buy/Sell off" instead of "B/S".
+
 ### Strategy chart rebuilt the TradingView way (Sat 14 Nov 2026)
 Owner: "You are complicating the graphs. You should give it in two views, just like how tradingview gives. One below the
 other", with a TradingView screenshot (NIFTY 3-minute over several days, Buy / Sell flags, ADX panel underneath).

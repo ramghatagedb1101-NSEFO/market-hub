@@ -1922,11 +1922,15 @@ const STC_CAT = {
   adx: { l: 'ADX (+DI / −DI)', g: 'Lower panel', p: { n: [14, 'period'] }, low: true }
 };
 const STC_SOON = ['VWAP (needs futures volume)'];
+// buy / sell labels start on for Supertrend; the others start off (a button on each), so the chart stays readable
+function stcSigDefault(t){ return t === 'st'; }
 const STC = (() => {
   const base = { view: 'daily', day: null, strat: true, trades: true,
     ind: { daily: [{ t: 'sma', n: 20, c: 0 }, { t: 'sma', n: 50, c: 1 }, { t: 'sma', n: 200, c: 2 }], intra: [{ t: 'pdh', c: 0 }] } };
   try { const s = JSON.parse(localStorage.getItem('mh_stc_v1') || 'null'); if (s && s.ind) base.ind = s.ind; } catch (e) {}
-  ['daily', 'intra'].forEach(k => (base.ind[k] || []).forEach(it => { if (it.c > 3) it.c = it.c % 4; }));   // 5 colours -> 4
+  // 5 colours -> 4; buy / sell labels on unless switched off (owner, 14 Nov 2026: "labels for buy and sell are not appearing":
+  // set-ups saved before the labels existed had them off)
+  ['daily', 'intra'].forEach(k => (base.ind[k] || []).forEach(it => { if (it.c > 3) it.c = it.c % 4; if (it.sig === undefined) it.sig = stcSigDefault(it.t); }));
   return base;
 })();
 const STD = { daily: {}, month: {}, bt: {} };
@@ -1955,7 +1959,7 @@ function stcAdd(t){
     if (t !== 'st' && used.size >= 4) { ST_MSG = 'At most four coloured lines on the price: remove one first.'; rerender(); return; }
     var c = t === 'st' ? -1 : [0, 1, 2, 3].find(i => !used.has(i));
   }
-  const it = { t, c: def.low ? 2 : c, sig: t === 'st' };
+  const it = { t, c: def.low ? 2 : c, sig: stcSigDefault(t) };
   Object.keys(def.p).forEach(k => { it[k] = def.p[k][0]; });
   L.push(it); stcSave(); rerender();
 }
@@ -2001,7 +2005,7 @@ function stcPanel(E){
     const pars = Object.keys(def.p).map(k => '<input class="field num" title="' + def.p[k][1] + '" aria-label="' + def.p[k][1] + '" style="width:46px;height:24px;padding:0 4px" value="' + it[k] + '" onchange="stcPar(' + i + ', \'' + k + '\', this.value)">').join('');
     return '<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:2px 4px 2px 10px;font-size:12px;background:var(--surface)">' +
       '<span style="width:12px;height:3px;border-radius:2px;background:' + col + '"></span>' + esc(it.t === 'sma' ? (kind === 'daily' ? 'DMA' : 'SMA') : def.l) + (def.low ? ' <span class="faint">(own panel)</span>' : '') + pars +
-      (STC_SIGS[it.t] ? '<button type="button" title="Buy / sell labels on the chart' + (it.t === 'st' ? '' : ' (and the line green / red)') + '" onclick="stcSig(' + i + ')" style="border:1px solid ' + (it.sig ? 'var(--accent)' : 'var(--border)') + ';background:' + (it.sig ? 'var(--accent-soft)' : 'none') + ';color:' + (it.sig ? 'var(--accent-text)' : 'var(--text-3)') + ';border-radius:999px;font-size:11px;font-weight:600;padding:1px 7px;cursor:pointer">' + (it.sig ? '✓ ' : '') + 'B/S</button>' : '') +
+      (STC_SIGS[it.t] ? '<button type="button" title="Show or hide the buy / sell labels on the chart' + (it.t === 'st' ? '' : ' (and the line green / red)') + '" onclick="stcSig(' + i + ')" style="border:1px solid ' + (it.sig ? 'var(--accent)' : 'var(--border)') + ';background:' + (it.sig ? 'var(--accent-soft)' : 'none') + ';color:' + (it.sig ? 'var(--accent-text)' : 'var(--text-3)') + ';border-radius:999px;font-size:11px;font-weight:600;padding:1px 7px;cursor:pointer">' + (it.sig ? '✓ Buy/Sell' : 'Buy/Sell off') + '</button>' : '') +
       '<button type="button" title="Remove" aria-label="Remove ' + esc(def.l) + '" onclick="stcDel(' + i + ')" style="border:0;background:none;cursor:pointer;color:var(--text-3);font-size:14px;padding:0 4px">×</button></span>';
   }).join('');
   const groups = {};
