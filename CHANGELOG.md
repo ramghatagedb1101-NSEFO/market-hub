@@ -11,7 +11,10 @@ none since; every summary from 3 Nov came from gemini-3.5-flash-lite after the b
 20 s, 4 minutes again), so a document took 8-12 minutes, 1-3 got done a day and four hit the 15-minute cap.
 - `hub/summaries.py`: the bigger model first, one try of at most 2 minutes (GEMINI_BIG_WAIT_S). If it times out or says
   its free allowance is used up, it is skipped for the rest of that run (the next run tries it again); then the lighter
-  model, twice, as before.
+  model, twice (30 s apart).
+- `hub/news_score.py` (daily news score) had the same wait (up to 4 minutes, twice): now the same 2-minute limit, then
+  the lighter model twice. Its missing days (6, 9, 10, 11, 13 Nov) are a different fault: the job ran before that day's
+  session was in the price feed ("no open session ... in the feed") or failed earlier; not changed here.
 
 ### Back-tests reader: the fast Gemini model first (Sat 14 Nov 2026)
 Owner: "fix the Gemini read stalling". Evidence (`hub/diag_gemini_speed.py` on GitHub, 12 timed calls with the page's own
