@@ -225,7 +225,8 @@ FAMILIES = {
 }
 # Families that need data the market diary started keeping on 14 Nov 2026 (hub/market_daily.py flows; being filled in
 # back to 2023): tested only once that data covers NEEDS_COVER of the development period's sessions.
-NEEDS = {"flows_follow": ("fii_cash", "sp500_chg"), "news_mood": ("news_score",)}
+NEEDS = {"flows_follow": ("fii_cash", "sp500_chg"), "news_mood": ("news_score",), "vol_condor": ("iv_pct", "vix_pct"),
+         "cheap_straddle": ("iv_pct",), "fii_bear": ("fii_fut",), "pcr_put_sell": ("pcr",)}
 NEEDS_COVER = 0.8
 INDICES = ("NIFTY", "BANKNIFTY")
 
@@ -405,14 +406,24 @@ def ai_ideas(ledger: dict) -> list[tuple[str, dict, str]]:
 
 
 # ---- the loop ----------------------------------------------------------------------------------------------------
-def coverage(fam: str, flows: dict, sessions: list) -> float:
-    """Share of the development period's sessions that have every figure the family needs (1.0 when it needs none)."""
-    need = NEEDS.get(fam)
+def needs_of(defn: dict) -> tuple:
+    """The market figures an idea reads (compare signals on either side)."""
+    from .market import MARKET
+    sig = [x for g in (defn.get("groups") or []) + (defn.get("put_groups") or []) for x in g.get("signals") or []]
+    return tuple(sorted({o.get("src") for x in sig if x.get("type") == "compare" for o in (x.get("left") or {}, x.get("right") or {})}
+                        & set(MARKET)))
+
+
+def coverage(fam: str, mkt, sessions: list, need: tuple | None = None) -> float:
+    """Share of the development period's sessions whose figures (as a strategy would read them that morning, on NIFTY)
+    include everything the family needs; 1.0 when it needs none. Below NEEDS_COVER the family waits, so half-filled
+    history can never reject an idea for good."""
+    need = need if need is not None else NEEDS.get(fam)
     if not need:
         return 1.0
     if not sessions:
         return 0.0
-    return sum(1 for d in sessions if all((flows.get(d) or {}).get(k) is not None for k in need)) / len(sessions)
+    return sum(1 for d in sessions if all(mkt.prev("NIFTY", d).get(k) is not None for k in need)) / len(sessions)
 
 
 def candidates(ledger: dict, rnd: random.Random, n: int, ready: set) -> list[tuple[str, dict, dict | None, str]]:
@@ -504,6 +515,15 @@ def recheck(ledger: dict, deadline: float, log=print) -> None:
         log(f"  recheck: {r['name']} -- {v['trades']} trades, ₹{v['profit']:,.0f}{' (fading)' if r['fading'] else ''}")
 
 
+def _weekdays(a: str, b: str) -> list[str]:
+    d, end, out = date.fromisoformat(a), date.fromisoformat(b), []
+    while d <= end:
+        if d.weekday() < 5:
+            out.append(d.isoformat())
+        d += timedelta(days=1)
+    return out
+
+
 def report(ledger: dict, waiting: dict | None = None) -> dict:
     rows = list(ledger.values())
     stages = {}
@@ -534,10 +554,12 @@ def main() -> int:
     deadline = t0 + a.minutes * 60
     ledger = load(LEDGER) or {}
     rnd = random.Random(int(t0))
-    flows = load("state/market/flows.json") or {}
-    sessions = sorted(k for k, v in (load("state/market/daily.json") or {}).items()
-                      if isinstance(v, dict) and not v.get("holiday") and DEV_FROM <= k <= DEV_TO)
-    cover = {f: coverage(f, flows, sessions) for f in FAMILIES}
+    from .market import Market
+    table = load("state/market/daily.json") or {}
+    mkt = Market(table, load("state/market/flows.json") or {})
+    sessions = [d for d in sorted(set(k for k in table) | set(_weekdays(DEV_FROM, DEV_TO)))
+                if DEV_FROM <= d <= DEV_TO and not (table.get(d) or {}).get("holiday") and date.fromisoformat(d).weekday() < 5]
+    cover = {f: coverage(f, mkt, sessions) for f in FAMILIES}
     ready = {f for f, c in cover.items() if c >= NEEDS_COVER}
     waiting = {f: round(100 * c) for f, c in cover.items() if f not in ready}
     if waiting:
@@ -545,7 +567,12 @@ def main() -> int:
     recheck(ledger, deadline)
     queue = candidates(ledger, rnd, a.max, ready)
     if not a.no_ai:
-        queue = [(f, d, None, w) for f, d, w in ai_ideas(ledger)] + queue
+        for f, d, w in ai_ideas(ledger):
+            c = coverage("ai", mkt, sessions, needs_of(d))
+            if c >= NEEDS_COVER:
+                queue.insert(0, (f, d, None, w))
+            else:
+                print(f"  later: Gemini idea '{d.get('name')}' needs figures covering only {100 * c:.0f}% of the period yet")
     print(f"research: {len(ledger)} ideas in the ledger; {len(queue)} to try; {a.minutes:.0f} minutes", flush=True)
     done = 0
     for fam, d, p, why in queue:

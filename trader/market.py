@@ -9,7 +9,7 @@ latest sessions copied to the machine by algo-sync.yml (Market.from_file, re-rea
 """
 import json
 import os
-from datetime import date
+from datetime import date, timedelta
 
 # operand -> (label on the page, how it is read from a day's entry)
 MARKET = {
@@ -27,6 +27,7 @@ MARKET = {
 FLOW_KEYS = ("fii_cash", "dii_cash", "sp500_chg", "nasdaq_chg", "crude_chg", "gold_chg", "usdinr_chg")
 LIVE_FILE = os.getenv("MARKET_FILE") or "/opt/trader/market.json"
 LIVE_FLOWS = os.getenv("FLOWS_FILE") or "/opt/trader/flows.json"
+MAX_AGE_DAYS = 7                    # a weekend plus the longest run of market holidays
 
 # Scheduled days that move the market (dates checked against the official calendars; see hub/expiry_history.py EVENTS)
 from hub.expiry_history import EVENTS  # noqa: E402
@@ -72,10 +73,13 @@ class Market:
         key = (index, d)
         if key not in self.memo:
             import bisect
+            # only a RECENT session counts (14 Nov 2026: with a gap in the table, "the last session before" was months
+            # old and its figures were used as if current): within MAX_AGE_DAYS calendar days, else nothing
+            oldest = (date.fromisoformat(d) - timedelta(days=MAX_AGE_DAYS)).isoformat()
             i = bisect.bisect_left(self.days, d)
-            out = flat(self.t[self.days[i - 1]], index) if i else {}
+            out = flat(self.t[self.days[i - 1]], index) if i and self.days[i - 1] >= oldest else {}
             j = bisect.bisect_left(self.fdays, d)                # the diary: the last session before the day
-            if j:
+            if j and self.fdays[j - 1] >= oldest:
                 out.update({k: self.f[self.fdays[j - 1]].get(k) for k in FLOW_KEYS})
             news = (self.f.get(d) or {}).get("news_score")         # the morning's own score (known by 09:00)
             if news is not None:

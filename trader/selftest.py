@@ -554,6 +554,8 @@ def test_market_signals():
     check(q["fii_cash"] == -900.0 and q["sp500_chg"] == -0.4 and q["news_score"] == 2,
           "diary: last session's flows, the morning's own news score", q)
     check(fl.prev("NIFTY", "2026-11-13")["fii_cash"] == 1500.0, "diary: never the same day's flows")
+    stale = m.prev("NIFTY", "2026-12-20")
+    check(stale.get("iv_pct") is None and stale.get("vix") is None, "market: figures more than a week old are not used", stale)
     sig = {"type": "compare", "left": {"src": "iv_pct"}, "op": ">", "right": {"src": "value", "value": 70}, "tf": 5}
     fired, words = sig_check(sig, [], _dt(2026, 11, 17, 9, 30), None, "2026-11-17", dict(p))
     check(fired and "85" in words, "market: IV percentile above 70 fires on the figures", words)
