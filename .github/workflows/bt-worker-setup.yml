@@ -11,6 +11,10 @@ on:
         description: "also restart the trading program (outside market hours only)"
         type: boolean
         default: false
+      log_only:
+        description: "only show the worker's last log lines (no pull, no restart)"
+        type: boolean
+        default: false
 
 concurrency:
   group: algo-sync
@@ -45,6 +49,10 @@ jobs:
           echo "::add-mask::$HOST"
           printf '%s\n' "$KEY" > "$RUNNER_TEMP/k"
           SSH="ssh -i $RUNNER_TEMP/k -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o BatchMode=yes ubuntu@$HOST"
+          if [ "${{ inputs.log_only }}" = "true" ]; then
+            $SSH 'systemctl is-active bt-worker.service; journalctl -u bt-worker.service -n 40 --no-pager -o short-iso'
+            rm -f "$RUNNER_TEMP/k"; exit 0
+          fi
           $SSH 'cd /opt/trader/app && git pull -q --ff-only && git log --oneline -1 | cut -c1-7'
           printf 'PRIVATE_REPO_TOKEN=%s\nRELAY_URL=%s\nRELAY_KEY=%s\n' "$PRIVATE_REPO_TOKEN" "$RELAY_URL" "$RELAY_KEY" | \
             $SSH 'mkdir -p /opt/trader/secrets /opt/trader/btcache && umask 077 && cat > /opt/trader/secrets/bt.env && chmod 600 /opt/trader/secrets/bt.env'
