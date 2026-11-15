@@ -84,7 +84,7 @@ const BT_GUIDE = [
   '   interest, near expiry), pcr_all (all expiries), oi_chg (% change in option open interest), fii_fut / fii_call /',
   '   fii_put (FIIs’ net long share of index futures / calls / puts, %; negative = net short), client_fut (retail),',
   '   pro_fut, fii_cash / dii_cash (FII / DII cash buying, rupees crore), sp500_chg / nasdaq_chg (US close %),',
-  '   crude_chg, gold_chg, usdinr_chg (% change), news_score (THIS morning news mood, -2..+2, known by 09:00).',
+  '   usdinr_chg (% change). No news, sentiment, gold or crude inputs: say so in unsupported if asked.',
   '   E.g. "when IV percentile is above 70" = compare {"src":"iv_pct"} > {"src":"value","value":70};',
   '   "VIX below 13" = compare vix < 13; "FIIs net short futures" = compare fii_fut < 0.',
   ' {"type":"event","when":"today"|"not_today","kinds":["rbi","budget","election"]}  (RBI policy / budget / election',

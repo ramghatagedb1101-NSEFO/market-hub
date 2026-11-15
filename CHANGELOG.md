@@ -4,6 +4,20 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-15
 
+### Diary figures from 2023, official sources only; news left out (Sun 15 Nov 2026)
+Owner: back-fill the diary from 2023; then "leave out the news, it may distort the data if it is erroneous" and "use
+only things that are 100% reliable". Strategy signals now use only official data, each from one source for history
+and for every day after:
+- `hub/diary_history.py` -> `state/market/diary_history.json`: NSDL's confirmed daily FPI net equity buying and its
+  dollar rate (fpi.nsdl.co.in archive, one request a month; 931 reporting dates, 2 Jan 2023 - 13 Nov 2026) and FRED's
+  S&P 500 / Nasdaq changes (971 sessions). `diary-history.yml` for back-fills; a step in the daily job after that.
+- DII flows: NSE's daily figure from 14 Nov 2026 only (no official history exists).
+- Removed from strategies, the bot, the form, the relay and the AI reader: the morning news score (GDELT's archive was
+  unreliable -- regional general news, throttling; Google News has nothing before recent months), and the diary's gold
+  and crude changes (an 18:05 snapshot while MCX still trades, not a close). The news-history module and its machine
+  timers were removed. Gold and crude can come back from MCX's official daily closes.
+- The daily brief keeps its own news summary and RSS score (reading only).
+
 ### Back-tests: real trading costs, measured (Sun 15 Nov 2026, morning)
 The research bot's first run (61 ideas, none passed) showed trend-day spreads losing with striking uniformity. Traced
 (BANK NIFTY, 15-min range break up, Sep-Nov 2025): the prices were right, the cost was not. Each fill was charged the

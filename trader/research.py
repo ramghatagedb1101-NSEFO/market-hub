@@ -192,18 +192,6 @@ def f_flows_follow(p):
     return d
 
 
-def f_news_mood(p):
-    up = p["dir"] == "up"
-    d = base(f"Morning news mood {'positive' if up else 'negative'} (score {'>=' if up else '<='} {p['score'] if up else -p['score']})")
-    d["groups"] = [{"match": "all", "signals": [val("news_score", ">=" if up else "<=", p["score"] if up else -p["score"]),
-                                                {"type": "change", "from": "open", "op": "above" if up else "below",
-                                                 "pct": p["confirm"] if up else -p["confirm"]}]}]
-    d["window"] = {"from": "09:30", "until": "11:00"}
-    d["structure"] = {"kind": "spread", "side": "BUY", "right": "C" if up else "P", "width": 0, "wing": p["wing"]}
-    d["exits"].update(sl=p["sl"], target=p["target"])
-    return d
-
-
 FAMILIES = {
     "vol_condor": ("Option buyers overpay for insurance: implied volatility is usually above the movement that follows. "
                    "Selling a hedged iron condor when volatility is rich collects that premium near expiry.",
@@ -234,13 +222,10 @@ FAMILIES = {
                      "carry into the next morning.", f_flows_follow, {"dir": ["up", "down"], "fii": [1000, 2500, 4000],
                                                                       "confirm": [0.1, 0.3], "wing": [2, 4],
                                                                       "target": [50, 100], "sl": [40, 60]}),
-    "news_mood": ("Strong morning news moves prices for the first hours as traders react.", f_news_mood,
-                  {"dir": ["up", "down"], "score": [1, 2], "confirm": [0.1, 0.3], "wing": [2, 4], "target": [50, 100],
-                   "sl": [40, 60]}),
 }
 # Families that need data the market diary started keeping on 14 Nov 2026 (hub/market_daily.py flows; being filled in
 # back to 2023): tested only once that data covers NEEDS_COVER of the development period's sessions.
-NEEDS = {"flows_follow": ("fii_cash", "sp500_chg"), "news_mood": ("news_score",), "vol_condor": ("iv_pct", "vix_pct"),
+NEEDS = {"flows_follow": ("fii_cash", "sp500_chg"), "vol_condor": ("iv_pct", "vix_pct"),
          "cheap_straddle": ("iv_pct",), "fii_bear": ("fii_fut",), "pcr_put_sell": ("pcr",)}
 NEEDS_COVER = 0.8
 INDICES = ("NIFTY", "BANKNIFTY")
@@ -375,8 +360,8 @@ S = {"name", "index":"NIFTY"|"BANKNIFTY", "lots":1, "expiry":"nearest", "side":"
 SIG = {"type":"compare","left":{"src":A},"op":">"|"<"|">="|"<=","right":{"src":"value","value":x},"tf":5} where A is one
  of: price, day_open, prev_close, chg_prev, chg_open, rsi (with "n"), adx (with "n"), ema (with "n"), atr (with "n"),
  dte, vix, vix_pct, iv, iv_pct, pcr, pcr_all, oi_chg, fii_fut, fii_call, fii_put, client_fut, pro_fut, fii_cash,
- dii_cash, sp500_chg, nasdaq_chg, crude_chg, gold_chg, usdinr_chg, news_score (market figures are the previous
- session's; shares in %, negative = net short; cash flows in rupees crore; news_score is this morning's mood -2..+2)
+ sp500_chg, nasdaq_chg, usdinr_chg (official figures only, the previous session's; shares in %, negative = net short;
+ cash flows in rupees crore). No news or sentiment inputs.
  | {"type":"dte","op":"<="|">=","days":n} | {"type":"orb","minutes":15|30,"dir":"up"|"down"}
  | {"type":"change","from":"prev_close"|"open","op":"above"|"below","pct":x}
  | {"type":"event","when":"today"|"not_today","kinds":["rbi","budget","election"]}

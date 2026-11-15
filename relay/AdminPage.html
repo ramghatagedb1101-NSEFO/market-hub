@@ -1720,8 +1720,8 @@ const ST_OPS = [['Index', [['price', 'Index price'], ['open', 'Bar open'], ['hig
     ['pcr', 'Put-call ratio (near expiry)'], ['pcr_all', 'Put-call ratio (all expiries)'], ['oi_chg', 'Option OI change %'],
     ['fii_fut', 'FII net index futures %'], ['fii_call', 'FII net index calls %'], ['fii_put', 'FII net index puts %'],
     ['client_fut', 'Retail net index futures %'], ['pro_fut', 'Pro traders’ net index futures %'],
-    ['fii_cash', 'FII cash buying, ₹ crore'], ['dii_cash', 'DII cash buying, ₹ crore'], ['sp500_chg', 'S&P 500 last session %'], ['nasdaq_chg', 'Nasdaq last session %'],
-    ['crude_chg', 'Crude oil change %'], ['gold_chg', 'Gold change %'], ['usdinr_chg', 'US dollar vs rupee change %'], ['news_score', 'This morning’s news mood (−2 to +2)']]],
+    ['fii_cash', 'FII cash buying, ₹ crore (NSDL)'], ['dii_cash', 'DII cash buying, ₹ crore (NSE, from 14 Nov 2026)'], ['sp500_chg', 'S&P 500 last session %'], ['nasdaq_chg', 'Nasdaq last session %'],
+    ['usdinr_chg', 'US dollar vs rupee change %']]],
   ['Number', [['value', 'A number']]]];
 const ST_OPNAME = Object.fromEntries(ST_OPS.flatMap(g => g[1]));
 const ST_MKT = Object.fromEntries(ST_OPS.find(g => g[0].indexOf('Market') === 0)[1]);
@@ -2853,7 +2853,7 @@ function botPanel(){
   return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + b + '</div></div>';
 }
 const BOT_FAM = { vol_condor: 'Sell iron condors when volatility is rich', expiry_strangle: 'Sell strangles on expiry day', gap_fade: 'Fade large opening gaps',
-  trend_orb: 'Follow trend days with spreads', cheap_straddle: 'Buy straddles when volatility is cheap', fii_bear: 'Follow heavy FII shorts', pcr_put_sell: 'Sell put spreads on a high put-call ratio', flows_follow: 'Follow FII cash and the US close', news_mood: 'Follow the morning news mood', ai: 'Ideas from Gemini' };
+  trend_orb: 'Follow trend days with spreads', cheap_straddle: 'Buy straddles when volatility is cheap', fii_bear: 'Follow heavy FII shorts', pcr_put_sell: 'Sell put spreads on a high put-call ratio', flows_follow: 'Follow FII cash and the US close', ai: 'Ideas from Gemini' };
 function btShow(id){ stBtLoad(id); setTimeout(() => { const el = $('bt-res'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); }
 function pageBacktests(){
   const v = $('view');

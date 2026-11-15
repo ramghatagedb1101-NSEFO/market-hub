@@ -18,16 +18,16 @@ MARKET = {
     "pcr": "Put-call ratio (near expiry)", "pcr_all": "Put-call ratio (all expiries)", "oi_chg": "Option OI change %",
     "fii_fut": "FII net index futures %", "fii_call": "FII net index calls %", "fii_put": "FII net index puts %",
     "client_fut": "Retail net index futures %", "pro_fut": "Pro traders' net index futures %",
-    # the market diary (hub/market_daily.py flows; kept from 14 Nov 2026, so usable once history builds up)
-    "fii_cash": "FII cash buying, rupees crore", "dii_cash": "DII cash buying, rupees crore",
-    "sp500_chg": "S&P 500 last session %", "nasdaq_chg": "Nasdaq last session %", "crude_chg": "Crude oil change %",
-    "gold_chg": "Gold change %", "usdinr_chg": "US dollar vs rupee change %",
-    "news_score": "This morning's news mood (-2 to +2)",
+    # official figures only (owner, 15 Nov 2026: "use only things that are 100% reliable"; news left out): NSDL's
+    # confirmed FPI flows and dollar rate, FRED's US close (from 2023, hub/diary_history.py), NSE's DII flows (from
+    # 14 Nov 2026). Gold and crude return once taken from MCX's official daily closes.
+    "fii_cash": "FII cash buying, rupees crore (NSDL)", "dii_cash": "DII cash buying, rupees crore (NSE)",
+    "sp500_chg": "S&P 500 last session %", "nasdaq_chg": "Nasdaq last session %",
+    "usdinr_chg": "US dollar vs rupee change % (NSDL rate)",
 }
-FLOW_KEYS = ("fii_cash", "dii_cash", "sp500_chg", "nasdaq_chg", "crude_chg", "gold_chg", "usdinr_chg")
+FLOW_KEYS = ("fii_cash", "dii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg")
 LIVE_FILE = os.getenv("MARKET_FILE") or "/opt/trader/market.json"
 LIVE_FLOWS = os.getenv("FLOWS_FILE") or "/opt/trader/flows.json"
-LIVE_NEWS = os.getenv("NEWS_TODAY_FILE") or "/opt/trader/news_today.json"   # this morning's score (trader/news_history.py)
 MAX_AGE_DAYS = 7                    # a weekend plus the longest run of market holidays
 
 # Scheduled days that move the market (dates checked against the official calendars; see hub/expiry_history.py EVENTS)
@@ -82,9 +82,6 @@ class Market:
             j = bisect.bisect_left(self.fdays, d)                # the diary: the last session before the day
             if j and self.fdays[j - 1] >= oldest:
                 out.update({k: self.f[self.fdays[j - 1]].get(k) for k in FLOW_KEYS})
-            news = (self.f.get(d) or {}).get("news_score")         # the morning's own score (known by 09:00)
-            if news is not None:
-                out["news_score"] = news
             self.memo[key] = out
         return self.memo[key]
 
@@ -110,16 +107,7 @@ class LiveMarket(Market):
                 self.mtime = m
         except (OSError, ValueError):
             pass
-        out = super().prev(index, day)
-        if out.get("news_score") is None:                    # scored at 09:05 on the machine, before the repo copy
-            try:
-                with open(LIVE_NEWS, encoding="utf-8") as f:
-                    v = json.load(f).get(day.isoformat() if isinstance(day, date) else str(day))
-                if isinstance(v, (int, float)):
-                    out = dict(out, news_score=v)
-            except (OSError, ValueError):
-                pass
-        return out
+        return super().prev(index, day)
 
 
 def event_today(day: date, kinds: list) -> list:

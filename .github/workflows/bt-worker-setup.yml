@@ -16,14 +16,6 @@ on:
         description: "only show the worker's last log lines (no pull, no restart)"
         type: boolean
         default: false
-      news_probe:
-        description: "news history: headline counts for a few mornings (no scoring)"
-        type: boolean
-        default: false
-      news_now:
-        description: "start the news-history back-fill once now"
-        type: boolean
-        default: false
       research_now:
         description: "start the research bot once now (it runs on its own each evening and at weekends)"
         type: boolean
@@ -75,7 +67,6 @@ jobs:
             $SSH 'systemctl is-active kicker.timer; journalctl -u kicker.service -n 30 --no-pager -o cat | grep -v -e Starting -e Finished -e Deactivated || true'
             $SSH 'systemctl is-active recorder.timer; journalctl -u recorder.service -u recorder-day.service -n 40 --no-pager -o cat || true'
             $SSH 'systemctl is-active research.timer; journalctl -u research.service -n 40 --no-pager -o cat || true'
-            $SSH 'journalctl -u news-history.service -u news-today.service -n 30 --no-pager -o cat || true'
             rm -f "$RUNNER_TEMP/k"; exit 0
           fi
           $SSH 'cd /opt/trader/app && git pull -q --ff-only && git log --oneline -1 | cut -c1-7'
@@ -88,10 +79,8 @@ jobs:
           $SSH 'sudo cp /opt/trader/app/infra/trader/recorder.service /opt/trader/app/infra/trader/recorder.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now recorder.timer && systemctl is-active recorder.timer && systemctl list-timers recorder.timer --no-pager | head -2'
           # Research bot (14 Nov 2026, trader/research.py): weekday evenings and weekends.
           $SSH 'sudo cp /opt/trader/app/infra/trader/research.service /opt/trader/app/infra/trader/research.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now research.timer && systemctl is-active research.timer'
-          # News history from 2023 and the morning score (15 Nov 2026, trader/news_history.py).
-          $SSH 'sudo cp /opt/trader/app/infra/trader/news-history.service /opt/trader/app/infra/trader/news-history.timer /opt/trader/app/infra/trader/news-today.service /opt/trader/app/infra/trader/news-today.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now news-history.timer news-today.timer && systemctl is-active news-history.timer news-today.timer'
-          if [ "${{ inputs.news_probe }}" = "true" ]; then $SSH 'cd /opt/trader/app && set -a && . /opt/trader/secrets/bt.env && set +a && TZ=Asia/Kolkata timeout 400 /opt/trader/venv/bin/python -u -m trader.news_history --probe'; fi
-          if [ "${{ inputs.news_now }}" = "true" ]; then $SSH 'sudo systemctl start --no-block news-history.service && echo news history started'; fi
+          # 15 Nov 2026 (owner: news left out, official data only): the news-history timers removed from the machine
+          $SSH 'sudo systemctl disable --now news-history.timer news-today.timer 2>/dev/null; sudo rm -f /etc/systemd/system/news-history.* /etc/systemd/system/news-today.* /opt/trader/news_today.json; sudo systemctl daemon-reload; true'
           if [ "${{ inputs.research_now }}" = "true" ]; then $SSH 'sudo systemctl start --no-block research.service && echo research started'; fi
           # One-off start at a set IST time (14 Nov 2026, owner: ICICI run at 00:10 after a 00:01 sign-in), through the relay
           # like the kicker; a systemd timer on the machine, so it does not depend on GitHub's schedule.

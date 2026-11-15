@@ -1,9 +1,0 @@
-[Unit]
-Description=Market Hub morning news score, 09:01 IST on weekdays (headlines to 09:00)
-
-[Timer]
-OnCalendar=Mon..Fri 09:01 Asia/Kolkata
-Persistent=false
-
-[Install]
-WantedBy=timers.target

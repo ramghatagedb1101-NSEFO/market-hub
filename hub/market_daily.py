@@ -136,11 +136,11 @@ def _chg(x) -> float | None:
 
 
 def flows() -> dict:
-    """The strategy signals' market figures by session date: from 2023 (hub/diary_history.py: fii_cash, usdinr_chg,
-    sp500_chg, nasdaq_chg; trader/news_history.py: news_score) and, kept since 14 Nov 2026 only, from the daily job's
-    market diary (hub/context.py, state/market_diary.json: dii_cash, crude_chg, gold_chg). Figures: fii_cash / dii_cash (net rupees crore, that session), sp500_chg / nasdaq_chg (the US session that
-    evening), crude_chg / gold_chg / usdinr_chg (% on the day, MCX / currency futures at the daily job's time), and
-    news_score (-2..+2, that MORNING's headlines up to 09:00: known before the open of its own day)."""
+    """The strategy signals' market figures by session date, official sources only (owner, 15 Nov 2026: "use only
+    things that are 100% reliable"; news left out): from 2023, hub/diary_history.py -- fii_cash (NSDL confirmed FPI net
+    equity buying, rupees crore, by reporting date), usdinr_chg (NSDL's rate), sp500_chg / nasdaq_chg (FRED, the US
+    session that evening); from 14 Nov 2026, the daily job's diary -- dii_cash (NSE). The diary's other entries (NSE
+    provisional FII, MCX snapshots, the RSS news score) are for the daily brief and never reach a strategy."""
     out = {}
     for k, e in (load("state/market_diary.json") or {}).items():
         if not isinstance(e, dict):
@@ -165,17 +165,12 @@ def flows() -> dict:
             row["crude_chg"] = next((_chg(v) for n, v in com.items() if n.lower().startswith("crude")), None)
         row["usdinr_chg"] = _chg(e.get("usd_inr_live"))
         out.setdefault(day, {}).update({k2: v for k2, v in row.items() if v is not None})
-    # 15 Nov 2026: one source a figure, the same for history and every day after (hub/diary_history.py,
-    # trader/news_history.py). The diary's NSE provisional FII figure, FRED / MCX snapshot changes and the RSS-based news
-    # score stay in the diary for the daily brief; the strategy signals come from these histories only.
+    # 15 Nov 2026: one official source a figure, the same for history and every day after (hub/diary_history.py).
     for row in out.values():
-        for k in ("fii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg", "news_score"):
+        for k in ("fii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg", "news_score", "crude_chg", "gold_chg"):
             row.pop(k, None)
     for d, v in (load("state/market/diary_history.json") or {}).items():
         out.setdefault(d, {}).update({k: v[k] for k in ("fii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg") if k in v})
-    for d, v in (load("state/market/news_history.json") or {}).items():
-        if isinstance(v, dict) and isinstance(v.get("score"), (int, float)):
-            out.setdefault(d, {})["news_score"] = v["score"]
     return out
 
 
