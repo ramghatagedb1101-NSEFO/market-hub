@@ -218,6 +218,15 @@ def _download(budget: int, stop_at: float) -> int:
     if failed:
         print(f"::error title=ICICI index download::{failed[:200]} (work up to here is saved)")
         return 1
+    # whole-week gaps first (16 Nov 2026, hub/breeze_fill.py): a few hundred requests, once
+    from .breeze_fill import needed, run as fill_run
+    if needed():
+        b = b or Breeze()
+        _B[0] = b
+        try:
+            fill_run(b, budget - b.calls)
+        except RuntimeError as exc:
+            print(f"::warning title=ICICI week fill::{str(exc)[:200]}")
     recs = load("state/expiry_history/records.json") or {}
     done = load(INDEX) or {}
     queue = todo(recs, done)

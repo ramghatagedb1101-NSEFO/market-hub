@@ -2,6 +2,13 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~05:15 IST: NIFTY 4-5 Nov 2026 option minutes from ICICI
+- Checked what is stored since the owner's files end (30 Oct): IBKR day files for every session 2-13 Nov (10 Nov a
+  holiday), both indexes. One gap: NIFTY's 9 Nov expiry week. By the 14 Nov backfill IBKR no longer served its options,
+  and the ICICI download holds only 6 and 9 Nov, so 4-5 Nov had no option minutes and the week was not usable.
+- `hub/breeze_fill.py`: fetches 4-5 Nov for that expiry's 100 contracts (100 requests) and writes the week file;
+  runs first in every `breeze_history` run until done, when the day's allowance covers it.
+
 ## Mon 16 Nov 2026, ~04:45 IST: IBKR sign-in check that repairs itself
 - Found while answering "where is the daily IBKR login?": after IBKR's Sunday reset (Sun 15 Nov, 17:47 IST) the gateway
   lost its link to IBKR (1100) and then refused connections ("Paper trading disclaimer must first be accepted", 10141).
