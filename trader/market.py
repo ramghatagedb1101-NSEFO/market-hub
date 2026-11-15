@@ -27,6 +27,7 @@ MARKET = {
 FLOW_KEYS = ("fii_cash", "dii_cash", "sp500_chg", "nasdaq_chg", "crude_chg", "gold_chg", "usdinr_chg")
 LIVE_FILE = os.getenv("MARKET_FILE") or "/opt/trader/market.json"
 LIVE_FLOWS = os.getenv("FLOWS_FILE") or "/opt/trader/flows.json"
+LIVE_NEWS = os.getenv("NEWS_TODAY_FILE") or "/opt/trader/news_today.json"   # this morning's score (trader/news_history.py)
 MAX_AGE_DAYS = 7                    # a weekend plus the longest run of market holidays
 
 # Scheduled days that move the market (dates checked against the official calendars; see hub/expiry_history.py EVENTS)
@@ -109,7 +110,16 @@ class LiveMarket(Market):
                 self.mtime = m
         except (OSError, ValueError):
             pass
-        return super().prev(index, day)
+        out = super().prev(index, day)
+        if out.get("news_score") is None:                    # scored at 09:05 on the machine, before the repo copy
+            try:
+                with open(LIVE_NEWS, encoding="utf-8") as f:
+                    v = json.load(f).get(day.isoformat() if isinstance(day, date) else str(day))
+                if isinstance(v, (int, float)):
+                    out = dict(out, news_score=v)
+            except (OSError, ValueError):
+                pass
+        return out
 
 
 def event_today(day: date, kinds: list) -> list:

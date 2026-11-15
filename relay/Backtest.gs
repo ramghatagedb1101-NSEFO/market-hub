@@ -151,7 +151,7 @@ function botAsk_(key, body) {
   try { b = JSON.parse(body || '{}'); } catch (e) { return { error: 'bad body' }; }
   const req = { systemInstruction: { parts: [{ text: String(b.system || '').slice(0, 20000) }] },
                 contents: [{ role: 'user', parts: [{ text: String(b.prompt || '').slice(0, 30000) }] }],
-                generationConfig: { responseMimeType: 'application/json', temperature: 0.7 } };
+                generationConfig: { responseMimeType: 'application/json', temperature: typeof b.temperature === 'number' ? Math.max(0, Math.min(1, b.temperature)) : 0.7 } };
   let last = '';
   for (const m of BT_MODELS) {
     const r = UrlFetchApp.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + m + ':generateContent',

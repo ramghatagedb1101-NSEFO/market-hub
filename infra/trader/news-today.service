@@ -1,0 +1,13 @@
+[Unit]
+Description=Market Hub morning news score for today (trader/news_history.py --today), before the 09:15 open
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/trader/app
+EnvironmentFile=/opt/trader/secrets/bt.env
+Environment=TZ=Asia/Kolkata
+ExecStart=/opt/trader/venv/bin/python -u -m trader.news_history --today
+TimeoutStartSec=8min

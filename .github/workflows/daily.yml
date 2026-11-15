@@ -112,6 +112,13 @@ jobs:
           ALPHAVANTAGE_API_KEY: ${{ secrets.ALPHAVANTAGE_API_KEY }}
         run: python -m hub.context
 
+      - name: Diary history (NSDL FPI flows and dollar rate, FRED US close; hub/diary_history.py)
+        continue-on-error: true
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.diary_history
+
       - name: Market history (VIX, FII positions, IV, put-call ratio; hub/market_daily.py)
         continue-on-error: true
         env:

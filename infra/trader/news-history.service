@@ -1,0 +1,14 @@
+[Unit]
+Description=Market Hub news history (trader/news_history.py): GDELT morning headlines scored by Gemini, from 2023
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/trader/app
+EnvironmentFile=/opt/trader/secrets/bt.env
+Environment=TZ=Asia/Kolkata
+ExecStart=/opt/trader/venv/bin/python -u -m trader.news_history --max 200 --minutes 90
+TimeoutStartSec=2h
+Nice=12

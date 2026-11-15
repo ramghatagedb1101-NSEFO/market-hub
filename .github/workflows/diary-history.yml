@@ -1,0 +1,25 @@
+name: diary-history
+
+# The market diary's figures from 2023 on (15 Nov 2026; hub/diary_history.py): FPI net equity buying and the dollar
+# rate from NSDL, the US close from FRED. By hand for the back-fill; each evening's new days come from the daily job.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet requests
+      - name: Diary history
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.diary_history
