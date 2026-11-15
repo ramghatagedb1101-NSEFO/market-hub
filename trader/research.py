@@ -408,6 +408,30 @@ def relay_ask(system: str, prompt: str, log=print) -> dict | None:
         return None
 
 
+# Gemini's ideas are filed under the type of trade they are, never under "Gemini" (owner, 16 Nov 2026: "ideas from
+# Gemini cannot be a category"). By the words of the idea's name (its reason mentions other triggers too), first match wins; the order puts the most
+# specific trigger first (a gap, an opening range, the put-call ratio) before broad ones (volatility).
+TYPE_WORDS = [
+    ("gap_fade", ("gap", "exhaustion", "over-extension", "overextension", "fade")),
+    ("trend_orb", ("orb", "opening range", "breakout", "breakdown", "trend continuation", "momentum")),
+    ("pcr_put_sell", ("pcr", "put-call", "put call")),
+    ("cheap_straddle", ("long straddle", "iv expansion", "low base", "compressed")),
+    ("expiry_strangle", (" expiry day", "expiry-day")),
+    ("fii_bear", ("fii fut", "futures", "positioning", "client", "pro ", "pro-", "institutional", "retail")),
+    ("flows_follow", ("fii cash", "fpi", "cash flow", "outflow", "nasdaq", "us market", "global", "crude", "usdinr",
+                      "spillover", "overnight", "nas-", "fii")),
+    ("vol_condor", ("iv", "vol", "condor", "straddle", "strangle", "theta", "calm", "range", "crush", "rbi", "event")),
+]
+
+
+def type_of(name: str) -> str:
+    t = f" {name} ".lower().replace("_", " ")
+    for fam, words in TYPE_WORDS:
+        if any(w in t for w in words):
+            return fam
+    return "vol_condor" if any(w in t for w in ("sell", "short", "credit", "writing")) else "trend_orb"
+
+
 def ai_ideas(ledger: dict) -> list[tuple[str, dict, str]]:
     rows = sorted(ledger.values(), key=lambda r: -((r.get("dev") or {}).get("profit") or -1e9))
     lines = [f"- {r['name']}: {r['stage']}" + (f" ({r['dev']['trades']} trades, ₹{r['dev']['profit']:,.0f}, t {r['dev']['t']})"
@@ -434,7 +458,7 @@ def ai_ideas(ledger: dict) -> list[tuple[str, dict, str]]:
         if not c["groups"]:
             print(f"  Gemini idea dropped: '{s['name']}' has no signal the program knows: {json.dumps(s.get('groups') or s.get('signals'))[:200]}")
             continue
-        out.append(("ai", s, why[:400]))
+        out.append((type_of(s["name"]), s, why[:400]))
     print(f"  Gemini: {len(ideas or [])} ideas proposed, {len(out)} usable", flush=True)
     return out
 
@@ -617,7 +641,8 @@ def settle_sensitive(defn: dict) -> bool:
 
 
 def report(ledger: dict, waiting: dict | None = None) -> dict:
-    rows = list(ledger.values())
+    rows = [dict(r, family=type_of(r.get("name") or "")) if r.get("family") == "ai" else r
+            for r in ledger.values()]
     stages = {}
     for r in rows:
         stages[r["stage"]] = stages.get(r["stage"], 0) + 1

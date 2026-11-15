@@ -2,6 +2,14 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~06:15 IST: no "Ideas from Gemini" type
+- Owner: "ideas from Gemini cannot be a category". Gemini's ideas are now filed under the type of trade they are
+  (`trader/research.py` `type_of()`, by the words of the idea's name; the 84 so far: fades 15, global/FII cash 20,
+  trend 17, rich volatility 17, positions 13, put-call ratio 2, cheap volatility 1). Old ledger records are re-filed in
+  the report; new ones are filed when proposed.
+- Type names widened to fit what is in them: "Sell options when volatility is rich", "Fade large opening moves",
+  "Follow trend days", "Follow FII and trader positions", "Follow FII cash and global markets".
+
 ## Mon 16 Nov 2026, ~05:45 IST: Research ideas get their own tab
 - Owner: "the ideas need to have its own tab inside main back test tab ... filter ... pagination and arranged in a nice
   manner by types" (3,780 ideas after the research machine's first night).

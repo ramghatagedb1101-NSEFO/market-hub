@@ -2972,8 +2972,9 @@ function botView(){
 }
 const BOT_STAGE = { 'failed development': 'Failed the first test', 'failed neighbours': 'Failed: nearby settings lost money', 'barred from the vault': 'Not tested on unseen months (a near copy failed there)',
   'failed the unseen months': 'Failed on the months it never saw', recommended: 'Passed every test', error: 'Could not be tested' };
-const BOT_FAM = { vol_condor: 'Sell iron condors when volatility is rich', expiry_strangle: 'Sell strangles on expiry day', gap_fade: 'Fade large opening gaps',
-  trend_orb: 'Follow trend days with spreads', cheap_straddle: 'Buy straddles when volatility is cheap', fii_bear: 'Follow heavy FII shorts', pcr_put_sell: 'Sell put spreads on a high put-call ratio', flows_follow: 'Follow FII cash and the US close', ai: 'Ideas from Gemini' };
+// Types of trade (16 Nov 2026: Gemini's ideas are filed under these too, by trader/research.py type_of())
+const BOT_FAM = { vol_condor: 'Sell options when volatility is rich', expiry_strangle: 'Sell strangles on expiry day', gap_fade: 'Fade large opening moves',
+  trend_orb: 'Follow trend days', cheap_straddle: 'Buy straddles when volatility is cheap', fii_bear: 'Follow FII and trader positions', pcr_put_sell: 'Sell put spreads on a high put-call ratio', flows_follow: 'Follow FII cash and global markets' };
 function btShow(id){ stBtLoad(id); setTimeout(() => { const el = $('bt-res'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); }
 function pageBacktests(){
   const v = $('view');
