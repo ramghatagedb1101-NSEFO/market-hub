@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Sun 15 Nov 2026, ~07:30 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
+As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
 `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
@@ -118,6 +118,16 @@ the recorded bid / ask; portfolio of small uncorrelated strategies sharing the d
 - ICICI: the 00:10 run saved 16 expiries then stopped on a shared-file clash (fixed); restarted 06:15 with 3,425
   requests. NIFTY 4-5 Nov 2026 option minutes still to fetch (needs a small ICICI fill module).
 - SEBI 7 Dec 2026 rules built in (verified from SEBI's circular PDF); first live check: the session after 7 Dec.
+
+### Sun 15 Nov 2026 (evening)
+- Research machine `market-hub-research` (AMD 8 OCPU / 24 GB, trial credits) running the bot back to back, 14 ideas at a
+  time; deletes itself Wed 9 Dec 2026 22:00 IST (one-off timer on market-hub-trader -> oci-research-delete.yml).
+  Check spend: `oci-ip.yml -f action=costs` (expect ~US$9 a day against the credits). `oci-research.yml -f action=log`.
+- Gemini ideas fixed (Google's 503 "busy"; now 3 tries) -- the probe gave 3 usable ideas.
+- Drill-down live: Back-tests > Research bot > What it has tried (every idea: settings, verdict, day by day, trades);
+  details fill in as the bot re-runs the 171 earlier ideas.
+- Data for strategies: official only (owner). NSDL FPI + rate, FRED US close, MCX gold / crude closes from 2023; NSE DII
+  from 14 Nov 2026. No news.
 
 ### Open items, in order
 0. Fixed 21:15 14 Nov: the machine starts `breeze.yml` as a manual run, whose default was the sign-in test
