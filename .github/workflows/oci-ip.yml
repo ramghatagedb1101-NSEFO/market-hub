@@ -1,14 +1,15 @@
 name: oci-ip
 
 # Moves the fixed address ICICI knows (130.210.31.37) from market-hub-ip to market-hub-trader (owner, 14 Nov 2026;
-# infra/oci_move_ip.py). action=check only reports; action=move moves it. By hand only.
+# infra/oci_move_ip.py). action=check only reports; action=move moves it; action=costs prints the account's daily
+# costs (infra/oci_costs.py, read-only). By hand only.
 # Secrets: OCI_API_KEY, OCI_TENANCY, OCI_USER, OCI_FINGERPRINT.
 on:
   workflow_dispatch:
     inputs:
       action:
         type: choice
-        options: [check, move]
+        options: [check, move, costs]
         default: check
 
 permissions:
@@ -33,5 +34,6 @@ jobs:
         run: |
           umask 077
           printf '%s\n' "$OCI_API_KEY" > "$RUNNER_TEMP/oci.pem"
-          cd infra && OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python oci_move_ip.py "${{ inputs.action }}"; rc=$?
+          if [ "${{ inputs.action }}" = "costs" ]; then cd infra && OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python oci_costs.py; rc=$?
+          else cd infra && OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python oci_move_ip.py "${{ inputs.action }}"; rc=$?; fi
           rm -f "$RUNNER_TEMP/oci.pem"; exit $rc
