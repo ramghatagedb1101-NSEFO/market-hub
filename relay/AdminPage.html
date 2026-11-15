@@ -677,7 +677,7 @@ const NAV = [
                ['expiryg', 'Expiry meter', [['expiry', 'Expiry meter']]],
                ['positioning', 'Positioning', [['positions', 'Futures and option prices']]],
                ['paperg', 'Paper trading', [['paper', 'Paper trading'], ['algo', 'Auto trading'], ['strategies', 'Strategies']]],
-               ['btg', 'Back-tests', [['backtests', 'Back-tests']]]]]
+               ['btg', 'Back-tests', [['backtests', 'Back-tests'], ['ideas', 'Research ideas']]]]]
 ];
 const SETTINGS = ['settings', 'Data and settings', [['health', 'Data health'], ['emails', 'Email alerts'], ['params', 'Measures'], ['tests', 'Back-tests'], ['registry', 'Investor registry']]];
 const NAV_ICON = { today: 'overview', portfolio: 'portfolio', shortlist: 'shortlist', screens: 'screener', rankings: 'factors', companies: 'library',
@@ -749,7 +749,7 @@ function rerender(){
   $('tape').style.display = current.page === 'overview' ? 'none' : '';   // the Overview shows the same quotes as tiles
   const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
-              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fno: pageFno, fnostocks: pageFnoStocks, paper: pagePaper, algo: pageAlgo, strategies: pageStrategies, backtests: pageBacktests, health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
+              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fno: pageFno, fnostocks: pageFnoStocks, paper: pagePaper, algo: pageAlgo, strategies: pageStrategies, backtests: pageBacktests, ideas: pageIdeas,health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
   if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
   if (current.page !== 'expiry') stopExpiry();
   f(current.arg);
@@ -2677,7 +2677,7 @@ function ST_EDIT_GET(path){ return path.split('.').reduce((o, k) => o == null ? 
 function stOperand(path, src){ const o = { src }; if (src === 'value') o.value = 0; if (ST_HASN[src]) o.n = src.indexOf('orb') === 0 ? 15 : ['rsi', 'atr', 'adx'].indexOf(src) >= 0 ? 14 : 20; stSet(path.replace(/\.$/, ''), o, true); }
 function stBtPanel(){
   if (!ST_BT) return '';
-  const s = (S.strat.items || []).find(x => x.id === ST_BT.id) || {};
+  const s = ((S.strat && S.strat.items) || []).find(x => x.id === ST_BT.id) || {};      // 16 Nov 2026: also on the Research ideas tab, where strategies may not be loaded
   const head = '<div class="panel-h"><h3>Back-test details</h3><a href="javascript:void 0" onclick="ST_BT=null;rerender()">Close</a></div>';
   if (ST_BT.waiting) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + stBtWait() + '</div></div>';
   if (ST_BT.loading && !ST_BT.res) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Loading…</div></div>';
@@ -2818,21 +2818,45 @@ function botAdd(i){
   call('adminStrategySave', token, s).then(d => { if (d && d.error) throw new Error(d.error); S.strat = Object.assign(S.strat || {}, d); BOT.busy[i] = false; BOT.added[i] = true; rerender(); })
     .catch(e => { BOT.busy[i] = false; BOT.added[i] = 'Could not add: ' + e.message; rerender(); });
 }
-function botPanel(){
+// The Back-tests page shows one line about the bot; its ideas have their own tab (owner, 16 Nov 2026: "the ideas need
+// to have its own tab inside main back test tab ... filter ... pagination and arranged in a nice manner by types").
+function botTeaser(){
   botLoad();
   const R = BOT.r || {};
-  const head = '<div class="panel-h"><h3>Research bot</h3><span class="muted" style="font-size:12px">' + (R.asof ? 'updated ' + esc(algoWhen(R.asof)) : '') + '</span></div>';
-  if (R.loading) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Loading…</div></div>';
-  if (R.error) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + errBlock(R.error) + '</div></div>';
-  if (R.none) return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b muted">Its first run is this evening after the market closes.</div></div>';
-  const st = R.stages || {}, recs = R.recommended || [];
-  const rupee = v => (v < 0 ? '−₹' : '₹') + num(Math.abs(v), 0);
+  if (R.loading || R.error || R.none || !R.tested) return '';
+  const n = (R.recommended || []).length;
+  return '<div class="panel" style="margin-bottom:14px"><div class="panel-b" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+    '<span style="font-size:13px"><b>Research bot:</b> ' + num(R.tested, 0) + ' ideas tested · ' + (n ? '<span style="color:var(--up)">' + n + ' passed every test</span>' : 'none has passed every test yet') + '</span>' +
+    '<a class="btn sm" href="#ideas">See research ideas</a></div></div>';
+}
+const BOT_PER = 25;
+const botRes = x => x.stage === 'recommended' ? 'passed' : (x.stage === 'failed development' || x.stage === 'error') ? 'failed' : 'first';
+const botIdx = x => x.index || (/BANK NIFTY/.test(x.name || '') ? 'BANKNIFTY' : 'NIFTY');
+// An idea's settings in words (trader/research.py grids), so ideas with the same name can be told apart.
+const BOT_P = { entry: v => 'enters ' + v, width: v => v + ' strikes out', wing: v => 'wings ' + v + ' further', sl: v => 'stop ' + v + '%', target: v => 'target ' + v + '%',
+  exit_by: v => 'out by ' + v, dte: v => v + ' days to expiry', ivp: v => 'volatility rank ' + v, vix_cap: v => Number(v) ? 'VIX rank under ' + v : '',
+  gap: v => 'gap ' + v + '%', spread: v => Number(v) ? 'spread ' + v + ' wide' : 'single option', dir: v => v === 'up' ? 'upward' : 'downward',
+  drop: v => 'index down ' + v + '%', fii: v => 'FII ' + (Number(v) < 0 ? '' : '+') + v, confirm: v => 'confirm ' + v + '%', pcr: v => 'put-call ratio ' + v,
+  adx: v => 'trend strength ' + v, minutes: v => 'first ' + v + ' min' };
+const botParams = x => [x.index === 'BANKNIFTY' ? 'BANK NIFTY' : x.index === 'NIFTY' ? 'NIFTY' : ''].concat(Object.entries(x.params || {}).map(([k, v]) => BOT_P[k] ? BOT_P[k](v) : k + ' ' + v)).filter(Boolean).join(' · ');
+const botRupee = v => v == null ? '–' : (v < 0 ? '−₹' : '₹') + num(Math.abs(v), 0);
+function botSet(k, v){ BOT[k] = v; BOT.page = 0; BOT.view = null; rerender(); }
+function botQ(el){ BOT.q = el.value; BOT.page = 0; const pos = el.selectionStart; rerender(); const n = $('bot-q'); if (n) { n.focus(); n.setSelectionRange(pos, pos); } }
+function botPage(p){ BOT.page = p; rerender(); const el = $('bot-list'); if (el) el.scrollIntoView({ block: 'start' }); }
+function botFiltered(R){
+  const q = (BOT.q || '').trim().toLowerCase();
+  const a = (R.ideas || []).filter(x => (!BOT.fam || x.family === BOT.fam) && (!BOT.res || botRes(x) === BOT.res) &&
+    (!BOT.idx || botIdx(x) === BOT.idx) && (!q || (x.name || '').toLowerCase().includes(q)));
+  const by = { profit: x => (x.dev || {}).profit, unseen: x => (x.vault || {}).profit, trades: x => (x.dev || {}).trades, won: x => (x.dev || {}).trades ? x.dev.wins / x.dev.trades : null, tested: x => x.tested }[BOT.sort || 'profit'];
+  return a.slice().sort((p, q2) => { const u = by(p), v = by(q2); return u == null ? 1 : v == null ? -1 : u < v ? 1 : u > v ? -1 : 0; });
+}
+// The recommendations: what passed every test, with Add to my strategies.
+function botRecs(R){
+  const recs = R.recommended || [];
   const won = s => s && s.trades ? Math.round(100 * s.wins / s.trades) + '% won' : '';
-  let b = '<div class="muted" style="font-size:12.5px;margin-bottom:10px">Tested ' + num(R.tested || 0, 0) + ' ideas · ' + (recs.length ? recs.length + ' passed every test' : 'none has passed every test yet') +
-    '. Each must make money after charges from ' + esc((R.periods || {}).dev ? bDay(dayOf(R.periods.dev[0])) : '') + ' to ' + esc((R.periods || {}).dev ? bDay(dayOf(R.periods.dev[1])) : '') + ', with nearby settings too, and then in the months since, which it never saw while choosing.</div>';
-  b += recs.map((x, i) => {
+  return recs.map((x, i) => {
     const d = x.dev || {}, v = x.vault || {}, n = x.normal || {};
-    return '<div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">' +
+    return '<div style="border:1px solid var(--up);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--surface)">' +
       '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>' + esc(x.name) + '</b>' +
       (BOT.added[i] === true ? '<span style="color:var(--up);font-size:13px">Added to your strategies</span>'
         : '<button class="btn sm primary" type="button" ' + (BOT.busy[i] ? 'disabled' : '') + ' onclick="botAdd(' + i + ')">' + (BOT.busy[i] ? 'Adding…' : 'Add to my strategies') + '</button>') + '</div>' +
@@ -2841,34 +2865,77 @@ function botPanel(){
       (x.probation && !x.fading ? '<div style="color:var(--warn, #b45309);font-size:12.5px;margin-top:4px">It trades into expiry-day settlement, which SEBI changes on Mon 7 Dec 2026: proven only after ' + (R.post_rule_min || 20) + ' sessions under the new rules' + (x.after_rules ? ' (' + x.after_rules.days + ' so far)' : '') + '.</div>' : '') +
       '<div class="muted" style="font-size:12.5px;margin:4px 0 8px">' + esc(x.why) + '</div>' +
       '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;font-size:12.5px">' +
-      '<div><div class="faint">While choosing</div><b style="color:' + (d.profit >= 0 ? 'var(--up)' : 'var(--down)') + '">' + rupee(d.profit || 0) + '</b> · ' + (d.trades || 0) + ' trades · ' + won(d) + '</div>' +
-      '<div><div class="faint">Months it never saw</div><b style="color:' + (v.profit >= 0 ? 'var(--up)' : 'var(--down)') + '">' + rupee(v.profit || 0) + '</b> · ' + (v.trades || 0) + ' trades · ' + won(v) + '</div>' +
-      (n.bad_20 != null ? '<div><div class="faint">A bad month can look like</div>' + rupee(n.bad_20) + ' over 20 sessions · ' + n.longest_losing_run + ' losing days in a row</div>' : '') +
+      '<div><div class="faint">While choosing</div><b style="color:' + (d.profit >= 0 ? 'var(--up)' : 'var(--down)') + '">' + botRupee(d.profit || 0) + '</b> · ' + (d.trades || 0) + ' trades · ' + won(d) + '</div>' +
+      '<div><div class="faint">Months it never saw</div><b style="color:' + (v.profit >= 0 ? 'var(--up)' : 'var(--down)') + '">' + botRupee(v.profit || 0) + '</b> · ' + (v.trades || 0) + ' trades · ' + won(v) + '</div>' +
+      (n.bad_20 != null ? '<div><div class="faint">A bad month can look like</div>' + botRupee(n.bad_20) + ' over 20 sessions · ' + n.longest_losing_run + ' losing days in a row</div>' : '') +
+      '<div style="align-self:end"><a href="javascript:void 0" onclick="botShow(\'' + (x.key || '') + '\')">Trades day by day</a></div>' +
       '</div></div>';
   }).join('');
-  const wait = Object.entries(R.waiting || {});
-  if (wait.length) b += '<div class="muted" style="font-size:12.5px;margin:6px 0">Waiting for history: ' + wait.map(([k, c]) => esc(BOT_FAM[k] || k) + ' (' + c + '% of the period so far)').join(' · ') + '.</div>';
-  const near = R.near_misses || [];
-  if (near.length) b += '<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12.5px">Close calls (' + near.length + ')</summary>' +
-    near.map(x => '<div style="font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line2)"><b>' + esc(x.name) + '</b> — ' + esc(x.why_failed || x.stage) + '</div>').join('') + '</details>';
-  const fams = Object.entries(R.families || {});
-  if (fams.length) b += '<details style="margin-top:6px"' + (BOT.open ? ' open' : '') + ' ontoggle="BOT.open=this.open"><summary class="muted" style="cursor:pointer;font-size:12.5px">What it has tried (' + num(R.tested || 0, 0) + ' ideas)</summary>' +
-    '<table class="t"><thead><tr><th class="l">Idea</th><th>Tested</th><th>Passed the first test</th><th>Recommended</th></tr></thead><tbody>' +
-    fams.map(([k, f]) => '<tr' + (BOT.fam === k ? ' style="background:var(--accent-soft)"' : '') + '><td class="l"><a href="javascript:void 0" onclick="BOT.fam=BOT.fam===\'' + k + '\'?\'\':\'' + k + '\';rerender()">' + esc(BOT_FAM[k] || k) + '</a></td><td class="num">' + f.tested + '</td><td class="num">' + f.passed_dev + '</td><td class="num">' + f.recommended + '</td></tr>').join('') + '</tbody></table>' +
-    botIdeas(R) + '</details>';
-  return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + b + '</div></div>' + botView();
 }
-// Every idea it tested, best first, filtered by family (click a family above); each opens its details (botShow).
-function botIdeas(R){
-  const all = (R.ideas || []).filter(x => !BOT.fam || x.family === BOT.fam), shown = all.slice(0, BOT.more ? 1000 : 25);
-  const rupee = v => v == null ? '–' : (v < 0 ? '−₹' : '₹') + num(Math.abs(v), 0);
-  if (!all.length) return '<div class="muted" style="font-size:12.5px;margin-top:8px">The list of ideas appears after the next run.</div>';
-  return '<div class="muted" style="font-size:12.5px;margin:10px 0 4px">' + (BOT.fam ? esc(BOT_FAM[BOT.fam] || BOT.fam) + ': ' : 'All ideas: ') + all.length + ', most profitable first. Tap one for how it was built and its trades day by day.</div>' +
-    '<div style="overflow-x:auto"><table class="t"><thead><tr><th class="l">Idea</th><th class="num">Trades</th><th class="num">Profit</th><th class="num">Won</th><th class="l">Result</th></tr></thead><tbody>' +
-    shown.map(x => { const d = x.dev || {}; return '<tr style="cursor:pointer" onclick="botShow(\'' + x.key + '\')"><td class="l"><a href="javascript:void 0">' + esc(x.name) + '</a></td><td class="num">' + (d.trades == null ? '–' : d.trades) + '</td>' +
-      '<td class="num" style="color:' + ((d.profit || 0) >= 0 ? 'var(--up)' : 'var(--down)') + '">' + rupee(d.profit) + '</td><td class="num">' + (d.trades ? Math.round(100 * d.wins / d.trades) + '%' : '–') + '</td>' +
-      '<td class="l" style="white-space:normal;font-size:12px">' + esc(x.stage === 'recommended' ? 'Passed every test' : x.why_failed || BOT_STAGE[x.stage] || x.stage) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
-    (all.length > shown.length ? '<button class="btn sm" type="button" style="margin-top:6px" onclick="BOT.more=true;rerender()">Show all ' + all.length + '</button>' : '');
+// One card per type of idea: how many were tried, how far they got, the best one's profit. Tap to filter.
+function botTypes(R){
+  const per = {};
+  (R.ideas || []).forEach(x => { const f = per[x.family] || (per[x.family] = { n: 0, first: 0, passed: 0, best: null });
+    f.n++; const r = botRes(x); if (r === 'passed') f.passed++; if (r !== 'failed') f.first++;
+    const p = (x.dev || {}).profit; if (p != null && (f.best == null || p > f.best)) f.best = p; });
+  const keys = Object.keys(per).sort((a, b) => per[b].passed - per[a].passed || per[b].first - per[a].first || (per[b].best || -1e12) - (per[a].best || -1e12));
+  const card = (k, title, f) => '<div role="button" tabindex="0" onclick="botSet(\'fam\',\'' + k + '\')" onkeydown="if(event.key===\'Enter\')botSet(\'fam\',\'' + k + '\')" style="cursor:pointer;border:1px solid ' + ((BOT.fam || '') === k ? 'var(--accent)' : 'var(--border)') + ';background:' + ((BOT.fam || '') === k ? 'var(--accent-soft)' : 'var(--surface)') + ';border-radius:10px;padding:10px 12px;min-width:0">' +
+    '<div style="font-size:13px;font-weight:600;line-height:1.3">' + esc(title) + '</div>' +
+    '<div class="muted" style="font-size:12px;margin-top:4px">' + num(f.n, 0) + ' tried' + (f.first ? ' · ' + num(f.first, 0) + ' passed the first test' : '') + (f.passed ? ' · <span style="color:var(--up)">' + f.passed + ' passed every test</span>' : '') + '</div>' +
+    (f.best != null ? '<div style="font-size:12px;margin-top:2px">Best: <span style="color:' + (f.best >= 0 ? 'var(--up)' : 'var(--down)') + '">' + botRupee(f.best) + '</span></div>' : '') + '</div>';
+  const all = { n: (R.ideas || []).length, first: 0, passed: 0, best: null };
+  keys.forEach(k => { all.first += per[k].first; all.passed += per[k].passed; if (per[k].best != null && (all.best == null || per[k].best > all.best)) all.best = per[k].best; });
+  return '<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:14px">' +
+    card('', 'All types', all) + keys.map(k => card(k, BOT_FAM[k] || k, per[k])).join('') + '</div>';
+}
+function botList(R){
+  const all = botFiltered(R);
+  const pages = Math.max(1, Math.ceil(all.length / BOT_PER)); if ((BOT.page || 0) >= pages) BOT.page = pages - 1;
+  const from = (BOT.page || 0) * BOT_PER, shown = all.slice(from, from + BOT_PER), P = BOT.page || 0;
+  const segB = (k, cur, opts) => '<div class="seg">' + opts.map(([v, l]) => '<button type="button" class="' + ((cur || '') === v ? 'on' : '') + '" onclick="botSet(\'' + k + '\',\'' + v + '\')">' + l + '</button>').join('') + '</div>';
+  const nums = []; for (let i = 0; i < pages; i++) if (i < 1 || i >= pages - 1 || Math.abs(i - P) <= 1) nums.push(i); else if (nums[nums.length - 1] !== '…') nums.push('…');
+  const pager = '<div class="pager" style="flex-wrap:wrap"><span>' + (all.length ? (from + 1) + '–' + Math.min(from + BOT_PER, all.length) + ' of ' + num(all.length, 0) : 'No ideas match') + '</span>' +
+    (pages > 1 ? '<button class="btn sm" type="button" ' + (P === 0 ? 'disabled' : '') + ' onclick="botPage(' + (P - 1) + ')">‹</button>' +
+      nums.map(i => i === '…' ? '<span>…</span>' : '<button class="btn sm' + (i === P ? ' primary' : '') + '" type="button" onclick="botPage(' + i + ')">' + (i + 1) + '</button>').join('') +
+      '<button class="btn sm" type="button" ' + (P >= pages - 1 ? 'disabled' : '') + ' onclick="botPage(' + (P + 1) + ')">›</button>' : '') + '</div>';
+  const filters = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">' +
+    '<input id="bot-q" class="field" placeholder="Search ideas…" autocomplete="off" value="' + esc(BOT.q || '') + '" oninput="botQ(this)" style="flex:1;min-width:160px;max-width:260px">' +
+    segB('res', BOT.res, [['', 'All'], ['passed', 'Passed every test'], ['first', 'Passed the first test'], ['failed', 'Failed']]) +
+    segB('idx', BOT.idx, [['', 'Both'], ['NIFTY', 'NIFTY'], ['BANKNIFTY', 'BANK NIFTY']]) +
+    '<select class="field" style="width:auto" onchange="botSet(\'sort\',this.value)">' + [['profit', 'Most profit first'], ['unseen', 'Best on unseen months'], ['won', 'Most trades won'], ['trades', 'Most trades'], ['tested', 'Newest first']]
+      .map(([v, l]) => '<option value="' + v + '"' + ((BOT.sort || 'profit') === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></div>';
+  const rows = shown.map(x => { const d = x.dev || {}, v = x.vault;
+    return '<tr style="cursor:pointer" onclick="botShow(\'' + x.key + '\')"><td class="l" style="white-space:normal"><a href="javascript:void 0">' + esc(x.name) + '</a>' +
+      '<div class="faint" style="font-size:11.5px">' + esc(botParams(x)) + '</div>' +
+      (!BOT.fam ? '<div class="faint" style="font-size:11.5px">' + esc(BOT_FAM[x.family] || x.family) + '</div>' : '') + '</td>' +
+      '<td class="num">' + (d.trades == null ? '–' : d.trades) + '</td>' +
+      '<td class="num" style="color:' + ((d.profit || 0) >= 0 ? 'var(--up)' : 'var(--down)') + '">' + botRupee(d.profit) + '</td>' +
+      '<td class="num">' + (d.trades ? Math.round(100 * d.wins / d.trades) + '%' : '–') + '</td>' +
+      '<td class="num"' + (v ? ' style="color:' + ((v.profit || 0) >= 0 ? 'var(--up)' : 'var(--down)') + '"' : '') + '>' + (v ? botRupee(v.profit) : '–') + '</td>' +
+      '<td class="l muted" style="white-space:normal;font-size:11.5px;min-width:160px">' + esc(x.stage === 'recommended' ? 'Passed every test' : x.why_failed || BOT_STAGE[x.stage] || x.stage) + '</td></tr>'; }).join('');
+  return '<div class="panel" id="bot-list"><div class="panel-h"><h3>' + esc(BOT.fam ? BOT_FAM[BOT.fam] || BOT.fam : 'All ideas') + '</h3>' +
+    (BOT.fam ? '<a href="javascript:void 0" onclick="botSet(\'fam\',\'\')">Show all types</a>' : '<span class="muted" style="font-size:12px">tap an idea for its trades</span>') + '</div><div class="panel-b">' + filters +
+    (shown.length ? '<div style="overflow-x:auto"><table class="t"><thead><tr><th class="l">Idea</th><th class="num">Trades</th><th class="num">Profit</th><th class="num">Won</th><th class="num">Unseen months</th><th class="l">Result</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '') +
+    pager + '</div></div>';
+}
+function pageIdeas(){
+  const v = $('view');
+  botLoad();
+  const R = BOT.r || {};
+  if (R.loading) { v.innerHTML = loadingBlock('Loading…'); return; }
+  if (R.error) { v.innerHTML = errBlock(R.error); return; }
+  if (R.none) { v.innerHTML = '<div class="panel"><div class="panel-b muted">The research bot’s first run is after the market closes.</div></div>'; return; }
+  const recs = R.recommended || [], wait = Object.entries(R.waiting || {});
+  let h = '<div class="page-head"><div><p class="sub">Ideas the research bot tested on past option prices with full charges' + (R.asof ? ' · updated ' + esc(algoWhen(R.asof)) : '') + '. Each must make money from ' +
+    esc((R.periods || {}).dev ? bDay(dayOf(R.periods.dev[0])) : '') + ' to ' + esc((R.periods || {}).dev ? bDay(dayOf(R.periods.dev[1])) : '') + ', with nearby settings too, then in the months since. Not advice.</p></div></div>';
+  h += '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:8px;margin-bottom:14px">' +
+    [['Ideas tested', num(R.tested || 0, 0)], ['Passed the first test', num((R.ideas || []).filter(x => botRes(x) !== 'failed').length, 0)], ['Passed every test', '<span style="color:' + (recs.length ? 'var(--up)' : 'inherit') + '">' + recs.length + '</span>']]
+      .map(([k, val]) => '<div class="panel kpi"><div class="k">' + k + '</div><div style="font-size:20px;font-weight:600;margin-top:2px">' + val + '</div></div>').join('') + '</div>';
+  if (recs.length) h += '<h3 style="font-size:14px;margin:0 0 8px">Passed every test</h3>' + botRecs(R);
+  if (wait.length) h += '<div class="muted" style="font-size:12.5px;margin:0 0 12px">Waiting for history: ' + wait.map(([k, c]) => esc(BOT_FAM[k] || k) + ' (' + c + '% of the period so far)').join(' · ') + '.</div>';
+  h += '<h3 style="font-size:14px;margin:4px 0 8px">By type</h3>' + botTypes(R) + botView() + botList(R);
+  v.innerHTML = h;
+  pnlDraw();
 }
 function botShow(key){
   BOT.view = { key, loading: true, part: 'dev' }; rerender();
@@ -2931,7 +2998,7 @@ function pageBacktests(){
       '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" ' + (BTQ.busy ? 'disabled' : '') + ' onclick="btRun()">Run back-test</button>' +
       '<button class="btn" type="button" onclick="btEdit()">Change details</button><button class="btn" type="button" onclick="BTQ.parsed=null;rerender()">Start again</button></div></div></div>';
   }
-  h += '<div id="bt-res"></div>' + stBtPanel() + botPanel();
+  h += '<div id="bt-res"></div>' + stBtPanel() + botTeaser();
   if (!P) h += '<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:14px">' +
     '<div class="panel"><div class="panel-h"><h3>How to write it</h3></div><div class="panel-b">' + BT_GUIDE.map(([k, e]) => '<div style="margin-bottom:8px"><b>' + k + '</b><div class="muted" style="font-size:12.5px">e.g. ' + esc(e) + '</div></div>').join('') + '</div></div>' +
     '<div class="panel"><div class="panel-h"><h3>Examples</h3><span class="muted" style="font-size:12px">click to use</span></div><div class="panel-b">' +

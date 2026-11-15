@@ -2,6 +2,16 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~05:45 IST: Research ideas get their own tab
+- Owner: "the ideas need to have its own tab inside main back test tab ... filter ... pagination and arranged in a nice
+  manner by types" (3,780 ideas after the research machine's first night).
+- Back-tests > **Research ideas** (`#ideas`): counts; what passed every test (Add to my strategies, trades day by day);
+  one card per type (tried, passed, best profit; tap to filter); the list 25 a page with page numbers, search, result
+  (passed every test / passed the first test / failed), index (NIFTY / BANK NIFTY) and sort (profit, unseen months, won,
+  trades, newest). Each row shows its settings in words (ideas with the same name differ by stop, target, etc.).
+- The Back-tests tab keeps one line with a link. `trader/research.py` report: each idea's index and settings.
+- Fixed on the way: an idea's details failed on this tab when your strategies were not loaded yet.
+
 ## Mon 16 Nov 2026, ~05:15 IST: NIFTY 4-5 Nov 2026 option minutes from ICICI
 - Checked what is stored since the owner's files end (30 Oct): IBKR day files for every session 2-13 Nov (10 Nov a
   holiday), both indexes. One gap: NIFTY's 9 Nov expiry week. By the 14 Nov backfill IBKR no longer served its options,

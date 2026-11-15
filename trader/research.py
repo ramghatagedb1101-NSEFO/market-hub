@@ -635,6 +635,8 @@ def report(ledger: dict, waiting: dict | None = None) -> dict:
             "bar": round(bar(tries), 2), "cost": {"slip_pct": 0.5, "slip_min": 0.10, "version": COST_VERSION}, "periods": {"dev": [DEV_FROM, DEV_TO], "vault_from": VAULT_FROM},
             "families": fams, "recommended": rec, "near_misses": near, "waiting": waiting or {},
             "ideas": [{"key": r["key"], "name": r["name"], "family": r["family"], "stage": r["stage"],
+                       "index": (r.get("params") or {}).get("index") or (r.get("strategy") or {}).get("index"),
+                       "params": {k: v for k, v in (r.get("params") or {}).items() if k != "index"} or None,
                        "why_failed": r.get("why_failed"), "stored": bool(r.get("stored")), "tested": r.get("tested"),
                        "dev": {k: (r.get("dev") or {}).get(k) for k in ("trades", "wins", "profit", "pf", "t")},
                        "vault": {k: (r.get("vault") or {}).get(k) for k in ("trades", "wins", "profit")} if r.get("vault") else None}
