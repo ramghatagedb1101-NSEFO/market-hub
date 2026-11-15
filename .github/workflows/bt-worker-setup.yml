@@ -12,6 +12,10 @@ on:
         description: "also restart the trading program (outside market hours only)"
         type: boolean
         default: false
+      restart_gateway:
+        description: "restart the IBKR gateway (a fresh sign-in; outside market hours only) and check the sign-in"
+        type: boolean
+        default: false
       log_only:
         description: "only show the worker's last log lines (no pull, no restart)"
         type: boolean
@@ -66,6 +70,16 @@ jobs:
           echo "::add-mask::$HOST"
           printf '%s\n' "$KEY" > "$RUNNER_TEMP/k"
           SSH="ssh -i $RUNNER_TEMP/k -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o BatchMode=yes ubuntu@$HOST"
+          # 16 Nov 2026: after IBKR's Sunday reset the gateway answered "Paper trading disclaimer must first be accepted"
+          # (10141) and lost its link to IBKR (1100); a restart makes it sign in afresh (the stored paper login).
+          if [ "${{ inputs.restart_gateway }}" = "true" ]; then
+            H=$(TZ=Asia/Kolkata date +%H%M); D=$(TZ=Asia/Kolkata date +%u)
+            if [ "$D" -le 5 ] && [ "$H" -ge 0910 ] && [ "$H" -le 1535 ]; then echo "::warning::market hours: gateway not restarted"
+            else
+              $SSH 'cd /opt/trader && sudo docker compose restart ib-gateway && sleep 120 && sudo docker logs --since 3m market-hub-trader-ib-gateway-1 2>&1 | grep -iE "login|logged|disclaimer|warning|error" | tail -10 | sed -E "s/DU[0-9]+/DU****/g"; cd /opt/trader/app && git pull -q --ff-only; TZ=Asia/Kolkata timeout 90 /opt/trader/venv/bin/python -m trader.ibcheck' || true
+            fi
+            rm -f "$RUNNER_TEMP/k"; exit 0
+          fi
           if [ "${{ inputs.log_only }}" = "true" ]; then
             # the trading program and the IBKR gateway (16 Nov 2026: "is it signed in?"); paper account numbers hidden
             $SSH 'systemctl is-active trader.service; journalctl -u trader.service -n 15 --no-pager -o short-iso | sed -E "s/DU[0-9]+/DU****/g"; sudo docker ps --format "{{.Names}} {{.Status}}"; sudo docker logs --since 12h market-hub-trader-ib-gateway-1 2>&1 | grep -iE "login|logged|authenticat|restart|2fa|second factor" | tail -8 | sed -E "s/DU[0-9]+/DU****/g"' || true
