@@ -139,7 +139,8 @@ def flows() -> dict:
     """The strategy signals' market figures by session date, official sources only (owner, 15 Nov 2026: "use only
     things that are 100% reliable"; news left out): from 2023, hub/diary_history.py -- fii_cash (NSDL confirmed FPI net
     equity buying, rupees crore, by reporting date), usdinr_chg (NSDL's rate), sp500_chg / nasdaq_chg (FRED, the US
-    session that evening); from 14 Nov 2026, the daily job's diary -- dii_cash (NSE). The diary's other entries (NSE
+    session that evening), gold_chg / crude_chg (MCX's official daily close of the most-held futures contract against
+    its own previous close); from 14 Nov 2026, the daily job's diary -- dii_cash (NSE). The diary's other entries (NSE
     provisional FII, MCX snapshots, the RSS news score) are for the daily brief and never reach a strategy."""
     out = {}
     for k, e in (load("state/market_diary.json") or {}).items():
@@ -170,7 +171,8 @@ def flows() -> dict:
         for k in ("fii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg", "news_score", "crude_chg", "gold_chg"):
             row.pop(k, None)
     for d, v in (load("state/market/diary_history.json") or {}).items():
-        out.setdefault(d, {}).update({k: v[k] for k in ("fii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg") if k in v})
+        out.setdefault(d, {}).update({k: v[k] for k in ("fii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg", "gold_chg",
+                                                          "crude_chg") if k in v})
     return out
 
 

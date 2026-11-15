@@ -360,7 +360,7 @@ S = {"name", "index":"NIFTY"|"BANKNIFTY", "lots":1, "expiry":"nearest", "side":"
 SIG = {"type":"compare","left":{"src":A},"op":">"|"<"|">="|"<=","right":{"src":"value","value":x},"tf":5} where A is one
  of: price, day_open, prev_close, chg_prev, chg_open, rsi (with "n"), adx (with "n"), ema (with "n"), atr (with "n"),
  dte, vix, vix_pct, iv, iv_pct, pcr, pcr_all, oi_chg, fii_fut, fii_call, fii_put, client_fut, pro_fut, fii_cash,
- sp500_chg, nasdaq_chg, usdinr_chg (official figures only, the previous session's; shares in %, negative = net short;
+ sp500_chg, nasdaq_chg, usdinr_chg, gold_chg, crude_chg (official figures only, the previous session's; shares in %, negative = net short;
  cash flows in rupees crore). No news or sentiment inputs.
  | {"type":"dte","op":"<="|">=","days":n} | {"type":"orb","minutes":15|30,"dir":"up"|"down"}
  | {"type":"change","from":"prev_close"|"open","op":"above"|"below","pct":x}

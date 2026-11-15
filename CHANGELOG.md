@@ -17,6 +17,10 @@ and for every day after:
   and crude changes (an 18:05 snapshot while MCX still trades, not a close). The news-history module and its machine
   timers were removed. Gold and crude can come back from MCX's official daily closes.
 - The daily brief keeps its own news summary and RSS score (reading only).
+- Gold and crude back (owner, 15 Nov 2026), from MCX's official daily bhavcopy (futures, one request a day, 2023 on):
+  each day the most-held GOLD / CRUDEOIL contract and its own close against its own previous close, so a contract
+  roll never shows as a move. Checked: 3 Jan 2023 gold Rs 55,530 / 10 g, crude Rs 6,475; 13 Nov 2026 crude Rs 8,369
+  +0.83% (the live diary's snapshot said +0.87%).
 
 ### Back-tests: real trading costs, measured (Sun 15 Nov 2026, morning)
 The research bot's first run (61 ideas, none passed) showed trend-day spreads losing with striking uniformity. Traced

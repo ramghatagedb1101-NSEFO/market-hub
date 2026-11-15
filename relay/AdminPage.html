@@ -1721,7 +1721,7 @@ const ST_OPS = [['Index', [['price', 'Index price'], ['open', 'Bar open'], ['hig
     ['fii_fut', 'FII net index futures %'], ['fii_call', 'FII net index calls %'], ['fii_put', 'FII net index puts %'],
     ['client_fut', 'Retail net index futures %'], ['pro_fut', 'Pro traders’ net index futures %'],
     ['fii_cash', 'FII cash buying, ₹ crore (NSDL)'], ['dii_cash', 'DII cash buying, ₹ crore (NSE, from 14 Nov 2026)'], ['sp500_chg', 'S&P 500 last session %'], ['nasdaq_chg', 'Nasdaq last session %'],
-    ['usdinr_chg', 'US dollar vs rupee change %']]],
+    ['usdinr_chg', 'US dollar vs rupee change %'], ['gold_chg', 'Gold change % (MCX close)'], ['crude_chg', 'Crude oil change % (MCX close)']]],
   ['Number', [['value', 'A number']]]];
 const ST_OPNAME = Object.fromEntries(ST_OPS.flatMap(g => g[1]));
 const ST_MKT = Object.fromEntries(ST_OPS.find(g => g[0].indexOf('Market') === 0)[1]);

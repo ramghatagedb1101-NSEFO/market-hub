@@ -38,7 +38,7 @@ const STRAT_SIGNALS = ['price_ma', 'ma_cross', 'rsi', 'orb', 'change', 'dte', 'w
 // 14 Nov 2026: the market figures (trader/market.py MARKET) and event days (trader/market.py EVENT_KINDS); without
 // them here a saved strategy silently lost those signals.
 const STRAT_MARKET = ['vix', 'vix_pct', 'iv', 'iv_pct', 'pcr', 'pcr_all', 'oi_chg', 'fii_fut', 'fii_call', 'fii_put', 'client_fut', 'pro_fut',
-  'fii_cash', 'dii_cash', 'sp500_chg', 'nasdaq_chg', 'usdinr_chg'];   // official figures only (owner, 15 Nov 2026)
+  'fii_cash', 'dii_cash', 'sp500_chg', 'nasdaq_chg', 'usdinr_chg', 'gold_chg', 'crude_chg'];   // official figures only (owner, 15 Nov 2026)
 const STRAT_EVENTS = ['rbi', 'budget', 'election'];
 // Multi-leg positions (trader/strategies/rules.py structure)
 const STRAT_KINDS = ['single', 'straddle', 'strangle', 'iron_condor', 'spread'];

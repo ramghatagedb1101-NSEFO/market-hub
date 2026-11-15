@@ -9,8 +9,12 @@ for every day after, so a strategy reads the same thing in a back-test and live:
   usdinr, usdinr_chg   NSDL's conversion rate for that reporting date, and its % change.
   sp500_chg, nasdaq_chg   FRED (SP500, NASDAQCOM), % change on the US session of that date (after India's close).
 
-Not here: DII flows (no official history; the diary keeps NSE's figure from 14 Nov 2026), gold and crude (Kite's daily
-MCX candles, which need the day's Kite login), the morning news score (trader/news_history.py, GDELT headlines).
+  gold_chg, crude_chg   MCX's official daily bhavcopy (mcxindia.com, futures only, one request a day): the most-held
+               GOLD / CRUDEOIL futures contract that day (largest open interest) and ITS OWN close against its own previous
+               close -- never across two contracts, so a contract roll cannot show as a move. MCX trades to 23:30: a
+               strategy sees the change the next Indian morning.
+Not here: DII flows (no official history; the diary keeps NSE's figure from 14 Nov 2026); no news (owner: official
+data only).
 
 state/market/diary_history.json (private) = {"YYYY-MM-DD": {...}}; hub/market_daily.py flows() merges it.
     python -m hub.diary_history        (FRED_API_KEY, PRIVATE_REPO_TOKEN; GitHub: diary-history.yml and the daily job)
@@ -63,6 +67,33 @@ def nsdl_month(s: requests.Session, upto: date) -> dict:
     return out
 
 
+MCX = "https://www.mcxindia.com/market-data/bhavcopy"
+
+
+def mcx_session():
+    from curl_cffi import requests as creq                 # MCX refuses plain requests (as BSE does)
+    s = creq.Session(impersonate="chrome")
+    s.get(MCX, timeout=30)
+    return s
+
+
+def mcx_day(s, d: date) -> dict | None:
+    """{gold_chg, gold, crude_chg, crude} for one MCX session, or None (no session that day)."""
+    r = s.get(MCX + "/GetDateWiseBhavCopy", params={"InstrumentName": "FUTCOM", "fromDate": d.strftime("%d/%m/%Y")},
+              headers={"Referer": MCX, "X-Requested-With": "XMLHttpRequest", "Accept": "application/json"}, timeout=40)
+    rows = (r.json() or {}).get("Data") or []
+    out = {}
+    for sym, key in (("GOLD", "gold"), ("CRUDEOIL", "crude")):
+        fut = [x for x in rows if str(x.get("Symbol", "")).strip() == sym and x.get("InstrumentName") == "FUTCOM"
+               and (x.get("Volume") or 0) > 0 and (x.get("PreviousClose") or 0) > 0]
+        if not fut:
+            continue
+        top = max(fut, key=lambda x: x.get("OpenInterest") or 0)
+        out[key] = top["Close"]
+        out[key + "_chg"] = round((top["Close"] / top["PreviousClose"] - 1) * 100, 2)
+    return out or None
+
+
 def fred_changes(key: str, series: str, start: date) -> dict:
     r = requests.get("https://api.stlouisfed.org/fred/series/observations", headers=UA, timeout=60,
                      params={"series_id": series, "api_key": key, "file_type": "json",
@@ -104,6 +135,32 @@ def main() -> int:
         if u and prev:
             hist[d]["usdinr_chg"] = round((u / prev - 1) * 100, 3)
         prev = u or prev
+    # MCX gold and crude: every weekday since START without them (a bounded number a run; the next run carries on)
+    todo, d = [], START
+    while d < today:
+        if d.weekday() < 5 and not (hist.get(d.isoformat()) or {}).get("mcx_checked"):
+            todo.append(d)
+        d += timedelta(days=1)
+    limit = int(os.getenv("MCX_MAX") or 1200)
+    if todo:
+        try:
+            ms = mcx_session()
+            n = 0
+            for d in todo[:limit]:
+                try:
+                    v = mcx_day(ms, d)
+                except Exception as e:                       # noqa: BLE001 -- that day is tried again next run
+                    print(f"::warning::MCX {d}: {type(e).__name__}")
+                    continue
+                row = hist.setdefault(d.isoformat(), {})
+                row.update(v or {})
+                if v is not None or (today - d).days > 7:   # a holiday is not asked again once a week old
+                    row["mcx_checked"] = True
+                n += 1
+                time.sleep(0.4)
+            print(f"MCX: {n} days read ({len(todo) - min(len(todo), limit)} left)", flush=True)
+        except Exception as e:                               # noqa: BLE001
+            print(f"::warning::MCX unavailable: {type(e).__name__}: {str(e)[:120]}")
     key = os.getenv("FRED_API_KEY")
     if key:
         for field, sid in FRED.items():

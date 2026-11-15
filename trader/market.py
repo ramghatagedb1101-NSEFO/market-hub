@@ -20,12 +20,13 @@ MARKET = {
     "client_fut": "Retail net index futures %", "pro_fut": "Pro traders' net index futures %",
     # official figures only (owner, 15 Nov 2026: "use only things that are 100% reliable"; news left out): NSDL's
     # confirmed FPI flows and dollar rate, FRED's US close (from 2023, hub/diary_history.py), NSE's DII flows (from
-    # 14 Nov 2026). Gold and crude return once taken from MCX's official daily closes.
+    # 14 Nov 2026), MCX's official daily closes for gold and crude (from 2023, same contract close to close).
     "fii_cash": "FII cash buying, rupees crore (NSDL)", "dii_cash": "DII cash buying, rupees crore (NSE)",
     "sp500_chg": "S&P 500 last session %", "nasdaq_chg": "Nasdaq last session %",
     "usdinr_chg": "US dollar vs rupee change % (NSDL rate)",
+    "gold_chg": "Gold change % (MCX close)", "crude_chg": "Crude oil change % (MCX close)",
 }
-FLOW_KEYS = ("fii_cash", "dii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg")
+FLOW_KEYS = ("fii_cash", "dii_cash", "sp500_chg", "nasdaq_chg", "usdinr_chg", "gold_chg", "crude_chg")
 LIVE_FILE = os.getenv("MARKET_FILE") or "/opt/trader/market.json"
 LIVE_FLOWS = os.getenv("FLOWS_FILE") or "/opt/trader/flows.json"
 MAX_AGE_DAYS = 7                    # a weekend plus the longest run of market holidays
