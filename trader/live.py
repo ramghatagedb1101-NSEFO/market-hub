@@ -193,6 +193,10 @@ def main() -> int:
                 except Exception as e:             # a failed check keeps whatever was running; journalled
                     eng.j.write(now, "note", text=f"autopilot check failed ({type(e).__name__}); keeping the current choice")
         try:
+            # 16 Nov 2026: a gateway restart (06:30 daily, or a repair) dropped the link silently outside market hours;
+            # reconnect as soon as it is gone, not at the first step after 09:15
+            if not br.ib.isConnected():
+                raise ConnectionError("not connected")
             if market_open(now):
                 eng.step(now)
                 kept = keep_protect(eng, kept)
