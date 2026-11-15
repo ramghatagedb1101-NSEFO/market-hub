@@ -13,7 +13,8 @@
 
 const KICK_WORKFLOWS_ = ['library.yml', 'expiry-history.yml', 'kite-reminder.yml', 'insights.yml', 'summaries.yml',
   'source-health.yml', 'live.yml', 'market-loop.yml', 'expiry-tape.yml', 'close-estimate.yml', 'expiry-theta.yml',
-  'algo-sync.yml', 'breeze.yml', 'daily.yml'];
+  'algo-sync.yml', 'breeze.yml', 'daily.yml',
+  'oci-research-delete.yml'];   // 15 Nov 2026: one-off, Wed 9 Dec 2026 (the temporary research machine)
 const KICK_ALIVE_MS_ = 30 * 60 * 1000;   // the machine calls at least every 10 minutes
 
 function kickKeyOk_(p) {

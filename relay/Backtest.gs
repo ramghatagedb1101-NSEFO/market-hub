@@ -256,6 +256,18 @@ function adminBacktestStatus(token, id) {
            sent: CacheService.getScriptCache().get('bt_' + id) || '', worker: now - Number(props.getProperty('BT_WORKER_SEEN') || 0) < 90000 };
 }
 
+/** One tested idea's full results (trader/research.py store(): state/bot/results/<key>.json.gz), gzipped, for the
+ * Back-tests page's drill-down (owner, 15 Nov 2026: "see the day wise trades and results ourselves"). */
+function adminBotResult(token, key) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  if (!/^[0-9a-f]{12}$/.test(key || '')) return { error: 'bad key' };
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  const res = privateRaw_(readToken, 'state/bot/results/' + key + '.json.gz');
+  if (res.getResponseCode() === 404) return { none: true };
+  if (res.getResponseCode() !== 200) return { error: 'Could not load the idea (' + res.getResponseCode() + ').' };
+  return { gz: Utilities.base64Encode(res.getBlob().getBytes()) };
+}
+
 /** The research bot's report (trader/research.py -> state/bot/report.json in the private repo), for the Back-tests page. */
 function adminBotReport(token) {
   if (!sessionValid_(token)) return { error: 'session_expired' };

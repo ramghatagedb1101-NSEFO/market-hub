@@ -1912,7 +1912,7 @@ function stSigText(g){
   if (g.type === 'supertrend') return 'Supertrend (' + g.period + ', ' + g.mult + ') ' + ({ buy: 'gives a Buy', sell: 'gives a Sell', up: 'in a Buy state', down: 'in a Sell state' }[g.dir] || g.dir) + tfx;
   if (g.type === 'range_filter') return 'Range Filter (' + g.per + ', ' + g.mult + ') ' + ({ buy: 'gives a Buy', sell: 'gives a Sell', up: 'in a Buy state', down: 'in a Sell state' }[g.dir] || g.dir) + tfx;
   if (g.type === 'change') return 'Index ' + g.op + ' ' + (g.pct > 0 ? '+' : '') + g.pct + '% from ' + (g.from === 'open' ? "today's open" : "yesterday's close");
-  if (g.type === 'dte') return (g.op === '>=' ? 'At least ' : 'At most ') + g.days + ' days to expiry';
+  if (g.type === 'dte') return g.op !== '>=' && Number(g.days) === 0 ? 'On expiry day' : (g.op === '>=' ? 'At least ' : 'At most ') + g.days + ' day' + (Number(g.days) === 1 ? '' : 's') + ' to expiry';
   if (g.type === 'weekday') return 'On ' + (g.days || []).map(d => DOW3[d]).join(', ');
   if (g.type === 'event') return (g.when === 'not_today' ? 'Not on ' : 'On ') + (g.kinds || []).map(k => ST_EVENTS[k] || k).join(' / ') + ' days';
   if (g.type === 'compare') {
@@ -2701,6 +2701,10 @@ function stBtPanel(){
   if (Object.keys(RG).length) b += '<table class="t" style="margin-bottom:12px"><thead><tr><th>Market condition at entry</th><th class="num">Profit</th><th class="num">Trades</th><th class="num">Won</th><th class="num">Per trade</th></tr></thead><tbody>' +
     Object.keys(COND).filter(c => RG[c]).map(c => { const r = RG[c]; return '<tr><td class="l">' + COND[c] + '</td><td class="num">' + ppSigned(r.pnl) + '</td><td class="num">' + r.trades + '</td><td class="num">' + Math.round(100 * r.wins / r.trades) + '%</td><td class="num">' + ppSigned(r.pnl / r.trades) + '</td></tr>'; }).join('') + '</tbody></table>';
   if (M.length) b += '<table class="t" style="margin-bottom:12px"><thead><tr><th>Month</th><th class="num">Profit</th><th class="num">Trades</th></tr></thead><tbody>' + M.slice().reverse().map(m => { const d = dayOf(m.month + '-01'); return '<tr><td class="l">' + MON3[d.getUTCMonth()] + ' ' + d.getUTCFullYear() + '</td><td class="num">' + ppSigned(m.pnl) + '</td><td class="num">' + m.trades + '</td></tr>'; }).join('') + '</tbody></table>';
+  // 15 Nov 2026 (owner: "the result with daily breakup"): every session that had a trade
+  const DY = ((R.summary || {}).days || []).filter(d => d && d.date);
+  if (DY.length) b += '<details style="margin-bottom:10px"><summary>Day by day (' + DY.length + ' days with trades)</summary><div style="overflow-x:auto"><table class="t" style="margin-top:6px"><thead><tr><th class="l">Day</th><th class="num">Trades</th><th class="num">Won</th><th class="num">Profit</th></tr></thead><tbody>' +
+    DY.slice().reverse().map(d => '<tr><td class="l">' + esc(bDay(dayOf(d.date))) + '</td><td class="num">' + d.trades + '</td><td class="num">' + (d.wins || 0) + '</td><td class="num">' + ppSigned(d.pnl) + '</td></tr>').join('') + '</tbody></table></div></details>';
   if (TR.length) b += '<details><summary>All ' + TR.length + ' trades</summary><div style="overflow-x:auto"><table class="t" style="margin-top:6px"><thead><tr><th>Option</th><th class="num">Entry</th><th class="num">Exit</th><th class="num">Profit</th><th class="num">Why</th></tr></thead><tbody>' +
     TR.map(t => '<tr><td class="l">' + algoName(t.contract) + '</td><td class="num" style="white-space:nowrap">' + num(t.entry, 2) + ' · ' + esc(algoWhen(t.entry_t)) + '</td><td class="num" style="white-space:nowrap">' + num(t.exit, 2) + ' · ' + esc(String(t.exit_t).slice(11, 16)) + '</td><td class="num">' + ppSigned(t.pnl) + '</td><td class="num">' + esc(t.why) + '</td></tr>').join('') + '</tbody></table></div></details>';
   else b += '<div class="muted">No trades: the signals never lined up on these sessions.</div>';
@@ -2848,10 +2852,59 @@ function botPanel(){
   if (near.length) b += '<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12.5px">Close calls (' + near.length + ')</summary>' +
     near.map(x => '<div style="font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line2)"><b>' + esc(x.name) + '</b> — ' + esc(x.why_failed || x.stage) + '</div>').join('') + '</details>';
   const fams = Object.entries(R.families || {});
-  if (fams.length) b += '<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12.5px">What it has tried</summary><table class="t"><thead><tr><th class="l">Idea</th><th>Tested</th><th>Passed the first test</th><th>Recommended</th></tr></thead><tbody>' +
-    fams.map(([k, f]) => '<tr><td class="l">' + esc(BOT_FAM[k] || k) + '</td><td class="num">' + f.tested + '</td><td class="num">' + f.passed_dev + '</td><td class="num">' + f.recommended + '</td></tr>').join('') + '</tbody></table></details>';
-  return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + b + '</div></div>';
+  if (fams.length) b += '<details style="margin-top:6px"' + (BOT.open ? ' open' : '') + ' ontoggle="BOT.open=this.open"><summary class="muted" style="cursor:pointer;font-size:12.5px">What it has tried (' + num(R.tested || 0, 0) + ' ideas)</summary>' +
+    '<table class="t"><thead><tr><th class="l">Idea</th><th>Tested</th><th>Passed the first test</th><th>Recommended</th></tr></thead><tbody>' +
+    fams.map(([k, f]) => '<tr' + (BOT.fam === k ? ' style="background:var(--accent-soft)"' : '') + '><td class="l"><a href="javascript:void 0" onclick="BOT.fam=BOT.fam===\'' + k + '\'?\'\':\'' + k + '\';rerender()">' + esc(BOT_FAM[k] || k) + '</a></td><td class="num">' + f.tested + '</td><td class="num">' + f.passed_dev + '</td><td class="num">' + f.recommended + '</td></tr>').join('') + '</tbody></table>' +
+    botIdeas(R) + '</details>';
+  return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + b + '</div></div>' + botView();
 }
+// Every idea it tested, best first, filtered by family (click a family above); each opens its details (botShow).
+function botIdeas(R){
+  const all = (R.ideas || []).filter(x => !BOT.fam || x.family === BOT.fam), shown = all.slice(0, BOT.more ? 1000 : 25);
+  const rupee = v => v == null ? '–' : (v < 0 ? '−₹' : '₹') + num(Math.abs(v), 0);
+  if (!all.length) return '<div class="muted" style="font-size:12.5px;margin-top:8px">The list of ideas appears after the next run.</div>';
+  return '<div class="muted" style="font-size:12.5px;margin:10px 0 4px">' + (BOT.fam ? esc(BOT_FAM[BOT.fam] || BOT.fam) + ': ' : 'All ideas: ') + all.length + ', most profitable first. Tap one for how it was built and its trades day by day.</div>' +
+    '<div style="overflow-x:auto"><table class="t"><thead><tr><th class="l">Idea</th><th class="num">Trades</th><th class="num">Profit</th><th class="num">Won</th><th class="l">Result</th></tr></thead><tbody>' +
+    shown.map(x => { const d = x.dev || {}; return '<tr style="cursor:pointer" onclick="botShow(\'' + x.key + '\')"><td class="l"><a href="javascript:void 0">' + esc(x.name) + '</a></td><td class="num">' + (d.trades == null ? '–' : d.trades) + '</td>' +
+      '<td class="num" style="color:' + ((d.profit || 0) >= 0 ? 'var(--up)' : 'var(--down)') + '">' + rupee(d.profit) + '</td><td class="num">' + (d.trades ? Math.round(100 * d.wins / d.trades) + '%' : '–') + '</td>' +
+      '<td class="l" style="white-space:normal;font-size:12px">' + esc(x.stage === 'recommended' ? 'Passed every test' : x.why_failed || BOT_STAGE[x.stage] || x.stage) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+    (all.length > shown.length ? '<button class="btn sm" type="button" style="margin-top:6px" onclick="BOT.more=true;rerender()">Show all ' + all.length + '</button>' : '');
+}
+function botShow(key){
+  BOT.view = { key, loading: true, part: 'dev' }; rerender();
+  call('adminBotResult', token, key).then(unpack).then(d => { if (BOT.view && BOT.view.key === key) { BOT.view = { key, res: d, part: 'dev' }; rerender();
+    setTimeout(() => { const el = document.getElementById('bot-view'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); } })
+    .catch(e => { BOT.view = { key, res: { error: e.message } }; rerender(); });
+}
+// One idea: how it was built (its settings in words), the verdict, and its results -- the same view as a back-test,
+// for the period it was chosen on or the months it never saw.
+function botView(){
+  const V = BOT.view; if (!V) return '';
+  const close = '<a href="javascript:void 0" onclick="BOT.view=null;rerender()">Close</a>';
+  const shell = (t, body) => '<div class="panel" id="bot-view" style="margin-bottom:14px"><div class="panel-h"><h3>' + t + '</h3>' + close + '</div><div class="panel-b">' + body + '</div></div>';
+  if (V.loading) return shell('Idea details', '<div class="muted">Loading…</div>');
+  const D = V.res || {};
+  if (D.error) return shell('Idea details', errBlock(D.error));
+  if (D.none) return shell('Idea details', '<div class="muted">Its details are saved on the bot’s next run (ideas tested before 15 Nov 2026 are being run again for this).</div>');
+  const s = D.strategy || {}, ex = s.exits || {}, uM = (t, v) => t === 'points' ? '₹' + num(Number(v), 0) : v + '%';
+  const multi = s.structure && s.structure.kind && s.structure.kind !== 'single';
+  const sig = G => (G || []).map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of: ' : 'all of: ') : '') + g.signals.map(stSigText).join('; ')).join(' — or — ');
+  let b = '<div style="font-size:13px;margin-bottom:6px"><b>' + esc(D.name || '') + '</b></div>' +
+    '<div class="muted" style="font-size:12.5px;margin-bottom:10px">' + esc(D.why || '') + '</div>' +
+    '<div style="font-size:12.5px;margin-bottom:6px"><b>Verdict:</b> ' + esc((BOT_STAGE[D.stage] || D.stage || '') + (D.why_failed ? ' — ' + D.why_failed : '')) + '</div>' +
+    '<div style="font-size:12.5px;margin-bottom:12px"><b>How it was built:</b><ul style="margin:4px 0 0 18px">' +
+    '<li>' + esc(stIdx(s.index || '')) + ', ' + esc(multi ? ((ST_KINDS.find(k => k[0] === s.structure.kind) || [])[1] || '') + ': ' + stLegsText(s) : (s.side === 'SELL' ? 'sell ' : 'buy ') + (s.right === 'P' ? 'the put' : 'the call') + ((s.strike || {}).steps ? ', ' + Math.abs(s.strike.steps) + ' strikes ' + (s.strike.steps > 0 ? 'out of' : 'in') + ' the money' : ' at the money')) + ', ' + esc(s.expiry || 'nearest') + ' expiry, ' + (s.lots || 1) + ' lot' + (multi ? ' a leg' : '') + '</li>' +
+    '<li>Enters ' + esc(((s.window || {}).from || '') + '–' + ((s.window || {}).until || '')) + ' when ' + esc(sig(s.groups) || '–') + (s.put_groups && s.put_groups.length ? '; the put when ' + esc(sig(s.put_groups)) : '') + '</li>' +
+    '<li>' + (multi ? 'On the whole position: ' : '') + 'stop-loss ' + (Number(ex.sl) ? uM(ex.sl_type, ex.sl) + (multi ? ' of the premium' : '') : 'none') + (Number(ex.target) ? '; target ' + uM(ex.target_type, ex.target) + (multi ? ' of the premium' : '') : '') +
+      (Number(ex.trail) ? '; trailing ' + uM(ex.trail_type, ex.trail) + ' after ' + uM(ex.trail_after_type, ex.trail_after) : '') + (ex.exit_by ? '; out by ' + ex.exit_by : '; held to expiry') + '; at most ' + (s.max_trades_day || 1) + ' trade' + (s.max_trades_day > 1 ? 's' : '') + ' a day</li></ul></div>';
+  const parts = [['dev', 'While choosing'], ['vault', 'Months it never saw']].filter(([k]) => D[k]);
+  if (parts.length > 1) b += '<div class="seg" style="margin-bottom:10px">' + parts.map(([k, l]) => '<button type="button" class="' + (V.part === k ? 'on' : '') + '" onclick="BOT.view.part=\'' + k + '\';rerender()">' + l + '</button>').join('') + '</div>';
+  const res = D[V.part] || D.dev;
+  if (res) { const keep = ST_BT; ST_BT = { id: res.id, res: res }; try { b += stBtPanel().replace(/^<div class="panel"[^>]*><div class="panel-h">.*?<\/div>/, '<div>').replace('<div class="panel-b">', '<div>'); } finally { ST_BT = keep; } }
+  return shell('Idea details', b);
+}
+const BOT_STAGE = { 'failed development': 'Failed the first test', 'failed neighbours': 'Failed: nearby settings lost money', 'barred from the vault': 'Not tested on unseen months (a near copy failed there)',
+  'failed the unseen months': 'Failed on the months it never saw', recommended: 'Passed every test', error: 'Could not be tested' };
 const BOT_FAM = { vol_condor: 'Sell iron condors when volatility is rich', expiry_strangle: 'Sell strangles on expiry day', gap_fade: 'Fade large opening gaps',
   trend_orb: 'Follow trend days with spreads', cheap_straddle: 'Buy straddles when volatility is cheap', fii_bear: 'Follow heavy FII shorts', pcr_put_sell: 'Sell put spreads on a high put-call ratio', flows_follow: 'Follow FII cash and the US close', ai: 'Ideas from Gemini' };
 function btShow(id){ stBtLoad(id); setTimeout(() => { const el = $('bt-res'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); }
@@ -2888,6 +2941,7 @@ function pageBacktests(){
     mine.map(s => '<tr><td class="l"><b>' + esc(s.name) + '</b><div class="faint" style="font-size:11.5px">' + esc(stIdx(s.index)) + (s.from ? ' · from ' + bDay(dayOf(s.from)) : s.months ? ' · last ' + s.months + ' months' : '') + '</div></td><td class="l muted" style="white-space:normal;font-size:12.5px;max-width:520px">' + esc(s.query || '') + '</td>' +
       '<td style="white-space:nowrap"><button class="btn sm" type="button"' + (((S.strat && S.strat.backtests) || {})[s.id] ? ' style="background:var(--up-soft);color:var(--up);border-color:var(--up)" title="Results ready"' : '') + ' onclick="btShow(\'' + s.id + '\')">Results</button> <button class="btn sm" type="button" onclick="stBacktest(\'' + s.id + '\')">Run again</button> <button class="btn sm" type="button" onclick="btUse(\'' + s.id + '\')">Use for paper trading</button> <button class="btn sm" type="button" style="color:var(--down)" onclick="btDelete(\'' + s.id + '\')">Delete</button></td></tr>').join('') + '</tbody></table></div>';
   v.innerHTML = h;
+  pnlDraw();                       // 15 Nov 2026: the profit charts here were never drawn (empty boxes)
 }
 function pageStrategies(){
   const v = $('view');

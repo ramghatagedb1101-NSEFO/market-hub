@@ -1,0 +1,31 @@
+name: oci-research-delete
+
+# Deletes the temporary research machine (infra/oci_research.py delete). Started on Wed 9 Dec 2026 by the trading
+# machine's clock (a one-off timer set by bt-worker-setup.yml kick_once), before the Oracle trial ends; also by hand.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet "oci>=2.130"
+      - env:
+          OCI_API_KEY: ${{ secrets.OCI_API_KEY }}
+          OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_REGION: ap-mumbai-1
+        run: |
+          umask 077
+          printf '%s\n' "$OCI_API_KEY" > "$RUNNER_TEMP/oci.pem"
+          cd infra && OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python oci_research.py delete; rc=$?
+          rm -f "$RUNNER_TEMP/oci.pem"; exit $rc

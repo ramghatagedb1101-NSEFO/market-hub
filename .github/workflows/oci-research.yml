@@ -1,0 +1,60 @@
+name: oci-research
+
+# The temporary research machine on the Oracle trial credits (15 Nov 2026; infra/oci_research.py): AMD 8 OCPU / 24 GB,
+# deleted by Wed 9 Dec 2026 at the latest (oci-research-delete.yml, started by the trading machine's clock).
+# create: makes it; setup: pulls the code, writes /opt/trader/secrets/bt.env (as on the trading machine), starts the
+# research bot (infra/trader/research-loop.service); status / log: what it is doing; delete: removes it.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [status, create, setup, log, delete]
+        default: status
+
+permissions:
+  contents: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install --quiet "oci>=2.130"
+      - env:
+          OCI_API_KEY: ${{ secrets.OCI_API_KEY }}
+          OCI_TENANCY: ${{ secrets.OCI_TENANCY }}
+          OCI_USER: ${{ secrets.OCI_USER }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_SSH_PUBKEY: ${{ secrets.OCI_SSH_PUBKEY }}
+          OCI_REGION: ap-mumbai-1
+          KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$OCI_API_KEY" > "$RUNNER_TEMP/oci.pem"
+          A="${{ inputs.action }}"
+          if [ "$A" = "create" ] || [ "$A" = "delete" ] || [ "$A" = "status" ]; then
+            (cd infra && OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python oci_research.py "$A"); rc=$?; rm -f "$RUNNER_TEMP/oci.pem"; exit $rc
+          fi
+          HOST=$(cd infra && OCI_KEY_FILE="$RUNNER_TEMP/oci.pem" python oci_ip.py market-hub-research)
+          rm -f "$RUNNER_TEMP/oci.pem"
+          echo "::add-mask::$HOST"
+          printf '%s\n' "$KEY" > "$RUNNER_TEMP/k"
+          SSH="ssh -i $RUNNER_TEMP/k -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o BatchMode=yes ubuntu@$HOST"
+          if [ "$A" = "log" ]; then
+            $SSH 'test -f /opt/trader/ready && echo ready || echo "still installing"; systemctl is-active research-loop.service; nproc; free -g | head -2; journalctl -u research-loop.service -n 60 --no-pager -o cat || true'
+            rm -f "$RUNNER_TEMP/k"; exit 0
+          fi
+          for i in $(seq 1 30); do $SSH 'test -f /opt/trader/ready' && break; echo "waiting for the first-boot install ($i)"; sleep 20; done
+          $SSH 'cd /opt/trader/app && git pull -q --ff-only && git log --oneline -1 | cut -c1-7'
+          printf 'PRIVATE_REPO_TOKEN=%s\nRELAY_URL=%s\nRELAY_KEY=%s\n' "$PRIVATE_REPO_TOKEN" "$RELAY_URL" "$RELAY_KEY" | \
+            $SSH 'umask 077 && cat > /opt/trader/secrets/bt.env && chmod 600 /opt/trader/secrets/bt.env'
+          $SSH 'sudo cp /opt/trader/app/infra/trader/research-loop.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now research-loop.service && sudo systemctl restart research-loop.service && sleep 5 && systemctl is-active research-loop.service'
+          rm -f "$RUNNER_TEMP/k"

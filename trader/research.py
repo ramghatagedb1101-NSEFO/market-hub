@@ -293,8 +293,10 @@ def run_bt(defn: dict, frm: str, until: str | None) -> dict:
     res = backtest(d, {"max_lots_per_order": 5, "max_daily_loss": DAY_LIMIT}, progress=lambda m: None)
     days = [(x["date"], x["pnl"]) for x in res["summary"].get("days") or []]
     t = res["summary"]["totals"]
+    full = {"id": d["id"], "name": d.get("name"), "ran": res.get("ran"), "coverage": res.get("coverage"), "note": res.get("note"),
+            "summary": {k: res["summary"].get(k) for k in ("totals", "months", "days", "trades", "by_strategy_regime")}}
     return {"days": days, "trades": t["trades"], "wins": t["wins"], "profit": round(t["booked"], 2),
-            "sessions": res["coverage"]["sessions"], "note": res.get("note")}
+            "sessions": res["coverage"]["sessions"], "note": res.get("note"), "full": full}
 
 
 def stats(r: dict) -> dict:
@@ -381,19 +383,23 @@ def relay_ask(system: str, prompt: str, log=print) -> dict | None:
     if not url or not key:
         log("  Gemini: RELAY_URL / RELAY_KEY not set")
         return None
-    try:
-        r = requests.post(url, params={"mode": "bot_ask", "key": key}, data=json.dumps({"system": system, "prompt": prompt}),
-                          timeout=330)
-    except Exception as e:                                       # noqa: BLE001
-        log(f"  Gemini: relay not reached ({type(e).__name__})")
-        return None
-    try:
-        out = r.json()
-    except ValueError:
-        log(f"  Gemini: relay answered HTTP {r.status_code}, not JSON: {r.text[:160]!r}")
-        return None
+    out = {}
+    for attempt, wait in enumerate((0, 30, 60)):                # 15 Nov 2026: Google answered 503 (busy) and the run gave up
+        time.sleep(wait)
+        try:
+            r = requests.post(url, params={"mode": "bot_ask", "key": key},
+                              data=json.dumps({"system": system, "prompt": prompt}), timeout=330)
+            out = r.json()
+        except ValueError:
+            log(f"  Gemini: relay answered HTTP {r.status_code}, not JSON: {r.text[:160]!r}")
+            continue
+        except Exception as e:                                   # noqa: BLE001
+            log(f"  Gemini: relay not reached ({type(e).__name__})")
+            continue
+        if out.get("text"):
+            break
+        log(f"  Gemini: no answer (try {attempt + 1} of 3) -- {str(out.get('error') or out)[:200]}")
     if not out.get("text"):
-        log(f"  Gemini: no answer -- {str(out.get('error') or out)[:200]}")
         return None
     try:
         return json.loads(out["text"])
@@ -469,7 +475,7 @@ def candidates(ledger: dict, rnd: random.Random, n: int, ready: set) -> list[tup
             while per[fam]:
                 fam_, d, p, why = per[fam].pop()
                 kd = key_of(d)
-                if kd not in ledger or ledger[kd].get("cost") != COST_VERSION:
+                if kd not in ledger or ledger[kd].get("cost") != COST_VERSION or not ledger[kd].get("stored"):
                     out.append((fam_, d, p, why))
                     break
             if len(out) >= n:
@@ -477,16 +483,45 @@ def candidates(ledger: dict, rnd: random.Random, n: int, ready: set) -> list[tup
     return out
 
 
+RESULTS = "state/bot/results/{key}.json.gz"
+
+
+def store(rec: dict, dev: dict | None, vault: dict | None, defn: dict | None = None) -> None:
+    """The idea's full results (every day and every trade, the period it was chosen on and the unseen months), for the
+    dashboard's drill-down (relay adminBotResult). Gzipped JSON, one file an idea."""
+    from hub.breeze_history import save_gz
+    body = {k: rec.get(k) for k in ("key", "name", "family", "why", "stage", "why_failed", "tested")}
+    body["dev"], body["vault"] = (dev or {}).get("full"), (vault or {}).get("full")
+    # how it was built (owner, 15 Nov 2026): the settings exactly as tested, cleaned as the program runs them
+    if defn:
+        body["strategy"] = {k: v for k, v in clean(dict(defn, id="s_bot" + rec["key"][:8])).items() if k != "id"}
+        body["params"], body["periods"] = rec.get("params"), {"dev": [DEV_FROM, DEV_TO], "vault_from": VAULT_FROM}
+    try:
+        save_gz(RESULTS.format(key=rec["key"]), body, f"Research bot: results of {rec['name'][:60]}")
+        rec["stored"] = True
+    except Exception:                                            # noqa: BLE001 -- the verdict stands; details next run
+        rec["stored"] = False
+
+
 def evaluate(fam: str, defn: dict, p: dict | None, why: str, ledger: dict, deadline: float, log=print) -> dict:
+    rec = _evaluate(fam, defn, p, why, ledger, deadline, log)
+    if rec.get("stage") != "paused":
+        store(rec, rec.pop("_dev", None), rec.pop("_vault", None), defn)
+    rec.pop("_dev", None), rec.pop("_vault", None)
+    return rec
+
+
+def _evaluate(fam: str, defn: dict, p: dict | None, why: str, ledger: dict, deadline: float, log=print) -> dict:
     k = key_of(defn)
     rec = {"key": k, "family": fam, "name": defn["name"], "why": why, "params": p, "cost": COST_VERSION,
            "tested": datetime.now(IST).isoformat(timespec="minutes")}
-    if k in ledger:                      # tested before under an older cost setting: kept for the record
+    if k in ledger and ledger[k].get("cost") != COST_VERSION:   # tested before under an older cost: kept for the record
         old = ledger[k]
         rec["earlier"] = (old.get("earlier") or []) + [{x: old.get(x) for x in ("stage", "why_failed", "dev", "tested", "cost")}]
     # every test ever run counts towards the luck bar, earlier cost settings included
     n_tested = len(ledger) + sum(len(r.get("earlier") or []) for r in ledger.values()) + 1
     dev = run_bt(defn, DEV_FROM, DEV_TO)
+    rec["_dev"] = dev
     s = stats(dev)
     rec["dev"] = s
     if dev.get("note"):
@@ -520,6 +555,7 @@ def evaluate(fam: str, defn: dict, p: dict | None, why: str, ledger: dict, deadl
         rec.update(stage="barred from the vault", why_failed="a near-identical idea already failed the unseen months")
         return rec
     v = run_bt(defn, VAULT_FROM, None)
+    rec["_vault"] = v
     vs = stats(v)
     rec["vault"] = vs
     if vs["trades"] < VAULT_MIN_TRADES or vs["profit"] <= 0 or vs["pf"] < 1.1:
@@ -598,7 +634,27 @@ def report(ledger: dict, waiting: dict | None = None) -> dict:
     return {"asof": datetime.now(IST).isoformat(timespec="minutes"), "tested": len(rows), "tries": tries, "stages": stages,
             "bar": round(bar(tries), 2), "cost": {"slip_pct": 0.5, "slip_min": 0.10, "version": COST_VERSION}, "periods": {"dev": [DEV_FROM, DEV_TO], "vault_from": VAULT_FROM},
             "families": fams, "recommended": rec, "near_misses": near, "waiting": waiting or {},
+            "ideas": [{"key": r["key"], "name": r["name"], "family": r["family"], "stage": r["stage"],
+                       "why_failed": r.get("why_failed"), "stored": bool(r.get("stored")), "tested": r.get("tested"),
+                       "dev": {k: (r.get("dev") or {}).get(k) for k in ("trades", "wins", "profit", "pf", "t")},
+                       "vault": {k: (r.get("vault") or {}).get(k) for k in ("trades", "wins", "profit")} if r.get("vault") else None}
+                      for r in sorted(rows, key=lambda r: -((r.get("dev") or {}).get("profit") or -1e12))],
             "rule_changes": [{"from": d, "what": w} for d, w in RULE_CHANGES], "post_rule_min": POST_RULE_MIN}
+
+
+def _eval_safe(fam, d, p, why, ledger, deadline):
+    """One idea in a worker process; an error becomes a record, never a stopped run."""
+    try:
+        return evaluate(fam, d, p, why, ledger, deadline)
+    except Exception as exc:                                     # noqa: BLE001
+        return {"key": key_of(d), "family": fam, "name": d.get("name"), "why": why, "stage": "error", "cost": COST_VERSION,
+                "why_failed": str(exc)[:200], "tested": datetime.now(IST).isoformat(timespec="minutes")}
+
+
+def _line(rec: dict, secs: float) -> str:
+    dv = rec.get("dev") or {}
+    return (f"  {rec['stage']}: {rec['name']} -- {dv.get('trades', '-')} trades, ₹{dv.get('profit', 0):,.0f}, "
+            f"t {dv.get('t', '-')}; {rec.get('why_failed', '')} ({secs:.0f} s)")
 
 
 def main() -> int:
@@ -608,6 +664,10 @@ def main() -> int:
     ap.add_argument("--no-ai", action="store_true")
     ap.add_argument("--dry", action="store_true", help="do not save to the private repo")
     ap.add_argument("--ai-probe", action="store_true", help="ask Gemini once and show what came back; nothing tested or saved")
+    ap.add_argument("--workers", type=int, default=int(os.getenv("RESEARCH_WORKERS") or 1),
+                    help="ideas tested at once (the research machine: one per core)")
+    ap.add_argument("--anytime", action="store_true", default=bool(os.getenv("RESEARCH_ANYTIME")),
+                    help="also in market hours (a machine of its own, not the trading machine)")
     a = ap.parse_args()
     if a.ai_probe:
         for f, d, w in ai_ideas(load(LEDGER) or {}):
@@ -636,31 +696,57 @@ def main() -> int:
                 queue.insert(0, (f, d, None, w))
             else:
                 print(f"  later: Gemini idea '{d.get('name')}' needs figures covering only {100 * c:.0f}% of the period yet")
-    print(f"research: {len(ledger)} ideas in the ledger; {len(queue)} to try; {a.minutes:.0f} minutes", flush=True)
+    print(f"research: {len(ledger)} ideas in the ledger; {len(queue)} to try; {a.minutes:.0f} minutes; "
+          f"{a.workers} at a time", flush=True)
+    stop = lambda: time.time() > deadline or (not a.anytime and market_hours(datetime.now(IST)))
+    fresh = lambda d: not (key_of(d) in ledger and ledger[key_of(d)].get("cost") == COST_VERSION
+                           and ledger[key_of(d)].get("stored"))
     done = 0
-    for fam, d, p, why in queue:
-        if time.time() > deadline or market_hours(datetime.now(IST)):
-            break
-        if key_of(d) in ledger and ledger[key_of(d)].get("cost") == COST_VERSION:
-            continue
-        t1 = time.time()
-        try:
-            rec = evaluate(fam, d, p, why, ledger, deadline)
-        except Exception as exc:                                 # noqa: BLE001 -- one broken idea never stops the run
-            rec = {"key": key_of(d), "family": fam, "name": d.get("name"), "why": why, "stage": "error",
-                   "why_failed": str(exc)[:200], "tested": datetime.now(IST).isoformat(timespec="minutes")}
-        if rec["stage"] == "paused":
-            break
+
+    def keep(rec: dict, secs: float) -> None:
+        nonlocal done
         ledger[rec["key"]] = rec
         done += 1
-        dv = rec.get("dev") or {}
-        print(f"  {rec['stage']}: {rec['name']} -- {dv.get('trades', '-')} trades, ₹{dv.get('profit', 0):,.0f}, "
-              f"t {dv.get('t', '-')}; {rec.get('why_failed', '')} ({time.time() - t1:.0f} s)", flush=True)
-        if not a.dry and done % 5 == 0:
-            save(LEDGER, ledger, f"Research bot: {len(ledger)} ideas tested")
+        print(_line(rec, secs), flush=True)
+        if not a.dry and done % 10 == 0:
+            save(LEDGER, ledger, f"Research bot: {len(ledger)} ideas tested", merge=True)
+
+    if a.workers <= 1:
+        for fam, d, p, why in queue:
+            if stop():
+                break
+            if not fresh(d):
+                continue
+            t1 = time.time()
+            rec = _eval_safe(fam, d, p, why, ledger, deadline)
+            if rec["stage"] == "paused":
+                break
+            keep(rec, time.time() - t1)
+    else:
+        from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
+        todo = iter(q for q in queue if fresh(q[1]))
+        running = {}
+        with ProcessPoolExecutor(a.workers) as ex:
+            def more() -> None:
+                while len(running) < a.workers and not stop():
+                    nxt = next(todo, None)
+                    if nxt is None:
+                        return
+                    running[ex.submit(_eval_safe, *nxt, dict(ledger), deadline)] = time.time()
+            more()
+            while running:
+                finished, _ = wait(list(running), return_when=FIRST_COMPLETED)
+                for f in finished:
+                    t1 = running.pop(f)
+                    rec = f.result()
+                    if rec["stage"] != "paused":
+                        keep(rec, time.time() - t1)
+                more()
+    if not a.dry:
+        save(LEDGER, ledger, f"Research bot: {len(ledger)} ideas tested", merge=True)
+        ledger = load(LEDGER) or ledger                 # the other machine's ideas too, for the report
     rep = report(ledger, waiting)
     if not a.dry:
-        save(LEDGER, ledger, f"Research bot: {len(ledger)} ideas tested")
         save(REPORT, rep, f"Research bot: {rep['stages'].get('recommended', 0)} recommended of {rep['tested']}")
     print(f"research: {done} ideas this run, {rep['tested']} in all; {rep['stages']}", flush=True)
     return 0

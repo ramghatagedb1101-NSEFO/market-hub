@@ -1,0 +1,19 @@
+[Unit]
+Description=Market Hub research bot on the temporary research machine: back-to-back runs, 14 ideas at a time
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/opt/trader/app
+EnvironmentFile=/opt/trader/secrets/bt.env
+Environment=BT_CACHE=/opt/trader/btcache
+Environment=TZ=Asia/Kolkata
+Environment=RESEARCH_ANYTIME=1
+Environment=RESEARCH_WORKERS=14
+ExecStart=/bin/bash -c 'while true; do git -C /opt/trader/app pull -q --ff-only || true; /opt/trader/venv/bin/python -u -m trader.research --minutes 120 --max 800; sleep 30; done'
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target

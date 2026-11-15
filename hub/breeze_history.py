@@ -183,9 +183,10 @@ def load_gz(path: str, tries: int = 4):
             body = json.loads(gzip.decompress(r.content))
             if cached:
                 os.makedirs(os.path.dirname(cached), exist_ok=True)
-                with open(cached + ".tmp", "wb") as f:
+                tmp = f"{cached}.{os.getpid()}.tmp"            # one temporary name a process (parallel research)
+                with open(tmp, "wb") as f:
                     f.write(r.content)
-                os.replace(cached + ".tmp", cached)
+                os.replace(tmp, cached)
             return body
         except (requests.RequestException, OSError, EOFError) as e:
             if n == tries - 1:

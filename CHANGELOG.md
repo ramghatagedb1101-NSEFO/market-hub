@@ -4,6 +4,24 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 
 ## 2026-11-15
 
+### Research bot: drill-down, Gemini ideas fixed, a temporary research machine (Sun 15 Nov 2026, evening)
+- Drill-down (owner: "see the day wise trades and results ourselves"; "how the strategy was built for each idea"):
+  every tested idea's full result is saved (`state/bot/results/<key>.json.gz`, ~6 KB: its exact settings, every day,
+  every trade with legs, the period it was chosen on and, when reached, the unseen months). Back-tests page > Research
+  bot > What it has tried: every idea, most profitable first, filter by family; tap one for how it was built, the
+  verdict, the profit charts, months, a new day-by-day table and all trades. Ideas tested before this are run again
+  (same rules) so all of them have details. Relay `adminBotResult`.
+- Back-test results anywhere now include "Day by day". Fixed: the Back-tests page never drew its profit charts.
+- Gemini ideas: none had ever been added. Cause (the new log): Google answered 503 "busy" and the bot gave up silently.
+  It now tries 3 times over ~1.5 minutes and says in words why an idea was dropped (`--ai-probe` to test).
+- Research machine (owner): `market-hub-research`, AMD 8 OCPU / 24 GB on the Oracle trial credits (~US$0.38 an hour,
+  ~US$220 to 9 Dec, within SGD 400; a trial account is never charged unless upgraded). AMD, not Ampere: if the trial
+  ended with more Ampere than the free allowance, Oracle would disable every Ampere machine, the trading machine
+  included. Runs the bot back to back, 14 ideas at a time (`infra/trader/research-loop.service`); the trading
+  machine keeps its evening runs too (so it never looks idle to Oracle's reclaim rule); both add to one ledger
+  (merged saves). Deleted on Wed 9 Dec 2026 22:00 IST by the trading machine's clock (`oci-research-delete.yml`).
+  `oci-research.yml` create / setup / status / log / delete.
+
 ### Diary figures from 2023, official sources only; news left out (Sun 15 Nov 2026)
 Owner: back-fill the diary from 2023; then "leave out the news, it may distort the data if it is erroneous" and "use
 only things that are 100% reliable". Strategy signals now use only official data, each from one source for history
