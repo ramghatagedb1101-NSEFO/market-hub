@@ -1,6 +1,6 @@
 # Build status and to-do
 
-As of Sat 14 Nov 2026, ~22:20 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
+As of Sun 15 Nov 2026, ~07:30 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
 `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
@@ -108,6 +108,16 @@ the recorded bid / ask; portfolio of small uncorrelated strategies sharing the d
 - Market history backfill (`market-daily.yml`) started 23:06 14 Nov, chains itself; check `state/market/daily.json`
   reaches 13 Nov 2026 and spot-check figures. Next: step 3 (the research bot). Watch the first paper multi-leg orders: IBKR's handling of sold NSE options (margin,
   short orders) is unverified until a live session.
+
+### Sun 15 Nov 2026 (morning)
+- Back-tests now charge measured costs (0.5% of the price a fill, not 2%; IBKR record median half-gap 0.14-0.24%).
+  The research bot re-tests last night's 61 ideas under it tonight (18:40); all idea families now have their data.
+- Strategy signals use official data only (owner): NSE (VIX, positions, put-call ratio, OI, DII from 14 Nov 2026),
+  NSDL FPI flows and dollar rate and FRED US close from 2023 (`hub/diary_history.py`). News score, gold and crude out.
+  Gold / crude may return from MCX's official daily closes (Kite) -- owner to decide.
+- ICICI: the 00:10 run saved 16 expiries then stopped on a shared-file clash (fixed); restarted 06:15 with 3,425
+  requests. NIFTY 4-5 Nov 2026 option minutes still to fetch (needs a small ICICI fill module).
+- SEBI 7 Dec 2026 rules built in (verified from SEBI's circular PDF); first live check: the session after 7 Dec.
 
 ### Open items, in order
 0. Fixed 21:15 14 Nov: the machine starts `breeze.yml` as a manual run, whose default was the sign-in test
