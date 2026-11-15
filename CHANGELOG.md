@@ -2,6 +2,17 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~04:45 IST: IBKR sign-in check that repairs itself
+- Found while answering "where is the daily IBKR login?": after IBKR's Sunday reset (Sun 15 Nov, 17:47 IST) the gateway
+  lost its link to IBKR (1100) and then refused connections ("Paper trading disclaimer must first be accepted", 10141).
+  It stayed that way until restarted at 04:21 IST today; then it signed in with the stored paper login at once
+  (NIFTY last close 25,144.30 on 13 Nov read back).
+- `trader/ibcheck.py`: read-only check (paper account, NIFTY's last close; no account number printed). `--repair`
+  restarts the gateway and checks again. `ibguard.timer` runs it at 06:50, 08:20 and 08:50 IST on weekdays, so a
+  signed-out gateway is fixed before 09:15 without the owner.
+- `bt-worker-setup.yml`: `restart_gateway` input (outside market hours only); `log_only` now shows the trading program,
+  the gateway and the sign-in check.
+
 ## 2026-11-15
 
 ### Research bot: drill-down, Gemini ideas fixed, a temporary research machine (Sun 15 Nov 2026, evening)

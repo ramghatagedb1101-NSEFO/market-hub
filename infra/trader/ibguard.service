@@ -1,0 +1,12 @@
+[Unit]
+Description=Market Hub IBKR sign-in check (trader/ibcheck.py --repair)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/opt/trader/app
+Environment=TZ=Asia/Kolkata
+ExecStart=/opt/trader/venv/bin/python -u -m trader.ibcheck --repair
+TimeoutStartSec=10min

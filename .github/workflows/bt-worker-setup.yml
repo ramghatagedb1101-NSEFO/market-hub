@@ -98,6 +98,8 @@ jobs:
           $SSH 'sudo cp /opt/trader/app/infra/trader/kicker.service /opt/trader/app/infra/trader/kicker.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now kicker.timer && systemctl is-active kicker.timer && systemctl list-timers kicker.timer --no-pager | head -2'
           # Day recorder (14 Nov 2026, trader/recorder.py): the session's IBKR minute prices, 15:50 IST on weekdays.
           $SSH 'sudo cp /opt/trader/app/infra/trader/recorder.service /opt/trader/app/infra/trader/recorder.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now recorder.timer && systemctl is-active recorder.timer && systemctl list-timers recorder.timer --no-pager | head -2'
+          # IBKR sign-in guard (16 Nov 2026, trader/ibcheck.py --repair): 06:50, 08:20, 08:50 IST on weekdays.
+          $SSH 'sudo cp /opt/trader/app/infra/trader/ibguard.service /opt/trader/app/infra/trader/ibguard.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now ibguard.timer && systemctl is-active ibguard.timer && systemctl list-timers ibguard.timer --no-pager | head -2'
           # Research bot (14 Nov 2026, trader/research.py): weekday evenings and weekends.
           $SSH 'sudo cp /opt/trader/app/infra/trader/research.service /opt/trader/app/infra/trader/research.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now research.timer && systemctl is-active research.timer'
           # 15 Nov 2026 (owner: news left out, official data only): the news-history timers removed from the machine

@@ -54,6 +54,8 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
 
 ### Routine (owner)
 - ICICI sign-in on the phone every day until the downloads finish (weekends too).
+- No daily IBKR login: the machine signs in with the stored paper login (06:30 restart); `ibguard.timer` checks at
+  06:50 / 08:20 / 08:50 IST on weekdays and restarts the gateway if it is signed out (16 Nov 2026, after the Sunday reset).
 - During market hours do not log in to IBKR (main or paper) on the web or the app: IBKR allows one session, and a
   login there logs the trading machine out until it logs back in.
 - To trade on paper: dashboard Strategies > New strategy > save > Back-test > Trade this (or tag conditions, choose a
