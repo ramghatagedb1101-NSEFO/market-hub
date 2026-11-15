@@ -175,7 +175,7 @@ def merge_week(body: dict) -> str:
             done[key] = {"weeks": True, "source": "IBKR", "days": len(days)}
         else:
             done[key]["weeks"] = True
-        save(EXP_DONE, done, f"Expiry complete from IBKR minutes: {key}")
+        save(EXP_DONE, done, f"Expiry complete from IBKR minutes: {key}", merge=True)
     return f"{exp}: {day} added ({len(days)} sessions stored)"
 
 

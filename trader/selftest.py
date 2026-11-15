@@ -513,7 +513,7 @@ def test_recorder_merge():
     R.load_gz = lambda p: json.loads(json.dumps(store[p])) if p in store else None
     R.save_gz = lambda p, b, m: store.__setitem__(p, json.loads(json.dumps(b))) or 1
     R.load = lambda p: json.loads(json.dumps(store[p])) if p in store else None
-    R.save = lambda p, b, m: store.__setitem__(p, json.loads(json.dumps(b)))
+    R.save = lambda p, b, m, merge=False: store.__setitem__(p, json.loads(json.dumps(b)))
     wk = f"{R.WEEKS}/NIFTY/2026-11-17.json.gz"
     store[wk] = {"days": ["2026-11-11", "2026-11-13"], "expiry": "2026-11-17", "call": {"25000": [[0, 0, 1, 1, 1, 1, 5, 9], [1, 0, 2, 2, 2, 2, 5, 9]]},
                  "put": {}, "source": "owner files"}

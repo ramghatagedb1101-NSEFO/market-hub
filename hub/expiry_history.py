@@ -709,15 +709,29 @@ def load(path: str):
     return r.json()
 
 
-def save(path: str, body, message: str) -> None:
+def save(path: str, body, message: str, merge: bool = False) -> None:
+    """Writes one JSON file. merge=True (15 Nov 2026: the ICICI download and the IBKR recorder both mark expiries done in
+    state/breeze/expiry_days/_done.json; a write at the same moment was refused with 409 and stopped the download):
+    the file as it is now is read and this body's keys laid over it, and a refused write is tried again (4 times)."""
     url, h = _gh(path)
-    got = requests.get(url, headers=h, timeout=30)
-    put = {"message": message, "content": base64.b64encode(json.dumps(body, separators=(",", ":")).encode()).decode("ascii")}
-    if got.status_code == 200:
-        put["sha"] = got.json()["sha"]
-    elif got.status_code != 404:
-        got.raise_for_status()
-    requests.put(url, headers=h, json=put, timeout=120).raise_for_status()
+    for attempt in range(4):
+        got = requests.get(url, headers=h, timeout=30)
+        data = body
+        if merge and got.status_code == 200 and isinstance(body, dict):
+            cur = json.loads(base64.b64decode(got.json().get("content") or "") or b"{}") if got.json().get("content") else load(path)
+            if isinstance(cur, dict):
+                data = {**cur, **body}
+        put = {"message": message, "content": base64.b64encode(json.dumps(data, separators=(",", ":")).encode()).decode("ascii")}
+        if got.status_code == 200:
+            put["sha"] = got.json()["sha"]
+        elif got.status_code != 404:
+            got.raise_for_status()
+        r = requests.put(url, headers=h, json=put, timeout=120)
+        if r.status_code in (409, 422) and attempt < 3:
+            time.sleep(2 + 3 * attempt)
+            continue
+        r.raise_for_status()
+        return
 
 
 def main() -> None:

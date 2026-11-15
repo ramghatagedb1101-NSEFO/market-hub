@@ -252,9 +252,9 @@ def run_import(root: str) -> int:
             else:
                 done[key]["weeks"] = len(e["days"])     # the back-test reads the week file for this expiry
             if i % 20 == 0:
-                save(EXP_DONE, done, f"ICICI minutes: {len(done)} expiries (owner's files)")
+                save(EXP_DONE, done, f"ICICI minutes: {len(done)} expiries (owner's files)", merge=True)
             time.sleep(1)                       # GitHub's limit on writes per minute
-        save(EXP_DONE, done, f"ICICI minutes: {len(done)} expiries (owner's files)")
+        save(EXP_DONE, done, f"ICICI minutes: {len(done)} expiries (owner's files)", merge=True)
         print(f"{index}: {n_exp} expiries, {total // 1_000_000} MB")
     return 0
 

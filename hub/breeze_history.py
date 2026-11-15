@@ -239,7 +239,7 @@ def _download(budget: int, stop_at: float) -> int:
         got = len(e["call"]) + len(e["put"])
         candles_n = sum(len(v) for side in ("call", "put") for v in e[side].values())
         done[key] = {"contracts": n, "with_trades": got, "empty": e["empty"], "errors": e["errors"], "candles": candles_n}
-        save(INDEX, done, f"ICICI minutes: {len(done)} expiries")
+        save(INDEX, done, f"ICICI minutes: {len(done)} expiries", merge=True)
         print(f"{key}: {got} of {n} contracts traded ({candles_n} candles, {size // 1024} KB), {e['errors']} errors; "
               f"{b.calls} requests")
     print(f"run done: {b.calls} requests, {len(done)} expiries downloaded in all, {len(todo(recs, done))} to go")
