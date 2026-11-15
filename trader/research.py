@@ -47,6 +47,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from hub.expiry_history import load, save
 
+from .replay import COST_VERSION
 from .strategies.rules import clean
 
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -458,7 +459,8 @@ def candidates(ledger: dict, rnd: random.Random, n: int, ready: set) -> list[tup
         for fam in fams:
             while per[fam]:
                 fam_, d, p, why = per[fam].pop()
-                if key_of(d) not in ledger:
+                kd = key_of(d)
+                if kd not in ledger or ledger[kd].get("cost") != COST_VERSION:
                     out.append((fam_, d, p, why))
                     break
             if len(out) >= n:
@@ -468,8 +470,13 @@ def candidates(ledger: dict, rnd: random.Random, n: int, ready: set) -> list[tup
 
 def evaluate(fam: str, defn: dict, p: dict | None, why: str, ledger: dict, deadline: float, log=print) -> dict:
     k = key_of(defn)
-    rec = {"key": k, "family": fam, "name": defn["name"], "why": why, "params": p, "tested": datetime.now(IST).isoformat(timespec="minutes")}
-    n_tested = len(ledger) + 1
+    rec = {"key": k, "family": fam, "name": defn["name"], "why": why, "params": p, "cost": COST_VERSION,
+           "tested": datetime.now(IST).isoformat(timespec="minutes")}
+    if k in ledger:                      # tested before under an older cost setting: kept for the record
+        old = ledger[k]
+        rec["earlier"] = (old.get("earlier") or []) + [{x: old.get(x) for x in ("stage", "why_failed", "dev", "tested", "cost")}]
+    # every test ever run counts towards the luck bar, earlier cost settings included
+    n_tested = len(ledger) + sum(len(r.get("earlier") or []) for r in ledger.values()) + 1
     dev = run_bt(defn, DEV_FROM, DEV_TO)
     s = stats(dev)
     rec["dev"] = s
@@ -578,8 +585,9 @@ def report(ledger: dict, waiting: dict | None = None) -> dict:
         f["tested"] += 1
         f["passed_dev"] += r["stage"] not in ("failed development",)
         f["recommended"] += r["stage"] == "recommended"
-    return {"asof": datetime.now(IST).isoformat(timespec="minutes"), "tested": len(rows), "stages": stages,
-            "bar": round(bar(len(rows)), 2), "periods": {"dev": [DEV_FROM, DEV_TO], "vault_from": VAULT_FROM},
+    tries = len(rows) + sum(len(r.get("earlier") or []) for r in rows)
+    return {"asof": datetime.now(IST).isoformat(timespec="minutes"), "tested": len(rows), "tries": tries, "stages": stages,
+            "bar": round(bar(tries), 2), "cost": {"slip_pct": 0.5, "slip_min": 0.10, "version": COST_VERSION}, "periods": {"dev": [DEV_FROM, DEV_TO], "vault_from": VAULT_FROM},
             "families": fams, "recommended": rec, "near_misses": near, "waiting": waiting or {},
             "rule_changes": [{"from": d, "what": w} for d, w in RULE_CHANGES], "post_rule_min": POST_RULE_MIN}
 
@@ -619,7 +627,7 @@ def main() -> int:
     for fam, d, p, why in queue:
         if time.time() > deadline or market_hours(datetime.now(IST)):
             break
-        if key_of(d) in ledger:
+        if key_of(d) in ledger and ledger[key_of(d)].get("cost") == COST_VERSION:
             continue
         t1 = time.time()
         try:

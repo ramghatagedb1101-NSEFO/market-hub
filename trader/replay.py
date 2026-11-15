@@ -5,7 +5,7 @@ hub/icici_files.py). The engine steps once a minute.
 
 Prices: a contract's quote at a minute is its last one-minute close so far, dated at that candle (so the engine's
 "price too old" limit applies). There is no bid or ask in the history; they are set at the close minus / plus the
-back-tests' slippage (hub/rule_test.py: the larger of 0.10 or 2% of the price), and orders fill there.
+back-tests' slippage (slip() below: the larger of 0.10 or 0.5% of the price), and orders fill there.
 Charges: hub/rule_test.py's table (Zerodha's published rates). Settlement: the index close on expiry day from the
 expiry record (state/expiry_history/records.json).
 
@@ -17,7 +17,20 @@ import sys
 from functools import lru_cache
 from datetime import datetime, timedelta
 
-from hub.rule_test import charges, slip
+from hub.rule_test import charges
+
+# Slippage a side (15 Nov 2026). Measured on the IBKR record of 2-13 Nov 2026 (trader/recorder.py, one-minute average
+# bid / ask, strikes within 2%, 9 sessions, ~125,000 NIFTY and ~148,000 BANK NIFTY minutes): half the bid-ask gap was a
+# median 0.14-0.23% of the price (NIFTY) and 0.18-0.24% (BANK NIFTY), 1 minute in 10 above ~0.3-0.5%, the same in the
+# first quarter hour. 0.5% is set at 2-3x the median to cover busier days, older years that cannot be measured, and the
+# averaging in the record. The earlier 2% (hub/rule_test.py's research setting) was ~10x the measured gap and on
+# spreads / condors (four fills) cost more than the trades could make. hub/rule_test.py keeps its own setting.
+SLIP_PCT, SLIP_MIN = 0.005, 0.10
+COST_VERSION = 2                    # research bot: results under an older cost setting are tested again
+
+
+def slip(p: float) -> float:
+    return max(SLIP_MIN, SLIP_PCT * p)
 
 from .engine import Engine
 from .journal import Journal

@@ -2,6 +2,24 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## 2026-11-15
+
+### Back-tests: real trading costs, measured (Sun 15 Nov 2026, morning)
+The research bot's first run (61 ideas, none passed) showed trend-day spreads losing with striking uniformity. Traced
+(BANK NIFTY, 15-min range break up, Sep-Nov 2025): the prices were right, the cost was not. Each fill was charged the
+larger of 0.10 or 2% of the price (hub/rule_test.py's research setting): about Rs 10 a unit on a Rs 490 option, four
+fills a spread, ~Rs 1,000 a trade on BANK NIFTY -- about the size of each loss.
+- Measured on the IBKR record of 2-13 Nov 2026 (9 sessions, ~125,000 NIFTY and ~148,000 BANK NIFTY minutes, strikes
+  within 2%): half the bid-ask gap was a median 0.14-0.23% of the price on NIFTY, 0.18-0.24% on BANK NIFTY; 1 minute in 10
+  above ~0.3-0.5%; no wider in the first quarter hour.
+- Back-tests now charge the larger of 0.10 or 0.5% a fill (`trader/replay.py` slip(), 2-3x the measured median; older
+  years cannot be measured). hub/rule_test.py keeps its own setting.
+- Same trace after: -Rs 17,864 over 39 trades (5 won) instead of -Rs 55,932: still a losing idea, but no longer by 3x.
+- Every back-test result changes (the dashboard's saved results show the old cost until run again). The research bot
+  re-tests ideas judged under the old cost (ledger "cost" version 2); earlier tries still count towards its luck bar.
+- Also: the 00:10 ICICI download stopped after 16 expiries when the IBKR recorder wrote the shared progress file at the
+  same moment (GitHub refused the second write, 409); `save(..., merge=True)` now re-reads, merges and retries.
+
 ## 2026-11-14
 
 ### Strategy bot, step 2: multi-leg positions (Sat 14 Nov 2026, night)
