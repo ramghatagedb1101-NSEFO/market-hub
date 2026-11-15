@@ -31,8 +31,15 @@ PATH = "state/market/news_history.json"
 START = date(2023, 1, 2)
 LOCAL_TODAY = os.getenv("NEWS_TODAY_FILE") or "/opt/trader/news_today.json"
 GDELT = "https://api.gdeltproject.org/api/v2/doc/doc"
-QUERIES = ['(nifty OR sensex OR "dalal street" OR "indian stocks" OR "indian markets" OR rbi OR rupee) sourcecountry:india',
-           '("wall street" OR "asian markets" OR "us stocks" OR "global markets" OR "crude oil") sourcelang:english']
+# Short queries (GDELT refuses long ones), then only real business outlets are kept (15 Nov 2026: a broad search
+# brought regional general news -- festivals, local politics -- into the morning's headlines).
+QUERIES = ['(sensex OR nifty OR "dalal street") sourcelang:english',
+           '("wall street" OR "asian markets" OR "global markets") sourcelang:english']
+DOMAINS = {"economictimes.indiatimes.com", "livemint.com", "business-standard.com", "moneycontrol.com",
+           "financialexpress.com", "thehindubusinessline.com", "ndtvprofit.com", "cnbctv18.com", "zeebiz.com",
+           "businesstoday.in", "thehindu.com", "hindustantimes.com", "indianexpress.com", "timesofindia.indiatimes.com",
+           "reuters.com", "cnbc.com", "apnews.com", "bloomberg.com", "marketwatch.com", "ft.com", "wsj.com",
+           "investing.com", "fxstreet.com", "nasdaq.com", "finance.yahoo.com", "barrons.com"}
 UA = {"User-Agent": "Mozilla/5.0 (market-hub research)"}
 SYSTEM = "You score market news for an Indian equity strategist. Answer with JSON only: " \
          '{"score": -2|-1|0|1|2, "confidence": "low"|"medium"|"high", "reasons": [up to 3 short strings]}'
@@ -73,6 +80,9 @@ def headlines(d: date) -> tuple[list[str], datetime, datetime]:
     for q in QUERIES:
         for a in _gdelt(q, start, end):
             t = " ".join((a.get("title") or "").split())
+            dom = (a.get("domain") or "").lower().removeprefix("www.")
+            if dom not in DOMAINS and not any(dom.endswith("." + x) for x in DOMAINS):
+                continue
             if not t or t.lower() in seen:
                 continue
             seen.add(t.lower())
@@ -110,7 +120,13 @@ def main() -> int:
     ap.add_argument("--max", type=int, default=200)
     ap.add_argument("--minutes", type=float, default=90)
     ap.add_argument("--today", action="store_true", help="score this morning (before the open) and hand it to the program")
+    ap.add_argument("--probe", action="store_true", help="headline counts for a few mornings; no scoring, nothing saved")
     a = ap.parse_args()
+    if a.probe:
+        for d in (date(2023, 3, 1), date(2024, 6, 4), date(2025, 9, 15), date(2026, 11, 13)):
+            lines, st, en = headlines(d)
+            print(f"{d}: {len(lines)} headlines ({st:%a %H:%M} -> {en:%a %H:%M}); e.g. {lines[:3]} ... {lines[-2:]}", flush=True)
+        return 0
     deadline = time.time() + a.minutes * 60
     hist = load(PATH) or {}
     now = datetime.now(IST)

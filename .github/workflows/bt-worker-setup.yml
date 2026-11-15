@@ -16,6 +16,10 @@ on:
         description: "only show the worker's last log lines (no pull, no restart)"
         type: boolean
         default: false
+      news_probe:
+        description: "news history: headline counts for a few mornings (no scoring)"
+        type: boolean
+        default: false
       news_now:
         description: "start the news-history back-fill once now"
         type: boolean
@@ -86,6 +90,7 @@ jobs:
           $SSH 'sudo cp /opt/trader/app/infra/trader/research.service /opt/trader/app/infra/trader/research.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now research.timer && systemctl is-active research.timer'
           # News history from 2023 and the morning score (15 Nov 2026, trader/news_history.py).
           $SSH 'sudo cp /opt/trader/app/infra/trader/news-history.service /opt/trader/app/infra/trader/news-history.timer /opt/trader/app/infra/trader/news-today.service /opt/trader/app/infra/trader/news-today.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now news-history.timer news-today.timer && systemctl is-active news-history.timer news-today.timer'
+          if [ "${{ inputs.news_probe }}" = "true" ]; then $SSH 'cd /opt/trader/app && set -a && . /opt/trader/secrets/bt.env && set +a && TZ=Asia/Kolkata timeout 400 /opt/trader/venv/bin/python -u -m trader.news_history --probe'; fi
           if [ "${{ inputs.news_now }}" = "true" ]; then $SSH 'sudo systemctl start --no-block news-history.service && echo news history started'; fi
           if [ "${{ inputs.research_now }}" = "true" ]; then $SSH 'sudo systemctl start --no-block research.service && echo research started'; fi
           # One-off start at a set IST time (14 Nov 2026, owner: ICICI run at 00:10 after a 00:01 sign-in), through the relay
