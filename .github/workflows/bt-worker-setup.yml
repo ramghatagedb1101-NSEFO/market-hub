@@ -16,6 +16,10 @@ on:
         description: "only show the worker's last log lines (no pull, no restart)"
         type: boolean
         default: false
+      ai_probe:
+        description: "research bot: ask Gemini for ideas once and show the answer (nothing tested)"
+        type: boolean
+        default: false
       research_now:
         description: "start the research bot once now (it runs on its own each evening and at weekends)"
         type: boolean
@@ -81,6 +85,7 @@ jobs:
           $SSH 'sudo cp /opt/trader/app/infra/trader/research.service /opt/trader/app/infra/trader/research.timer /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable -q --now research.timer && systemctl is-active research.timer'
           # 15 Nov 2026 (owner: news left out, official data only): the news-history timers removed from the machine
           $SSH 'sudo systemctl disable --now news-history.timer news-today.timer 2>/dev/null; sudo rm -f /etc/systemd/system/news-history.* /etc/systemd/system/news-today.* /opt/trader/news_today.json; sudo systemctl daemon-reload; true'
+          if [ "${{ inputs.ai_probe }}" = "true" ]; then $SSH 'cd /opt/trader/app && set -a && . /opt/trader/secrets/bt.env && set +a && TZ=Asia/Kolkata timeout 400 /opt/trader/venv/bin/python -u -m trader.research --ai-probe'; fi
           if [ "${{ inputs.research_now }}" = "true" ]; then $SSH 'sudo systemctl start --no-block research.service && echo research started'; fi
           # One-off start at a set IST time (14 Nov 2026, owner: ICICI run at 00:10 after a 00:01 sign-in), through the relay
           # like the kicker; a systemd timer on the machine, so it does not depend on GitHub's schedule.

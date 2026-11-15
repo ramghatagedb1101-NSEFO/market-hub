@@ -373,17 +373,32 @@ an expiry day or on settlement at the close will behave differently after that d
 say so in "why" when one does."""
 
 
-def relay_ask(system: str, prompt: str) -> dict | None:
+def relay_ask(system: str, prompt: str, log=print) -> dict | None:
+    """Gemini through the relay. Every failure is now logged in words (15 Nov 2026: two runs produced no Gemini ideas
+    and nothing said why)."""
     import requests
     url, key = os.getenv("RELAY_URL"), os.getenv("RELAY_KEY")
     if not url or not key:
+        log("  Gemini: RELAY_URL / RELAY_KEY not set")
         return None
     try:
         r = requests.post(url, params={"mode": "bot_ask", "key": key}, data=json.dumps({"system": system, "prompt": prompt}),
                           timeout=330)
+    except Exception as e:                                       # noqa: BLE001
+        log(f"  Gemini: relay not reached ({type(e).__name__})")
+        return None
+    try:
         out = r.json()
-        return json.loads(out["text"]) if out.get("text") else None
-    except Exception:                                            # noqa: BLE001 -- no ideas this run
+    except ValueError:
+        log(f"  Gemini: relay answered HTTP {r.status_code}, not JSON: {r.text[:160]!r}")
+        return None
+    if not out.get("text"):
+        log(f"  Gemini: no answer -- {str(out.get('error') or out)[:200]}")
+        return None
+    try:
+        return json.loads(out["text"])
+    except ValueError:
+        log(f"  Gemini: answer was not JSON: {out['text'][:200]!r}")
         return None
 
 
@@ -393,19 +408,28 @@ def ai_ideas(ledger: dict) -> list[tuple[str, dict, str]]:
                                                    if r.get("dev") else f" ({r.get('why_failed', '')})") for r in rows[:40]]
     prompt = "Ideas tested so far (best first):\n" + ("\n".join(lines) or "none yet") + "\n\nPropose up to 3 new ideas."
     got = relay_ask(AI_SYSTEM, prompt) or {}
+    ideas = got.get("ideas") if isinstance(got, dict) else got if isinstance(got, list) else None
     out = []
-    for x in (got.get("ideas") or [])[:3]:
+    for x in (ideas or [])[:3]:
+        if not isinstance(x, dict):
+            print("  Gemini idea dropped: not an object")
+            continue
         s, why = x.get("strategy"), str(x.get("why") or "").strip()
         if not isinstance(s, dict) or len(why) < 20:
+            print(f"  Gemini idea dropped: {'no strategy' if not isinstance(s, dict) else 'no reason given'}")
             continue
-        s = dict(s, name=str(s.get("name") or "AI idea")[:70], lots=1, max_trades_day=min(int(s.get("max_trades_day") or 1), 3))
         try:
+            s = dict(s, name=str(s.get("name") or "AI idea")[:70], lots=1,
+                     max_trades_day=min(int(s.get("max_trades_day") or 1), 3))
             c = clean(dict(s, id="x"))
-        except Exception:                                        # noqa: BLE001
+        except Exception as e:                                   # noqa: BLE001
+            print(f"  Gemini idea dropped: settings unreadable ({type(e).__name__}: {str(e)[:80]})")
             continue
         if not c["groups"]:
+            print(f"  Gemini idea dropped: '{s['name']}' has no signal the program knows: {json.dumps(s.get('groups') or s.get('signals'))[:200]}")
             continue
         out.append(("ai", s, why[:400]))
+    print(f"  Gemini: {len(ideas or [])} ideas proposed, {len(out)} usable", flush=True)
     return out
 
 
@@ -583,7 +607,12 @@ def main() -> int:
     ap.add_argument("--max", type=int, default=60)
     ap.add_argument("--no-ai", action="store_true")
     ap.add_argument("--dry", action="store_true", help="do not save to the private repo")
+    ap.add_argument("--ai-probe", action="store_true", help="ask Gemini once and show what came back; nothing tested or saved")
     a = ap.parse_args()
+    if a.ai_probe:
+        for f, d, w in ai_ideas(load(LEDGER) or {}):
+            print(f"  usable: {d['name']} -- {w[:120]}")
+        return 0
     t0 = time.time()
     deadline = t0 + a.minutes * 60
     ledger = load(LEDGER) or {}
