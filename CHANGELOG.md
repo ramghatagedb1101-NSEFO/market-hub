@@ -2,6 +2,19 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~00:40 IST: market match tested; big opening gap = sit out
+- Owner: "signal at pre open is also very very relevant. so strategy selected at 4.30 pm yesterday may not work".
+- Research bot: of 4,180 ideas only one passed its hold-back test (expiry-day short strangle, 6 out, the one running);
+  so a "proven ideas only" pool would be that one strategy. The match picks from the rest; screens say so.
+- Walk-forward of the exact pick rule (Jun 2025 - Apr 2026, 11 monthly picks, each from what was known that evening,
+  held 21 sessions): +₹4,529 per lot; picking blindly −₹7,255; ahead in 7 of 11. Too few months to be sure.
+- Opening gap (NIFTY open vs previous close, Dec 2024 - Apr 2026): on days with a gap of 0.8% or more (30 days) the
+  average idea lost ₹92 a day against ₹32 on other days (t −2.3; 56% of ideas worse). Sitting those days out lifted the
+  pick to +₹9,343. Switching to the idea that did best on past gap days lost more than blind picking: dropped.
+  The running strangle did well on big-gap expiry days (+₹4,531 on 7), so the rule applies to the match pick only.
+- `trader/autopilot.py` `match_choice(..., gap)`, `GAP_SKIP = 0.8`; `trader/live.py` `open_gap` (today's first NIFTY bar vs
+  IBKR's previous close) at each autopilot check, so no separate 09:10 job is needed. Selftest 204/204.
+
 ## Tue 17 Nov 2026, ~00:10 IST: autopilot picks by "Matches today's market" (the default)
 - Owner: "Matches today's market should be one of the option for auto mode. actually the default one".
 - Autopilot box, Strategies: "How it picks: Matches today's market | Tagged strategies" (relay property STRAT_METHOD,

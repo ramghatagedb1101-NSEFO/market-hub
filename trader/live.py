@@ -84,11 +84,21 @@ def use(eng: Engine, item: dict | None) -> None:
         eng.strategy.last_entry, eng.strategy.mine = old.last_entry, old.mine
 
 
+def open_gap(bars: list, now: datetime, prev_close: float | None) -> float | None:
+    """NIFTY's opening gap today, % from yesterday's close (None when either is missing)."""
+    day = [x for x in bars or [] if x[0].date() == now.date()]
+    if not day or not prev_close:
+        return None
+    return (day[0][1] / prev_close - 1) * 100
+
+
 def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
     items = b.get("items") or []
-    regimes, words = {}, {}
-    for idx in sorted({it.get("index") or "NIFTY" for it in items} or {"NIFTY"}):
+    regimes, words, gap = {}, {}, None
+    for idx in sorted({it.get("index") or "NIFTY" for it in items} | {"NIFTY"}):
         bars = completed(br.index_bars(idx), now)
+        if idx == "NIFTY":
+            gap = open_gap(bars, now, br.prev_close("NIFTY"))
         exp = pick_expiry(br.expiries(idx), now.date(), "nearest")
         regimes[idx], words[idx] = classify(bars, now, exp)
     try:
@@ -96,7 +106,7 @@ def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
     except Exception:
         paper = {}
     if (b.get("method") or "match") == "match":
-        item, why = match_choice(b, now.date())
+        item, why = match_choice(b, now.date(), gap)
         scores = {}
     else:
         item, why, scores = choose(items, regimes, b.get("backtests") or {}, paper, b.get("fallback"))

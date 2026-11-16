@@ -52,7 +52,14 @@ def choose(items: list, regimes: dict, backtests: dict, paper: dict, fallback: s
     return None, f"no tagged strategy has {MIN_TRADES}+ trades in profit for today's condition ({conds}) and no fallback: watching only", scores
 
 
-def match_choice(b: dict, today: date) -> tuple[dict | None, str]:
+# Opening gap (17 Nov 2026, owner: "signal at pre open is also very very relevant"): Dec 2024 - Apr 2026, on days NIFTY
+# opened 0.8% or more from the previous close the research ideas lost about 3 times as much a day as on other days, and the
+# match pick's walk-forward total rose from +4,529 to +9,343 per lot by sitting those days out. Switching to the idea
+# that did best on past gap days lost more than blind picking, so the rule is skip, not switch.
+GAP_SKIP = 0.8
+
+
+def match_choice(b: dict, today: date, gap: float | None = None) -> tuple[dict | None, str]:
     """Autopilot by market match (16 Nov 2026, owner: "Matches today's market should be one of the option for auto mode.
     actually the default one"): the evening's pick (hub/match.py -> relay -> strategies.json "match_pick"). None, and a
     reason, when there is no pick or it is more than 4 days old (a stale evening run)."""
@@ -66,6 +73,9 @@ def match_choice(b: dict, today: date) -> tuple[dict | None, str]:
         age = 99
     if age > 4:
         return None, f"market match: the pick is from {p.get('asof')}, too old; watching only"
+    if gap is not None and abs(gap) >= GAP_SKIP:
+        return None, (f"market match: NIFTY opened {gap:+.2f}% from yesterday's close (big gap, {GAP_SKIP}% or more); "
+                      "the pick sits today out")
     item = dict(item, id=item.get("id") or "m_" + str(p.get("key")), name=item.get("name") or p.get("name"))
     return item, (f"matches today's market (evening of {p.get('asof')}): made {p.get('total')} per lot in the 30 days after "
                   f"{p.get('won')} of 5 similar stretches")

@@ -1877,7 +1877,7 @@ function stMatchBox(){
     M.top.map(r => '<tr><td class="l">' + esc(r.name) + (M.pick && M.pick.key === r.key ? ' <span class="chip brand">Autopilot\'s pick</span>' : '') + '</td><td class="num ' + cls(r.total) + '">' + botRupee(r.total) + '</td><td class="num">' + r.won + ' of ' + (M.stretches || []).length + '</td>' +
       '<td class="num"><button class="btn sm" type="button" onclick="stUseIdea(\'' + esc(r.key) + '\')">Use this</button></td></tr>').join('') + '</table>' +
     (M.pick && !M.top.some(r => r.key === M.pick.key) ? '<div style="font-size:12.5px;margin-top:6px">Autopilot\'s pick: <b>' + esc(M.pick.name) + '</b> (' + botRupee(M.pick.total) + ', ' + M.pick.won + ' of ' + (M.stretches || []).length + ')</div>' : '') +
-    '<div class="faint" style="font-size:11.5px;margin-top:6px">Autopilot\'s pick: the highest total among those that made money after 3 or more of the stretches. A starting point: picking by this alone did not beat picking blindly in the 16 Nov 2026 test. Back-test before trading.</div></div></div>';
+    '<div class="faint" style="font-size:11.5px;margin-top:6px">Autopilot\'s pick: the highest total among those that made money after 3 or more of the stretches. Test, Jun 2025 - Apr 2026: ahead of picking blindly in 7 of 11 months, too few to be sure. Back-test before trading.</div></div></div>';
 }
 function stUseIdea(key){ ST_EDIT = stGroups(stNew()); ST_PICK = { q: '' }; stPickIdea(key); }
 function stEdit(id){
@@ -2844,10 +2844,10 @@ function stAutoPanel(items){
   if (meth === 'match') {
     const P = (S.match && S.match.pick) || null, ap0 = (((S.algo && !S.algo.error) ? S.algo.status : null) || {}).autopilot;
     const body = methSw + (P ? '<div style="font-size:15px;font-weight:600">' + esc(P.name) + '</div><div class="muted" style="font-size:12.5px;margin-top:2px">Evening of ' + esc(bDay(dayOf(S.match.asof))) +
-      ': ' + botRupee(P.total) + ' per lot in the 30 days after ' + P.won + ' of ' + ((S.match.stretches || []).length) + ' similar stretches. Runs from 09:30; its own entry rules decide the trade.</div>'
+      ': ' + botRupee(P.total) + ' per lot in the 30 days after ' + P.won + ' of ' + ((S.match.stretches || []).length) + ' similar stretches. Runs from 09:30; sits out days NIFTY opens 0.8% or more from the previous close.</div>'
       : '<div class="muted">No pick from the evening run yet: autopilot watches.</div>') +
       (ap0 ? '<div class="muted" style="font-size:12px;margin-top:8px">Last check ' + esc(algoWhen(ap0.t)) + ': ' + esc(ap0.why || '') + '</div>' : '') +
-      '<div class="faint" style="font-size:11.5px;margin-top:6px">Picking this way did not beat picking blindly in the 16 Nov 2026 test; paper results will show.</div>';
+      '<div class="faint" style="font-size:11.5px;margin-top:6px">Test, Jun 2025 - Apr 2026: +₹9,343 per lot, picking blindly −₹7,255; too few months to be sure.</div>';
     return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Autopilot</h3></div><div class="panel-b">' + body + '</div></div>';
   }
   const st = ((S.algo && !S.algo.error) ? S.algo.status : null) || {}, ap = st.autopilot;

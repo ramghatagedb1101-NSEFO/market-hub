@@ -738,6 +738,9 @@ def test_match_choice():
     ok("match: runs the pick", item and item["id"] == "m_abc" and item["name"] == "Put buy", (item, why))
     ok("match: stale pick watches", match_choice({"match_pick": pick}, _d(2026, 11, 25))[0] is None)
     ok("match: no pick watches", match_choice({}, _d(2026, 11, 17))[0] is None)
+    ok("match: big opening gap sits out", match_choice({"match_pick": pick}, _d(2026, 11, 17), -0.85)[0] is None
+       and match_choice({"match_pick": pick}, _d(2026, 11, 17), 1.2)[0] is None)
+    ok("match: normal open runs", match_choice({"match_pick": pick}, _d(2026, 11, 17), 0.4)[0] is not None)
 
 
 def test_live_push():
