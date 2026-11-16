@@ -1786,6 +1786,11 @@
       `<div class="note">% of the company${items[0].pct_company == null ? " (estimated)" : ""}. "New this month" = first seen in the latest monthly portfolio.</div>`;
   }
 
+  // 16 Nov 2026 (audit): today's daily bar while the market is open is not a close ("Close · Mon 16 Nov" at 14:20)
+  function stockWhen(day){
+    const now = toIst(new Date().toISOString());
+    return marketOpenIst() && String(day).slice(0, 10) === now.toISOString().slice(0, 10) ? "Live · " + timeTxt(now) : asClose(day);
+  }
   function drawStock(){
     if (!ST) return;
     const d = ST.data || {}, P = ST.profile || {}, x = ST.item;
@@ -1808,7 +1813,7 @@
       ...(P.actions || []).filter(a => a.upcoming).slice(0, 1).map(a => `<span class="tag">${esc(a.subject)} · ex ${esc(dayTxt(parseDay(a.ex_date)))}</span>`)].filter(Boolean).join("");
     const head = `<div style="margin:2px 2px 10px">
       <div style="display:flex;align-items:baseline;gap:10px"><span class="big">${last ? "₹" + f(last[4], 2) : "–"}</span>
-        <span class="${cls(chg)}" style="font:600 13px var(--mono)">${chg == null ? "" : pct(chg)}</span><span class="mut" style="font-size:11px">${last ? esc(asClose(last[0])) : ""}</span></div>
+        <span class="${cls(chg)}" style="font:600 13px var(--mono)">${chg == null ? "" : pct(chg)}</span><span class="mut" style="font-size:11px">${last ? esc(stockWhen(last[0])) : ""}</span></div>
       ${ctx.length ? `<div class="mut" style="margin:2px 0 6px">${esc(ctx.join(" · "))}</div>` : ""}
       ${tags ? `<div>${tags}</div>` : ""}
       ${P.testable ? `<div class="mut" style="font-size:11.5px">Passes ${P.met} of ${P.testable} checks · data ${f(P.data_quality_pct, 0)}% complete</div>` : ""}
