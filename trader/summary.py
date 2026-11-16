@@ -21,7 +21,9 @@ import argparse
 import json
 import sys
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+
+IST = timezone(timedelta(hours=5, minutes=30))
 from pathlib import Path
 
 WHY = {"stop": "Stop-loss", "trail": "Trailing stop", "close-all": "Closed: day stopped", "settle": "Expiry",
@@ -91,7 +93,9 @@ def merge_groups(trades: list[dict]) -> list[dict]:
 
 
 def build(rows: list[dict], now: datetime | None = None) -> dict:
-    now = now or datetime.now()
+    # 16 Nov 2026: IST, not the clock of the machine running it (GitHub's runners are on UTC: "As of 03:01 IST" was
+    # 08:31 IST, and "today" was yesterday until 05:30 IST)
+    now = now or datetime.now(IST).replace(tzinfo=None)
     lots = defaultdict(list)          # contract -> open lots [qty signed, price, time, charge per unit, tag, regime]
     trades, marks, protect, stop_of = [], {}, {}, {}
     pending, pending_at = [], None
@@ -268,7 +272,12 @@ def publish(s: dict) -> bool:
         return {**{k: v for k, v in x.items() if k not in ("asof", "status")}, "st": st}
 
     fresh = old.get("asof") and (datetime.fromisoformat(s["asof"]) - datetime.fromisoformat(old["asof"])).total_seconds() < 3600
-    if old and same(old) == same(s) and fresh:
+    # 16 Nov 2026: in market hours the program's last check-in is saved on every sync (every 10 minutes), or the
+    # dashboard and phone, which warn after 15 minutes of silence, say "Not heard from" on a quiet watch-only morning
+    t = datetime.fromisoformat(s["asof"])
+    market = t.weekday() < 5 and "09:00" <= t.strftime("%H:%M") <= "15:45"
+    moved = (s.get("status") or {}).get("last") != (old.get("status") or {}).get("last")
+    if old and same(old) == same(s) and fresh and not (market and moved):
         return False
     save(PUBLISHED, s, f"Auto trading summary: {s['totals']['trades']} trades")
     return True

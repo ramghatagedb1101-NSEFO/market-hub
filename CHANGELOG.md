@@ -2,6 +2,13 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~09:50 IST: Auto trading said "Not heard from since 08:30" while the program was running
+- Owner's screenshot. The program was checking in every minute (journal), but `trader/summary.py` saved the summary
+  only when something other than the time changed, or once an hour; the screens warn after 15 minutes of silence, so a
+  quiet watch-only morning always looked like an outage. In market hours the check-in is now saved on every sync.
+- Its times were also UTC (GitHub's runners): "As of 03:01 IST" was 08:31 IST, and "today" was the previous day until
+  05:30 IST. Now IST.
+
 ## Mon 16 Nov 2026, ~09:30 IST: index option trades removed (they lost money); "Today's trade" on Auto trading
 - Owner: "what is the relevance of this tab now?" ... "the data needs to speak". Tested the Option ideas > Index options
   trade (`hub/fno.py`: iron condor just outside the forecast's 80% band, or a spread when the band leans) on the ICICI
