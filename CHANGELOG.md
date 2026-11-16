@@ -8,6 +8,13 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   (`hub/breeze_history.py` `save_gz`) did not. It now re-reads the file's version and retries (4 tries).
 - The NIFTY 9 Nov week fill (`hub/breeze_fill.py`) was added after that run; it runs at the next ICICI download.
 
+## Mon 16 Nov 2026, ~20:00 IST: "Start from" picker on a new strategy
+- Owner: "this should have the strategy drop down and search functionality to chose the bot identified or user saved
+  strategy. in addition it should have the new strategy also". A new strategy's form opens with a "Start from" search:
+  New strategy (blank), My strategies (a copy; back-test-only ones included), Research ideas (all searchable; the one
+  that passed every test first, then by profit, each with its result; the best 40 matches shown, "N more: type to
+  narrow"). Picking an idea loads its settings exactly as tested (stored per idea, relay `adminBotResult`).
+
 ## Mon 16 Nov 2026, ~17:30 IST: trading mode as one compact switch
 - Owner: "This is occupying a lot of space. We can make it a simple switch with instructions changing depending on where
   the switch is." The two mode cards on Strategies are now one row: a Manual | Autopilot switch, one line for the mode in

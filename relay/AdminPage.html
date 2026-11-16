@@ -305,6 +305,9 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
 
 /* Trading mode cards (14 Nov 2026) */
 .mode-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:-6px 0 14px}
+.pick{position:relative}.pick-list{display:none;position:absolute;z-index:30;left:0;right:0;top:100%;margin-top:4px;max-height:360px;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.pick-h{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);padding:8px 12px 4px}
+.pick-row{padding:7px 12px;cursor:pointer;font-size:13px}.pick-row:hover{background:var(--accent-soft)}.pick-none{padding:6px 12px;font-size:12.5px;color:var(--text-3)}
 .mode-row{margin:-6px 0 14px}.mode-row .panel-b{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px}
 .mode-sw button{padding:5px 14px;font-weight:600}.mode-sw button.on{background:#2f5bea;color:#fff;box-shadow:none}   /* 16 Nov 2026 (owner): the mode in force in blue */.mode-text{flex:1;min-width:220px;font-size:13px;color:var(--text-2)}
 .mode-lim{font-size:12px;color:var(--text-3);padding:0 16px 10px}
@@ -1822,6 +1825,41 @@ function stNum(path, v){
 }
 const stMoneyOf = E => { const n = Number((E.strike || {}).steps) || 0; return n < 0 ? 'itm' : n > 0 ? 'otm' : 'atm'; };
 function stMoney(k){ const d = Math.max(1, Math.abs(Number(ST_EDIT.strike.steps) || 0)); ST_EDIT.strike.steps = k === 'atm' ? 0 : k === 'itm' ? -d : d; rerender(); }
+// "Start from" (16 Nov 2026, owner: "this should have the strategy drop down and search functionality to chose the bot
+// identified or user saved strategy. in addition it should have the new strategy also"): one searchable list at the top of
+// a new strategy's form -- a blank form, your saved strategies (a copy is made), or a research idea exactly as it was
+// tested (its stored settings, relay adminBotResult). All ideas are searchable; the list shows the best 40 matches.
+let ST_PICK = { q: '' };
+function stPickHtml(){
+  const q = ST_PICK.q.trim().toLowerCase(), hit = n => !q || String(n || '').toLowerCase().includes(q);
+  const mine = (S.strat.items || []).filter(x => hit(x.name));
+  const R = BOT.r || {}, rec = new Set((R.recommended || []).map(x => x.key));
+  const ideas = (R.ideas || []).filter(x => hit(x.name))
+    .sort((a, b) => (rec.has(b.key) - rec.has(a.key)) || (((b.dev || {}).profit || 0) - ((a.dev || {}).profit || 0)));
+  const row = (on, title, sub) => '<div class="pick-row" onmousedown="event.preventDefault()" onclick="' + on + '"><b>' + esc(title) + '</b>' + (sub ? '<span class="faint"> · ' + sub + '</span>' : '') + '</div>';
+  let h = '<div class="pick-h">New</div>' + row('stPickNew()', 'New strategy', 'a blank form');
+  h += '<div class="pick-h">My strategies · ' + mine.length + '</div>' + (mine.length ? mine.map(x => row("stPickMine('" + x.id + "')", x.name, x.bt ? 'back-test only' : (x.id === S.strat.active ? 'trading now' : 'saved'))).join('') : '<div class="pick-none">None' + (q ? ' match' : '') + '.</div>');
+  h += '<div class="pick-h">Research ideas · ' + ideas.length + (R.loading ? ' (loading…)' : '') + '</div>';
+  h += ideas.slice(0, 40).map(x => { const d = x.dev || {};
+    return row("stPickIdea('" + x.key + "')", x.name, esc(rec.has(x.key) ? 'Passed every test' : (typeof BOT_STAGE !== 'undefined' && BOT_STAGE[x.stage]) || x.stage || '') + (d.trades ? ' · ' + d.trades + ' trades · ' + botRupee(d.profit || 0) : '')); }).join('');
+  if (ideas.length > 40) h += '<div class="pick-none">' + (ideas.length - 40) + ' more: type to narrow.</div>';
+  else if (!ideas.length && !R.loading) h += '<div class="pick-none">None' + (q ? ' match' : '') + '.</div>';
+  return h;
+}
+function stPickShow(on){ const el = document.getElementById('st-pick-list'); if (!el) return; if (on) el.innerHTML = stPickHtml(); el.style.display = on ? 'block' : 'none'; }
+function stPickInput(el){ ST_PICK.q = el.value; stPickShow(true); }
+function stPickNew(){ ST_PICK = { q: '' }; stEdit(); }
+function stPickMine(id){ ST_PICK = { q: '' }; stCopy(id); ST_MSG = 'A copy to adjust and save as a new strategy. To change the original, use Edit on its card.'; rerender(); }
+function stPickIdea(key){
+  stPickShow(false); ST_MSG = 'Loading the idea…'; rerender();
+  call('adminBotResult', token, key).then(unpack).then(d => {
+    if (!d || d.none || !d.strategy) { ST_MSG = 'This idea’s settings are saved on the bot’s next run; pick another for now.'; rerender(); return; }
+    const E = stGroups(JSON.parse(JSON.stringify(d.strategy)));
+    delete E.id; E.bt = false; E.name = d.name || E.name; E.notes = 'From the research bot: ' + (d.why || '');
+    if (!E.exits) E.exits = {}; if (!E.exits.exit_by) E.exits.exit_by = '15:15';
+    ST_EDIT = E; ST_PICK = { q: '' }; ST_MSG = 'Loaded “' + E.name + '” exactly as tested. Adjust if you like, then Save.'; rerender(); window.scrollTo({ top: 0 });
+  }).catch(e => { ST_MSG = 'Could not load the idea: ' + e.message; rerender(); });
+}
 function stEdit(id){
   const s = id ? (S.strat.items || []).find(x => x.id === id) : null;
   ST_EDIT = s ? JSON.parse(JSON.stringify(s)) : stNew();
@@ -2625,7 +2663,9 @@ function stForm(){
   let unit = (path, v) => seg(path, v || 'pct', [['pct', '%'], ['points', 'pts']]);
   const row = (...xs) => '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + xs.join('') + '</div>';
   const sec = (t, body) => '<div class="panel" style="margin-bottom:12px"><div class="panel-h"><h3>' + t + '</h3></div><div class="panel-b">' + body + '</div></div>';
-  let h = sec('Strategy', lbl('Name') + '<input class="field" value="' + esc(E.name) + '" oninput="stSet(\'name\', this.value)">' + lbl('Notes (when to use it)') + '<input class="field" placeholder="e.g. trending mornings" value="' + esc(E.notes || '') + '" oninput="stSet(\'notes\', this.value)">');
+  if (!E.id) botLoad();
+  const pickHtml = E.id ? '' : lbl('Start from') + '<div class="pick"><input class="field" placeholder="Search: new strategy, your strategies, research ideas" value="' + esc(ST_PICK.q) + '" oninput="stPickInput(this)" onfocus="stPickShow(true)" onblur="setTimeout(() => stPickShow(false), 150)" autocomplete="off"><div class="pick-list" id="st-pick-list"></div></div>';
+  let h = sec('Strategy', pickHtml + lbl('Name') + '<input class="field" value="' + esc(E.name) + '" oninput="stSet(\'name\', this.value)">' + lbl('Notes (when to use it)') + '<input class="field" placeholder="e.g. trending mornings" value="' + esc(E.notes || '') + '" oninput="stSet(\'notes\', this.value)">');
   const pr = (label, hint, ctl) => '<div class="pr"><div class="pr-l">' + label + (hint ? '<div class="pr-h">' + hint + '</div>' : '') + '</div><div>' + ctl + '</div></div>';
   const KND = stKindOf(E), SX = E.structure || {};
   const kindSeg = '<div class="seg" style="flex-wrap:wrap">' + ST_KINDS.map(([k, l]) => '<button type="button" class="' + (KND === k ? 'on' : '') + '" onclick="stStruct(\'' + k + '\')">' + l + '</button>').join('') + '</div>';
