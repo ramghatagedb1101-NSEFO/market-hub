@@ -9,6 +9,7 @@ trades there and a profit after charges; the one with the best average profit pe
 qualifies: the owner's fallback strategy, or watch only when there is none. The safety limits stay in force
 whichever strategy runs; a switch applies to new trades only.
 """
+from datetime import date
 from .regime import REGIMES
 
 CHECKS = ("09:30", "11:00", "13:00")
@@ -49,3 +50,22 @@ def choose(items: list, regimes: dict, backtests: dict, paper: dict, fallback: s
     if fb:
         return fb, f"no tagged strategy has {MIN_TRADES}+ trades in profit for today's condition ({conds}): fallback", scores
     return None, f"no tagged strategy has {MIN_TRADES}+ trades in profit for today's condition ({conds}) and no fallback: watching only", scores
+
+
+def match_choice(b: dict, today: date) -> tuple[dict | None, str]:
+    """Autopilot by market match (16 Nov 2026, owner: "Matches today's market should be one of the option for auto mode.
+    actually the default one"): the evening's pick (hub/match.py -> relay -> strategies.json "match_pick"). None, and a
+    reason, when there is no pick or it is more than 4 days old (a stale evening run)."""
+    p = b.get("match_pick") or {}
+    item = p.get("strategy")
+    if not item:
+        return None, "market match: no pick from the evening run; watching only"
+    try:
+        age = (today - date.fromisoformat(str(p.get("asof"))[:10])).days
+    except ValueError:
+        age = 99
+    if age > 4:
+        return None, f"market match: the pick is from {p.get('asof')}, too old; watching only"
+    item = dict(item, id=item.get("id") or "m_" + str(p.get("key")), name=item.get("name") or p.get("name"))
+    return item, (f"matches today's market (evening of {p.get('asof')}): made {p.get('total')} per lot in the 30 days after "
+                  f"{p.get('won')} of 5 similar stretches")

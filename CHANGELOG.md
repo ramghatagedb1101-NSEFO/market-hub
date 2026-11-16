@@ -2,6 +2,17 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~00:10 IST: autopilot picks by "Matches today's market" (the default)
+- Owner: "Matches today's market should be one of the option for auto mode. actually the default one".
+- Autopilot box, Strategies: "How it picks: Matches today's market | Tagged strategies" (relay property STRAT_METHOD,
+  default match; `adminStrategyMethod`, logged). Match mode runs the evening's pick from 09:30.
+- The pick (`hub/match.py`): the highest total among ideas that made money after at least 3 of the 5 similar stretches,
+  with its stored settings; sent to the trading machine as `match_pick` (`strategiesForBatch_`), used by
+  `trader/autopilot.py` `match_choice` (watches if there is no pick or it is more than 4 days old). Selftest 202/202.
+- Autopilot stays OFF (manual, expiry-day strangle). Before it runs this method: a test of a smaller pool (only ideas that
+  passed the bot's hold-back test) and of an opening-gap rule (owner: the pre-open signal matters; big-gap days: run,
+  skip or switch, decided by 3 years of ICICI minute data), each against picking blindly.
+
 ## Mon 16 Nov 2026, ~14:40 IST: ICICI download stopped by a save clash
 - The 04:13 ICICI run saved 9 expiries, then stopped on "409 Conflict" saving SENSEX 2026-01-01 (another write to the
   same file at the same moment). The JSON save already retried such clashes (15 Nov); the compressed-file save

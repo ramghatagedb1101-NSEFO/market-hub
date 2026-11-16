@@ -1874,9 +1874,10 @@ function stMatchBox(){
   return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Matches today\'s market</h3><span class="muted" style="font-size:12px">Close · ' + esc(bDay(dayOf(M.asof))) + '</span></div><div class="panel-b">' +
     '<div style="font-size:13px;margin-bottom:8px">Last ' + (M.look_sessions || 10) + ' sessions: NIFTY <b>' + sg(n.move) + '</b>, daily swing ' + num(n.swing, 1) + '%, ' + sg(n.vs_ma50) + ' from its 50-day average. Most like the stretches ending ' + st + '.</div>' +
     '<table class="t"><tr><th class="l">Strategy</th><th>In the 30 days after</th><th>Worked in</th><th></th></tr>' +
-    M.top.map(r => '<tr><td class="l">' + esc(r.name) + '</td><td class="num ' + cls(r.total) + '">' + botRupee(r.total) + '</td><td class="num">' + r.won + ' of ' + (M.stretches || []).length + '</td>' +
+    M.top.map(r => '<tr><td class="l">' + esc(r.name) + (M.pick && M.pick.key === r.key ? ' <span class="chip brand">Autopilot\'s pick</span>' : '') + '</td><td class="num ' + cls(r.total) + '">' + botRupee(r.total) + '</td><td class="num">' + r.won + ' of ' + (M.stretches || []).length + '</td>' +
       '<td class="num"><button class="btn sm" type="button" onclick="stUseIdea(\'' + esc(r.key) + '\')">Use this</button></td></tr>').join('') + '</table>' +
-    '<div class="faint" style="font-size:11.5px;margin-top:6px">A starting point: picking by this alone did not beat picking blindly in the 16 Nov 2026 test. Back-test before trading.</div></div></div>';
+    (M.pick && !M.top.some(r => r.key === M.pick.key) ? '<div style="font-size:12.5px;margin-top:6px">Autopilot\'s pick: <b>' + esc(M.pick.name) + '</b> (' + botRupee(M.pick.total) + ', ' + M.pick.won + ' of ' + (M.stretches || []).length + ')</div>' : '') +
+    '<div class="faint" style="font-size:11.5px;margin-top:6px">Autopilot\'s pick: the highest total among those that made money after 3 or more of the stretches. A starting point: picking by this alone did not beat picking blindly in the 16 Nov 2026 test. Back-test before trading.</div></div></div>';
 }
 function stUseIdea(key){ ST_EDIT = stGroups(stNew()); ST_PICK = { q: '' }; stPickIdea(key); }
 function stEdit(id){
@@ -2833,7 +2834,22 @@ async function stFallback(id){
   if (!ok) { rerender(); return; }
   stDo('adminStrategyMode', ['autopilot', id], 'Saving…', () => id ? 'Fallback saved.' : 'No fallback: autopilot watches when nothing qualifies.');
 }
+function stMethod(m){ if ((S.strat.method || 'match') === m) return; stDo('adminStrategyMethod', [m], 'Saving…', () => m === 'match' ? 'Autopilot picks from Matches today\'s market.' : 'Autopilot picks from strategies tagged for the market condition.'); }
 function stAutoPanel(items){
+  // How it picks (16 Nov 2026, owner): Matches today's market by default, or the tagged strategies below
+  const meth = S.strat.method || 'match';
+  const methSw = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px"><span class="muted" style="font-size:12.5px">How it picks</span><span class="seg mode-sw">' +
+    '<button type="button" class="' + (meth === 'match' ? 'on' : '') + '" onclick="stMethod(\'match\')">Matches today\'s market</button>' +
+    '<button type="button" class="' + (meth === 'tagged' ? 'on' : '') + '" onclick="stMethod(\'tagged\')">Tagged strategies</button></span></div>';
+  if (meth === 'match') {
+    const P = (S.match && S.match.pick) || null, ap0 = (((S.algo && !S.algo.error) ? S.algo.status : null) || {}).autopilot;
+    const body = methSw + (P ? '<div style="font-size:15px;font-weight:600">' + esc(P.name) + '</div><div class="muted" style="font-size:12.5px;margin-top:2px">Evening of ' + esc(bDay(dayOf(S.match.asof))) +
+      ': ' + botRupee(P.total) + ' per lot in the 30 days after ' + P.won + ' of ' + ((S.match.stretches || []).length) + ' similar stretches. Runs from 09:30; its own entry rules decide the trade.</div>'
+      : '<div class="muted">No pick from the evening run yet: autopilot watches.</div>') +
+      (ap0 ? '<div class="muted" style="font-size:12px;margin-top:8px">Last check ' + esc(algoWhen(ap0.t)) + ': ' + esc(ap0.why || '') + '</div>' : '') +
+      '<div class="faint" style="font-size:11.5px;margin-top:6px">Picking this way did not beat picking blindly in the 16 Nov 2026 test; paper results will show.</div>';
+    return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Autopilot</h3></div><div class="panel-b">' + body + '</div></div>';
+  }
   const st = ((S.algo && !S.algo.error) ? S.algo.status : null) || {}, ap = st.autopilot;
   const tagged = items.filter(s => (s.conditions || []).length);
   const BT = S.strat.backtests || {};
@@ -2852,7 +2868,7 @@ function stAutoPanel(items){
       tagged.map(s => '<tr><td class="l">' + esc(s.name) + '</td>' + Object.keys(COND).map(c => cell(s, c)).join('') + '</tr>').join('') + '</tbody></table>' +
       '<div class="faint" style="font-size:11px;margin-top:6px">Shaded: qualifies (10+ trades, in profit). – : not tagged for that condition. Paper trades are added on the machine as they happen.</div></div>'
     : '<div class="notice" style="margin-top:12px">No strategy is tagged for any market condition yet: open a strategy, tick the conditions it suits under "Market conditions", and save.</div>';
-  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Autopilot</h3></div><div class="panel-b">' + b + '</div></div>';
+  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Autopilot</h3></div><div class="panel-b">' + methSw + b + '</div></div>';
 }
 // ---------------- Back-tests (14 Nov 2026; owner: "the backtest in a separate tab ... a query builder like tradl.ai") --
 // Plain English -> Gemini (relay adminBtParse) -> the strategy builder's settings, shown as five cards to check -> saved
@@ -3141,7 +3157,7 @@ function pageStrategies(){
   // depending on where the switch is"): one row, a Manual | Autopilot switch and one line for the mode in force. Moving
   // the switch still asks first (stMode); only the switch's other half acts, never a click elsewhere.
   const line = auto
-    ? 'Picks a strategy by market condition at 09:30, 11:00 and 13:00; what it reads and runs is below.'
+    ? ((S.strat.method || 'match') === 'match' ? 'Runs the evening\'s pick from Matches today\'s market, from 09:30; details below.' : 'Picks a tagged strategy by market condition at 09:30, 11:00 and 13:00; details below.')
     : (act ? 'Trading now: <b>' + esc(act.name) + '</b>' : 'Nothing switched on: watching only. Press Trade this on a strategy.');
   const sw = '<span class="seg mode-sw" role="group" aria-label="Trading mode">' +
     '<button type="button" class="' + (!auto ? 'on' : '') + '"' + (!auto ? ' aria-pressed="true"' : ' onclick="stMode(\'manual\')"') + '>Manual</button>' +

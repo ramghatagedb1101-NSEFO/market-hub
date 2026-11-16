@@ -18,6 +18,28 @@
 const STRAT_MAX = 60;
 const STRAT_CONDITIONS = ['trend_up', 'trend_down', 'range', 'volatile', 'expiry_day'];
 function stratMode_() { return PropertiesService.getScriptProperties().getProperty('STRAT_MODE') === 'autopilot' ? 'autopilot' : 'manual'; }
+// How autopilot picks (16 Nov 2026, owner: "Matches today's market should be one of the option for auto mode. actually the
+// default one"): 'match' = the evening's market-match pick (hub/match.py, site/match.json), the default; 'tagged' = the
+// strategies tagged for today's market condition, by their back-test record there.
+function stratMethod_() { return PropertiesService.getScriptProperties().getProperty('STRAT_METHOD') === 'tagged' ? 'tagged' : 'match'; }
+function stratMatchPick_() {
+  const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
+  if (!readToken) return null;
+  try {
+    const r = privateRaw_(readToken, 'site/match.json');
+    if (r.getResponseCode() !== 200) return null;
+    const m = JSON.parse(r.getContentText());
+    return m.pick ? { asof: m.asof, key: m.pick.key, name: m.pick.name, total: m.pick.total, won: m.pick.won, strategy: m.pick.strategy } : null;
+  } catch (e) { return null; }
+}
+function adminStrategyMethod(token, method) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('STRAT_METHOD', method === 'tagged' ? 'tagged' : 'match');
+  props.setProperty('STRAT_CHANGED', Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm"));
+  stratLog_('Autopilot picks by: ' + (method === 'tagged' ? 'tagged strategies' : "matches today's market"));
+  const v = stratView_(); v.sent = stratPushNow_(); return v;
+}
 function stratFallback_() { return PropertiesService.getScriptProperties().getProperty('STRAT_FALLBACK') || ''; }
 function stratBacktests_() {
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
@@ -155,7 +177,7 @@ function stratView_() {
   const bt = {}; items.forEach(s => { const v = cache.get('bt_' + s.id); if (v) bt[s.id] = v; });
   // the latest back-test of each strategy (trader/backtest.py keeps state/backtests/_index.json), for the cards
   return { items: items, active: stratActive_(), limits: stratLimits_(), backtest_started: bt, backtests: stratBacktests_(),
-           mode: stratMode_(), fallback: stratFallback_(), log: stratLogRead_() };
+           mode: stratMode_(), fallback: stratFallback_(), log: stratLogRead_(), method: stratMethod_() };
 }
 
 function adminStrategies(token) {
@@ -317,6 +339,6 @@ function strategiesForBatch_(p) {
   const bt = stratBacktests_(), slim = {};
   Object.keys(bt).forEach(k => { slim[k] = { by_regime: bt[k].by_regime || {} }; });   // autopilot needs only the records by condition
   return { active: stratActive_() || null, items: stratList_(), limits: stratLimits_(), mode: stratMode_(),
-           fallback: stratFallback_() || null, backtests: slim,
+           fallback: stratFallback_() || null, backtests: slim, method: stratMethod_(), match_pick: stratMatchPick_(),
            changed: PropertiesService.getScriptProperties().getProperty('STRAT_CHANGED') || null };
 }

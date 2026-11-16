@@ -26,7 +26,7 @@ from pathlib import Path
 
 from hub.holidays import is_session
 
-from .autopilot import CHECKS, choose
+from .autopilot import CHECKS, choose, match_choice
 from .engine import Engine, default_exits
 from .indicators import completed
 from .regime import classify
@@ -95,7 +95,11 @@ def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
         paper = summary_mod.build(summary_mod.read(str(JOURNALS)))["by_strategy_regime"]
     except Exception:
         paper = {}
-    item, why, scores = choose(items, regimes, b.get("backtests") or {}, paper, b.get("fallback"))
+    if (b.get("method") or "match") == "match":
+        item, why = match_choice(b, now.date())
+        scores = {}
+    else:
+        item, why, scores = choose(items, regimes, b.get("backtests") or {}, paper, b.get("fallback"))
     use(eng, item)
     main = "NIFTY" if "NIFTY" in regimes else next(iter(regimes))
     eng.j.write(now, "autopilot", regime=regimes.get(main), regime_why=words.get(main), regimes=regimes,

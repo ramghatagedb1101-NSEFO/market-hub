@@ -728,6 +728,18 @@ def test_autopilot_off_clears():
     ok("autopilot off: no old reading", st["autopilot"] is None and st["strategy"] == "watch only", st)
 
 
+def test_match_choice():
+    """16 Nov 2026: autopilot by market match runs the evening's pick; nothing when it is missing or stale."""
+    from datetime import date as _d
+    from trader.autopilot import match_choice
+    pick = {"asof": "2026-11-16", "key": "abc", "name": "Put buy", "total": 25204, "won": 4,
+            "strategy": {"name": "Put buy", "index": "NIFTY", "side": "BUY", "right": "P"}}
+    item, why = match_choice({"match_pick": pick}, _d(2026, 11, 17))
+    ok("match: runs the pick", item and item["id"] == "m_abc" and item["name"] == "Put buy", (item, why))
+    ok("match: stale pick watches", match_choice({"match_pick": pick}, _d(2026, 11, 25))[0] is None)
+    ok("match: no pick watches", match_choice({}, _d(2026, 11, 17))[0] is None)
+
+
 def test_live_push():
     """Live profit (16 Nov 2026): the per-minute helper sends a slim summary in market hours only, built by the same code
     as site/algo.json, with nothing but the screens' fields (no day-by-day lists) and no account number."""
@@ -751,7 +763,7 @@ def test_live_push():
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears]:
+              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")
