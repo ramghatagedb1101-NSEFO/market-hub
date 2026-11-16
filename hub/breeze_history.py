@@ -141,11 +141,19 @@ def save_gz(path: str, body: dict, message: str) -> int:
     """One expiry's file, gzip-compressed (written once; a re-run replaces it). Returns the compressed size."""
     data = gzip.compress(json.dumps(body, separators=(",", ":")).encode("utf-8"), 9)
     url, h = _gh(path)
-    got = requests.get(url, headers=h, timeout=30)
-    put = {"message": message, "content": base64.b64encode(data).decode("ascii")}
-    if got.status_code == 200:
-        put["sha"] = got.json()["sha"]
-    requests.put(url, headers=h, json=put, timeout=120).raise_for_status()
+    # 16 Nov 2026: a save that crossed another write to the same file (409 Conflict, SENSEX 2026-01-01 at 04:13) stopped
+    # the whole run; the file's current version is read again and the save retried
+    for attempt in range(4):
+        got = requests.get(url, headers=h, timeout=30)
+        put = {"message": message, "content": base64.b64encode(data).decode("ascii")}
+        if got.status_code == 200:
+            put["sha"] = got.json()["sha"]
+        r = requests.put(url, headers=h, json=put, timeout=120)
+        if r.status_code in (409, 422) and attempt < 3:
+            time.sleep(3 * (attempt + 1))
+            continue
+        r.raise_for_status()
+        return len(data)
     return len(data)
 
 
