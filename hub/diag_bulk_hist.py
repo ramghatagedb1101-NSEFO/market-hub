@@ -10,7 +10,8 @@ def main() -> int:
     s.get("https://www.nseindia.com/", timeout=30)
     s.get("https://www.nseindia.com/report-detail/display-bulk-and-block-deals", timeout=30)
     for frm, to in (("06-11-2026", "09-11-2026"), ("06-10-2026", "13-11-2026")):
-        r = s.get("https://www.nseindia.com/api/historical/bulk-deals", params={"from": frm, "to": to}, timeout=60,
+        r = s.get("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals",
+                  params={"optionType": "bulk_deals", "from": frm, "to": to}, timeout=60,
                   headers={"Referer": "https://www.nseindia.com/report-detail/display-bulk-and-block-deals"})
         print(frm, to, "HTTP", r.status_code, r.headers.get("content-type"))
         try:
