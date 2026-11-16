@@ -34,6 +34,12 @@ def _load(path):
 
 def build() -> dict:
     registry = (_load(REG_FILE) or {}).get("investors", [])
+    try:                                    # 16 Nov 2026: confirmed once found in a filing (hub/bulkdeals.py)
+        from .bulkdeals import matched_investors
+        seen = matched_investors()
+        registry = [dict(r, status="confirmed") if r.get("name") in seen and r.get("status") != "confirmed" else r for r in registry]
+    except Exception:
+        pass
     mb = _load(DOCS / "multibagger.json") or {}
     bulk = _load(DOCS / "bulk_deals.json") or {}
     tests = {name: _load(path) for name, path in TESTS.items() if _load(path) is not None}

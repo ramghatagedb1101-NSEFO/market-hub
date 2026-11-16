@@ -214,17 +214,31 @@ def financial_values(rows: list[dict]) -> dict:
     if op is not None and fin:
         out["interest_cover"] = op / fin
     eq = latest.get("total_equity") or latest.get("equity_attributable_to_owners")
-    if pat is not None and eq:
-        out["roe"] = pat * 4 / eq * 100          # annualised from the latest quarter
+
+    from datetime import date as _date
+
+    def ttm(key):
+        """The last four quarters added up (16 Nov 2026: ROE and ROCE were the latest quarter x 4, so one bumper or
+        one-off quarter made IOC's ROE 37% and Titan's 52%); the latest quarter x 4 only when four are not there."""
+        vals = [r.get(key) for r in q[:4]]
+        span = (_date.fromisoformat(str(q[0]["period_end_date"])[:10]) - _date.fromisoformat(str(q[3]["period_end_date"])[:10])).days
+        if len(vals) == 4 and all(v is not None for v in vals) and span <= 300:     # four consecutive quarters
+            return sum(vals)
+        v = latest.get(key)
+        return v * 4 if v is not None else None
+    pat_y = ttm("net_profit")
+    if pat_y is not None and eq:
+        out["roe"] = pat_y / eq * 100            # trailing four quarters
     debt = _sum_last([latest.get("borrowings_current"), latest.get("borrowings_non_current")])
     ya_debt = _sum_last([ya.get("borrowings_current"), ya.get("borrowings_non_current")])
     if debt is not None and eq:
         out["debt_to_equity"] = debt / eq
     if debt is not None and ya_debt is not None:
         out["debt_change_1y"] = debt - ya_debt
-    if op is not None and debt is not None and eq:
+    op_y = ttm("operating_profit")
+    if op_y is not None and debt is not None and eq:
         ce = eq + debt
-        out["roce"] = op * 4 / ce * 100 if ce else None
+        out["roce"] = op_y / ce * 100 if ce else None   # trailing four quarters, as ROE
 
     def wc_days(row):
         # Field names confirmed 14 Oct 2026 (hub/diag_financials_fields.py, against real RELIANCE/
@@ -717,7 +731,8 @@ def merge_and_write_multibagger(mb_stocks: list[dict], prior_mb: dict, mb_failur
 
 
 SHP_VERSION = 3   # 3 (26 Oct 2026): re-read every company's filings after the percent-scale fix in shareholding.py
-VAL_VERSION = 2   # 2 (13 Nov 2026): last-four-quarters profit stored beside EPS, for the P/E check; every company re-fetched once
+VAL_VERSION = 3   # 2 (13 Nov 2026): last-four-quarters profit stored beside EPS, for the P/E check; 3 (16 Nov 2026): ROE and ROCE on
+                  # the last four quarters, not the latest x 4; every company re-fetched once each time (~2,600 of the 9,000 a day)
 INDUSTRY_LIST = "https://nsearchives.nseindia.com/content/indices/ind_niftytotalmarket_list.csv"
 
 # The measures the admin dashboard compares between batches for its "What changed" feed: the six

@@ -129,6 +129,8 @@ jobs:
 
       - name: Collect today's bulk deals (history for the smart-money layer)
         continue-on-error: true   # a failure here must not skip admin publish and the commit
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}   # the library's filing matches confirm registry investors
         run: python -m hub.bulkdeals
 
       - name: Write the admin summary to the private repo

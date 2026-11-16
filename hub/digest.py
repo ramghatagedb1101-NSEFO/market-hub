@@ -154,7 +154,14 @@ def build(shortlist: dict, companies: dict, stocks: list[dict], prices: dict, re
 
     items = []
 
+    seen = set()
+
     def add(kind, sym, title, detail="", when=None, url=None, where=None, **extra):
+        # 16 Nov 2026: NSE lists some filings twice (the same PDF under nseindia.com and nseindia.in); shown once
+        key = (kind, sym, title, when, (url or "").rsplit("/", 1)[-1] or detail)
+        if key in seen:
+            return
+        seen.add(key)
         items.append({"type": kind, "symbol": sym, "name": names.get(sym, ""), "scope": where or scope.get(sym, ""),
                       "title": title, "detail": detail, "date": when, "url": url, **extra})
 

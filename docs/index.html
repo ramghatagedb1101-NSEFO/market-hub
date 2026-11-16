@@ -1209,7 +1209,7 @@
     }
     const iv = (I && I.iv) || {};
     if (Object.keys(iv).length) html += `<div class="sec">Index option prices</div><div class="panel"><div class="pb">` +
-      Object.keys(iv).map(k => `<div class="row"><span class="l">${esc(k)} · ${f(iv[k].last[1], 2)}% · ${esc(dayTxt(parseDay(iv[k].last[0])).slice(4))}</span><span class="r">rank ${iv[k].rank == null ? "–" : iv[k].rank} · ${iv[k].rank >= 70 ? "dear" : iv[k].rank <= 30 ? "cheap" : "middle"}</span></div>`).join("") +
+      Object.keys(iv).map(k => `<div class="row"><span class="l">${esc(k === "BANKNIFTY" ? "BANK NIFTY" : k)} · ${f(iv[k].last[1], 2)}% · ${esc(dayTxt(parseDay(iv[k].last[0])).slice(4))}</span><span class="r">rank ${iv[k].rank == null ? "–" : iv[k].rank} · ${iv[k].rank >= 70 ? "dear" : iv[k].rank <= 30 ? "cheap" : "middle"}</span></div>`).join("") +
       `<div class="note">The cost of an at-the-money straddle the day before each index's latest expiry, as % of the index: the move the market was pricing in. Rank 73 = dearer than 73% of expiries in 3 years. Dear favours selling options, cheap favours buying. Date = expiry.</div></div></div>`;
     el.innerHTML = html;
     drawPaperCard(); if (!PAPER) loadPaper();
@@ -1277,8 +1277,8 @@
       A.error ? `<div class="mut">${A.error === "not published yet" ? "Appears after the program first runs." : esc(A.error)}</div>` :
       `<div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut">IBKR paper</span></div>` +
       `<div class="row"><span class="l">Today${(A.open || []).length ? " · " + A.open.length + " open" : ""}${(A.pending || []).length ? " · " + A.pending.length + " pending" : ""}</span><span class="r">${pSigned((TD.booked || 0) + (TD.open || 0))}</span></div>` +
-      `<div class="row"><span class="l">This month · ${MO.trades || 0} trades</span><span class="r">${pSigned(MO.booked || 0)}</span></div>` +
-      `<div class="row"><span class="l">All time · ${T.trades || 0} trades</span><span class="r">${pSigned(T.booked || 0)}</span></div>`;
+      `<div class="row"><span class="l">This month · ${MO.trades || 0} trade${(MO.trades || 0) === 1 ? "" : "s"}</span><span class="r">${pSigned(MO.booked || 0)}</span></div>` +
+      `<div class="row"><span class="l">All time · ${T.trades || 0} trade${(T.trades || 0) === 1 ? "" : "s"}</span><span class="r">${pSigned(T.booked || 0)}</span></div>`;
     el.innerHTML = `<div class="sec">Auto trading</div><div class="panel"><div class="pb">${body}` +
       `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="openAlgo()">Open auto trading</button></div></div>`;
   }
@@ -1537,13 +1537,13 @@
     if (H.length) {
       const by = {}; H.forEach(r => { if (r.d1 == null) return; const b = by[r.i] || (by[r.i] = { m: 0, w: 0 }); b.m += r.m; b.w += r.m * r.d1; });
       const rows = Object.keys(by).map(k => ({ k, v: by[k].w / by[k].m })).sort((a, b) => b.v - a.v);
-      html += `<div class="sec">Industries today · ${esc(asSnap(I.generated))}</div><div class="panel"><div class="pb">${barRows(rows.map(r => ({ label: r.k, v: r.v, txt: pct(r.v, 2) })))}</div></div>`;
+      html += `<div class="sec">Industries · ${I.session ? "Close · " + esc(dayTxt(parseDay(I.session))) : esc(asSnap(I.generated))}</div><div class="panel"><div class="pb">${barRows(rows.map(r => ({ label: r.k, v: r.v, txt: pct(r.v, 2) })))}</div></div>`;
     }
     const buy = Object.keys(I.insider || {}).map(s => Object.assign({ s }, I.insider[s])).filter(r => r.promoter_net > 0).sort((a, b) => b.promoter_net - a.promoter_net).slice(0, 8);
     if (buy.length) html += `<div class="sec">Promoters buying · 180 days</div><div class="panel"><div class="pb">` +
       buy.map(r => `<div class="row" onclick="openStock('${esc(r.s)}')"><span class="l"><b>${esc(r.s)}</b></span><span class="r up">+${crP(r.promoter_net)}</span></div>`).join("") + `</div></div>`;
     const sp = (I.spikes || []).slice(0, 8);
-    if (sp.length) html += `<div class="sec">Volume spikes</div><div class="panel"><div class="pb">` +
+    if (sp.length) html += `<div class="sec">Volume spikes${I.session ? " · Close · " + esc(dayTxt(parseDay(I.session))) : ""}</div><div class="panel"><div class="pb">` +
       sp.map(r => `<div class="row" onclick="openStock('${esc(r.s)}')"><span class="l"><b>${esc(r.s)}</b> · ${f(r.x, 1)}× volume · ${f(r.dl, 0)}% delivery</span><span class="r ${cls(r.d1)}">${pct(r.d1, 2)}</span></div>`).join("") + `</div></div>`;
     el.innerHTML = html;
   }

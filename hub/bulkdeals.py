@@ -24,15 +24,29 @@ UA = {"User-Agent": "Mozilla/5.0 (market-hub; bulk-deals)"}
 FIELDS = ["date", "symbol", "security", "client", "side", "quantity", "price", "registry_match"]
 
 
-def registry_names() -> dict[str, str]:
-    """Maps each confirmed alias (upper case) to the investor it belongs to."""
+def matched_investors() -> set:
+    """Registry investors already found by their exact alias in a company's shareholding filing (the library's
+    investor_matches). 16 Nov 2026: the registry's rule is "keep unconfirmed entries until a filing or bulk deal matches
+    them", but nothing confirmed them, so all 23 stayed unconfirmed and "Registry buys" was 0 every day."""
+    try:
+        from . import library
+        lib, _ = library.fetch_existing()
+        return {m.get("investor") for ms in (lib.get("investor_matches") or {}).values() for m in ms if m.get("investor")}
+    except Exception:                                   # no token or no network: confirmed entries only, as before
+        return set()
+
+
+def registry_names(matched: set | None = None) -> dict[str, str]:
+    """Maps each confirmed alias (upper case) to the investor it belongs to; an investor counts as confirmed once one of
+    their aliases has been matched in a filing."""
     if not REGISTRY.exists():
         return {}
     reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    matched = matched or set()
     out = {}
     for inv in reg.get("investors", []):
-        for alias in inv.get("aliases", []):
-            if inv.get("status") == "confirmed":
+        if inv.get("status") == "confirmed" or inv.get("name") in matched:
+            for alias in inv.get("aliases", []):
                 out[alias.upper()] = inv["name"]
     return out
 
@@ -58,7 +72,7 @@ def key(row: dict) -> tuple:
 
 
 def main() -> dict:
-    names = registry_names()
+    names = registry_names(matched_investors())
     new_rows = []
     for raw in fetch_today():
         client = raw.get("Client Name", "")

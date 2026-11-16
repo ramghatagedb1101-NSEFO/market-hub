@@ -401,6 +401,13 @@ def valuation(stocks: list, industries: dict, today: date, hist: dict) -> tuple[
 HEATMAP_N = 750
 
 
+def _session(prices: dict) -> str | None:
+    """The latest trading day in the price series (most companies' last close), as YYYY-MM-DD."""
+    from collections import Counter
+    last = Counter(str(ser[-1][0])[:10] for ser, *_ in (v for v in prices.values() if v) if ser)
+    return max(last, key=lambda d: (last[d], d)) if last else None
+
+
 def heatmap(stocks: list, industries: dict, prices: dict) -> list:
     out = []
     for s in stocks:
@@ -643,10 +650,17 @@ def main() -> dict:
     for f in fil:
         if f["s"] in personal and any(w in f["h"].lower() for w in results_words):
             add(f["s"], "results", "filed: " + f["h"][:60], f"res:{f['s']}:{f['t'][:10]}")
+    # 16 Nov 2026: one alert per person, side and day (several small trades by one person were several alerts with
+    # the same id), and none for amounts that round to ₹0.00 cr
     for sym, r in ins.items():
+        per = {}
         for row in r.get("rows") or []:
             if "promoter" in row["cat"].lower() and row["d"] >= (today - timedelta(days=7)).isoformat():
-                add(sym, "insider_" + row["k"].lower(), f"promoter {'bought' if row['k'] == 'Buy' else 'sold'} ₹{row['v'] / 1e7:.2f} cr", "ins:" + row["id"])
+                k = ("ins:" + row["id"], row["k"])
+                per[k] = per.get(k, 0.0) + (row.get("v") or 0)
+        for (key, side), v in per.items():
+            if v >= 5e4:
+                add(sym, "insider_" + side.lower(), f"promoter {'bought' if side == 'Buy' else 'sold'} ₹{v / 1e7:.2f} cr", key)
     prior_risk = st.get("risk") or {}
     for sym in followed:
         new = [x for x in risk.get(sym) or [] if x not in (prior_risk.get(sym) or [])]
@@ -673,6 +687,9 @@ def main() -> dict:
 
     payload = {
         "generated": datetime.now(config.IST).isoformat(timespec="minutes"),
+        # 16 Nov 2026: the trading day the day's moves (heatmap, industries, spikes) come from; the screens labelled them
+        # "today" at 08:06 on Monday while they were Friday's
+        "session": _session(prices),
         "risk": risk, "pledge": {k: v for k, v in pledge.items() if v.get("pct", 0) > 0},
         "calendar": cal, "filings": fil, "insider": ins, "positions": pos,
         "spikes": spk, "heatmap": heat, "grades": grd, "valuation": val, "superstars": stars, "iv": iv,
