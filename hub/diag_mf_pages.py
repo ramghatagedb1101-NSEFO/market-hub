@@ -12,7 +12,7 @@ def main() -> int:
     sym = (sys.argv[1] if len(sys.argv) > 1 else "TITAN").upper()
     key = os.environ["BHARATSTOCK_API_KEY"]
     for page in (1, 2, 3, 4, 5):
-        url = MFH.format(t=sym) + (f"?page={page}" if page > 1 else "")
+        url = MFH.format(t=sym) + f"?page_size=100&page={page}"
         r = requests.get(url, headers={"X-API-Key": key, **UA}, timeout=30)
         body = r.json() if r.status_code == 200 else {}
         rows = body.get("data", []) if isinstance(body, dict) else body
