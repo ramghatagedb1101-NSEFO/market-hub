@@ -71,10 +71,72 @@ def key(row: dict) -> tuple:
     return (row["date"], row["symbol"], row["client"], row["side"], row["quantity"], row["price"])
 
 
+HISTORY = "https://www.nseindia.com/api/historicalOR/bulk-block-short-deals"
+BACKFILL_DAYS = 90          # how far back a missed session is filled
+BACKFILL_MAX = 25           # sessions filled in one run
+
+
+def fetch_day(s, day) -> list[dict]:
+    """One past session's bulk deals from NSE's history service (16 Nov 2026: the daily file holds only the current day,
+    so days the job missed - 6 and 9 Nov, when GitHub started it hours late - were lost). Same columns as the daily file.
+    One day a request: the service answers a range with its first day only."""
+    d = day.strftime("%d-%m-%Y")
+    r = s.get(HISTORY, params={"optionType": "bulk_deals", "from": d, "to": d}, timeout=60,
+              headers={"Referer": "https://www.nseindia.com/report-detail/display-bulk-and-block-deals"})
+    r.raise_for_status()
+    body = r.json()
+    rows = body.get("data", []) if isinstance(body, dict) else body
+    return [{"Date": x.get("BD_DT_DATE", ""), "Symbol": x.get("BD_SYMBOL", ""), "Security Name": x.get("BD_SCRIP_NAME", ""),
+             "Client Name": x.get("BD_CLIENT_NAME", ""), "Buy/Sell": x.get("BD_BUY_SELL", ""),
+             "Quantity Traded": str(x.get("BD_QTY_TRD", "")), "Trade Price / Wght. Avg. Price": str(x.get("BD_TP_WATP", ""))}
+            for x in rows]
+
+
+def missed_sessions(stored_dates: set, today) -> list:
+    """Trading sessions in the last BACKFILL_DAYS (before today) with no stored deal."""
+    from datetime import timedelta
+    from .holidays import is_session
+    have = {datetime.strptime(d, "%d-%b-%Y").date() for d in stored_dates if d}
+    if not have:
+        return []
+    start = max(min(have), today - timedelta(days=BACKFILL_DAYS))
+    out, d = [], start
+    while d < today:
+        if is_session(d) and d not in have:
+            out.append(d)
+        d += timedelta(days=1)
+    return out[-BACKFILL_MAX:]
+
+
+def backfill(stored_dates: set) -> tuple[list[dict], list[str]]:
+    today = datetime.now(config.IST).date()
+    days = missed_sessions(stored_dates, today)
+    if not days:
+        return [], []
+    try:
+        from curl_cffi import requests as creq
+        s = creq.Session(impersonate="chrome")
+        s.get("https://www.nseindia.com/", timeout=30)
+        s.get("https://www.nseindia.com/report-detail/display-bulk-and-block-deals", timeout=30)
+    except Exception as exc:
+        return [], [f"history service not reached ({type(exc).__name__})"]
+    rows, notes = [], []
+    for d in days:
+        try:
+            got = fetch_day(s, d)
+            rows += got
+            notes.append(f"{d.isoformat()}: {len(got)} deals filled")
+        except Exception as exc:
+            notes.append(f"{d.isoformat()}: not filled ({type(exc).__name__})")
+    return rows, notes
+
+
 def main() -> dict:
     names = registry_names(matched_investors())
     new_rows = []
-    for raw in fetch_today():
+    store_dates = {r["date"] for r in load_store()}
+    filled, fill_notes = backfill(store_dates)
+    for raw in list(fetch_today()) + filled:
         client = raw.get("Client Name", "")
         rec = {
             "date": raw.get("Date", ""),
@@ -118,6 +180,7 @@ def main() -> dict:
         "first_day": dates[0] if dates else None,
         "last_day": dates[-1] if dates else None,
         "added_today": len(added),
+        "filled": fill_notes,
         "by_day": by_date,
         "note": "Counts only. Client names appear in the stored history only when they match a confirmed registry entry.",
     }

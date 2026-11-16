@@ -1,0 +1,41 @@
+name: bulk-deals
+# 16 Nov 2026 (owner: "fill the bulk details"): runs the bulk-deal collector on its own, by hand. The collector (hub/bulkdeals.py)
+# also fills, from NSE's history service, any trading session of the last 90 days with no stored deals; the daily job runs
+# it every evening, so this is only for filling a gap at once.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: daily-forecast            # never at the same time as the daily job, which saves the same files
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Bring the private data (site/, state/) from the private repo
+        id: pull
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data pull
+      - name: Collect bulk deals, filling missed sessions
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.bulkdeals
+      - name: Write the admin summary to the private repo
+        continue-on-error: true
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.admin_publish
+      - name: Save the private data (site/, state/) to the private repo
+        if: steps.pull.outcome == 'success'
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: python -m hub.site_data push "bulk deals filled $(TZ=Asia/Kolkata date +%F)"
