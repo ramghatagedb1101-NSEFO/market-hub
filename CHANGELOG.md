@@ -2,6 +2,59 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~10:45 IST: full audit of every dashboard page and phone tab (owner: "do a thorough check of each page and each section")
+Covered, on real data in the owner's signed-in Chrome during market hours: dashboard Today, Portfolio, Shortlist (four
+tabs, Watchlist), Screens (Early multibaggers), Rankings, Companies, Sectors (table, heatmap), Compare measures, What's
+new (five tabs), Calendar (three tabs), Option ideas, Expiry meter, Positioning, Paper trading (three tabs, the open test
+trade), Back-tests (both tabs), Data and settings (five tabs), a stock report (Titan: overview, peers); phone Home, Brief,
+F&O, Ideas, Desk. Not covered this pass: Screens' other two tabs, stock-report Ownership / Scorecard / AI summary, the
+phone's stock report and Settings, and the before-Kite-login and holiday states.
+Fixed:
+- **ROE and ROCE were the latest quarter x 4** (`hub/library.py`), so one bumper or one-off quarter read as a high return
+  and lifted Shortlist ranks (IOC 37.4%, profit +175% in the quarter; Titan 52.4%). Now the last four consecutive
+  quarters (x 4 only when four are not there). METHOD.md first. Every company re-fetched once (VAL_VERSION 3, ~2,600
+  of the 9,000 a day) so the whole library is corrected at the next 06:15 run.
+- **"Today" labels on last session's moves**: the Sectors heatmap ("Today", stamped 08:06 Mon while showing Friday's
+  moves, mostly red on a +0.7% morning), the phone's "Industries today" and both Volume spikes lists. insights.json now
+  carries `session` (the trading day of the moves); labels read "Last session" / "Close · Fri 13 Nov 2026".
+- **Investor registry: all 23 "unconfirmed", so "Registry buys" was 0 every day.** The registry's rule (confirm once a
+  filing matches) was never applied. An investor found by exact alias in a shareholding filing (16 of 23) now counts
+  in bulk deals and shows as confirmed (`hub/bulkdeals.py`, `hub/admin_publish.py`).
+- **Duplicates**: one filing listed twice in What changed (NSE gives the same PDF under nseindia.com and nseindia.in;
+  `hub/digest.py`); one insider alert per person, side and day, none for amounts rounding to ₹0.00 cr (NINSYS showed 3,
+  UNIECOM "bought ₹0.00 cr"; `hub/insights.py`).
+- **Words**: Rankings "Composite = their average" (it is that average rated 0-100 against all companies); "1 trades";
+  "BANKNIFTY" / "Bank NIFTY" -> "BANK NIFTY"; insider "₹0.00 cr" -> "–"; the back-test box said "one leg" though
+  combinations are supported; the stock badge "Multibagger 4/4" (Titan, ₹4.3 L cr) -> "Growth gates 4/4" (the four gates
+  have no size limit; whether to add one is the owner's call); Data and settings "Back-tests" (raw "hit pct", "z vs
+  baseline", "true") -> "Studies" in plain words.
+Checked and not errors: BANK NIFTY's estimate record matching NIFTY's (own figures, same counts by chance); the big
+ownership moves in What's new (EPL, RBA, AQYLON: other holders moved the other way, consistent with block sales /
+takeovers); the expiry meter's 146 (both screens). Open: the morning call was not made on 9 and 12 Nov (GitHub's late
+starts, before the on-time starter of 14 Nov) - check the 09:00 call on Tue 17 Nov; bulk deals for 6 and 9 Nov were
+not collected in the same week - a back-fill needs NSE's history endpoint, tested from GitHub.
+Dashboard parts go out with the 15:36 relay release; phone v68 now.
+
+## Mon 16 Nov 2026, ~10:15 IST: strategy builder refuses exits that work against each other
+- Owner, on the test strategy (stop 25%, target 25%, trailing stop 10% from +20%): "how does this target and trail stop
+  loss make sense?"; "correct all such errors"; "do setup trades that make sense" (100% was only an example, not a
+  rule). The trailing stop could only act between +20% and +25%. My set-up; the builder let it through.
+- Owner, next: "Once it meets a certain percentage and we have a trailing stop loss, we should just keep the upper
+  ceiling open. Let it multiply 10 times." So: with a trailing stop there is no profit ceiling. `trader/engine.py`
+  ignores the target once the trailing stop has taken over (single options and multi-leg positions; back-tests use the
+  same code); the builder drops a target above the trailing start at Save, labels the Target row "not used with a
+  trailing stop: no ceiling", and cards / summary say "no ceiling". Tests: 198/198 (4 new).
+- `stExitCheck` (relay/AdminPage.html), shown in the summary and checked at Save. Refused, with the reason: a target at
+  or below the trailing start (it closes the trade before the trailing stop can act), a trailing distance as wide as
+  the gain it starts at (a trailed trade could still close at a loss), a selling target above 100% (the most kept is
+  the whole premium). Warned: a buying target no bigger than its stop-loss (no trailing stop).
+- Analyst note: options move 10% in minutes; a 10% trailing distance can shake a trade out early. Wider distances
+  (20-30%) are worth back-testing before choosing.
+- Target presets: buys 0 / 50 / 100 / 150 / 200% (slider to 300%); sells 0-100%. The back-test query (relay/Backtest.gs)
+  asks Gemini for exits that fit together the same way.
+- The test strategy now: stop 25%, trailing stop 10% behind from +20%, no target (no ceiling). Today's open trade keeps the exits it
+  started with.
+
 ## Mon 16 Nov 2026, ~10:00 IST: live profit on Auto trading (dashboard and phone)
 - Owner: "update the PnL fields in autotrading for both laptop and mobile live instead of 10 min". The trading program
   already marks its profit every minute; only the GitHub copy (algo-sync, every 10 minutes) made it late.
