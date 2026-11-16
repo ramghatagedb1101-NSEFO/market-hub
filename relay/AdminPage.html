@@ -503,7 +503,9 @@ function renderFoot(){
   // a price check after the close (or at a weekend / before 09:00) is not new data: capped at that session's 15:30
   const qt = (() => { const t = ist(q.ts); if (!t) return null; const d = new Date(t.slice(0, 10) + 'T00:00:00Z'), wd = d.getUTCDay(), hm = t.slice(11, 16);
     if (wd === 0 || wd === 6 || hm < '09:00') return null; return hm > '15:30' ? t.slice(0, 11) + '15:30' : t; })();
-  const all = [s.daily_ts, qt, I.generated, S.sl && S.sl.generated, S.algo && !S.algo.error && S.algo.asof, S.lib && S.lib.generated].map(ist).filter(Boolean).sort();
+  // overseas prices (US, Europe) count at their own last-trade time, so an evening US update moves the time (owner, 16 Nov 2026)
+  const ov = (((q.overseas || {}).items) || ovsItems()).map(o => o && o.ts ? new Date(o.ts * 1000 + 5.5 * 3600e3).toISOString().slice(0, 16) : null);
+  const all = [s.daily_ts, qt, ...ov, I.generated, S.sl && S.sl.generated, S.algo && !S.algo.error && S.algo.asof, S.lib && S.lib.generated].map(ist).filter(Boolean).sort();
   const last = all.length ? all[all.length - 1] : null;
   $('sidefoot').innerHTML = last ? 'Data updated ' + esc(bSnap(last + '+05:30').replace(/^As of /, '')) : 'Signed in';
 }

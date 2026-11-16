@@ -12,6 +12,8 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 - Owner: "why it is showing morning time? it should be till end of day market hours". The sidebar's "Data updated" was the
   daily batch's market-context time (08:13), though prices, auto trading, the library and insights update through the day.
   It now shows the newest of all of them, refreshed with every price update.
+  Indian price checks after the close count as the 15:30 close (the prices do not change); US and European prices
+  count at their own last-trade time, so an evening US update moves it (owner's choice).
 
 ## Mon 16 Nov 2026, 15:36 IST: dashboard release (held for market hours) and the strangle switched on
 - Relay released after the close: Index options page removed and "Today's trade" on Auto trading; live profit (machine
