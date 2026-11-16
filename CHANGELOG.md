@@ -2,6 +2,20 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~10:00 IST: live profit on Auto trading (dashboard and phone)
+- Owner: "update the PnL fields in autotrading for both laptop and mobile live instead of 10 min". The trading program
+  already marks its profit every minute; only the GitHub copy (algo-sync, every 10 minutes) made it late.
+- `trader/kicker.py` (the machine's once-a-minute helper, already holding the relay key) now also sends the program's
+  latest summary in market hours (09:14-15:50): status, today, month, totals, open positions, working orders, built by
+  `trader/summary.py` from the journals. The trading program itself is unchanged and not restarted.
+- Relay `?mode=algo_live` (RELAY_KEY) keeps it in the script cache for 6 hours; `appData_` lays it over site/algo.json
+  when newer, so the phone and dashboard get it through the same call. Day-by-day lists stay from algo.json.
+- Dashboard Auto trading and the phone's F&O tab / Auto trading page fetch again every 30 seconds in market hours while
+  on screen ("Live · HH:MM IST"); a failed refresh keeps the figures shown. Phone v67.
+- Cost: free (about 380 relay calls a market day from the machine). Tests: `trader.selftest` 194/194 (4 new).
+- Released in two steps: phone and helper code at ~10:00; the relay and the machine update after 15:30 (no relay change
+  or machine update in market hours).
+
 ## Mon 16 Nov 2026, ~09:50 IST: Auto trading said "Not heard from since 08:30" while the program was running
 - Owner's screenshot. The program was checking in every minute (journal), but `trader/summary.py` saved the summary
   only when something other than the time changed, or once an hour; the screens warn after 15 minutes of silence, so a

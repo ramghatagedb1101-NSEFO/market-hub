@@ -1241,10 +1241,17 @@
   // GitHub refreshes every 10 minutes in market hours. A card under Paper trading on the F&O tab opens the full page.
   let ALGO = null, ALGO_TAB = "daily", ALGO_ALL = false;
   async function loadAlgo(){
-    try { const d = await relayPost("app_data", { token: SESSION, files: ["algo"] }); ALGO = (d.files || {}).algo || d; }
-    catch(e){ ALGO = { error: e.message }; }
+    try { const d = await relayPost("app_data", { token: SESSION, files: ["algo"] }); const a = (d.files || {}).algo || d;
+      if (!(a && a.error && ALGO && !ALGO.error)) ALGO = a; }        // a failed refresh keeps the figures already shown
+    catch(e){ if (!ALGO || ALGO.error) ALGO = { error: e.message }; }
     drawAlgoCard(); if ($("#algo").classList.contains("on")) drawAlgoP();
   }
+  // Live profit (16 Nov 2026): in market hours the trading machine sends its figures every minute (relay algo_live);
+  // while Auto trading or the F&O tab is on screen they are fetched again every 30 seconds.
+  setInterval(() => {
+    if (document.hidden || !SESSION || !marketOpenIst()) return;
+    if ($("#algo").classList.contains("on") || $("#fno").classList.contains("on")) loadAlgo();
+  }, 30000);
   const algoWhen = t => t ? dayTxt(parseDay(t)) + ", " + String(t).slice(11, 16) + " IST" : "";
   function algoName(k){
     const p = String(k || "").split(" "); if (p.length < 3) return esc(k);
@@ -1349,7 +1356,7 @@
     if (A.error) return `<div class="mut" style="padding:12px">${A.error === "not published yet" ? "Nothing yet: the summary appears after the program first runs." : esc(A.error)}</div>`;
     const T = A.totals || {}, D = (A.days || []).slice().reverse(), M = (A.months || []).slice().reverse(), TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
     const stat = (k, v, s) => `<div style="padding:6px 0"><div class="mut" style="font-size:11px">${k}</div><div style="font-weight:700">${v}</div>${s ? `<div class="mut" style="font-size:11px">${s}</div>` : ""}</div>`;
-    const asof = A.asof ? `As of ${String(A.asof).slice(11, 16)} IST · ${dayTxt(parseDay(A.asof))}` : "";
+    const asof = A.asof ? (A.live && marketOpenIst() ? `Live · ${String(A.asof).slice(11, 16)} IST` : `As of ${String(A.asof).slice(11, 16)} IST · ${dayTxt(parseDay(A.asof))}`) : "";
     let h = `<div class="panel"><div class="pb"><div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut" style="font-size:11px">${esc(asof)}</span></div>` +
       `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 10px;margin-top:4px">` +
       stat("Today", pSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + " closed") +

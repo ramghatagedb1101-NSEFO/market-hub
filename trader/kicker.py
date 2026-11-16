@@ -10,6 +10,12 @@ Every 10 minutes it also calls the relay with no job, so the relay knows the clo
 schedules stay as backups: a scheduled run asks the relay first (`?mode=kick_seen`) and stops when this clock is alive
 and started that job without error.
 
+Live profit (16 Nov 2026, owner: "update the PnL fields in autotrading ... live instead of 10 min"): in market hours it
+also sends the trading program's latest summary (status, today, month, totals, open positions, working orders; built
+from the journals by trader/summary.py, the same code as the 10-minute site/algo.json) to the relay (?mode=algo_live),
+which keeps it in its cache; the dashboard and phone read it with algo.json and refresh every 30 seconds. The program
+itself is not touched: a failure here never reaches trading.
+
 The times are the workflows' own cron lines in IST (keep them in step: `python -m trader.selftest` checks it).
 """
 
@@ -77,8 +83,41 @@ def call_relay(wfs: list[str], timeout: int = 90) -> dict:
         return json.loads(r.read().decode("utf-8", "replace"))
 
 
+JOURNALS = "/opt/trader/journal"
+LIVE_KEYS = ("asof", "account", "status", "today", "month", "totals", "open", "pending", "pending_at")
+
+
+def live_due(now: dt.datetime) -> bool:
+    now = now.astimezone(IST)
+    return now.weekday() in WEEKDAYS and "09:14" <= now.strftime("%H:%M") <= "15:50"
+
+
+def live_summary(journals: str = JOURNALS) -> dict:
+    from . import summary
+    s = summary.build(summary.read(journals))
+    return {k: s.get(k) for k in LIVE_KEYS}
+
+
+def push_live(timeout: int = 30) -> str:
+    body = json.dumps(live_summary(), separators=(",", ":")).encode("utf-8")
+    url = os.environ["RELAY_URL"]
+    q = urllib.parse.urlencode({"mode": "algo_live", "key": os.environ["RELAY_KEY"]})
+    req = urllib.request.Request(url + ("&" if "?" in url else "?") + q, data=body, method="POST",
+                                 headers={"User-Agent": "market-hub-kicker", "Content-Type": "text/plain"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        res = json.loads(r.read().decode("utf-8", "replace"))
+    return "" if res.get("ok") else str(res.get("error") or res)[:120]
+
+
 def main() -> int:
     now = dt.datetime.now(IST)
+    if live_due(now):
+        try:
+            err = push_live()
+            if err:
+                print(f"{now:%H:%M} live profit refused by the relay: {err}")
+        except Exception as e:  # noqa: BLE001 -- the next minute sends again; the 10-minute algo.json is the backup
+            print(f"{now:%H:%M} live profit not sent ({type(e).__name__}: {str(e)[:120]})")
     wfs = due(now)
     if not wfs and now.minute % HEARTBEAT_EVERY_MIN:
         return 0

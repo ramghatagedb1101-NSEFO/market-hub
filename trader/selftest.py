@@ -700,10 +700,30 @@ def test_kicker_matches_crons():
     ok("kicker: Sat 09:20 IST starts nothing", kicker.due(_dt(2026, 11, 14, 9, 20, tzinfo=kicker.IST)) == [])
 
 
+def test_live_push():
+    """Live profit (16 Nov 2026): the per-minute helper sends a slim summary in market hours only, built by the same code
+    as site/algo.json, with nothing but the screens' fields (no day-by-day lists) and no account number."""
+    import json as _json
+    import tempfile
+    from datetime import datetime as _dt
+    from trader import kicker
+    ok("live: sent in market hours", kicker.live_due(_dt(2026, 11, 16, 9, 30, tzinfo=kicker.IST)))
+    ok("live: quiet after 15:50 and at weekends", not kicker.live_due(_dt(2026, 11, 16, 15, 51, tzinfo=kicker.IST))
+       and not kicker.live_due(_dt(2026, 11, 15, 10, 0, tzinfo=kicker.IST)))
+    with tempfile.TemporaryDirectory() as d:
+        rows = [{"t": "2026-11-16T09:15:00", "kind": "start", "strategy": "watch only"},
+                {"t": "2026-11-16T09:16:00", "kind": "mark", "pnl": 0.0, "open_legs": 0, "positions": {}, "orders": []}]
+        with open(d + "/2026-11-16.jsonl", "w", encoding="utf-8") as f:
+            f.write(chr(10).join(_json.dumps(r) for r in rows))
+        live = kicker.live_summary(d)
+    ok("live: the screens' fields only", set(live) == set(kicker.LIVE_KEYS) and live["status"]["last"] == "2026-11-16T09:16:00", live)
+    ok("live: small enough for the relay's cache", len(_json.dumps(live)) < 90000)
+
+
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules]:
+              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")
