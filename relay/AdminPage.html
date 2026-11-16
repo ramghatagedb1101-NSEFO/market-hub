@@ -500,7 +500,10 @@ function watchPanel(){
 function renderFoot(){
   const s = (S.admin && S.admin.status) || {}, q = S.quotes || {}, I = INS() || {};
   const ist = t => { if (!t) return null; const x = String(t); return /[zZ]|[+-]\d\d:?\d\d$/.test(x) ? new Date(new Date(x).getTime() + 5.5 * 3600e3).toISOString().slice(0, 16) : x.slice(0, 16); };
-  const all = [s.daily_ts, q.ts, I.generated, S.sl && S.sl.generated, S.algo && !S.algo.error && S.algo.asof, S.lib && S.lib.generated].map(ist).filter(Boolean).sort();
+  // a price check after the close (or at a weekend / before 09:00) is not new data: capped at that session's 15:30
+  const qt = (() => { const t = ist(q.ts); if (!t) return null; const d = new Date(t.slice(0, 10) + 'T00:00:00Z'), wd = d.getUTCDay(), hm = t.slice(11, 16);
+    if (wd === 0 || wd === 6 || hm < '09:00') return null; return hm > '15:30' ? t.slice(0, 11) + '15:30' : t; })();
+  const all = [s.daily_ts, qt, I.generated, S.sl && S.sl.generated, S.algo && !S.algo.error && S.algo.asof, S.lib && S.lib.generated].map(ist).filter(Boolean).sort();
   const last = all.length ? all[all.length - 1] : null;
   $('sidefoot').innerHTML = last ? 'Data updated ' + esc(bSnap(last + '+05:30').replace(/^As of /, '')) : 'Signed in';
 }
