@@ -8,6 +8,12 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   (`hub/breeze_history.py` `save_gz`) did not. It now re-reads the file's version and retries (4 tries).
 - The NIFTY 9 Nov week fill (`hub/breeze_fill.py`) was added after that run; it runs at the next ICICI download.
 
+## Mon 16 Nov 2026, ~17:30 IST: trading mode as one compact switch
+- Owner: "This is occupying a lot of space. We can make it a simple switch with instructions changing depending on where
+  the switch is." The two mode cards on Strategies are now one row: a Manual | Autopilot switch, one line for the mode in
+  force (manual: what is trading, with Stop trading; autopilot: when it picks, details in the Autopilot box below), and
+  the limits line. Moving the switch still asks first; nothing else on the row switches.
+
 ## Mon 16 Nov 2026, ~17:00 IST: "Data updated" shows the newest update, not the morning batch
 - Owner: "why it is showing morning time? it should be till end of day market hours". The sidebar's "Data updated" was the
   daily batch's market-context time (08:13), though prices, auto trading, the library and insights update through the day.

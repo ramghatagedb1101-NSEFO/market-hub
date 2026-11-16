@@ -305,6 +305,9 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
 
 /* Trading mode cards (14 Nov 2026) */
 .mode-wrap{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:-6px 0 14px}
+.mode-row{margin:-6px 0 14px}.mode-row .panel-b{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px}
+.mode-sw button{padding:5px 14px;font-weight:600}.mode-text{flex:1;min-width:220px;font-size:13px;color:var(--text-2)}
+.mode-lim{font-size:12px;color:var(--text-3);padding:0 16px 10px}
 .mode-card{display:flex;flex-direction:column;gap:4px;text-align:left;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;font:inherit;color:inherit}
 .mode-card:hover{border-color:var(--border-strong)}
 .mode-card.on{border:2px solid var(--accent);padding:13px 15px;background:var(--accent-soft);cursor:default}
@@ -3075,18 +3078,18 @@ function pageStrategies(){
   // marked ON with what it is doing now; pressing the other asks first.
   const apNow = ((S.algo && !S.algo.error && S.algo.status) || {}).autopilot;
   // owner: "off button is absent": the card in force carries its own Off button
-  const card = (k, title, line, on, state, off) => '<div class="mode-card' + (on ? ' on' : '') + '"' + (on ? ' aria-current="true"' : '') + '>' +   // 16 Nov 2026: only the Switch link switches, not a click anywhere on the card
-    '<span class="mode-top"><span class="mode-title">' + title + '</span>' + (on ? '<span class="mode-badge">● ON</span>' : '<a href="javascript:void 0" class="mode-off" onclick="stMode(\'' + k + '\')">Switch to ' + title.toLowerCase() + '</a>') + '</span>' +
-    '<span class="mode-line">' + line + '</span><span class="mode-state">' + state + '</span>' + (on && off ? '<span style="margin-top:6px">' + off + '</span>' : '') + '</div>';
-  let h = '<div class="mode-wrap">' +
-    card('manual', 'Manual', 'You choose the strategy: press Trade this on one.', !auto,
-      !auto ? (act ? 'Trading now: <b>' + esc(act.name) + '</b>' : 'Nothing switched on: watching only') : '&nbsp;',
-      act ? '<button class="btn sm" type="button" onclick="stOn(\'\')">Stop trading</button>' : '') +
-    card('autopilot', 'Autopilot', 'The program picks a strategy by market condition at 09:30, 11:00 and 13:00.', auto,
-      auto ? (apNow ? 'Market: <b>' + esc(COND[apNow.regime] || 'not read yet') + '</b> · running: <b>' + esc(apNow.strategy || 'nothing (watching)') + '</b>' : 'On · first check at 09:30 on a market day') +
-        ' · fallback: <b>' + esc(((items.find(x => x.id === S.strat.fallback) || {}).name) || 'none') + '</b>' : '&nbsp;',
-      '<button class="btn sm" type="button" onclick="stMode(\'manual\')">Turn autopilot off</button>') +
-    '</div><div class="muted" style="font-size:12px;margin:-4px 0 12px">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div>';
+  // 16 Nov 2026 (owner: "This is occupying a lot of space. We can make it a simple switch with instructions changing
+  // depending on where the switch is"): one row, a Manual | Autopilot switch and one line for the mode in force. Moving
+  // the switch still asks first (stMode); only the switch's other half acts, never a click elsewhere.
+  const line = auto
+    ? 'Picks a strategy by market condition at 09:30, 11:00 and 13:00; what it reads and runs is below.'
+    : (act ? 'Trading now: <b>' + esc(act.name) + '</b>' : 'Nothing switched on: watching only. Press Trade this on a strategy.');
+  const sw = '<span class="seg mode-sw" role="group" aria-label="Trading mode">' +
+    '<button type="button" class="' + (!auto ? 'on' : '') + '"' + (!auto ? ' aria-pressed="true"' : ' onclick="stMode(\'manual\')"') + '>Manual</button>' +
+    '<button type="button" class="' + (auto ? 'on' : '') + '"' + (auto ? ' aria-pressed="true"' : ' onclick="stMode(\'autopilot\')"') + '>Autopilot</button></span>';
+  let h = '<div class="panel mode-row"><div class="panel-b">' + sw + '<span class="mode-text">' + line + '</span>' +
+    (!auto && act ? '<button class="btn sm" type="button" onclick="stOn(\'\')">Stop trading</button>' : '') + '</div>' +
+    '<div class="mode-lim">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div></div>';
   // 16 Nov 2026: who switched what, when (relay STRAT_LOG); autopilot came back on at 11:16 that day with no trace
   const LG = S.strat.log || [], lgT = x => esc(bDay(dayOf(x.t)) + ', ' + String(x.t).slice(11, 16) + ' IST');
   if (LG.length) h += '<details style="font-size:12px;margin:-6px 0 12px"><summary class="muted" style="cursor:pointer">Last change: ' + esc(LG[0].what) + ' · ' + lgT(LG[0]) + (LG.length > 1 ? ' · see all ' + LG.length : '') + '</summary>' +
