@@ -181,7 +181,7 @@ the recorded bid / ask; portfolio of small uncorrelated strategies sharing the d
 - ICICI Breeze history working (night): Oracle Always Free server `market-hub-ip`, fixed address 130.210.31.37, ICICI
   app registered; METHOD.md line-break bug fixed (rebuilt file pushed, `db24d5c`). IBKR paper trading started that night
   and finished on 14 Nov: see the 14 Nov HANDOVER above.
-- Dashboard has the phone's Ideas and F&O (night): F&O section with Option ideas (index, NIFTY 50 stocks); Watchlist
+- Dashboard has the phone's Ideas and F&O (night): F&O section with Option ideas (NIFTY 50 stocks; the index trades were removed 16 Nov 2026 after losing money in a 2024-2026 test); Watchlist
   under Shortlist.
 - To do, Sat 14 Nov 2026 morning, after the overnight library run and the insights rebuild:
   - already confirmed (22:40): Coal India insider total -5,549 cr (was -16,647 cr); option-price panel dated Nov expiries.

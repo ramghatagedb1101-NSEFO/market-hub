@@ -368,7 +368,7 @@
     }
     throw lastErr;
   }
-  const APP_FILES = ["feed", "brief", "context", "stocks", "fno", "shortlist", "digest", "insights"];
+  const APP_FILES = ["feed", "brief", "context", "stocks", "shortlist", "digest", "insights"];
   let BUNDLE = null;
   function loadBundle(){
     if (!BUNDLE) {
@@ -826,21 +826,7 @@
       </div></div>`;
   }
 
-  function viewBlock(v){
-    if (!v.structure) return `<div class="row"><span class="l">${esc(v.label)} · ${esc(dayTxt(parseDay(v.expiry)) || v.expiry)}</span><span class="r mut">no structure</span></div>
-      <div class="note" style="margin:0 0 8px">${esc(v.reason || "")}</div>`;
-    const legs = v.legs.map(l => `<tr><td>${l.action} ${l.type}</td><td>${f(l.strike)}</td><td>${l.price == null ? "–" : f(l.price,2)}</td></tr>`).join("");
-    const credit = v.net_per_unit > 0;
-    return `<div class="row"><span class="l">${esc(v.label)} · ${esc(dayTxt(parseDay(v.expiry)) || v.expiry)}</span><span class="r">${esc(v.structure)}</span></div>
-      <div class="row"><span class="l">${credit ? "Credit / unit" : "Debit / unit"}</span><span class="r">${f(Math.abs(v.net_per_unit),2)}</span></div>
-      <div class="row"><span class="l">Max loss / lot</span><span class="r">${v.max_loss_per_lot == null ? "–" : f(v.max_loss_per_lot)}</span></div>
-      <div class="row"><span class="l">Breakevens</span><span class="r">${v.breakevens.map(b => f(b,0)).join(" / ")}</span></div>
-      <div class="row"><span class="l">PCR (OI)</span><span class="r">${v.pcr == null ? "–" : f(v.pcr,2)}</span></div>
-      <details><summary>Legs</summary><table class="t"><tr><th>Leg</th><th>Strike</th><th>Premium</th></tr>${legs}</table></details>
-      <div class="note">${esc(v.reason || "")} Band ${f(v.band[0],0)} – ${f(v.band[1],0)}.</div>`;
-  }
-
-  // F&O tab: index suggestions, then the Nifty 50 stock option screen in the same layout.
+  // F&O tab: the Nifty 50 stock option screen (the index suggestions were removed on 16 Nov 2026).
   // Each stock's `detail` is either one symbol-level sentence (earnings/IV/delivery), or one or two
   // per-leg clauses joined "put-side ...; call-side ...", each leg independently one of five gates
   // from rg/strategy.py's _spread_reject_reason (checked in this order: POP, zero/negative worst-case
@@ -1037,23 +1023,11 @@
     const exp0 = await expiryPanel(), exp = exp0 ? `<div id="exp-box">${exp0}</div>` : "";
     if (exp) el.innerHTML = exp;
     const score = await scorePanel();
-    try{
-      const D = await getFile("fno");
-      const idx = Object.keys(D.underlyings).map(u => {
-        const b = D.underlyings[u];
-        const chain = b.expiring_today ? `<details><summary>Chain expiring today (data only)</summary>
-          <table class="t"><tr><th>Strike</th><th>CE</th><th>PE</th></tr>${b.expiring_today.rows.map(r =>
-            `<tr><td>${f(r.strike)}</td><td>${r.ce_ltp == null ? "–" : f(r.ce_ltp,2)}</td><td>${r.pe_ltp == null ? "–" : f(r.pe_ltp,2)}</td></tr>`).join("")}</table></details>` : "";
-        return `<div class="sec">${esc(u)} · spot ${f(b.spot,2)}</div>
-          <div class="panel"><div class="pb">${b.views.map(viewBlock).join('<div style="height:8px"></div>')}${chain}</div></div>`;
-      }).join("");
-      let S = null;
-      try { S = await getFile("stocks"); } catch(e) { S = null; }
-      el.innerHTML = exp + score + idx + stockScreen(S) +
-        `<div class="foot">${esc(D.disclaimer)} Check margin and your own risk limits before placing anything.</div>`;
-    }catch(e){
-      el.innerHTML = exp + score + `<div class="panel"><div class="pb mut">No F&amp;O suggestions yet.</div></div>`;
-    }
+    // 16 Nov 2026: the index option trades (hub/fno.py) are gone: tested on 2024-2026 ICICI minutes they lost money
+    let S = null;
+    try { S = await getFile("stocks"); } catch(e) { S = null; }
+    el.innerHTML = exp + score + stockScreen(S) +
+      `<div class="foot">Model suggestions. Premiums are last traded prices. Check margin and your own risk limits before placing anything.</div>`;
   }
 
   // Multi-bagger tab: derived scores, gates and signals (no raw financials or fund names are published).

@@ -2,6 +2,23 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~09:30 IST: index option trades removed (they lost money); "Today's trade" on Auto trading
+- Owner: "what is the relevance of this tab now?" ... "the data needs to speak". Tested the Option ideas > Index options
+  trade (`hub/fno.py`: iron condor just outside the forecast's 80% band, or a spread when the band leans) on the ICICI
+  one-minute option prices, every session 1 Jan 2024 - early Nov 2026: band from the previous close (walk-forward, as
+  live), legs at the 09:30 prices, 0.5% slippage a leg, Zerodha charges, held to expiry. Per lot at today's lot sizes:
+  NIFTY 158 trades, 68% won, -Rs 80,543 (2024 alone, the year with every strike stored: 123 trades, -Rs 52,564); BANK
+  NIFTY 39 trades, 69% won, -Rs 9,693. One trade a week: NIFTY -Rs 41,745. The band itself is honest (78% of expiry
+  closes inside, aim 80%); the premium outside it does not pay for the breaks. Limit: in 2025-26 the stored strikes
+  are near the money, so many days could not be tested.
+- Removed: `hub/fno.py` and its daily step, the dashboard's Index options page, the phone's index suggestions (phone
+  v66), the brief's F&O section (`hub/narrate.py`), the health check's fno.json row; the relay serves the stock screen
+  only (`adminFno`).
+- Added: a "Today's trade" panel at the top of Paper trading > Auto trading: the strategy the program runs today (or
+  "No trade today") and its latest back-test record (trades, % won, profit after charges, sessions, date tested), marked
+  "Made / Lost money in its back-test" or "Not back-tested yet".
+- The NIFTY 50 stocks tab stays until it is tested the same way.
+
 ## Mon 16 Nov 2026, ~06:15 IST: no "Ideas from Gemini" type
 - Owner: "ideas from Gemini cannot be a category". Gemini's ideas are now filed under the type of trade they are
   (`trader/research.py` `type_of()`, by the words of the idea's name; the 84 so far: fades 15, global/FII cash 20,

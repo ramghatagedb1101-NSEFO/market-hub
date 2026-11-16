@@ -1,7 +1,7 @@
 """
 Daily market brief written by Gemini (free tier), from this hub's own data.
 
-Reads docs/data/feed.json and docs/data/fno.json, asks Gemini for a short plain-English brief,
+Reads docs/data/feed.json and docs/data/context.json, asks Gemini for a short plain-English brief,
 and writes docs/data/brief.json. Needs GEMINI_API_KEY (GitHub secret). If the key is missing the
 step writes a note and exits cleanly, so the rest of the daily job is unaffected.
 
@@ -24,7 +24,7 @@ LITE_MODEL = os.getenv("GEMINI_LITE_MODEL", "gemini-flash-lite-latest")
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
 
 
-def _summary(feed: dict, fno: dict | None) -> str:
+def _summary(feed: dict) -> str:
     lines = []
     for name, b in feed["indices"].items():
         t = b.get("today") or {}
@@ -39,14 +39,6 @@ def _summary(feed: dict, fno: dict | None) -> str:
         m = b["horizons"]["month"]["forecast"]
         if m:
             lines.append(f"  Month-end range {m['lo']}–{m['hi']} (no point call; model does not beat baseline).")
-    if fno:
-        for name, u in fno["underlyings"].items():
-            for v in u["views"]:
-                if v.get("structure"):
-                    lines.append(f"{name} {v['label']} ({v['expiry']}): model structure {v['structure']}, "
-                                 f"net {v['net_per_unit']} per unit, PCR {v['pcr']}.")
-                else:
-                    lines.append(f"{name} {v['label']} ({v['expiry']}): no structure. {v.get('reason', '')}")
     return "\n".join(lines)
 
 
@@ -89,8 +81,7 @@ who trades NIFTY and BANKNIFTY options. Write in plain English, in these section
 3. Gold, crude, dollar and rupee: use the USD/INR figure. If gold or crude data is missing, say so.
 4. Institutional flows: FII and DII cash flows, and what the net numbers suggest. Say they are provisional.
 5. India news and economy: the most relevant India headlines, one line each. Do not add facts that are not in them.
-6. F&O: the model's suggestions, the expiry, the band width, and that they have no track record yet.
-7. Risks and what to watch: concrete events or levels from the data, not generic warnings.
+6. Risks and what to watch: concrete events or levels from the data, not generic warnings.
 
 Rules: use only the data below. Do not invent news, causes, prices or events. Quote a number only if it is in the data.
 If something is missing, say "not available today" in that section. No personal financial advice.
@@ -147,8 +138,9 @@ def _write_nvidia(api_key: str, prompt: str) -> str:
     return text
 
 
-def _data(feed: dict, fno: dict | None, ctx: dict | None) -> str:
-    return _summary(feed, fno) + "\n" + _context_summary(ctx)
+def _data(feed: dict, ctx: dict | None) -> str:
+    # 16 Nov 2026: no F&O section; hub/fno.py's index trades lost money on 2024-2026 ICICI minutes and were removed
+    return _summary(feed) + "\n" + _context_summary(ctx)
 
 
 def _write_gemini(key: str, prompt: str) -> str:
@@ -176,12 +168,10 @@ def main() -> dict:
     nv_key = os.getenv("NVIDIA_API_KEY")
     gm_key = os.getenv("GEMINI_API_KEY")
     feed = json.loads(config.FEED_FILE.read_text(encoding="utf-8"))
-    fno_path = config.SITE_DIR / "data" / "fno.json"
-    fno = json.loads(fno_path.read_text(encoding="utf-8")) if fno_path.exists() else None
     ctx_path = config.SITE_DIR / "data" / "context.json"
     ctx = json.loads(ctx_path.read_text(encoding="utf-8")) if ctx_path.exists() else None
     out = {"ts": datetime.now(config.IST).isoformat(timespec="minutes"), "text": "", "source": ""}
-    prompt = PROMPT.format(data=_data(feed, fno, ctx))
+    prompt = PROMPT.format(data=_data(feed, ctx))
 
     if not nv_key and not gm_key:
         out["source"] = "none"

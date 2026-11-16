@@ -43,7 +43,6 @@ FILES = [
     ("site/insights.json", 30, False, "insights (alerts, calendar, filings, positions)"),
     ("site/feed.json", 30, True, "phone feed and forecasts (daily 18:00)"),
     ("site/brief.json", 30, True, "market brief"),
-    ("site/fno.json", 30, True, "F&O screens"),
     ("site/bulk_deals.json", 30, True, "bulk deals"),
     ("state/prices.json", 30, True, "daily prices"),
     ("site/summaries.json", 4 * 24, False, "AI summaries"),
