@@ -293,7 +293,7 @@ def plan(docs: dict, done: dict, symbol: str | None) -> list[tuple[str, str, dic
     def pending(sym, kind):
         latest = (docs.get(sym, {}).get(kind) or [None])[0]
         have = done.get(sym, {}).get(kind) or {}
-        if latest and have.get("url") != latest["url"]:
+        if latest and str(have.get("url") or "").rsplit("/", 1)[-1] != str(latest["url"]).rsplit("/", 1)[-1]:   # .com / .in
             return latest
         # 12 Oct 2026: summaries written before doc_type / results / Q&A existed are redone when asked for
         if latest and symbol and "doc_type" not in (have.get("summary") or {}):
@@ -305,7 +305,16 @@ def plan(docs: dict, done: dict, symbol: str | None) -> list[tuple[str, str, dic
     mb = load(MULTIBAGGER_FILE, {})
     ranked = sorted((r for r in mb.get("ranked", []) if (r.get("score") or 0) >= 3), key=lambda r: r.get("rank") or 1e9)
     out = []
-    for r in ranked:
+    # 16 Nov 2026 (audit): a company that already has a summary shows it on its report, so a newer transcript is
+    # summarised first (Titan showed its Q1 call summary on 16 Nov with the Q2 transcript filed on 11 Nov)
+    stale = sorted(((sym, d) for sym in done if (done.get(sym) or {}).get("tr") and (d := pending(sym, "tr"))),
+                   key=lambda x: str(x[1].get("date") or ""), reverse=True)
+    for sym, d in stale:
+        out.append((sym, "tr", d))
+        if len(out) >= DAILY_LIMIT:
+            return out
+    seen = {o[0] for o in out}
+    for r in (x for x in ranked if x["symbol"] not in seen):
         d = pending(r["symbol"], "tr")
         if d:
             out.append((r["symbol"], "tr", d))

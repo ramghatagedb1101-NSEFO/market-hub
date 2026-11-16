@@ -64,10 +64,23 @@ def _item(row) -> dict:
 def merge(docs: dict, kind: str, items: list[dict]) -> bool:
     """Adds items to docs[kind] (newest first, de-duplicated by URL, capped). True if anything new."""
     have = docs.setdefault(kind, [])
-    urls = {x["url"] for x in have}
-    added = [x for x in items if x.get("url") and x["url"] not in urls]
+    # 16 Nov 2026: NSE lists some PDFs twice, under nsearchives.nseindia.com and .in; one copy by file name (the .in
+    # duplicate also took one of the 4 places kept per kind, pushing an older transcript out)
+    name = lambda u: str(u).rsplit("/", 1)[-1]
+    before = len(have)
+    seen, kept = set(), []
+    for x in have:
+        if name(x.get("url")) not in seen:
+            seen.add(name(x.get("url")))
+            kept.append(x)
+    have[:] = kept
+    added = []
+    for x in items:
+        if x.get("url") and name(x["url"]) not in seen:
+            seen.add(name(x["url"]))
+            added.append(x)
     if not added:
-        return False
+        return len(have) != before
     have.extend(added)
     have.sort(key=lambda x: x.get("date") or "", reverse=True)
     del have[KEEP[kind]:]
