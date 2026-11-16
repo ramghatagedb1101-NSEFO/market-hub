@@ -8,6 +8,22 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   (`hub/breeze_history.py` `save_gz`) did not. It now re-reads the file's version and retries (4 tries).
 - The NIFTY 9 Nov week fill (`hub/breeze_fill.py`) was added after that run; it runs at the next ICICI download.
 
+## Mon 16 Nov 2026, ~23:45 IST: "Matches today's market", every evening
+- Owner: "i want such recommendations to decide. i cant keep asking you every day" (after choosing "Match today's
+  market": how did the market behave over the last 10 sessions, which past stretches looked like it, and which strategy
+  did best in the 30 days after them).
+- `hub/match.py`, a step in the evening daily job: NIFTY's last 10 sessions (move, average daily swing, distance from
+  the 50-day average), the 5 most similar past stretches (separate episodes), and the 5 research ideas that made the
+  most in the 21 sessions after them (every idea with day-by-day results; read from a sparse copy of the private
+  repo's state/bot/results). Writes site/match.json.
+- Dashboard, Strategies: "Matches today's market" with "Use this" (loads the idea into a new strategy exactly as
+  tested). Phone v72, F&O: the top 3. Relay `adminMatch`; 'match' added to the app files.
+- One line on screen says it is a starting point: the same evening's walk-forward test found that choosing this way
+  alone did not beat picking blindly; back-test before trading.
+- Tonight's (Mon 16 Nov 2026): NIFTY +9.7% in 10 sessions, 8.3% above its 50-day average; most like the stretches
+  ending 28 Apr 2025, 25 Mar 2025, 27 Jun 2025, 21 Apr 2026, 5 Dec 2024; best after them: FII cash inflow trend call
+  buy (+₹25,836, 2 of 5), institutional futures short trend put buy (+₹25,204, 4 of 5).
+
 ## Mon 16 Nov 2026, ~23:15 IST: choosing a strategy by its recent results does not work (test)
 - Owner: "based on last 10 days, is there a possibility to select the best possible strategy that has worked historically
   for a 30 day timeframe?" Walk-forward test on every research idea with day-by-day results (4,013 ideas, 348 sessions,

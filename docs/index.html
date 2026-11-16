@@ -368,7 +368,7 @@
     }
     throw lastErr;
   }
-  const APP_FILES = ["feed", "brief", "context", "stocks", "shortlist", "digest", "insights"];
+  const APP_FILES = ["feed", "brief", "context", "stocks", "match", "shortlist", "digest", "insights"];
   let BUNDLE = null;
   function loadBundle(){
     if (!BUNDLE) {
@@ -1029,9 +1029,21 @@
     }catch(e){ return ""; }
   }
 
+  // Market match (16 Nov 2026): strategies that did best after markets like the last 10 sessions (hub/match.py)
+  async function matchCard(){
+    try {
+      const M = await getFile("match"); if (!M || !(M.top || []).length) return "";
+      const n = M.now || {}, sg = v => (v > 0 ? "+" : v < 0 ? "−" : "") + f(Math.abs(v), 1) + "%";
+      const rs = v => (v < 0 ? "−₹" : "+₹") + f(Math.abs(v), 0);
+      return `<div class="sec">Matches today's market · Close · ${esc(dayTxt(parseDay(M.asof)))}</div><div class="panel"><div class="pb">
+        <div class="mut" style="font-size:12px;margin-bottom:6px">Last ${M.look_sessions || 10} sessions: NIFTY ${sg(n.move)}, ${sg(n.vs_ma50)} from its 50-day average. Best after similar stretches:</div>` +
+        M.top.slice(0, 3).map(r => `<div class="row"><span class="l">${esc(r.name)}</span><span class="r ${cls(r.total)}">${rs(r.total)} · ${r.won} of ${(M.stretches || []).length}</span></div>`).join("") +
+        `<div class="note">Use one from the dashboard: Strategies, "Use this". Back-test before trading.</div></div></div>`;
+    } catch(e) { return ""; }
+  }
   async function renderFno(){
     const el = $("#fno-body");
-    const exp0 = await expiryPanel(), exp = exp0 ? `<div id="exp-box">${exp0}</div>` : "";
+    const exp0 = await expiryPanel(), exp = exp0 ? `<div id="exp-box">${exp0}</div>` + await matchCard() : await matchCard();
     if (exp) el.innerHTML = exp;
     const score = await scorePanel();
     // 16 Nov 2026: the index option trades (hub/fno.py) are gone: tested on 2024-2026 ICICI minutes they lost money

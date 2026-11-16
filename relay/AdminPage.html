@@ -1860,6 +1860,25 @@ function stPickIdea(key){
     ST_EDIT = E; ST_PICK = { q: '' }; ST_MSG = 'Loaded “' + E.name + '” exactly as tested. Adjust if you like, then Save.'; rerender(); window.scrollTo({ top: 0 });
   }).catch(e => { ST_MSG = 'Could not load the idea: ' + e.message; rerender(); });
 }
+// Market match (16 Nov 2026, owner: "i want such recommendations to decide. i cant keep asking you every day"): each
+// evening hub/match.py finds the past stretches most like the last 10 sessions and the research ideas that made the most
+// in the 30 days after them; "Use this" loads one into a new strategy exactly as tested.
+function stMatchBox(){
+  if (!S.match && !S.matchLoading) { S.matchLoading = true;
+    call('adminMatch', token).then(d => { S.match = (d.files || {}).match || { error: (d && d.error) || 'not available' }; S.matchLoading = false; rerender(); })
+      .catch(e => { S.match = { error: e.message }; S.matchLoading = false; rerender(); }); }
+  const M = S.match;
+  if (!M || M.error || !(M.top || []).length) return '';
+  const sg = v => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v), 1) + '%';
+  const n = M.now || {}, st = (M.stretches || []).map(x => esc(bDay(dayOf(x.end)))).join(', ');
+  return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Matches today\'s market</h3><span class="muted" style="font-size:12px">Close · ' + esc(bDay(dayOf(M.asof))) + '</span></div><div class="panel-b">' +
+    '<div style="font-size:13px;margin-bottom:8px">Last ' + (M.look_sessions || 10) + ' sessions: NIFTY <b>' + sg(n.move) + '</b>, daily swing ' + num(n.swing, 1) + '%, ' + sg(n.vs_ma50) + ' from its 50-day average. Most like the stretches ending ' + st + '.</div>' +
+    '<table class="t"><tr><th class="l">Strategy</th><th>In the 30 days after</th><th>Worked in</th><th></th></tr>' +
+    M.top.map(r => '<tr><td class="l">' + esc(r.name) + '</td><td class="num ' + cls(r.total) + '">' + botRupee(r.total) + '</td><td class="num">' + r.won + ' of ' + (M.stretches || []).length + '</td>' +
+      '<td class="num"><button class="btn sm" type="button" onclick="stUseIdea(\'' + esc(r.key) + '\')">Use this</button></td></tr>').join('') + '</table>' +
+    '<div class="faint" style="font-size:11.5px;margin-top:6px">A starting point: picking by this alone did not beat picking blindly in the 16 Nov 2026 test. Back-test before trading.</div></div></div>';
+}
+function stUseIdea(key){ ST_EDIT = stGroups(stNew()); ST_PICK = { q: '' }; stPickIdea(key); }
 function stEdit(id){
   const s = id ? (S.strat.items || []).find(x => x.id === id) : null;
   ST_EDIT = s ? JSON.parse(JSON.stringify(s)) : stNew();
@@ -3135,6 +3154,7 @@ function pageStrategies(){
   if (LG.length) h += '<details style="font-size:12px;margin:-6px 0 12px"><summary class="muted" style="cursor:pointer">Last change: ' + esc(LG[0].what) + ' · ' + lgT(LG[0]) + (LG.length > 1 ? ' · see all ' + LG.length : '') + '</summary>' +
     '<table class="t" style="margin-top:6px">' + LG.map(x => '<tr><td class="l" style="white-space:nowrap">' + lgT(x) + '</td><td class="l">' + esc(x.what) + '</td></tr>').join('') + '</table></details>';
   if (ST_MSG) h += '<div class="notice" style="margin-bottom:12px">' + esc(ST_MSG) + '</div>';
+  h += stMatchBox();
   if (auto) h += stAutoPanel(items);
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span class="muted" style="font-size:13px">' + items.length + ' strateg' + (items.length === 1 ? 'y' : 'ies') + '</span><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div>';
   if (!items.length) h += '<div class="panel"><div class="panel-b" style="text-align:center;padding:36px 16px"><div style="font-size:15px;font-weight:600">No strategies yet</div><div class="muted" style="margin:6px 0 14px">Build one from signals, a stop-loss and exits, then back-test it.</div><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div></div>';

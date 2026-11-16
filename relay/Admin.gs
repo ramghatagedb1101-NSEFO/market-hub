@@ -23,7 +23,7 @@ const ADMIN_CODE_SECONDS = 600;        // ten minutes
 const ADMIN_MAX_TRIES = 5;
 // Phone app data: the files the daily jobs keep in the private repo's site/ folder (hub/site_data.py).
 const APP_DIR = 'site';
-const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest', 'insights',
+const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'match', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest', 'insights',
                    'algo'];   // algo: the IBKR paper trading summary (trader/summary.py, 14 Nov 2026)
 
 /**
@@ -252,6 +252,11 @@ function algoWithLive_(algo) {
 }
 
 /** Auto trading (14 Nov 2026): the IBKR paper trading program's trades and daily / monthly profit, as on the phone. */
+/** Market match (16 Nov 2026): strategies that did best after markets like the last 10 sessions (hub/match.py). */
+function adminMatch(token) {
+  return appData_(token, ['match']);
+}
+
 function adminAlgo(token) {
   return appData_(token, ['algo']);
 }

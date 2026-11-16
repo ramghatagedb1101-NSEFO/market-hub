@@ -133,6 +133,15 @@ jobs:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}   # the library's filing matches confirm registry investors
         run: python -m hub.bulkdeals
 
+      - name: Market match (strategies that did best after markets like the last 10 sessions)
+        continue-on-error: true
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          git clone -q --depth 1 --filter=blob:none --sparse "https://x-access-token:${PRIVATE_REPO_TOKEN}@github.com/ramghatagedb1101-NSEFO/market-hub-private.git" "$RUNNER_TEMP/botres"
+          git -C "$RUNNER_TEMP/botres" sparse-checkout set state/bot/results
+          python -m hub.match "$RUNNER_TEMP/botres/state/bot/results"
+
       - name: Write the admin summary to the private repo
         continue-on-error: true
         env:
