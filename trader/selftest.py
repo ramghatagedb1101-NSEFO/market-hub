@@ -700,6 +700,24 @@ def test_kicker_matches_crons():
     ok("kicker: Sat 09:20 IST starts nothing", kicker.due(_dt(2026, 11, 14, 9, 20, tzinfo=kicker.IST)) == [])
 
 
+def test_no_ceiling_when_trailing():
+    """16 Nov 2026: once the trailing stop has taken over, the target no longer caps the trade (owner: "let it multiply")."""
+    ex = {"sl_type": "pct", "sl": 25, "target_type": "pct", "target": 25, "trail_after_type": "pct", "trail_after": 20,
+          "trail_type": "pct", "trail": 10, "exit_by": None, "validity": "DAY"}
+    e = entry({"25000": walk(0, 30, [100, 110, 122, 135, 150, 170, 190, 205, 200, 190, 180, 175])})
+    eng, j = go(e, {(0, 30): [buy(exits=ex)]}, {C})
+    fills = [r for r in j.lines if r["kind"] == "fill"]
+    ok("no ceiling: trailing switched on", "trail-on" in [r["kind"] for r in j.lines])
+    ok("no ceiling: not closed at the 25% target", fills[-1]["tag"] != "target", fills[-1])
+    ok("no ceiling: closed by the trailing stop near 10% under the peak", fills[-1]["tag"] == "trail" and fills[-1]["price"] >= 170,
+       fills[-1])
+    e2 = entry({"25000": walk(0, 30, [100, 104, 108, 112, 115, 118, 119])})
+    ex2 = dict(ex, target=15)
+    eng2, j2 = go(e2, {(0, 30): [buy(exits=ex2)]}, {C})
+    f2 = [r for r in j2.lines if r["kind"] == "fill"]
+    ok("no ceiling: a target below the trailing start still closes", f2[-1]["tag"] == "target", f2[-1])
+
+
 def test_live_push():
     """Live profit (16 Nov 2026): the per-minute helper sends a slim summary in market hours only, built by the same code
     as site/algo.json, with nothing but the screens' fields (no day-by-day lists) and no account number."""
@@ -723,7 +741,7 @@ def test_live_push():
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push]:
+              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

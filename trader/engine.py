@@ -171,7 +171,10 @@ class Engine:
             if not q or not q.mid:
                 continue
             gain = d * (q.mid - e)
-            if ex.get("target") and gain >= _move(e, ex.get("target_type", "pct"), float(ex["target"])):
+            # 16 Nov 2026 (owner: "once it meets a certain percentage and we have a trailing stop loss ... keep the upper
+            # ceiling open"): once the trailing stop has taken over, the target no longer applies
+            if (ex.get("target") and p["state"] != "trail"
+                    and gain >= _move(e, ex.get("target_type", "pct"), float(ex["target"]))):
                 close(f"target reached ({q.mid:g} from {e:g})", "target")
                 continue
             if p["state"] == "stop" and ex.get("trail") and gain >= _move(e, ex.get("trail_after_type", "pct"),
@@ -262,7 +265,9 @@ class Engine:
                         g["peak"] = pnl if g["peak"] is None else max(g["peak"], pnl)
                         if ex.get("sl") and -pnl >= amt(ex.get("sl_type", "pct"), ex["sl"]):
                             g["state"], g["why"], g["tagx"] = "closing", f"stop-loss on the position ({pnl:,.0f})", "stop"
-                        elif ex.get("target") and pnl >= amt(ex.get("target_type", "pct"), ex["target"]):
+                        elif (ex.get("target") and pnl >= amt(ex.get("target_type", "pct"), ex["target"])
+                              and not (ex.get("trail") and g["peak"] >= amt(ex.get("trail_after_type", "pct"),
+                                                                            ex.get("trail_after") or 0))):   # trailing: no ceiling
                             g["state"], g["why"], g["tagx"] = "closing", f"target reached ({pnl:,.0f})", "target"
                         elif (ex.get("trail") and g["peak"] > 0
                               and g["peak"] >= amt(ex.get("trail_after_type", "pct"), ex.get("trail_after") or 0)
