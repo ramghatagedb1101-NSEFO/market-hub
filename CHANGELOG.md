@@ -8,6 +8,11 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   (`hub/breeze_history.py` `save_gz`) did not. It now re-reads the file's version and retries (4 tries).
 - The NIFTY 9 Nov week fill (`hub/breeze_fill.py`) was added after that run; it runs at the next ICICI download.
 
+## Mon 16 Nov 2026, ~17:00 IST: "Data updated" shows the newest update, not the morning batch
+- Owner: "why it is showing morning time? it should be till end of day market hours". The sidebar's "Data updated" was the
+  daily batch's market-context time (08:13), though prices, auto trading, the library and insights update through the day.
+  It now shows the newest of all of them, refreshed with every price update.
+
 ## Mon 16 Nov 2026, 15:36 IST: dashboard release (held for market hours) and the strangle switched on
 - Relay released after the close: Index options page removed and "Today's trade" on Auto trading; live profit (machine
   helper -> relay `algo_live`, screens refresh every 30 s, "Live · HH:MM IST"); strategy builder exit check, no

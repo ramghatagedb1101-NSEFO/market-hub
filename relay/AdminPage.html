@@ -495,9 +495,14 @@ function watchPanel(){
         '<td class="num">' + crore(g.market_value_bucket) + '</td><td class="num">' + (g.pe == null ? '–' : num(g.pe, 1) + '×') + '</td><td class="num ' + cls(g.ret_12m) + '">' + pct(g.ret_12m) + '</td></tr>'; }).join('') +
     '</table>' + (W.live ? '' : '<div class="muted" style="font-size:12px;padding:8px 12px">Returns appear after today\'s Kite login.</div>') + '</div>';
 }
+// 16 Nov 2026 (owner: "why it is showing morning time? it should be till end of day market hours"): the newest of every
+// update the page holds (live prices, auto trading, insights, shortlist, library, the daily batch), not only the batch
 function renderFoot(){
-  const s = (S.admin && S.admin.status) || {};
-  $('sidefoot').innerHTML = s.daily_ts ? 'Data updated ' + esc(bSnap(s.daily_ts).replace(/^As of /, '')) : 'Signed in';
+  const s = (S.admin && S.admin.status) || {}, q = S.quotes || {}, I = INS() || {};
+  const ist = t => { if (!t) return null; const x = String(t); return /[zZ]|[+-]\d\d:?\d\d$/.test(x) ? new Date(new Date(x).getTime() + 5.5 * 3600e3).toISOString().slice(0, 16) : x.slice(0, 16); };
+  const all = [s.daily_ts, q.ts, I.generated, S.sl && S.sl.generated, S.algo && !S.algo.error && S.algo.asof, S.lib && S.lib.generated].map(ist).filter(Boolean).sort();
+  const last = all.length ? all[all.length - 1] : null;
+  $('sidefoot').innerHTML = last ? 'Data updated ' + esc(bSnap(last + '+05:30').replace(/^As of /, '')) : 'Signed in';
 }
 
 // Cell helpers -------------------------------------------------------------------------
@@ -4391,7 +4396,7 @@ function tapeTick(){
       S.ovs = d.overseas.items; try { localStorage.setItem('mh_ovs', JSON.stringify(S.ovs)); } catch (e) {}
       if (d.error) drawBriefBox();
     }
-    if (d && !d.error) { S.quotes = d; drawBriefBox(); }
+    if (d && !d.error) { S.quotes = d; drawBriefBox(); renderFoot(); }
     const el = $('tape'); if (!el) return;
     if (!d || d.error) {
       el.innerHTML = '<span style="color:var(--warn)">Quotes unavailable: ' + esc(d && d.error || 'no answer') + '</span>' +
