@@ -120,7 +120,9 @@ textarea.field{padding:8px 10px}
 .main{min-width:0;display:flex;flex-direction:column}
 .top{position:sticky;top:0;z-index:5;min-height:var(--top-h);display:flex;align-items:center;gap:16px;padding:0 24px;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
 .top .crumb{display:none}
-.tape{display:flex;gap:18px;align-items:baseline;font-size:12px;white-space:nowrap;overflow:hidden;flex:1;min-width:0;-webkit-mask-image:linear-gradient(90deg,#000 92%,transparent);mask-image:linear-gradient(90deg,#000 92%,transparent)}
+.tape{display:flex;gap:18px;align-items:baseline;font-size:12px;white-space:nowrap;overflow-x:auto;overflow-y:hidden;flex:1;min-width:0;scrollbar-width:thin;padding-bottom:2px}
+/* 16 Nov 2026: was overflow hidden + a fade, so CRUDE and everything after it sat under the search box out of reach */
+.tape-sw{display:flex;align-items:center;flex:none}.tape-sw .seg button{padding:2px 7px;font-size:11px}
 .tape:empty{visibility:hidden}
 .tape > span{white-space:nowrap}
 .tape .q{font-variant-numeric:tabular-nums;font-weight:500}
@@ -248,7 +250,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
 
 /* ---------- narrow windows: icon menu ---------- */
 @media (max-width:600px){ .glance{grid-template-columns:repeat(2,minmax(0,1fr))} }
-@media (max-width:1180px){ .g-main{grid-template-columns:1fr} .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .stats{grid-template-columns:repeat(3,minmax(0,1fr))} .tape{display:none} }
+@media (max-width:1180px){ .g-main{grid-template-columns:1fr} .g4{grid-template-columns:repeat(2,minmax(0,1fr))} .stats{grid-template-columns:repeat(3,minmax(0,1fr))} .tape{display:none} .tape-sw{display:none} }
 @media (max-width:960px){
   .shell{grid-template-columns:56px minmax(0,1fr)} .side{padding:12px 6px}
   .side .nav-h,.side .nav a span,.side .nav a .count,.side .brand span,.side-foot{display:none}
@@ -353,6 +355,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
     <div class="main">
       <header class="top">
         <div class="crumb" id="crumb">Overview</div>
+        <div class="tape-sw" id="tape-sw"></div>
         <div class="tape" id="tape"></div>
         <div class="search">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -548,7 +551,7 @@ const M = {
   rev_yoy:['Revenue growth (YoY)','growth','pct',1], profit_yoy:['Profit growth (YoY)','growth','pct',1], eps_yoy:['EPS growth (YoY)','growth','pct',1],
   profit_consistency_8q:['Profit growth quarters (of 8)','growth','int',1], profit_run:['Profit-growth streak (quarters)','growth','int',1],
   net_margin:['Net margin','profit','pct0',1], operating_margin:['Operating margin','profit','pct0',1], roe:['Return on equity','profit','pct0',1], roce:['Return on capital','profit','pct0',1], interest_cover:['Interest cover','profit','x',1],
-  debt_to_equity:['Debt / equity','balance','x',-1], debt_change_1y:['Borrowings vs a year ago','balance','pct',-1], working_capital_days:['Working capital days','balance','int',-1], working_capital_change:['Working capital change (days)','balance','int',-1],
+  debt_to_equity:['Debt / equity','balance','x',-1], debt_change_1y:['Borrowings vs a year ago','balance','rsd',-1], working_capital_days:['Working capital days','balance','int',-1], working_capital_change:['Working capital change (days)','balance','int',-1],
   cfo:['Operating cash flow (yr)','cash','rs',1], cfo_to_pat:['Operating cash / profit','cash','x',1], cfo_margin:['Operating cash margin','cash','pct0',1], cfo_growth:['Operating cash growth','cash','pct',1], fcf:['Free cash flow (yr)','cash','rs',1], capex_to_sales:['Capex / sales','cash','pct0',-1],
   pe:['P/E','value','x',-1], pb:['P/B','value','x',-1], ps:['Price / sales','value','x',-1], market_value_bucket:['Market cap','value','cr',0], dividend_yield:['Dividend yield','value','pct0',1],
   ret_1m:['Return 1M','price','pct',1], ret_3m:['Return 3M','price','pct',1], ret_12m:['Return 12M','price','pct',1], from_52w_high:['From 52-week high','price','pct',1], from_52w_low:['From 52-week low','price','pct',0],
@@ -571,6 +574,7 @@ function fmtMeasure(k, v){
   switch (u) {
     case 'pct': return pct(v); case 'pct0': return num(v, 1) + '%'; case 'pp': return (v > 0 ? '+' : '') + num(v, 2) + ' pp';
     case 'x': return num(v, 2) + '×'; case 'int': return num(v, 0); case 'cr': return crore(v); case 'rs': return crore(rupeesToCr(v));
+    case 'rsd': return (v > 0 ? '+' : v < 0 ? '−' : '') + crore(Math.abs(rupeesToCr(v)));   // a change in rupees (16 Nov 2026: was shown as a % with 15 digits)
     case 'bool': return v ? 'Yes' : 'No'; default: return typeof v === 'number' ? num(v, 2) : esc(v);
   }
 }
@@ -673,13 +677,13 @@ const NAV = [
                ['compare', 'Compare measures', [['explore', 'Scatter']]]]],
   ['Market', [['news', "What's new", [['signals', 'Changes'], ['filings', 'Filings'], ['insider', 'Insider trades'], ['spikes', 'Volume spikes'], ['bulk', 'Bulk deals']]],
               ['calendarg', 'Calendar', [['calendar', 'Results']]]]],
-  ['F&O', [['fnog', 'Option ideas', [['fno', 'Index options'], ['fnostocks', 'NIFTY 50 stocks']]],
+  ['F&O', [['fnog', 'Option ideas', [['fnostocks', 'NIFTY 50 stocks']]],
                ['expiryg', 'Expiry meter', [['expiry', 'Expiry meter']]],
                ['positioning', 'Positioning', [['positions', 'Futures and option prices']]],
                ['paperg', 'Paper trading', [['paper', 'Paper trading'], ['algo', 'Auto trading'], ['strategies', 'Strategies']]],
                ['btg', 'Back-tests', [['backtests', 'Back-tests'], ['ideas', 'Research ideas']]]]]
 ];
-const SETTINGS = ['settings', 'Data and settings', [['health', 'Data health'], ['emails', 'Email alerts'], ['params', 'Measures'], ['tests', 'Back-tests'], ['registry', 'Investor registry']]];
+const SETTINGS = ['settings', 'Data and settings', [['health', 'Data health'], ['emails', 'Email alerts'], ['params', 'Measures'], ['tests', 'Studies'], ['registry', 'Investor registry']]];
 const NAV_ICON = { today: 'overview', portfolio: 'portfolio', shortlist: 'shortlist', screens: 'screener', rankings: 'factors', companies: 'library',
                    sectorsg: 'sectors', compare: 'explore', news: 'signals', calendarg: 'calendar', fnog: 'positions', expiryg: 'expiry', positioning: 'positions', paperg: 'paper', btg: 'factors' };
 const NAV_ITEMS = NAV.flatMap(g => g[1]).concat([SETTINGS]);
@@ -740,16 +744,17 @@ function chartTheme(){
 function go(h){ location.hash = h; }
 function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 
-const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', fno:'Index options', fnostocks:'NIFTY 50 stock options', paper:'Paper trades', algo:'Auto trading', strategies:'Strategies', backtests:'Back-tests', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
-                 registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Back-tests', stock:'Stock report',
+const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', fnostocks:'NIFTY 50 stock options', paper:'Paper trades', algo:'Auto trading', strategies:'Strategies', backtests:'Back-tests', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
+                 registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Studies', stock:'Stock report',
                  screener:'Build a screen', factors:'Rankings', explore:'Compare measures', sectors:'Sectors', signals:"What's new", expiry:'Expiry meter' };
 function rerender(){
   $('crumb').textContent = TITLES[current.page] || '';
   renderNav(); renderHead();
-  $('tape').style.display = current.page === 'overview' ? 'none' : '';   // the Overview shows the same quotes as tiles
+  $('tape').style.display = current.page === 'overview' ? 'none' : '';
+  if ($('tape-sw')) $('tape-sw').style.display = current.page === 'overview' ? 'none' : '';   // Today has its own switch   // the Overview shows the same quotes as tiles
   const f = { overview: pageOverview, shortlist: pageShortlist, multibagger: pageMultibagger, compounders: pageCompounders, library: pageLibrary,
               registry: pageRegistry, bulk: pageBulk, params: pageParams, tests: pageTests, stock: pageStock,
-              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fno: pageFno, fnostocks: pageFnoStocks, paper: pagePaper, algo: pageAlgo, strategies: pageStrategies, backtests: pageBacktests, ideas: pageIdeas,health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
+              screener: pageScreener, factors: pageFactors, explore: pageExplore, sectors: pageSectors, signals: pageSignals, expiry: pageExpiry, portfolio: pagePortfolio, heatmap: pageHeatmap, insider: pageInsider, calendar: pageCalendar, filings: pageFilings, spikes: pageSpikes, positions: pagePositions, fnostocks: pageFnoStocks, paper: pagePaper, algo: pageAlgo, strategies: pageStrategies, backtests: pageBacktests, ideas: pageIdeas,health: pageHealth, emails: pageEmails, watch: () => { $('view').innerHTML = watchPanel().replace('style="margin-top:14px"', ''); } }[current.page] || pageOverview;
   if (current.page !== 'stock' && current.page !== 'explore' && current.page !== 'sectors') destroyCharts();
   if (current.page !== 'expiry') stopExpiry();
   f(current.arg);
@@ -826,7 +831,7 @@ function briefParts(){
   const yr = new Date(Date.now() + 5.5 * 3600e3).getUTCFullYear();
   const ovs = ovsItems().filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym));
   const tiles = [
-    idxTile('NIFTY', 'NIFTY 50'), idxTile('SENSEX', 'SENSEX'), idxTile('BANKNIFTY', 'Bank NIFTY'),
+    idxTile('NIFTY', 'NIFTY 50'), idxTile('SENSEX', 'SENSEX'), idxTile('BANKNIFTY', 'BANK NIFTY'),
     tile('India VIX', vixNow ? fmt(vixNow.last, 2) : '–', vixNow ? chg(vixNow.change_pct, vixNow.last, vixNow.change) : '–', vixNow ? (LQ && LQ.india_vix ? bQuote(LQ.ts, 930) : bSnap(C.ts)) : '', vixNow && vixNow.change_pct),
     // Kite's CDS front-month futures when live, not the spot rate (live audit, 26 Oct 2026): say so
     tile(ex.usd_inr ? 'USD/INR fut' : 'USD/INR', usd ? fmt(usd.last, 2) : (C.fx ? fmt(C.fx.usd_inr, 2) : '–'), usd ? chg(usd.change_pct, usd.last, usd.change, 3) : (C.fx ? 'ECB rate' : '–'),
@@ -894,9 +899,10 @@ function todayShortlist(){
   const L = S.sl && S.sl.lists;
   const head = '<div class="panel"><div class="panel-h"><h3>Shortlist</h3><span class="muted" style="font-size:12px"><a href="#shortlist">Open shortlist</a></span></div>';
   if (!L) return head + (S.sl && S.sl.error ? '<div class="empty">' + esc(S.sl.error) + '</div>' : '<div class="panel-b"><div class="skel"></div></div>') + '</div>';
-  const rows = [].concat((L.compounders.top || []).slice(0, 3).map(x => Object.assign({ style: 'compounders' }, x)), (L.emerging.top || []).slice(0, 3).map(x => Object.assign({ style: 'emerging' }, x)));
-  return head + '<table class="t"><tr><th class="l">Company</th><th class="l">List</th><th>Score</th><th class="l">Top reason</th></tr>' + rows.map(r =>
-    '<tr class="click" onclick="openStock(\'' + esc(r.symbol) + '\')"><td class="l">' + companyCell(r.symbol) + '</td><td class="l">' + slStyle(r.style) + '</td><td>' + scoreChip(r.score) + '</td>' +
+  // 16 Nov 2026: Compounders only (the Emerging list was removed: its gates showed no edge in a 2016-2026 back-test)
+  const rows = ((L.compounders || {}).top || []).slice(0, 6).map(x => Object.assign({ style: 'compounders' }, x));
+  return head + '<table class="t"><tr><th class="l">Company</th><th>Score</th><th class="l">Top reason</th></tr>' + rows.map(r =>
+    '<tr class="click" onclick="openStock(\'' + esc(r.symbol) + '\')"><td class="l">' + companyCell(r.symbol) + '</td><td>' + scoreChip(r.score) + '</td>' +
     '<td class="l muted" style="font-size:12px;max-width:320px;overflow:hidden;text-overflow:ellipsis">' + esc(((r.why || [])[0] || '').replace(/ - better than.*$/, '')) + '</td></tr>').join('') + '</table></div>';
 }
 function todayBrief(P){
@@ -1013,7 +1019,7 @@ function bQuote(ts, closeMin){
   const open = now.getUTCDay() >= 1 && now.getUTCDay() <= 5 && m >= 555 && m <= 930;
   return open && bDay(d) === bDay(now) ? 'Live · ' + bTime(d) : 'Last quote · ' + bTime(d) + ' · ' + bDay(d);
 }
-function setChgAbs(v){ S.chgAbs = v; try { localStorage.setItem('mh_chg_abs', v ? '1' : '0'); } catch (e) {} drawBriefBox(); }
+function setChgAbs(v){ S.chgAbs = v; try { localStorage.setItem('mh_chg_abs', v ? '1' : '0'); } catch (e) {} drawBriefBox(); tapeTick(); }   // the strip follows too
 function drawBriefBox(){ if (current.page === 'overview') rerender(); }
 function briefBars(items){
   const max = Math.max(...items.map(i => Math.abs(i.v) || 0), 0.01);
@@ -1137,7 +1143,10 @@ function pageHeatmap(){
     inner.forEach(c => { const big = c.w > 44 && c.h > 22, vv = HM_BY === 'dd' ? c.dd : c[HM_BY];
       cells += '<div title="' + esc(c.s + ' · ' + (vv == null ? '–' : num(vv, 1) + '%')) + '" onclick="openStock(\'' + esc(c.s) + '\')" style="cursor:pointer;position:absolute;left:' + (c.x / W * 100) + '%;top:' + (c.y / Hh * 100) + '%;width:' + (c.w / W * 100) + '%;height:' + (c.h / Hh * 100) + '%;background:' + heatColor(val(c), range) + ';border:1px solid var(--panel);box-sizing:border-box;overflow:hidden;font-size:10.5px;line-height:1.2;padding:2px 3px;color:#fff">' + (big ? '<b>' + esc(c.s) + '</b><br>' + (vv == null ? '' : num(vv, 1) + '%') : '') + '</div>'; });
   });
-  v.innerHTML = '<div class="toolbar">' + seg2('HM_BY', HM_BY, [['d1', 'Today'], ['m1', '1 month'], ['dd', 'From 52-week high']]) + '<span class="muted" style="margin-left:auto;font-size:12px">' + num(rows.length, 0) + ' largest companies · size = market cap · ' + esc(fmtTs(I.generated)) + '</span></div>' +
+  // 16 Nov 2026: the day's moves are the last session's (insights.session); before that session ends they are not "today"
+  const sess = I.session ? dayOf(I.session) : null, istToday = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
+  const dayLbl = I.session && I.session < istToday ? 'Last session' : 'Today';
+  v.innerHTML = '<div class="toolbar">' + seg2('HM_BY', HM_BY, [['d1', dayLbl], ['m1', '1 month'], ['dd', 'From 52-week high']]) + '<span class="muted" style="margin-left:auto;font-size:12px">' + num(rows.length, 0) + ' largest companies · size = market cap · ' + (sess ? 'Close · ' + esc(bDay(sess)) : esc(fmtTs(I.generated))) + '</span></div>' +
     '<div class="panel"><div style="position:relative;width:100%;aspect-ratio:1000/620">' + cells + '</div></div>' +
     (HM_BY === 'dd' ? '<div class="muted" style="font-size:12px;margin-top:6px">Green: within 20% of the 52-week high; red: further below.</div>' : '');
 }
@@ -1157,7 +1166,7 @@ function pageInsider(){
     '<div class="toolbar">' + seg2('INS_F', INS_F, [['mine', 'Yours'], ['buy', 'Promoters buying'], ['all', 'All']]) + '</div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th><th>Bought</th><th>Sold</th><th>Promoters net</th><th>Trades</th><th class="l">Latest</th></tr></thead><tbody>' +
     (rows.map(r => { const l = (r.rows || [])[0];
-      return '<tr class="click" onclick="openStock(\'' + esc(r.s) + '\')"><td class="l">' + companyCell(r.s) + '</td><td class="num">' + crTxt(r.buy) + '</td><td class="num">' + crTxt(r.sell) + '</td>' +
+      return '<tr class="click" onclick="openStock(\'' + esc(r.s) + '\')"><td class="l">' + companyCell(r.s) + '</td><td class="num">' + (r.buy ? crTxt(r.buy) : '–') + '</td><td class="num">' + (r.sell ? crTxt(r.sell) : '–') + '</td>' +
         '<td class="num ' + cls(r.promoter_net) + '">' + (r.promoter_net ? (r.promoter_net > 0 ? '+' : '−') + crTxt(r.promoter_net) : '–') + '</td><td class="num">' + r.n + '</td>' +
         '<td class="l wrap" style="font-size:12.5px">' + (l ? esc(bDay(dayOf(l.d))) + ' · ' + esc(l.who) + ' (' + esc(l.cat) + ') ' + (l.k === 'Buy' ? 'bought' : 'sold') + ' ' + crTxt(l.v) : '') + '</td></tr>'; }).join('') ||
       '<tr><td colspan="6" class="empty">No trades for this filter.</td></tr>') + '</tbody></table></div>';
@@ -1195,7 +1204,7 @@ function pageFilings(){
 function pageSpikes(){
   const v = $('view'); if (insWait(v)) return;
   const I = INS(), rows = I.spikes || [];
-  v.innerHTML = '<div class="page-head"><div><p class="sub">Volume at least 3 times its 20-day average, with half or more taken for delivery. Last trading day.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Volume at least 3 times its 20-day average, with half or more taken for delivery. ' + (I.session ? 'Close · ' + esc(bDay(dayOf(I.session))) : 'Last trading day') + '.</p></div></div>' +
     '<div class="tbl-wrap"><table class="t"><thead><tr><th class="l">Company</th><th>Volume vs average</th><th>Delivery</th><th>Price change</th><th>Traded</th></tr></thead><tbody>' +
     (rows.map(r => '<tr class="click" onclick="openStock(\'' + esc(r.s) + '\')"><td class="l">' + companyCell(r.s) + '</td><td class="num">' + num(r.x, 1) + '×</td><td class="num">' + num(r.dl, 0) + '%</td><td class="num ' + cls(r.d1) + '">' + pct(r.d1, 2) + '</td><td class="num">₹' + num(r.cr, 1) + ' cr</td></tr>').join('') ||
       '<tr><td colspan="5" class="empty">None today.</td></tr>') + '</tbody></table></div>';
@@ -1204,8 +1213,8 @@ function pageSpikes(){
 // ---- F&O positions and option prices ----
 let POS_WHO = 'FII';
 let POS_IV = 'NIFTY';
-// F&O option ideas (13 Nov 2026): the phone's F&O suggestions -- hub/fno.py's index structures (site/fno.json) and the
-// NIFTY 50 stock option screen (site/stocks.json) -- through the relay's adminFno.
+// F&O option ideas (13 Nov 2026): the NIFTY 50 stock option screen (site/stocks.json) through the relay's adminFno. The
+// index option trades (hub/fno.py) were removed on 16 Nov 2026: tested on 2024-2026 ICICI minutes they lost money.
 function fnoLoad(){
   if (S.fno) return;
   S.fno = { loading: true };
@@ -1217,34 +1226,6 @@ function fnoWait(v){
   if (S.fno.loading) { v.innerHTML = loadingBlock('Loading…'); return true; }
   if (S.fno.error) { v.innerHTML = errBlock('Not available yet: ' + S.fno.error); return true; }
   return false;
-}
-function fnoView(v){
-  const head = '<div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><b>' + esc(v.label) + ' · ' + esc(bDay(dayOf(v.expiry)) || v.expiry) + '</b>' +
-    '<span class="' + (v.structure ? '' : 'muted') + '">' + esc(v.structure || 'no trade') + '</span></div>';
-  if (!v.structure) return '<div style="padding:10px 0;border-bottom:1px solid var(--line2)">' + head + '<div class="muted" style="font-size:12.5px;margin-top:4px">' + esc(v.reason || '') + '</div></div>';
-  const credit = v.net_per_unit > 0;
-  const legs = (v.legs || []).map(l => '<tr><td class="l">' + esc(l.action + ' ' + l.type) + '</td><td class="num">' + num(l.strike, 0) + '</td><td class="num">' + (l.price == null ? '–' : num(l.price, 2)) + '</td></tr>').join('');
-  return '<div style="padding:10px 0;border-bottom:1px solid var(--line2)">' + head +
-    '<div class="grid g4" style="margin:10px 0">' +
-      [[credit ? 'Credit / unit' : 'Debit / unit', num(Math.abs(v.net_per_unit), 2)], ['Max loss / lot', v.max_loss_per_lot == null ? '–' : '₹' + num(v.max_loss_per_lot, 0)],
-       ['Breakevens', (v.breakevens || []).map(b => num(b, 0)).join(' / ')], ['PCR (OI)', v.pcr == null ? '–' : num(v.pcr, 2)]]
-        .map(([k, x]) => '<div class="panel kpi"><div class="k">' + k + '</div><div class="v" style="font-size:18px">' + x + '</div></div>').join('') + '</div>' +
-    '<table class="t"><tr><th class="l">Leg</th><th>Strike</th><th>Premium</th></tr>' + legs + '</table>' +
-    '<div class="muted" style="font-size:12.5px;margin-top:6px">' + esc(v.reason || '') + (v.band ? ' Band ' + num(v.band[0], 0) + ' – ' + num(v.band[1], 0) + '.' : '') + '</div></div>';
-}
-function pageFno(){
-  const v = $('view'); if (fnoWait(v)) return;
-  const D = S.fno.fno || {};
-  if (D.error || !D.underlyings) { v.innerHTML = errBlock('No index option ideas yet' + (D.error ? ': ' + D.error : '.')); return; }
-  const names = { NIFTY: 'NIFTY 50', BANKNIFTY: 'BANK NIFTY', SENSEX: 'SENSEX' };
-  v.innerHTML = '<div class="page-head"><div><p class="sub">A trade for each index\'s next expiries, built around the forecast\'s 80% band. Premiums are last traded prices.' +
-    (D.ts ? ' ' + esc(bSnap(D.ts)) + '.' : '') + '</p></div></div>' +
-    Object.keys(D.underlyings).map(u => { const b = D.underlyings[u];
-      const chain = b.expiring_today ? '<details style="margin-top:10px"><summary>Chain expiring today (data only)</summary><table class="t"><tr><th>Strike</th><th>CE</th><th>PE</th></tr>' +
-        b.expiring_today.rows.map(r => '<tr><td class="num">' + num(r.strike, 0) + '</td><td class="num">' + (r.ce_ltp == null ? '–' : num(r.ce_ltp, 2)) + '</td><td class="num">' + (r.pe_ltp == null ? '–' : num(r.pe_ltp, 2)) + '</td></tr>').join('') + '</table></details>' : '';
-      return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>' + esc(names[u] || u) + '</h3><span class="muted" style="font-size:12px">spot ' + num(b.spot, 2) + '</span></div><div class="panel-b">' +
-        (b.views || []).map(fnoView).join('') + chain + '</div></div>'; }).join('') +
-    '<div class="muted" style="font-size:12px">' + esc(D.disclaimer || '') + ' Check margin and your own risk limits before placing anything.</div>';
 }
 const FNO_CAT = { earnings: 'Earnings inside the contract window', iv_low: 'IV rank below the 30 gate', iv_unmeasurable: 'IV rank not measurable',
   delivery: 'Delivery below the 40% gate', zero_credit: 'Pays nothing at worst-case fill', low_reward: 'Credit too thin for the risk',
@@ -1284,7 +1265,7 @@ function pagePositions(){
   const cards = ['FII', 'DII', 'Pro', 'Client'].map(w => { const r = days.length ? ratio(days[days.length - 1], w) : null, r5 = days.length > 5 ? ratio(days[days.length - 6], w) : null;
     return '<div class="panel kpi"><div class="k">' + w + ' index futures long</div><div class="v">' + (r == null ? '–' : num(r, 0) + '%') + '</div><div class="s ' + cls(r != null && r5 != null ? r - r5 : null) + '">' + (r != null && r5 != null ? (r - r5 >= 0 ? '+' : '') + num(r - r5, 1) + ' pts in a week' : '') + '</div></div>'; }).join('');
   const iv = I.iv || {};
-  const ivRows = Object.keys(iv).map(k => '<tr><td class="l"><b>' + esc(k) + '</b></td><td class="num">' + num(iv[k].last[1], 2) + '%</td><td class="num">' + esc(bDay(dayOf(iv[k].last[0]))) + '</td><td class="num">' + (iv[k].rank == null ? '–' : iv[k].rank) + '</td><td class="l muted" style="font-size:12px">' + (iv[k].rank >= 70 ? 'options dear' : iv[k].rank <= 30 ? 'options cheap' : 'middle') + '</td></tr>').join('');
+  const ivRows = Object.keys(iv).map(k => '<tr><td class="l"><b>' + esc(k === 'BANKNIFTY' ? 'BANK NIFTY' : k) + '</b></td><td class="num">' + num(iv[k].last[1], 2) + '%</td><td class="num">' + esc(bDay(dayOf(iv[k].last[0]))) + '</td><td class="num">' + (iv[k].rank == null ? '–' : iv[k].rank) + '</td><td class="l muted" style="font-size:12px">' + (iv[k].rank >= 70 ? 'options dear' : iv[k].rank <= 30 ? 'options cheap' : 'middle') + '</td></tr>').join('');
   v.innerHTML = '<div class="page-head"><div><p class="sub">Who holds index futures long or short (NSE, after each close): FIIs under about 20% long means they are heavily short. And how dear index options were before the latest expiry: dear favours selling options, cheap favours buying. Background only: not used in the forecasts.' + (days.length ? ' Positions: ' + esc(bClose(days[days.length - 1])) + '.' : '') + '</p></div></div>' +
     '<div class="grid g4" style="margin-bottom:14px">' + cards + '</div>' +
     '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Share of index futures held long</h3>' + seg2('POS_WHO', POS_WHO, [['FII', 'FII'], ['DII', 'DII'], ['Pro', 'Pro'], ['Client', 'Client']]) + '</div><div class="panel-b"><div class="chart" style="height:260px"><canvas id="cPos"></canvas></div></div></div>' +
@@ -1614,7 +1595,15 @@ function mhDialog(o){
 // ---- Auto trading (14 Nov 2026, owner: "a screen ... to see the trades summary and daily/monthly profit or loss"): the
 // IBKR paper trading program (trader/), from site/algo.json, which GitHub refreshes every 10 minutes in market hours.
 let ALGO_TAB = 'daily';
-function algoLoad(){ S.algoLoading = true; call('adminAlgo', token).then(d => { S.algo = (d.files || {}).algo || d; S.algoLoading = false; rerender(); }).catch(e => { S.algo = { error: e.message }; S.algoLoading = false; rerender(); }); }
+function algoLoad(){ S.algoLoading = true; call('adminAlgo', token).then(d => { const a = (d.files || {}).algo || d;
+  if (!(a && a.error && S.algo && !S.algo.error)) S.algo = a; S.algoLoading = false; rerender(); })      // a failed refresh keeps what is shown
+  .catch(e => { if (!S.algo || S.algo.error) S.algo = { error: e.message }; S.algoLoading = false; rerender(); }); }
+// Live profit (16 Nov 2026): the trading machine sends its figures every minute in market hours (relay algo_live); while
+// Auto trading is open they are fetched again every 30 seconds.
+// 16 Nov 2026: also the Autopilot box on Strategies (it showed "Not read yet" from a copy loaded before 09:30), but not
+// while a strategy is being edited, so a refresh never interrupts typing
+setInterval(() => { if (!document.hidden && marketHoursIst() && !S.algoLoading && S.algo &&
+  (current.page === 'algo' || (current.page === 'strategies' && !ST_EDIT && S.strat && S.strat.mode === 'autopilot'))) algoLoad(); }, 30000);
 const algoWhen = t => t ? bDay(dayOf(t)) + ', ' + String(t).slice(11, 16) + ' IST' : '';
 function algoName(k){
   const p = String(k || '').split(' '); if (p.length < 3) return esc(k);
@@ -1647,20 +1636,43 @@ function algoStatus(A){
   const ap = st.autopilot ? '<span class="chip brand" title="' + esc(st.autopilot.why || '') + '">Autopilot · ' + esc(COND[st.autopilot.regime] || 'reading the market') + '</span> ' : '';
   return ap + '<span class="chip ' + (on ? 'up' : '') + '">' + (on ? 'Trading · ' + esc(st.strategy.replace(/_/g, ' ')) : 'Watching only') + '</span>';
 }
+// Today's trade (16 Nov 2026, replaces the untested Index options page): what the program is running today and how that
+// strategy did in its latest back-test, so a trade is never shown without its record.
+function algoToday(A){
+  if (!S.strat && !S.stratLoading) stLoad();
+  const st = A.status || {}, SS = (S.strat && !S.strat.error) ? S.strat : null;
+  const name = st.autopilot ? st.autopilot.strategy : (st.strategy && st.strategy !== 'watch only' && st.strategy !== 'autopilot' ? st.strategy : null);
+  const items = (SS && SS.items) || [];
+  const s = name ? (items.find(x => x.name === name) || items.find(x => x.id === SS.active)) : null;
+  const b = s && SS.backtests ? SS.backtests[s.id] : null;
+  let body;
+  if (!name) body = '<div style="font-size:15px;font-weight:600">No trade today</div><div class="muted" style="font-size:12.5px;margin-top:2px">' +
+      (st.autopilot ? 'Autopilot found no strategy that suits the market now. Next check at 11:00 or 13:00.' : 'No strategy is switched on, so the program only watches.') + '</div>';
+  else {
+    const n = b ? Number(b.trades) || 0 : 0, p = b ? Number(b.profit) || 0 : 0;
+    const rec = !SS ? '<span class="muted">Loading its record…</span>' : !b ? '<span class="chip warn">Not back-tested yet</span>' :
+      '<span class="chip ' + (n && p > 0 ? 'up' : 'down') + '">' + (n && p > 0 ? 'Made money in its back-test' : 'Lost money in its back-test') + '</span> ' +
+      '<span class="muted" style="font-size:12.5px">' + n + ' trades · ' + (n ? Math.round(100 * Number(b.wins) / n) : 0) + '% won · ' + ppSigned(p) + ' after charges' +
+      (b.sessions ? ' · ' + num(Number(b.sessions), 0) + ' sessions' : '') + (b.ran ? ' · tested ' + esc(bDay(dayOf(b.ran))) : '') + '</span>';
+    body = '<div style="font-size:15px;font-weight:600">' + esc(name.replace(/_/g, ' ')) + '</div><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">' + rec + '</div>';
+  }
+  return '<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>Today\'s trade</h3><a href="javascript:void 0" onclick="go(\'strategies\')" style="font-size:12.5px">Strategies</a></div><div class="panel-b">' + body + '</div></div>';
+}
 function pageAlgo(){
   const v = $('view');
   if (!S.algo) { if (!S.algoLoading) algoLoad(); v.innerHTML = loadingBlock('Loading…'); return; }
   if (S.algo.error) { v.innerHTML = errBlock(S.algo.error === 'not published yet' ? 'Nothing yet: the summary appears after the program first runs.' : S.algo.error); return; }
   const A = S.algo, T = A.totals || {}, D = A.days || [], M = A.months || [], TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
   const stat = (k, val, sub) => '<div><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="w">' + sub + '</div></div>';
-  const asof = A.asof ? 'As of ' + String(A.asof).slice(11, 16) + ' IST · ' + bDay(dayOf(A.asof)) : '';
+  const asof = A.asof ? (A.live && marketHoursIst() ? 'Live · ' + String(A.asof).slice(11, 16) + ' IST' : 'As of ' + String(A.asof).slice(11, 16) + ' IST · ' + bDay(dayOf(A.asof))) : '';
   let html = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-8px 0 12px">' + algoStatus(A) +
     '<span class="muted" style="font-size:12px">IBKR paper account · ' + esc(asof) + ' · <a href="javascript:void 0" onclick="S.algo=null;rerender()">Refresh</a></span></div>';
+  html += algoToday(A);
   const wr = T.trades ? Math.round(100 * T.wins / T.trades) + '% won' : 'no trades yet';
   html += '<div class="strip" style="margin-bottom:16px">' +
     stat('Today', ppSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + ' closed' + (O.length ? ' · ' + O.length + ' open' : '')) +
-    stat('This month', ppSigned(MO.booked || 0), (MO.trades || 0) + ' trades') +
-    stat('All time', ppSigned(T.booked || 0), (T.trades || 0) + ' trades · ' + wr) +
+    stat('This month', ppSigned(MO.booked || 0), (MO.trades || 0) + ((MO.trades || 0) === 1 ? ' trade' : ' trades')) +
+    stat('All time', ppSigned(T.booked || 0), (T.trades || 0) + ((T.trades || 0) === 1 ? ' trade · ' : ' trades · ') + wr) +
     stat('Average win / loss', '<span style="white-space:nowrap;font-size:.78em">' + (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–') + '</span>', 'per trade, after charges') +
     stat('Worst fall', ppSigned(T.worst_drop || 0), 'from a high, day by day') + '</div>';
   if (!T.trades && !O.length && !P.length) {
@@ -1735,7 +1747,8 @@ function stNew(){
 function stLoad(){ S.stratLoading = true; call('adminStrategies', token).then(d => { S.strat = d; S.stratLoading = false; rerender(); }).catch(e => { S.strat = { error: e.message }; S.stratLoading = false; rerender(); }); }
 function stDo(fn, args, msg, after){
   ST_MSG = msg; rerender();
-  call(fn, token, ...args).then(d => { if (d.error) { ST_MSG = d.error; } else { S.strat = d; ST_MSG = after(d); } rerender(); })
+  // 16 Nov 2026: only a full strategies view replaces the page's copy (a back-test start answers {ok, started}; the list went blank)
+  call(fn, token, ...args).then(d => { if (d.error) { ST_MSG = d.error; } else { if (Array.isArray(d.items)) S.strat = d; ST_MSG = after(d); } rerender(); })
     .catch(e => { ST_MSG = e.message; rerender(); });
 }
 const ST_TIMES = (() => { const out = []; for (let m = 555; m <= 945; m += 5) out.push(String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0')); return out; })();
@@ -1768,16 +1781,17 @@ function stSide(){
   if (!multi && E.side === 'SELL' && !Number(X.sl)) warn.push('A sold option with no stop-loss has no limit on its loss.');
   if (multi && ['straddle', 'strangle'].indexOf(stKindOf(E)) >= 0 && (E.structure || {}).side === 'SELL' && !Number(X.sl)) warn.push('No stop-loss: only the emergency stop at 3× each leg’s price limits the loss.');
   if (E.expiry !== 'nearest') warn.push('Back-tests cover the nearest expiry only, for now.');
+  { const chk = stExitCheck(E); chk.stop.concat(chk.warn).forEach(w => warn.push(w)); }
   return '<div class="panel"><div class="panel-h"><h3>Summary</h3></div><div class="panel-b">' + stRiskBlock(E) +
     '<b>' + esc(E.name || 'Unnamed') + '</b><ul>' +
     '<li>' + esc(multi ? whatM : what) + '</li>' +
     '<li>' + (both ? 'Between ' + E.window.from + '–' + E.window.until + (when ? ': ' + esc(when) : '') : 'Enters ' + E.window.from + '–' + E.window.until + (when ? ' when ' + esc(when) : '')) + '.</li>' +
     (multi ? '<li>On the whole position: stop-loss ' + (Number(X.sl) ? uM(X.sl_type, X.sl) : 'none') +
-      (Number(X.target) ? '; target ' + uM(X.target_type, X.target) : '') +
-      (Number(X.trail) ? '; once ' + uM(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + uM(X.trail_type, X.trail) + ' behind the best' : '') + '.</li>'
+      (Number(X.target) && !Number(X.trail) ? '; target ' + uM(X.target_type, X.target) : '') +
+      (Number(X.trail) ? '; once ' + uM(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + uM(X.trail_type, X.trail) + ' behind the best, no profit ceiling' : '') + '.</li>'
     : '<li>Stop-loss ' + (Number(X.sl) ? u(X.sl_type, X.sl) + (E.side === 'BUY' ? ' below' : ' above') + ' the entry, held by IBKR' : 'none') +
-      (Number(X.target) ? '; target ' + u(X.target_type, X.target) : '') +
-      (Number(X.trail) ? '; once ' + u(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + u(X.trail_type, X.trail) + ' behind the best price' : '') + '.</li>') +
+      (Number(X.target) && !Number(X.trail) ? '; target ' + u(X.target_type, X.target) : '') +
+      (Number(X.trail) ? '; once ' + u(X.trail_after_type, X.trail_after) + ' up, a trailing stop ' + u(X.trail_type, X.trail) + ' behind the best price, no profit ceiling' : '') + '.</li>') +
     '<li>' + (E.style === 'carry' ? 'Carry: the stop stays good till cancelled; held overnight.' : 'Intraday: everything closed by ' + X.exit_by + '; stops are day orders.') + '</li>' +
     '<li>Autopilot: ' + ((E.conditions || []).length ? 'considered on ' + (E.conditions || []).map(c => COND[c].toLowerCase()).join(', ') + ' days' : 'not considered (no market condition ticked)') + '.</li>' +
     '<li>At most ' + E.max_trades_day + ' trade' + (E.max_trades_day == 1 ? '' : 's') + ' a day' + (Number(E.max_loss_day) ? '; stops for the day after a ₹' + num(Number(E.max_loss_day), 0) + ' loss' : '; no day’s loss limit of its own') + '; waits ' + E.reentry_gap + ' min between trades.</li></ul>' +
@@ -1836,7 +1850,26 @@ function stLegsText(E){
   return '';
 }
 function stCopy(id){ const s = (S.strat.items || []).find(x => x.id === id); if (!s) return; ST_EDIT = stGroups(JSON.parse(JSON.stringify(s))); delete ST_EDIT.id; ST_EDIT.name = s.name + ' (copy)'; ST_MSG = ''; rerender(); window.scrollTo({ top: 0 }); }
+// Exits that work against each other (16 Nov 2026, owner: "how does this target and trail stop loss make sense? 25%
+// target and trail is at 10% after 20"; "correct all such errors"; "do setup trades that make sense"). stop: refused at
+// Save, with the reason; warn: shown in the summary only.
+function stExitCheck(E){
+  const X = E.exits || {}, multi = stKindOf(E) !== 'single', sell = multi ? (E.structure || {}).side === 'SELL' : E.side === 'SELL';
+  const n = k => Number(X[k]) || 0, same = (a, b) => (X[a] || 'pct') === (X[b] || 'pct');
+  const unit = t => (X[t] || 'pct') === 'points' ? (multi ? ' ₹' : ' points') : '%';
+  const stop = [], warn = [], sl = n('sl'), tg = n('target'), ta = n('trail_after'), tr = n('trail');
+  if (sell && tg > 100 && (X.target_type || 'pct') === 'pct') stop.push('A target above 100% cannot be reached when selling: the most you keep is the whole premium (100%).');
+  // with a trailing stop there is no ceiling (owner, 16 Nov 2026): a target above the trailing start is dropped at Save
+  // (trader/engine.py ignores it once trailing); one at or below it would close the trade before the trailing stop starts
+  if (tr > 0 && tg > 0 && same('trail_after_type', 'target_type') && tg <= ta) stop.push('The +' + tg + unit('target_type') + ' target closes the trade before the trailing stop starts at +' + ta + unit('trail_after_type') + ', so the trailing stop never acts. Set the target to 0 (no ceiling) or start the trailing stop lower.');
+  if (tr > 0 && same('trail_type', 'trail_after_type') && tr >= ta) stop.push('The trailing distance (' + tr + unit('trail_type') + ') is as wide as the gain it starts at (+' + ta + unit('trail_after_type') + '), so a trailed trade can still close at a loss. Make the distance smaller than the starting gain.');
+  if (!sell && tg > 0 && sl > 0 && same('target_type', 'sl_type') && tg <= sl) warn.push('The target (+' + tg + unit('target_type') + ') is no bigger than the stop-loss (−' + sl + unit('sl_type') + '): it has to win far more often than it loses to make money.');
+  return { stop: stop, warn: warn };
+}
 function stSave(){
+  const chk = stExitCheck(ST_EDIT);
+  if (chk.stop.length) { ST_MSG = chk.stop[0]; rerender(); return; }
+  { const X = ST_EDIT.exits || {}; if (Number(X.trail) > 0 && Number(X.target) > 0) X.target = 0; }   // trailing: no ceiling
   ST_EDIT.groups = ST_EDIT.groups.filter(g => g.signals.length);
   if (!ST_EDIT.groups.length) { ST_EDIT.groups = [{ match: 'all', signals: [] }]; ST_MSG = 'Add at least one signal' + (stBothOn(ST_EDIT) ? ' for the call' : '') + ': without one the strategy never trades.'; rerender(); return; }
   if (stBothOn(ST_EDIT)) {
@@ -1931,7 +1964,7 @@ function stLine(s){
   return (s.side === 'BUY' ? 'Buy ' : 'Sell ') + stIdx(s.index) + ' ' + (s.right === 'P' ? 'PE' : 'CE') + ' · ' +
     (s.strike.mode === 'premium' ? 'price near ₹' + s.strike.near : s.strike.steps ? Math.abs(s.strike.steps) + ' strike' + (Math.abs(s.strike.steps) > 1 ? 's' : '') + (s.strike.steps > 0 ? ' out of' : ' in') + ' the money' : 'at the money') +
     ' · ' + s.expiry + ' expiry · ' + s.lots + ' lot' + (s.lots > 1 ? 's' : '') + ' · ' + (s.style === 'carry' ? 'carry' : 'intraday, out by ' + e.exit_by) +
-    ' · stop ' + (e.sl ? u(e.sl_type, e.sl) : 'none') + (e.target ? ' · target ' + u(e.target_type, e.target) : '') + (e.trail ? ' · trail ' + u(e.trail_type, e.trail) + ' after ' + u(e.trail_after_type, e.trail_after) : '');
+    ' · stop ' + (e.sl ? u(e.sl_type, e.sl) : 'none') + (e.target && !e.trail ? ' · target ' + u(e.target_type, e.target) : '') + (e.trail ? ' · trail ' + u(e.trail_type, e.trail) + ' after ' + u(e.trail_after_type, e.trail_after) + ', no ceiling' : '');
 }
 // ---- Sliders and the risk style (owner, 14 Nov 2026: "a dragging bar where I can just drag it based on preset numbers,
 // or even type my own"; "mimic ... whether this is a defensive or aggressive or balanced type of selection").
@@ -1939,7 +1972,7 @@ function stLine(s){
 // outside the slider's range). [min, max, step, presets] by field and unit.
 const ST_RANGE = {
   sl: { pct: [0, 60, 1, [0, 15, 20, 25, 30, 40]], points: [0, 200, 5, [0, 10, 20, 30, 50, 100]] },
-  target: { pct: [0, 200, 5, [0, 25, 50, 75, 100]], points: [0, 300, 5, [0, 20, 40, 60, 100]] },
+  target: { pct: [0, 300, 5, [0, 50, 100, 150, 200]], points: [0, 300, 5, [0, 20, 40, 60, 100]] },     // buys; sells: [0, 100] (rng in the form)
   trail_after: { pct: [0, 100, 1, [10, 20, 30, 50]], points: [0, 200, 5, [10, 20, 30, 50]] },
   trail: { pct: [0, 40, 1, [0, 5, 10, 15, 20]], points: [0, 100, 1, [0, 5, 10, 20, 30]] },
   lots: [1, 10, 1, [1, 2, 3, 5]], steps: [-5, 10, 1, [-2, 0, 1, 2, 3, 5]], near: [10, 500, 5, [30, 50, 100, 150, 200]],
@@ -2652,12 +2685,14 @@ function stForm(){
     row(whenOf('put_groups').replace(/^, w/, 'W')) + groupsOf('put_groups'));
   // a multi-leg position: exits on its combined profit, as % of the premium or in rupees (trader/engine.py _manage_groups)
   const MULTI = stKindOf(E) !== 'single', RUPEES = { sl: [0, 20000, 250, [1000, 2000, 3000, 5000]], target: [0, 20000, 250, [1000, 2000, 3000, 5000]], trail_after: [0, 20000, 250, [1000, 2000, 3000]], trail: [0, 10000, 250, [500, 1000, 2000]] };
-  const rng = (k, t) => MULTI && t === 'points' ? RUPEES[k] : MULTI && t !== 'points' && k === 'sl' ? [0, 300, 5, [0, 50, 100, 150, 200]] : ST_RANGE[k][t === 'points' ? 'points' : 'pct'];
+  const SELLING = MULTI ? (E.structure || {}).side === 'SELL' : E.side === 'SELL';
+  const rng = (k, t) => MULTI && t === 'points' ? RUPEES[k] : MULTI && t !== 'points' && k === 'sl' ? [0, 300, 5, [0, 50, 100, 150, 200]]
+    : k === 'target' && t !== 'points' && SELLING ? [0, 100, 5, [0, 25, 50, 75, 100]] : ST_RANGE[k][t === 'points' ? 'points' : 'pct'];
   const u = t => t === 'points' ? (MULTI ? '₹' : 'pts') : (MULTI ? '% of premium' : '%');
   unit = (path, v) => seg(path, v || 'pct', MULTI ? [['pct', '% of premium'], ['points', '₹']] : [['pct', '%'], ['points', 'pts']]);
   h += sec('Exits',
     pr('Stop-loss', MULTI ? 'loss on the whole position · 0 = none' : (E.side === 'BUY' ? 'below' : 'above') + ' the entry, held by IBKR · 0 = none', unit('exits.sl_type', X.sl_type) + '<div style="margin-top:8px">' + stSlider('exits.sl', X.sl, rng('sl', X.sl_type), u(X.sl_type)) + '</div>') +
-    pr('Target', 'close in profit · 0 = none', unit('exits.target_type', X.target_type) + '<div style="margin-top:8px">' + stSlider('exits.target', X.target, rng('target', X.target_type), u(X.target_type)) + '</div>') +
+    pr('Target', Number(X.trail) ? 'not used with a trailing stop: no ceiling' : 'close in profit · 0 = none', unit('exits.target_type', X.target_type) + '<div style="margin-top:8px">' + stSlider('exits.target', X.target, rng('target', X.target_type), u(X.target_type)) + '</div>') +
     pr('Trailing stop starts', 'once this far in profit', unit('exits.trail_after_type', X.trail_after_type) + '<div style="margin-top:8px">' + stSlider('exits.trail_after', X.trail_after, rng('trail_after', X.trail_after_type), u(X.trail_after_type)) + '</div>') +
     pr('Trailing distance', 'behind the best price · 0 = no trailing', unit('exits.trail_type', X.trail_type) + '<div style="margin-top:8px">' + stSlider('exits.trail', X.trail, rng('trail', X.trail_type), u(X.trail_type)) + '</div>') +
     pr('Order type', E.style === 'intraday' ? 'day orders; everything closed by the time set' : 'held overnight; the stop stays at IBKR until hit or expiry',
@@ -2718,7 +2753,14 @@ async function stMode(mode){
   if (!ok) return;
   stDo('adminStrategyMode', [mode, S.strat.fallback || ''], 'Switching…', d => (mode === 'autopilot' ? 'Autopilot on.' : 'Autopilot off: nothing trades until you press Trade this.') + (d.sent ? ' The trading machine follows in a minute or two.' : ''));
 }
-function stFallback(id){ stDo('adminStrategyMode', ['autopilot', id], 'Saving…', () => id ? 'Fallback saved.' : 'No fallback: autopilot watches when nothing qualifies.'); }
+// 16 Nov 2026: confirmed first, and only while autopilot is on (a keystroke landing on this list could change what trades)
+async function stFallback(id){
+  if (S.strat.mode !== 'autopilot') { rerender(); return; }
+  const nm = id ? ((S.strat.items || []).find(x => x.id === id) || {}).name : '';
+  const ok = await mhDialog({ title: id ? 'Use ' + nm + ' when nothing qualifies?' : 'Watch only when nothing qualifies?', body: id ? 'Autopilot will trade it at 09:30, 11:00 or 13:00 when no tagged strategy qualifies.' : 'Autopilot will place no trade when no tagged strategy qualifies.', ok: 'Save' });
+  if (!ok) { rerender(); return; }
+  stDo('adminStrategyMode', ['autopilot', id], 'Saving…', () => id ? 'Fallback saved.' : 'No fallback: autopilot watches when nothing qualifies.');
+}
 function stAutoPanel(items){
   const st = ((S.algo && !S.algo.error) ? S.algo.status : null) || {}, ap = st.autopilot;
   const tagged = items.filter(s => (s.conditions || []).length);
@@ -2987,7 +3029,7 @@ function pageBacktests(){
     '<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="bt-key" class="field" type="password" autocomplete="off" placeholder="Gemini API key" style="flex:1;min-width:220px"><button class="btn primary" type="button" ' + (BTQ.keyBusy ? 'disabled' : '') + ' onclick="btSaveKey()">' + (BTQ.keyBusy ? 'Saving…' : 'Save key') + '</button></div></div></div>';
   h += '<div class="panel" style="margin-bottom:14px"><div class="panel-b">' +
     '<textarea id="bt-q" class="field" rows="3" style="width:100%;resize:vertical;min-height:84px;font-size:14px" placeholder="e.g. On NIFTY, buy the ATM call when the index breaks the first 15 minutes\' high. Stop 25%, target 50%, square off 15:15. Last 1 year." oninput="BTQ.text=this.value">' + esc(BTQ.text) + '</textarea>' +
-    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap"><span class="faint" style="font-size:12px">NIFTY and BANK NIFTY options, one leg; Jan 2024 to now.</span>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap"><span class="faint" style="font-size:12px">NIFTY and BANK NIFTY options, one option or a combination (straddle, strangle, spread, iron condor); Jan 2024 to now.</span>' +
     '<button class="btn primary" type="button" ' + (BTQ.busy ? 'disabled' : '') + ' onclick="btAsk()">' + (BTQ.busy ? 'Working…' : 'Read my back-test') + '</button></div>' +
     (BTQ.err ? '<div class="notice" style="margin-top:10px;background:var(--down-soft);color:var(--down)">' + esc(BTQ.err) + '</div>' : '') + '</div></div>';
   if (P) {
@@ -3023,8 +3065,8 @@ function pageStrategies(){
   // marked ON with what it is doing now; pressing the other asks first.
   const apNow = ((S.algo && !S.algo.error && S.algo.status) || {}).autopilot;
   // owner: "off button is absent": the card in force carries its own Off button
-  const card = (k, title, line, on, state, off) => '<div class="mode-card' + (on ? ' on' : '') + '"' + (on ? ' aria-current="true"' : ' role="button" tabindex="0" onclick="stMode(\'' + k + '\')" onkeydown="if(event.key===\'Enter\')stMode(\'' + k + '\')"') + '>' +
-    '<span class="mode-top"><span class="mode-title">' + title + '</span>' + (on ? '<span class="mode-badge">● ON</span>' : '<span class="mode-off">Switch to ' + title.toLowerCase() + '</span>') + '</span>' +
+  const card = (k, title, line, on, state, off) => '<div class="mode-card' + (on ? ' on' : '') + '"' + (on ? ' aria-current="true"' : '') + '>' +   // 16 Nov 2026: only the Switch link switches, not a click anywhere on the card
+    '<span class="mode-top"><span class="mode-title">' + title + '</span>' + (on ? '<span class="mode-badge">● ON</span>' : '<a href="javascript:void 0" class="mode-off" onclick="stMode(\'' + k + '\')">Switch to ' + title.toLowerCase() + '</a>') + '</span>' +
     '<span class="mode-line">' + line + '</span><span class="mode-state">' + state + '</span>' + (on && off ? '<span style="margin-top:6px">' + off + '</span>' : '') + '</div>';
   let h = '<div class="mode-wrap">' +
     card('manual', 'Manual', 'You choose the strategy: press Trade this on one.', !auto,
@@ -3035,6 +3077,10 @@ function pageStrategies(){
         ' · fallback: <b>' + esc(((items.find(x => x.id === S.strat.fallback) || {}).name) || 'none') + '</b>' : '&nbsp;',
       '<button class="btn sm" type="button" onclick="stMode(\'manual\')">Turn autopilot off</button>') +
     '</div><div class="muted" style="font-size:12px;margin:-4px 0 12px">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div>';
+  // 16 Nov 2026: who switched what, when (relay STRAT_LOG); autopilot came back on at 11:16 that day with no trace
+  const LG = S.strat.log || [], lgT = x => esc(bDay(dayOf(x.t)) + ', ' + String(x.t).slice(11, 16) + ' IST');
+  if (LG.length) h += '<details style="font-size:12px;margin:-6px 0 12px"><summary class="muted" style="cursor:pointer">Last change: ' + esc(LG[0].what) + ' · ' + lgT(LG[0]) + (LG.length > 1 ? ' · see all ' + LG.length : '') + '</summary>' +
+    '<table class="t" style="margin-top:6px">' + LG.map(x => '<tr><td class="l" style="white-space:nowrap">' + lgT(x) + '</td><td class="l">' + esc(x.what) + '</td></tr>').join('') + '</table></details>';
   if (ST_MSG) h += '<div class="notice" style="margin-bottom:12px">' + esc(ST_MSG) + '</div>';
   if (auto) h += stAutoPanel(items);
   h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span class="muted" style="font-size:13px">' + items.length + ' strateg' + (items.length === 1 ? 'y' : 'ies') + '</span><button class="btn primary" type="button" onclick="stEdit()">New strategy</button></div>';
@@ -3047,7 +3093,7 @@ function pageStrategies(){
     const chips = [MK ? ((SK.kind === 'iron_condor' ? '' : SK.side === 'BUY' ? 'Buy ' : 'Sell ') + (ST_KINDS.find(k => k[0] === SK.kind) || [])[1] + (SK.kind === 'spread' ? (SK.right === 'P' ? ' · PE' : ' · CE') : '')) : stBothOn(s) ? 'Buy CE / PE' : (s.side === 'BUY' ? 'Buy' : 'Sell') + ' ' + (s.right === 'P' ? 'PE' : 'CE'), stIdx(s.index),
       MK ? stLegsText(s) : s.strike.mode === 'premium' ? 'Near ₹' + s.strike.near : s.strike.steps ? (s.strike.steps > 0 ? 'OTM ' : 'ITM ') + Math.abs(s.strike.steps) : 'ATM',
       s.expiry[0].toUpperCase() + s.expiry.slice(1) + ' expiry', s.lots + ' lot' + (s.lots > 1 ? 's' : ''), s.style === 'carry' ? 'Carry' : 'Intraday · out by ' + e.exit_by];
-    const exits = 'Stop ' + (Number(e.sl) ? u(e.sl_type, e.sl) : 'none') + (Number(e.target) ? ' · target ' + u(e.target_type, e.target) : '') + (Number(e.trail) ? ' · trail ' + u(e.trail_type, e.trail) + ' after ' + u(e.trail_after_type, e.trail_after) : '');
+    const exits = 'Stop ' + (Number(e.sl) ? u(e.sl_type, e.sl) : 'none') + (Number(e.target) && !Number(e.trail) ? ' · target ' + u(e.target_type, e.target) : '') + (Number(e.trail) ? ' · trail ' + u(e.trail_type, e.trail) + ' after ' + u(e.trail_after_type, e.trail_after) + ', no ceiling' : '');
     const sigOf = (G, m) => G.map(g => (g.signals.length > 1 ? (g.match === 'any' ? 'any of (' : 'all of (') : '(') + g.signals.map(stSigText).join('; ') + ')').join(m === 'all' ? ' and ' : ' or ');
     const sig = (s.put_groups || []).length ? sigOf(stGroups(JSON.parse(JSON.stringify(s))).groups, s.groups_match) + ' for the call; ' + sigOf(s.put_groups, s.put_groups_match) + ' for the put'
       : sigOf(stGroups(JSON.parse(JSON.stringify(s))).groups, s.groups_match);
@@ -3367,7 +3413,7 @@ function slRecord(tr){
     return '<tr><td class="l">' + label + '</td><td class="num">' + num(r.stints || 0, 0) + '</td><td class="num">' + num(r.open || 0, 0) + '</td><td class="num">' + num(r.closed || 0, 0) + '</td>' +
       '<td class="num ' + cls(r.avg_excess) + '">' + (r.avg_excess == null ? '–' : (r.avg_excess > 0 ? '+' : '') + num(r.avg_excess, 1) + ' pts') + '</td><td class="num">' + (r.stints ? r.beat_nifty + ' of ' + r.stints : '–') + '</td></tr>'; };
   return '<div class="panel" style="margin-top:14px"><div class="panel-h"><h3>Track record</h3><span class="muted" style="font-size:12px">since ' + esc(fmtDate(tr.first_week)) + ' · ' + tr.weekly_records + ' weekly record' + (tr.weekly_records === 1 ? '' : 's') + '</span></div><div class="panel-b">' +
-    '<table class="t"><tr><th class="l">List</th><th>Picks</th><th>Still on</th><th>Dropped</th><th>Average vs NIFTY</th><th>Beat NIFTY</th></tr>' + row('compounders', 'Compounders') + row('emerging', 'Emerging') + '</table>' +
+    '<table class="t"><tr><th class="l">List</th><th>Picks</th><th>Still on</th><th>Dropped</th><th>Average vs NIFTY</th><th>Beat NIFTY</th></tr>' + row('compounders', 'Compounders') + Object.keys(tr.styles || {}).filter(k => (tr.styles[k] || {}).removed).map(k => row(k, (k === 'emerging' ? 'Emerging' : k) + ' <span class="faint">(removed ' + esc(bDay(dayOf(tr.styles[k].removed))) + ')</span>')).join('') + '</table>' +
     '<div class="muted" style="font-size:12px;margin-top:8px">Each pick is measured from the day it joined the list to the day it left (or today), against NIFTY 50. Needs 3–6 months before it means much.</div></div></div>';
 }
 function pageShortlist(){
@@ -3375,28 +3421,27 @@ function pageShortlist(){
   if (!S.sl) { v.innerHTML = loadingBlock('Loading the shortlist…'); return; }
   if (S.sl.error) { v.innerHTML = errBlock(S.sl.error); return; }
   const L = S.sl.lists, st = tableState('sl', { id: 'sl', sort: 'rank', dir: 1, f: { tab: 'compounders' } });
+  if (!['compounders', 'next', 'record'].includes(st.f.tab)) st.f.tab = 'compounders';   // a remembered Emerging tab
   const tab = st.f.tab, X = L[tab] || {}, tr = S.sl.track_record;
   const w = (S.sl.weights || {})[tab] || {};
   // Track record first, as four figures (design review)
   const rec = st2 => ((tr || {}).styles || {})[st2] || {};
   const stat = (k, v, sub, c) => '<div><div class="k">' + k + '</div><div class="v ' + (c || '') + '">' + v + '</div><div class="w">' + sub + '</div></div>';
   const ex = r => r.avg_excess == null ? '–' : (r.avg_excess > 0 ? '+' : r.avg_excess < 0 ? '−' : '') + num(Math.abs(r.avg_excess), 1) + ' pts';
-  let html = '<div class="page-head"><div><p class="sub">Compounders ranked for quality at a sensible price, and early multibaggers ranked for growth the market is starting to see. ' +
+  let html = '<div class="page-head"><div><p class="sub">Proven compounders, ranked for quality at a sensible price. ' +
     'Updated ' + esc(bSnap(S.sl.generated).replace(/^As of /, '')) + '. Not a recommendation. ' +
-    '<details style="display:inline"><summary class="muted" style="display:inline;cursor:pointer;color:var(--accent-text)">How it works</summary><span class="muted"> Emerging means four-gate early multibaggers not already compounders. Hard-to-trade, weakly cash-backed, pledged and thinly covered companies are left out; at most ' + S.sl.per_industry + ' per industry.</span></details></p></div></div>';
+    '<details style="display:inline"><summary class="muted" style="display:inline;cursor:pointer;color:var(--accent-text)">How it works</summary><span class="muted"> Hard-to-trade, weakly cash-backed, pledged and thinly covered companies are left out; at most ' + S.sl.per_industry + ' per industry.</span></details></p></div></div>';
   if (tr) html += '<div class="strip" style="margin-bottom:16px">' +
     stat('Compounders vs NIFTY', ex(rec('compounders')), 'average per pick · ' + (rec('compounders').stints ? rec('compounders').beat_nifty + ' of ' + rec('compounders').stints + ' beat NIFTY' : 'no picks yet'), cls(rec('compounders').avg_excess)) +
-    stat('Emerging vs NIFTY', ex(rec('emerging')), 'average per pick · ' + (rec('emerging').stints ? rec('emerging').beat_nifty + ' of ' + rec('emerging').stints + ' beat NIFTY' : 'no picks yet'), cls(rec('emerging').avg_excess)) +
-    stat('On the lists now', num((rec('compounders').open || 0) + (rec('emerging').open || 0), 0), 'picks still on', '') +
+    stat('On the list now', num(rec('compounders').open || 0, 0), 'picks still on', '') +
     stat('Record since', esc(bDay(dayOf(tr.first_week)) || '–'), tr.weekly_records + ' weekly record' + (tr.weekly_records === 1 ? '' : 's') + ' · needs 3–6 months', '') + '</div>';
   html += '<div class="toolbar"><div class="seg"><button class="' + (tab === 'compounders' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'compounders\')">Compounders · ' + (L.compounders.top || []).length + '</button>' +
-    '<button class="' + (tab === 'emerging' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'emerging\')">Emerging · ' + (L.emerging.top || []).length + '</button>' +
     '<button class="' + (tab === 'next' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'next\')">Next in line</button>' +
     '<button class="' + (tab === 'record' ? 'on' : '') + '" onclick="setF(\'sl\',\'tab\',\'record\')">Track record</button></div>' +
-    (tab === 'compounders' || tab === 'emerging' ? '<span class="muted" style="margin-left:auto;font-size:12px">' + num((L[tab] || {}).ranked || 0, 0) + ' ranked · score: ' + Object.keys(w).map(k => Math.round(w[k] * 100) + '% ' + k).join(' · ') + '</span>' : '') + '</div>';
+    (tab === 'compounders' ? '<span class="muted" style="margin-left:auto;font-size:12px">' + num((L[tab] || {}).ranked || 0, 0) + ' ranked · score: ' + Object.keys(w).map(k => Math.round(w[k] * 100) + '% ' + k).join(' · ') + '</span>' : '') + '</div>';
   if (tab === 'record') { v.innerHTML = html + slRecord(tr).replace('style="margin-top:14px"', ''); return; }
   if (tab === 'next') {
-    const both = ['compounders', 'emerging'];
+    const both = ['compounders'];
     html += both.map(k => { const Y = L[k] || {};
       return '<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>' + (k === 'compounders' ? 'Compounders' : 'Emerging') + ': next in line</h3><span class="muted" style="font-size:12px">' + (Y.next || []).length + '</span></div>' +
         ((Y.next || []).length ? slTable(Y.next).replace('class="tbl-wrap"', 'class="tbl-wrap" style="border:0;border-radius:0;box-shadow:none"') : '<div class="empty">None.</div>') +
@@ -3490,11 +3535,17 @@ function pageTests(){
   const v = $('view'); const d = S.admin;
   if (!d) { v.innerHTML = loadingBlock('Loading…'); return; }
   const t = d.tests || {};
+  // 16 Nov 2026 (audit): plain words instead of the files' own field names ("hit pct", "z vs baseline", "true")
+  const TITLE = { indicator_test: 'Do chart indicators predict a stock\'s next move?', backtest_multibagger: 'Did the early-multibagger screen beat the market?',
+    threshold_test: 'Where each rule\'s pass mark should sit', stock_track_record: 'NIFTY 50 stock option screen: its record' };
+  const WORD = { hit_pct: 'right, %', baseline_pct: 'right by chance, %', z_vs_baseline: 'difference from chance (below −2 or above 2 counts)', n: 'checks',
+    shown_to_work: 'works?', selection: 'while choosing', test: 'months not used to choose', split: 'how it was tested' };
+  const val = x => x === true ? 'Yes' : x === false ? 'No' : x;
   const kv = obj => '<table class="t">' + Object.keys(obj).map(k => { const x = obj[k];
-    return '<tr><td class="l" style="white-space:normal">' + esc(k.replace(/_/g, ' ')) + '</td><td class="l" style="white-space:normal">' +
-      (Array.isArray(x) && x.every(y => y == null || typeof y !== 'object') ? '<span class="num">' + esc(x.join(', ')) + '</span>' : x && typeof x === 'object' ? kv(x) : '<span class="num">' + esc(x) + '</span>') + '</td></tr>'; }).join('') + '</table>';
-  v.innerHTML = '<div class="page-head"><div><p class="sub">Survivorship bias applies where the universe is today\'s index members.</p></div></div>' +
-    (Object.keys(t).map(k => '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>' + esc(k.replace(/_/g, ' ')) + '</h3></div>' + kv(t[k]) + '</div>').join('') || '<div class="panel"><div class="empty">No back-test results yet.</div></div>');
+    return '<tr><td class="l" style="white-space:normal">' + esc(WORD[k] || k.replace(/_/g, ' ')) + '</td><td class="l" style="white-space:normal">' +
+      (Array.isArray(x) && x.every(y => y == null || typeof y !== 'object') ? '<span class="num">' + esc(x.join(', ')) + '</span>' : x && typeof x === 'object' ? kv(x) : '<span class="num">' + esc(val(x)) + '</span>') + '</td></tr>'; }).join('') + '</table>';
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Studies behind the stock screens. Where the companies tested are today\'s index members, companies that dropped out are missing, which flatters the results.</p></div></div>' +
+    (Object.keys(t).map(k => '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>' + esc(TITLE[k] || k.replace(/_/g, ' ')) + '</h3></div>' + kv(t[k]) + '</div>').join('') || '<div class="panel"><div class="empty">No studies yet.</div></div>');
 }
 
 // ======================================================================================
@@ -3609,7 +3660,8 @@ function pageStock(sym){
   // Badges
   const badges = [];
   if (isCompounder(sym)) badges.push('<span class="chip brand">Proven compounder</span>');
-  if (r && r.score != null) badges.push('<span class="chip brand">Multibagger ' + r.score + '/4</span>');
+  // 16 Nov 2026: the four growth gates, which large companies pass too (Titan, ₹4.3 L cr, showed "Multibagger 4/4")
+  if (r && r.score != null) badges.push('<span class="chip brand" title="Revenue growth, profit growth, steady profits and cash backing">Growth gates ' + r.score + '/4</span>');
   if (r && (r.measures || {}).turnaround) badges.push('<span class="chip">Turnaround</span>');
   if (val(s,'mf_discovery_tier') === 1) badges.push('<span class="chip warn">Undiscovered (&lt;5 funds)</span>');
   if (val(s,'pledge_pct') > 10) badges.push('<span class="chip down">Pledge ' + num(val(s,'pledge_pct'), 1) + '%</span>');
@@ -4131,7 +4183,7 @@ function pageFactors(){
   const body = rows.slice(pg.from, pg.from + 50).map((s, i) => '<tr class="click" onclick="openStock(\'' + esc(s.symbol) + '\')"><td class="l num faint">' + (pg.from + i + 1) + '</td><td class="l">' + companyCell(s.symbol) + '</td>' +
     '<td class="l muted" style="font-size:12px">' + esc(industryOf(s.symbol) || '–') + '</td><td class="num">' + crore(val(s, 'market_value_bucket')) + '</td>' +
     '<td>' + scoreChip(fac(s.symbol, 'composite')) + '</td>' + FACTORS.map(([k]) => '<td>' + scoreChip(fac(s.symbol, k)) + '</td>').join('') + '</tr>').join('');
-  v.innerHTML = '<div class="page-head"><div><p class="sub">Each company rated 0–100 on five factors against ' + num(Object.keys(S.fac).length, 0) + ' companies (100 = best). Composite = their average. Hover a column for its inputs.</p></div></div>' +
+  v.innerHTML = '<div class="page-head"><div><p class="sub">Each company rated 0–100 on five factors against ' + num(Object.keys(S.fac).length, 0) + ' companies (100 = best). Composite = their average, rated 0–100 against all companies the same way. Hover a column for its inputs.</p></div></div>' +
     '<div class="toolbar"><input id="facq" class="field" placeholder="Filter by name or symbol" value="' + esc(st.q) + '" oninput="setQ(\'fac\',this)">' +
     '<select class="field" onchange="setF(\'fac\',\'ind\',this.value)"><option value="">All industries</option>' + inds.map(x => '<option ' + (st.f.ind === x ? 'selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
     '<div class="seg">' + [[0, 'Any size'], [1000, '₹1,000 cr+'], [5000, '₹5,000 cr+'], [20000, '₹20,000 cr+']].map(([n, l]) => '<button class="' + ((st.f.minmc || 0) === n ? 'on' : '') + '" onclick="setF(\'fac\',\'minmc\',' + n + ')">' + l + '</button>').join('') + '</div></div>' +
@@ -4346,8 +4398,14 @@ function tapeTick(){
         (d && d.login_link ? ' <a href="' + esc(d.login_link) + '" target="_blank" rel="noopener">Log in to Kite</a>' : '');
       return;
     }
-    const item = (name, q) => q ? '<span><span class="n">' + name + '</span><span class="q">' + fmt(q.last, 2) + '</span> <span class="q" style="color:' +
-      (q.change_pct >= 0 ? 'var(--up)' : 'var(--down)') + '">' + (q.change_pct >= 0 ? '+' : '') + fmt(q.change_pct, 2) + '%</span></span>' : '';
+    // 16 Nov 2026: % or points, the same switch as Today's tiles (S.chgAbs, kept in this browser)
+    const chgTxt = q => { const p = q.change_pct; if (!S.chgAbs) return (p >= 0 ? '+' : '') + fmt(p, 2) + '%';
+      const a = q.change != null ? q.change : (q.last != null && p != null ? q.last * p / (100 + p) : null);
+      return a == null ? (p >= 0 ? '+' : '') + fmt(p, 2) + '%' : (a > 0 ? '+' : a < 0 ? '−' : '') + fmt(Math.abs(a), 2); };
+    const item = (name, q) => q && q.change_pct != null ? '<span><span class="n">' + name + '</span><span class="q">' + fmt(q.last, 2) + '</span> <span class="q" style="color:' +
+      (q.change_pct >= 0 ? 'var(--up)' : 'var(--down)') + '">' + chgTxt(q) + '</span></span>' : '';
+    S.tapeData = d;
+    const sw = $('tape-sw'); if (sw) sw.innerHTML = '<span class="seg"><button class="' + (S.chgAbs ? '' : 'on') + '" onclick="setChgAbs(false)" title="Change in %">%</button><button class="' + (S.chgAbs ? 'on' : '') + '" onclick="setChgAbs(true)" title="Change in points">Pts</button></span>';
     const x = d.extra || {};
     const ts = String(d.ts || ''), hm = ts.slice(11, 16), day = ts.slice(0, 10);
     const ist = new Date(Date.now() + 5.5 * 3600e3), today = ist.toISOString().slice(0, 10), mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();

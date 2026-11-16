@@ -58,6 +58,7 @@ const BT_GUIDE = [
   ' "exits": {"sl_type":"pct"|"points","sl":x,"target_type":"pct"|"points","target":x (0 = none),',
   '   "trail_after_type":"pct","trail_after":x (0 = no trailing),"trail_type":"pct","trail":x,"exit_by":"HH:MM"},',
   ' "style": "intraday", "max_trades_day": n, "max_loss_day": rupees (0 = none), "reentry_gap": minutes}',
+  'Exits must make sense together: a trailing stop starts well below the target (under 60% of it) and its distance is smaller than the gain it starts at; a selling target is at most 100%; a buying target is bigger than its stop-loss.',
   'Percent stops/targets are on the option premium. Default exit_by 15:15, max_trades_day 1 when the request implies one',
   'trade a day, reentry_gap 15. No signal at all = enter at the window start: use signals [] is NOT allowed, so for a',
   'plain timed entry use {"type":"weekday","days":[1,2,3,4,5]}.',

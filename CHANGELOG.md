@@ -2,6 +2,85 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 16 Nov 2026, ~14:40 IST: ICICI download stopped by a save clash
+- The 04:13 ICICI run saved 9 expiries, then stopped on "409 Conflict" saving SENSEX 2026-01-01 (another write to the
+  same file at the same moment). The JSON save already retried such clashes (15 Nov); the compressed-file save
+  (`hub/breeze_history.py` `save_gz`) did not. It now re-reads the file's version and retries (4 tries).
+- The NIFTY 9 Nov week fill (`hub/breeze_fill.py`) was added after that run; it runs at the next ICICI download.
+
+## Mon 16 Nov 2026, 15:36 IST: dashboard release (held for market hours) and the strangle switched on
+- Relay released after the close: Index options page removed and "Today's trade" on Auto trading; live profit (machine
+  helper -> relay `algo_live`, screens refresh every 30 s, "Live · HH:MM IST"); strategy builder exit check, no
+  ceiling with a trailing stop, target presets; audit fixes (session labels, Studies page, wording, Growth gates badge,
+  borrowings in crore, fund holdings 100 a page, price strip scroll and % / Pts switch, Kite state for phone Settings);
+  Shortlist Compounders only; Autopilot box refresh; strategy switch log and autopilot email; fallback confirm.
+- Strategies page: the mode cards are no longer clickable as a whole (a click on empty card space opened "Turn on
+  autopilot?" during my own checks); only the "Switch to ..." link switches. Starting a back-test no longer blanks the
+  strategy list (`stDo` keeps the page's copy unless the answer is a full view).
+- Owner: "activate a strategy now for tomorrow". The research bot's expiry-day short strangle (6 out, 10:00) was added,
+  tagged "Expiry day", its back-test started, and switched on with Trade this (manual); machine confirmed 15:12:43.
+  It enters Tue 17 Nov 10:00-10:10. Owner's ask for a last-hour-before-expiry strategy today: not possible untested in
+  the last 15 minutes and only one strategy runs at a time; back-tested tonight instead.
+
+## Mon 16 Nov 2026, ~15:05 IST: autopilot came back on at 11:16 and placed a second paper trade
+- Owner asked about "Not heard from since 14:20". That was the page not refreshing (fixed by the 15:36 release); the
+  program checked in at 14:50. But the machine's journal showed autopilot on again: 11:16:02 switch to autopilot with
+  the test strategy as fallback, 11:16:04 bought NIFTY 25250 CE at 89.00, 11:16:07 sold at 88.95 (its exit time 11:00
+  had passed), about -₹65 with charges; 11:17 and 11:20 autopilot with no fallback. Turned off again at ~14:58 (owner's
+  earlier instruction); machine "watching only" at 14:59:50, file mode manual.
+- Cause not provable: the relay kept only the current setting. Three changes within minutes fit keystrokes landing on
+  the fallback list while I was driving the owner's Chrome (typing company names into search), but this is not proven.
+- Now: every switch is logged with its time (relay STRAT_LOG, last 20, "Last change" on Strategies); autopilot turning on
+  sends an email; changing the fallback asks for confirmation and does nothing unless autopilot is already on.
+
+## Mon 16 Nov 2026, ~15:00 IST: bulk deals for 6 and 9 Nov filled; missed days now fill themselves
+- Owner: "fill the bulk details". NSE's daily file holds only the current day, so the sessions the daily job missed
+  (6 and 9 Nov, when GitHub started it hours late) were lost. `hub/bulkdeals.py` now fills any trading session of the
+  last 90 days with no stored deals from NSE's history service (`historicalOR/bulk-block-short-deals`, through a
+  Chrome-like connection), every run.
+- The service's JSON answer stops at 70 rows (13 Nov: 70 of 136); its CSV download has every deal, so the fill uses
+  the CSV. 6 Nov: 96 deals, 9 Nov: 76 (first filled at 70 each from the JSON, then read again in full).
+- New `bulk-deals.yml` (by hand; `refill` input to read chosen sessions again). Checked: every session 6 Oct - 13 Nov is
+  stored (27 days, 3,407 deals); the 16 identical-looking rows are separate trades by unregistered clients (stored as
+  OTHER). The first registry buy recorded: 6 Nov.
+
+## Mon 16 Nov 2026, ~14:45 IST: Emerging list removed from the Shortlist
+- Owner: "remove the growth screen from the shortlist", after the back-test showed its gates pick winners no better
+  than a coin toss (48-51% at every gate count and company size, 2016-2026).
+- `hub/shortlist.py`: Compounders only. Emerging's open picks are closed at the day's prices in the track record and
+  its final record stays visible, marked "removed". The growth screen itself stays on Screens.
+- Dashboard (with the 15:36 release): Shortlist intro, figures and tabs Compounders only; Today's Shortlist panel shows
+  the top 6 compounders. Phone v71: Ideas tab Compounders and Watchlist; the Emerging record tile is gone.
+- The data file changes at the next library run (06:15); the screens ignore the old Emerging list until then.
+
+## Mon 16 Nov 2026, ~11:30 IST: second audit pass and the owner's own finds
+- Owner: the price strip on every dashboard page hid CRUDE (and USD/INR, DAX, FTSE, US futures, the time) under the
+  search box, and had no points / % switch. The strip now scrolls sideways instead of fading out, and has the same %
+  / Pts switch as Today (one setting for both). My first audit missed this; it is on every page.
+- Stock report Scorecard: "Borrowings vs a year ago" was shown as a percentage of a rupee figure
+  ("+1,46,19,00,00,00,000.0"); now crore with a sign (Titan +₹14,619 cr).
+- Fund holdings: BharatStock sends 20 a page; the relay read 5 pages (100 of Titan's 415 schemes) and the batch 20
+  pages (372). Both now ask for 100 a page (`relay/Funds.gs`, `hub/multibagger.py` `_pages`), fewer requests too.
+- AI summaries: Titan's report showed its Q1 call (11 Aug) with the Q2 transcript filed on 11 Nov; the daily job only
+  walked the growth screen by rank. A newer transcript of an already-summarised company now goes first; documents are
+  kept once per file name (NSE lists some under both .com and .in, which also pushed older transcripts out).
+- Auto trading kept showing the last autopilot reading ("Autopilot · Trend up") after autopilot was turned off; a
+  switch to manual and each new day clear it (`trader/summary.py`; test added, 199/199).
+- Autopilot turned off (owner); nothing trades until a strategy is switched on.
+- Growth screen size limit (owner: "go ahead"): back-tested first (`hub/backtest_multibagger.py`, results split by
+  size; 2,246 companies, 29,152 dated checks 2016-2026, 4,689 BharatStock requests). Share beating the typical stock
+  over 1 year: 0 gates 48%, 1 gate 51%, 2 gates 51%, 3 gates 50%; the same ~50% under ₹20,000 cr, over it and under
+  ₹5,000 cr; average excess return falls as gates rise. The 4th gate could not be tested historically (no observation
+  passed it). A size limit would not help: the gates show no edge at any size. Not added; the screen's future is the
+  owner's call. Caveat: today's listed companies only (survivors).
+- Phone Settings said "Log in to Kite" on a day Kite was logged in (ICICI already said "Signed in today"); it now reads
+  the relay's Kite state (`app_kite_status`): "Logged in to Kite today at HH:MM IST", or "Kite turned down today's
+  login" with the button. Phone v69 (the relay part goes out at 15:36; until then Settings is as before).
+- Titan's AI summary is now its Q2 call (11 Nov).
+- Phone stock page labelled today's still-forming price bar "Close · Mon 16 Nov 2026" at 14:20; in market hours it now reads
+  "Live · HH:MM IST" (phone v70). Also checked this pass: phone stock page, phone Settings.
+- Also checked this pass, no errors: Screens (Proven compounders, Build a screen), stock report Ownership.
+
 ## Mon 16 Nov 2026, ~10:45 IST: full audit of every dashboard page and phone tab (owner: "do a thorough check of each page and each section")
 Covered, on real data in the owner's signed-in Chrome during market hours: dashboard Today, Portfolio, Shortlist (four
 tabs, Watchlist), Screens (Early multibaggers), Rankings, Companies, Sectors (table, heatmap), Compare measures, What's

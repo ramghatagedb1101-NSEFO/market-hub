@@ -23,7 +23,7 @@ const ADMIN_CODE_SECONDS = 600;        // ten minutes
 const ADMIN_MAX_TRIES = 5;
 // Phone app data: the files the daily jobs keep in the private repo's site/ folder (hub/site_data.py).
 const APP_DIR = 'site';
-const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'fno', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest', 'insights',
+const APP_FILES = ['feed', 'brief', 'context', 'stocks', 'multibagger', 'backtest_multibagger', 'shortlist', 'digest', 'insights',
                    'algo'];   // algo: the IBKR paper trading summary (trader/summary.py, 14 Nov 2026)
 
 /**
@@ -191,6 +191,7 @@ function appApi_(mode, body) {
   if (mode === 'app_portfolio') return adminPortfolio(p.token);
   if (mode === 'app_breeze_session') return breezeSave_(p.token, p.apisession);
   if (mode === 'app_breeze_status') return breezeStatus_(p.token);
+  if (mode === 'app_kite_status') return sessionValid_(p.token) ? kiteStatus_() : { error: 'session_expired' };   // 16 Nov 2026: Settings
   if (mode === 'app_paper') return adminPaper(p.token);
   if (mode === 'app_paper_add') return adminPaperAdd(p.token, p.trade);
   if (mode === 'app_paper_close') return adminPaperClose(p.token, p.id, p.price, p.all);
@@ -223,7 +224,31 @@ function appData_(token, files) {
     if (code !== 200) { out[n] = { error: 'could not load (' + code + ')' }; return; }
     try { out[n] = JSON.parse(res.getContentText()); } catch (err) { out[n] = { error: 'not valid JSON' }; }
   });
+  if (names.indexOf('algo') >= 0) out.algo = algoWithLive_(out.algo);
   return { files: out };
+}
+
+/** Live profit (16 Nov 2026, owner: "update the PnL fields in autotrading ... live instead of 10 min"): the trading
+ *  machine's per-minute helper (trader/kicker.py) posts the program's latest summary here in market hours (RELAY_KEY);
+ *  it is kept in the script cache (6 hours) and laid over site/algo.json (refreshed every 10 minutes) when newer. Only
+ *  the screens' fields come live (status, today, month, totals, open, pending); the day-by-day lists stay from algo.json. */
+const ALGO_LIVE_KEY_ = 'ALGO_LIVE';
+function algoLivePut_(key, body) {
+  const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
+  if (!relayKey || key !== relayKey) return { error: 'key does not match RELAY_KEY' };
+  if (!body || body.length > 95000) return { error: 'empty or too large' };
+  try { JSON.parse(body); } catch (e) { return { error: 'not valid JSON' }; }
+  CacheService.getScriptCache().put(ALGO_LIVE_KEY_, body, 21600);
+  return { ok: true };
+}
+function algoWithLive_(algo) {
+  let live = null;
+  try { const t = CacheService.getScriptCache().get(ALGO_LIVE_KEY_); live = t ? JSON.parse(t) : null; } catch (e) { live = null; }
+  if (!live || !live.asof) return algo;
+  if (!algo || algo.error) return algo && algo.error === 'not published yet'
+    ? Object.assign({ days: [], months: [], trades: [], by_strategy: [], by_strategy_regime: {} }, live, { live: true }) : algo;
+  if (String(live.asof) < String(algo.asof || '')) return algo;
+  return Object.assign({}, algo, live, { live: true });
 }
 
 /** Auto trading (14 Nov 2026): the IBKR paper trading program's trades and daily / monthly profit, as on the phone. */
@@ -233,7 +258,7 @@ function adminAlgo(token) {
 
 /** F&O option ideas for the dashboard (13 Nov 2026): the index structures and the NIFTY 50 stock option screen, as on the phone. */
 function adminFno(token) {
-  return appData_(token, ['fno', 'stocks']);
+  return appData_(token, ['stocks']);   // 16 Nov 2026: index option trades (fno) removed
 }
 
 /** Insights (16 Oct 2026, hub/insights.py): risk flags, calendar, filings, insider trades, positions, grades, alerts and more. */

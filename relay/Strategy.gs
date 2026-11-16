@@ -136,13 +136,26 @@ function stratPushNow_() {
   } catch (e) { return false; }
 }
 
+/** 16 Nov 2026: what switched the trading program, and when (autopilot went back on at 11:16 that day and nothing showed
+ *  who or how). The last 20 changes, newest first; autopilot turning on also sends an email, since it places trades. */
+function stratLog_(what) {
+  const props = PropertiesService.getScriptProperties();
+  let log = [];
+  try { log = JSON.parse(props.getProperty('STRAT_LOG') || '[]'); } catch (e) { log = []; }
+  log.unshift({ t: Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ss"), what: what });
+  props.setProperty('STRAT_LOG', JSON.stringify(log.slice(0, 20)));
+}
+function stratLogRead_() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('STRAT_LOG') || '[]'); } catch (e) { return []; }
+}
+
 function stratView_() {
   const cache = CacheService.getScriptCache();
   const items = stratList_();
   const bt = {}; items.forEach(s => { const v = cache.get('bt_' + s.id); if (v) bt[s.id] = v; });
   // the latest back-test of each strategy (trader/backtest.py keeps state/backtests/_index.json), for the cards
   return { items: items, active: stratActive_(), limits: stratLimits_(), backtest_started: bt, backtests: stratBacktests_(),
-           mode: stratMode_(), fallback: stratFallback_() };
+           mode: stratMode_(), fallback: stratFallback_(), log: stratLogRead_() };
 }
 
 function adminStrategies(token) {
@@ -177,6 +190,8 @@ function adminStrategyActivate(token, id) {
   props.setProperty('STRAT_ACTIVE', id || '');
   if (id) props.setProperty('STRAT_MODE', 'manual');           // picking one by hand turns autopilot off
   props.setProperty('STRAT_CHANGED', Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm"));
+  const nm = id ? ((stratList_().find(x => x.id === id) || {}).name || id) : '';
+  stratLog_(id ? 'Trading: ' + nm : 'Switched off: watching only');
   const v = stratView_(); v.sent = stratPushNow_(); return v;
 }
 
@@ -193,7 +208,18 @@ function adminStrategyMode(token, mode, fallback) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
   if (fallback && !stratList_().some(x => x.id === fallback)) return { error: 'No such strategy.' };
   const props = PropertiesService.getScriptProperties();
+  const wasAuto = props.getProperty('STRAT_MODE') === 'autopilot';
   props.setProperty('STRAT_MODE', mode === 'autopilot' ? 'autopilot' : 'manual');
+  const fbName = fallback ? ((stratList_().find(x => x.id === fallback) || {}).name || fallback) : '';
+  stratLog_(mode === 'autopilot' ? (wasAuto ? 'Autopilot fallback: ' + (fbName || 'none (watch only)') : 'Autopilot on' + (fbName ? ', fallback ' + fbName : ''))
+            : 'Autopilot off');
+  if (mode === 'autopilot' && !wasAuto) {
+    try {
+      MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Market Hub: autopilot turned on',
+        'Autopilot was turned on at ' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'HH:mm') + ' IST' + (fbName ? ', with ' + fbName + ' as the fallback' : '') +
+        '. It may place paper trades at 09:30, 11:00 and 13:00.\n\nNot you? Open the dashboard, Paper trading > Strategies, and press Turn autopilot off.');
+    } catch (e) {}
+  }
   props.setProperty('STRAT_FALLBACK', fallback || '');
   if (mode === 'autopilot') props.setProperty('STRAT_ACTIVE', '');
   props.setProperty('STRAT_CHANGED', Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm"));

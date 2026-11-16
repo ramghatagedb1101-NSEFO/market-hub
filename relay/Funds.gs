@@ -15,8 +15,9 @@ function adminFunds(token, symbol) {
   const key = PropertiesService.getScriptProperties().getProperty('BHARATSTOCK_API_KEY') || '';
   if (!key) return { error: 'BHARATSTOCK_API_KEY is not set in the script properties.' };
   const rows = [];
-  for (let page = 1; page <= 5; page++) {
-    const r = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/mf-holdings' + (page > 1 ? '?page=' + page : ''),
+  // 16 Nov 2026: 100 a page (BharatStock's default is 20, so 5 pages stopped at 100 of Titan's 415 schemes)
+  for (let page = 1; page <= 10; page++) {
+    const r = UrlFetchApp.fetch(BHARAT + encodeURIComponent(sym) + '/mf-holdings?page_size=100' + (page > 1 ? '&page=' + page : ''),
       { muteHttpExceptions: true, headers: { 'X-API-Key': key } });
     bsCount_(1);
     const code = r.getResponseCode();
