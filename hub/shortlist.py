@@ -5,8 +5,10 @@ published as site/shortlist.json (the dashboard only displays it); weekly record
 list are kept in state/shortlist_history.json.
 
   Compounders  passes all six Proven-compounder rules. Ranked for quality at a sensible price.
-  Emerging     passes all four Early-multibagger gates and is not a compounder. Ranked for growth that
-               the market is starting to recognise.
+  Emerging     REMOVED 16 Nov 2026 (owner: "remove the growth screen from the shortlist"). It took companies passing
+               all four Early-multibagger gates; the back-test of 16 Nov (2,246 companies, 2016-2026) found the gates
+               pick winners no better than a coin toss at any company size (hub/backtest_multibagger.py). Its open
+               stints are closed in the track record; the screen itself stays on the Screens page.
 
 Why two lists: the screens answer different questions (steady, widely held vs early, under-owned); one
 league table with a bonus for being in both tilted the list to the large and steady.
@@ -208,8 +210,8 @@ def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, n
     ind_pe = {k: sorted(v)[len(v) // 2] for k, v in groups.items() if len(v) >= 5}
     vol_pct = lambda s: dist.pct("volatility_60d", value(s, "volatility_60d"))
 
-    pools = {"compounders": [], "emerging": []}
-    left_out = {"compounders": [], "emerging": []}
+    pools = {"compounders": []}
+    left_out = {"compounders": []}
     for sym, s in by_sym.items():
         v = lambda k, s=s: value(s, k)
         rules = compounder_rules(v)
@@ -218,7 +220,7 @@ def build(stocks: list[dict], mb_by_sym: dict, industries: dict, prices: dict, n
         is_fin = "financial" in fin_ind or "bank" in fin_ind
         comp = all(rule(v) or (is_fin and "Operating cash" in name) for name, rule in rules)
         mb = mb_by_sym.get(sym) or {}
-        style = "compounders" if comp else ("emerging" if mb.get("score") == 4 else None)
+        style = "compounders" if comp else None          # Emerging removed 16 Nov 2026 (see the top of this file)
         if not style:
             continue
         turnover, mcap = v("avg_turnover_20d"), v("market_value_bucket")
@@ -372,6 +374,12 @@ def track(lists: dict, prices: dict, nifty: dict, today: date) -> dict:
                     st["exit_date"], st["exit_price"], st["exit_nifty"] = today.isoformat(), last_close(sym), n_now
         HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
         HISTORY_FILE.write_text(json.dumps(hist, separators=(",", ":")), encoding="utf-8")
+    # a list that no longer exists (Emerging, 16 Nov 2026): its open stints close now, at today's prices
+    gone = [st for st in hist["stints"] if not st.get("exit_date") and st["style"] not in lists]
+    for st in gone:
+        st["exit_date"], st["exit_price"], st["exit_nifty"] = today.isoformat(), last_close(st["symbol"]), n_now
+    if gone:
+        HISTORY_FILE.write_text(json.dumps(hist, separators=(",", ":")), encoding="utf-8")
 
     def perf(st):
         end_p = st.get("exit_price") if st.get("exit_date") else last_close(st["symbol"])
@@ -400,7 +408,8 @@ def track(lists: dict, prices: dict, nifty: dict, today: date) -> dict:
                 x["entry_date"] = st["entry_date"]
                 x["since_entry"] = perf(st)
     out = {"first_week": hist["weeks"][0]["date"] if hist["weeks"] else None, "weekly_records": len(hist["weeks"]), "styles": {}}
-    for style in lists:
+    # every list that ever had picks, so a removed list's final record stays visible (Emerging, 16 Nov 2026)
+    for style in list(lists) + sorted({st["style"] for st in hist["stints"]} - set(lists)):
         ps = [(st, perf(st)) for st in hist["stints"] if st["style"] == style]
         ps = [(st, p) for st, p in ps if p]
         closed = [p for st, p in ps if st.get("exit_date")]
@@ -412,6 +421,8 @@ def track(lists: dict, prices: dict, nifty: dict, today: date) -> dict:
             "closed_detail": [{"symbol": st["symbol"], "entry": st["entry_date"], "exit": st.get("exit_date"), **p}
                               for st, p in ps if st.get("exit_date")][-20:],
         }
+        if style not in lists:
+            out["styles"][style]["removed"] = max((st.get("exit_date") or "" for st, _ in ps), default=None)
     return out
 
 

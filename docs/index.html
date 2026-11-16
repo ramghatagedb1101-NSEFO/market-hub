@@ -1054,7 +1054,7 @@
   function setIdeasTab(t){ IDEAS_TAB = t; drawIdeas(); }
   function slItem(sym){
     if (!SL) return null;
-    for (const st of ["compounders", "emerging"]) {
+    for (const st of ["compounders"]) {
       const L = SL.lists[st] || {};
       const x = (L.top || []).concat(L.next || []).find(i => i.symbol === sym);
       if (x) return Object.assign({ style: st }, x);
@@ -1083,11 +1083,10 @@
     const el = $("#mb-body");
     if (!SL) return;
     const L = SL.lists, tr = SL.track_record || {}, st = (tr.styles || {});
-    const seg = `<div class="seg">${[["compounders", "Compounders"], ["emerging", "Emerging"], ["watch", "★ Watchlist"]].map(([k, l]) =>
+    const seg = `<div class="seg">${[["compounders", "Compounders"], ["watch", "★ Watchlist"]].map(([k, l]) =>
       `<button class="${IDEAS_TAB === k ? "on" : ""}" onclick="setIdeasTab('${k}')">${l}</button>`).join("")}</div>`;
     const rec = s => s && s.stints ? `${s.avg_excess >= 0 ? "+" : ""}${f(s.avg_excess, 1)} pts` : "–";
     const tiles = `<div class="glance">${tile("COMPOUNDERS", rec(st.compounders), st.compounders ? `${st.compounders.beat_nifty} of ${st.compounders.stints} beat NIFTY` : "", cls(st.compounders && st.compounders.avg_excess))}
-      ${tile("EMERGING", rec(st.emerging), st.emerging ? `${st.emerging.beat_nifty} of ${st.emerging.stints} beat NIFTY` : "", cls(st.emerging && st.emerging.avg_excess))}
       ${tile("RECORDS", String(tr.weekly_records || 0), "weekly, since " + esc(dayTxt(parseDay(tr.first_week))), "")}</div>`;
     let body;
     if (IDEAS_TAB === "watch") {
