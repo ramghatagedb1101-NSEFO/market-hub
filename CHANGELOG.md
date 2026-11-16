@@ -13,6 +13,8 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   the switch is." The two mode cards on Strategies are now one row: a Manual | Autopilot switch, one line for the mode in
   force (manual: what is trading, with Stop trading; autopilot: when it picks, details in the Autopilot box below), and
   the limits line. Moving the switch still asks first; nothing else on the row switches.
+- Owner: "Whichever switch is on should be in blue color." The mode in force is solid blue (#2f5bea, white text) in both
+  light and dark themes (white on the dark theme's lighter accent was too faint).
 
 ## Mon 16 Nov 2026, ~17:00 IST: "Data updated" shows the newest update, not the morning batch
 - Owner: "why it is showing morning time? it should be till end of day market hours". The sidebar's "Data updated" was the
