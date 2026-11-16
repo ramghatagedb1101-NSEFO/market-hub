@@ -87,7 +87,12 @@ def main() -> dict:
     from .multibagger import BS_REQUESTS
     cap, bs_start = bs_budget.remaining("backtest_multibagger"), BS_REQUESTS[0]
     print(f"BharatStock: {cap} requests left for this run today (shared budget {bs_budget.SHARED_CAP})")
+    import time as _t
+    t0 = _t.time()
     for s in names:
+        if _t.time() - t0 > 80 * 60:              # 16 Nov 2026: leave time to score and save inside the job's 120 minutes
+            DIAG["stopped_at_time"] = f"{len(fin)} companies read in 80 minutes"
+            break
         if BS_REQUESTS[0] - bs_start >= cap:
             DIAG["stopped_at_budget"] = f"{len(fin)} companies read before the shared BharatStock budget ran out"
             break
@@ -100,7 +105,15 @@ def main() -> dict:
             continue
     bs_budget.record("backtest_multibagger", BS_REQUESTS[0] - bs_start)
     dates = list(quarter_ends())
-    obs = []   # (score, excess_1y, excess_3y, passed_all)
+    # 16 Nov 2026 (owner: "should the growth screen be limited to smaller companies?"): each observation also carries
+    # the company's market value on the as-of date = today's share count x the adjusted close then (adjusted closes are
+    # in today's shares, so splits and bonuses cancel; new issues since then make it slightly high)
+    shares = {}
+    for s_ in fin:
+        q = sorted((x for x in fin[s_] if x.get("period_end_date")), key=lambda x: str(x["period_end_date"]), reverse=True)
+        f_, pu = (q[0].get("face_value_per_share"), q[0].get("paid_up_equity_capital")) if q else (None, None)
+        shares[s_] = pu / f_ if f_ and pu else None
+    obs = []   # (score, excess_1y, excess_3y, market value in crore or None)
     for asof in dates:
         cutoff = asof - timedelta(days=LAG_DAYS)
         rets = {h: {} for h in HORIZONS}
@@ -123,8 +136,8 @@ def main() -> dict:
                     rets[h][s] = end[1] / base[1] - 1
                 else:
                     ok = False
-            scores[s] = (passed, ok)
-        for s, (scr, ok) in scores.items():
+            scores[s] = (passed, ok, shares.get(s) and base[1] * shares[s] / 1e7)
+        for s, (scr, ok, mv) in scores.items():
             if not ok:
                 continue
             e1 = rets[365].get(s)
@@ -135,20 +148,27 @@ def main() -> dict:
             med3 = st.median(rets[1095].values()) if rets[1095] else None
             if med1 is None or med3 is None:
                 continue
-            obs.append((scr, e1 - med1, e3 - med3))
-    by = {}
-    for scr in (0, 1, 2, 3, 4):
-        rows = [o for o in obs if o[0] == scr]
-        if not rows:
-            by[str(scr)] = {"n": 0}
-            continue
-        by[str(scr)] = {
-            "n": len(rows),
-            "avg_excess_1y_pct": round(st.mean(o[1] for o in rows) * 100, 2),
-            "beat_median_1y_pct": round(sum(1 for o in rows if o[1] > 0) / len(rows) * 100, 1),
-            "avg_excess_3y_pct": round(st.mean(o[2] for o in rows) * 100, 2),
-            "beat_median_3y_pct": round(sum(1 for o in rows if o[2] > 0) / len(rows) * 100, 1),
-        }
+            obs.append((scr, e1 - med1, e3 - med3, mv))
+
+    def table(sel):
+        by = {}
+        for scr in (0, 1, 2, 3, 4):
+            rows = [o for o in obs if o[0] == scr and sel(o)]
+            if not rows:
+                by[str(scr)] = {"n": 0}
+                continue
+            by[str(scr)] = {
+                "n": len(rows),
+                "avg_excess_1y_pct": round(st.mean(o[1] for o in rows) * 100, 2),
+                "beat_median_1y_pct": round(sum(1 for o in rows if o[1] > 0) / len(rows) * 100, 1),
+                "avg_excess_3y_pct": round(st.mean(o[2] for o in rows) * 100, 2),
+                "beat_median_3y_pct": round(sum(1 for o in rows if o[2] > 0) / len(rows) * 100, 1),
+            }
+        return by
+    by = table(lambda o: True)
+    by_size = {"under_20000_cr": table(lambda o: o[3] is not None and o[3] < 20000),
+               "20000_cr_and_over": table(lambda o: o[3] is not None and o[3] >= 20000),
+               "under_5000_cr": table(lambda o: o[3] is not None and o[3] < 5000)}
     out = {
         "ts": datetime.now(config.IST).isoformat(timespec="minutes"),
         "universe": len(names),
@@ -158,6 +178,7 @@ def main() -> dict:
         "diagnostics": {"names_with_prices": sum(1 for v in px.values() if v),
                         "price_rows": sum(len(v) for v in px.values()), **DIAG},
         "by_score": by,
+        "by_size": by_size,
         "caveats": [
             "Survivorship bias: the universe is today's Midcap 150 and Smallcap 250, so past winners that later left the index are missing. Results are optimistic.",
             "Gates use results reported at least 60 days before each as-of date.",
