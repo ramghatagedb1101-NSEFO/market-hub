@@ -1,31 +1,28 @@
-"""16 Nov 2026: can NSE's history service give the bulk deals of days the daily collector missed (6 and 9 Nov)?
-Prints counts and column names only."""
+"""16 Nov 2026: does NSE's bulk-deal history service cap a day at 70 rows? 13 Nov had 136 in the daily file.
+Prints counts and the response's own keys only."""
 import sys
 
 from curl_cffi import requests as creq
+
+URL = "https://www.nseindia.com/api/historicalOR/bulk-block-short-deals"
 
 
 def main() -> int:
     s = creq.Session(impersonate="chrome")
     s.get("https://www.nseindia.com/", timeout=30)
     s.get("https://www.nseindia.com/report-detail/display-bulk-and-block-deals", timeout=30)
-    for frm, to in (("06-11-2026", "09-11-2026"), ("06-10-2026", "13-11-2026")):
-        r = s.get("https://www.nseindia.com/api/historicalOR/bulk-block-short-deals",
-                  params={"optionType": "bulk_deals", "from": frm, "to": to}, timeout=60,
-                  headers={"Referer": "https://www.nseindia.com/report-detail/display-bulk-and-block-deals"})
-        print(frm, to, "HTTP", r.status_code, r.headers.get("content-type"))
-        try:
-            body = r.json()
-        except Exception:
-            print("  not JSON:", r.text[:200].replace("\n", " "))
-            continue
-        rows = body.get("data", body) if isinstance(body, dict) else body
-        print("  rows", len(rows), "keys", sorted(rows[0].keys()) if rows else None)
-        days = {}
-        for x in rows:
-            d = x.get("BD_DT_DATE") or x.get("date")
-            days[d] = days.get(d, 0) + 1
-        print("  per day", dict(sorted(days.items())))
+    ref = {"Referer": "https://www.nseindia.com/report-detail/display-bulk-and-block-deals"}
+    for extra in ({}, {"page": 2}, {"csv": "true"}):
+        r = s.get(URL, params={"optionType": "bulk_deals", "from": "13-11-2026", "to": "13-11-2026", **extra}, timeout=60, headers=ref)
+        ct = r.headers.get("content-type", "")
+        if "json" in ct:
+            b = r.json()
+            rows = b.get("data", []) if isinstance(b, dict) else b
+            print(extra, "rows", len(rows), "top keys", sorted(b.keys()) if isinstance(b, dict) else "list",
+                  {k: v for k, v in b.items() if k != "data"} if isinstance(b, dict) else "")
+        else:
+            lines = r.text.splitlines()
+            print(extra, ct, "lines", len(lines), "head", lines[0][:150] if lines else "")
     return 0
 
 
