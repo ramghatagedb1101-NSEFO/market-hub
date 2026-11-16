@@ -8,6 +8,18 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   (`hub/breeze_history.py` `save_gz`) did not. It now re-reads the file's version and retries (4 tries).
 - The NIFTY 9 Nov week fill (`hub/breeze_fill.py`) was added after that run; it runs at the next ICICI download.
 
+## Mon 16 Nov 2026, ~23:15 IST: choosing a strategy by its recent results does not work (test)
+- Owner: "based on last 10 days, is there a possibility to select the best possible strategy that has worked historically
+  for a 30 day timeframe?" Walk-forward test on every research idea with day-by-day results (4,013 ideas, 348 sessions,
+  Dec 2024 - Apr 2026), each rule choosing only from what was known on the day, then holding 30 days (21 sessions):
+  best of the last 10 sessions: -₹3,871 a window, profitable 33% of the time; best of the last 30: -₹2,369, 41%; best
+  since the start: -₹1,163, 34%; most similar past markets (NIFTY trend, swings, distance from its 50-day average):
+  -₹2,699, 27%; the average idea: -₹715. Same picture holding 10 or 42 sessions. Recent winners were mostly lucky and
+  gave it back; picking them did worse than picking blindly.
+- Implication: autopilot's own way of choosing (the best back-test record in today's market condition) is the same kind
+  of rule; it stays off. Strategies are chosen on the bot's full tests (unseen months), not on recent results.
+- The test tool is kept outside the public repo (extras/test-tools/select_test.py).
+
 ## Mon 16 Nov 2026, ~20:00 IST: "Start from" picker on a new strategy
 - Owner: "this should have the strategy drop down and search functionality to chose the bot identified or user saved
   strategy. in addition it should have the new strategy also". A new strategy's form opens with a "Start from" search:
