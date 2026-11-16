@@ -81,7 +81,9 @@ def _pages(url: str, key: str, params: dict | None = None) -> list[dict]:
     """Reads every page the API reports. A 404 means no data for that company."""
     out, page = [], 1
     while True:
-        p = dict(params or {})
+        # 16 Nov 2026: BharatStock sends 20 rows a page unless asked; Titan's 415 fund holdings needed 21 pages, past the
+        # 20-page limit (372 schemes counted). 100 a page: 5 pages, and fewer requests for every list
+        p = {"page_size": 100, **(params or {})}
         if page > 1:
             p["page"] = page
         r = _get_with_retry(url, p, key)

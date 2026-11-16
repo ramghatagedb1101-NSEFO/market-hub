@@ -718,6 +718,16 @@ def test_no_ceiling_when_trailing():
     ok("no ceiling: a target below the trailing start still closes", f2[-1]["tag"] == "target", f2[-1])
 
 
+def test_autopilot_off_clears():
+    """16 Nov 2026: after autopilot is turned off the summary no longer shows its last market reading."""
+    from trader import summary
+    rows = [{"t": "2026-11-16T09:30:27", "kind": "switch", "strategy": "autopilot"},
+            {"t": "2026-11-16T09:30:27", "kind": "autopilot", "regime": "range", "strategy": "X"},
+            {"t": "2026-11-16T10:44:00", "kind": "switch", "strategy": "watch only"}]
+    st = summary.build(rows)["status"]
+    ok("autopilot off: no old reading", st["autopilot"] is None and st["strategy"] == "watch only", st)
+
+
 def test_live_push():
     """Live profit (16 Nov 2026): the per-minute helper sends a slim summary in market hours only, built by the same code
     as site/algo.json, with nothing but the screens' fields (no day-by-day lists) and no account number."""
@@ -741,7 +751,7 @@ def test_live_push():
 def main() -> int:
     for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
-              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing]:
+              test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears]:
         t()
     bad = [n for n, good in R if not good]
     print(f"{len(R) - len(bad)} of {len(R)} passed")

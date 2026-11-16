@@ -130,9 +130,11 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         if r.get("strategy_id") and r.get("strategy"):
             names[r["strategy_id"]] = r["strategy"]
         if k == "start":
-            status.update(strategy=r.get("strategy"), started=t, killed=None)
+            status.update(strategy=r.get("strategy"), started=t, killed=None, autopilot=None)
         elif k == "switch":
             status["strategy"] = r.get("strategy")
+            if r.get("strategy") != "autopilot":      # 16 Nov 2026: autopilot turned off; its last reading is not current
+                status["autopilot"] = None
         elif k == "autopilot":
             status["autopilot"] = {k2: r.get(k2) for k2 in ("t", "regime", "regime_why", "strategy", "why")}
             status["strategy"] = r.get("strategy") or "watch only"
