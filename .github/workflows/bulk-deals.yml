@@ -4,6 +4,11 @@ name: bulk-deals
 # it every evening, so this is only for filling a gap at once.
 on:
   workflow_dispatch:
+    inputs:
+      refill:
+        description: "Sessions to read again in full, YYYY-MM-DD,YYYY-MM-DD (blank: only the missed ones)"
+        required: false
+        default: ""
 permissions:
   contents: write
 concurrency:
@@ -28,6 +33,7 @@ jobs:
       - name: Collect bulk deals, filling missed sessions
         env:
           PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          BULK_REFILL: ${{ inputs.refill }}
         run: python -m hub.bulkdeals
       - name: Write the admin summary to the private repo
         continue-on-error: true

@@ -81,15 +81,18 @@ def fetch_day(s, day) -> list[dict]:
     so days the job missed - 6 and 9 Nov, when GitHub started it hours late - were lost). Same columns as the daily file.
     One day a request: the service answers a range with its first day only."""
     d = day.strftime("%d-%m-%Y")
-    r = s.get(HISTORY, params={"optionType": "bulk_deals", "from": d, "to": d}, timeout=60,
+    # the JSON answer stops at 70 rows (13 Nov 2026 had 136); the CSV download of the same service has them all
+    r = s.get(HISTORY, params={"optionType": "bulk_deals", "from": d, "to": d, "csv": "true"}, timeout=60,
               headers={"Referer": "https://www.nseindia.com/report-detail/display-bulk-and-block-deals"})
     r.raise_for_status()
-    body = r.json()
-    rows = body.get("data", []) if isinstance(body, dict) else body
-    return [{"Date": x.get("BD_DT_DATE", ""), "Symbol": x.get("BD_SYMBOL", ""), "Security Name": x.get("BD_SCRIP_NAME", ""),
-             "Client Name": x.get("BD_CLIENT_NAME", ""), "Buy/Sell": x.get("BD_BUY_SELL", ""),
-             "Quantity Traded": str(x.get("BD_QTY_TRD", "")), "Trade Price / Wght. Avg. Price": str(x.get("BD_TP_WATP", ""))}
-            for x in rows]
+    out = []
+    for row in csv.DictReader(io.StringIO(r.text.lstrip("﻿"))):
+        x = {"".join(k.split()): (v or "").strip() for k, v in row.items() if k}      # "Buy / Sell " -> "Buy/Sell"
+        out.append({"Date": x.get("Date", "").upper(), "Symbol": x.get("Symbol", ""), "Security Name": x.get("SecurityName", ""),
+                    "Client Name": x.get("ClientName", ""), "Buy/Sell": x.get("Buy/Sell", "").upper(),
+                    "Quantity Traded": x.get("QuantityTraded", "").replace(",", ""),
+                    "Trade Price / Wght. Avg. Price": x.get("TradePrice/Wght.Avg.Price", "").replace(",", "")})
+    return out
 
 
 def missed_sessions(stored_dates: set, today) -> list:
@@ -109,8 +112,16 @@ def missed_sessions(stored_dates: set, today) -> list:
 
 
 def backfill(stored_dates: set) -> tuple[list[dict], list[str]]:
+    import os
     today = datetime.now(config.IST).date()
     days = missed_sessions(stored_dates, today)
+    # BULK_REFILL=YYYY-MM-DD,...: sessions read again in full (16 Nov 2026: 6 and 9 Nov were first filled from the JSON
+    # answer, which stops at 70 rows); deals already stored are not added twice
+    for x in (os.getenv("BULK_REFILL") or "").split(","):
+        if x.strip():
+            d = datetime.strptime(x.strip(), "%Y-%m-%d").date()
+            if d not in days:
+                days.append(d)
     if not days:
         return [], []
     try:
@@ -152,6 +163,11 @@ def main() -> dict:
             new_rows.append(rec)
 
     store = load_store()
+    import os
+    refill = {datetime.strptime(x.strip(), "%Y-%m-%d").strftime("%d-%b-%Y").upper()
+              for x in (os.getenv("BULK_REFILL") or "").split(",") if x.strip()}
+    if refill and any(r["date"] in refill for r in new_rows):          # a re-read day replaces what was stored for it
+        store = [r for r in store if r["date"] not in refill]
     seen = {key(r) for r in store}
     added = [r for r in new_rows if key(r) not in seen]
     store.extend(added)
