@@ -743,6 +743,30 @@ def test_emergency_stop():
         ok("stop: KILL file follows the relay", on and not _os.path.exists(p))
 
 
+def test_fill_idle():
+    """17 Nov 2026: when the strategy in charge is done for the day, a strategy that passed testing with a record in the
+    market condition now takes over; none with a record there, and it watches."""
+    from trader.autopilot import fill_choice, is_done
+
+    class _S:
+        def __init__(self, trades, until, mx=1):
+            self.trades, self.d = trades, {"max_trades_day": mx, "window": {"from": "10:00", "until": until}}
+    ok("fill: open position is not done", not is_done(_S(1, "10:10"), 2, "11:00"))
+    ok("fill: trades used is done", is_done(_S(1, "14:30"), 0, "11:00"))
+    ok("fill: window over is done", is_done(_S(0, "10:10"), 0, "11:00"))
+    ok("fill: still in its window is not done", not is_done(_S(0, "14:30"), 0, "11:00"))
+    ok("fill: watching is done", is_done(None, 0, "11:00"))
+    P = [{"key": "a", "name": "Strangle", "by_regime": {"expiry_day": {"trades": 62, "profit": 11172, "won": 46}},
+          "strategy": {"id": "p_a", "name": "Strangle", "index": "NIFTY"}},
+         {"key": "b", "name": "Trend call", "by_regime": {"trend_up": {"trades": 30, "profit": 9000, "won": 18},
+                                                         "range": {"trades": 3, "profit": 5000, "won": 3}},
+          "strategy": {"id": "p_b", "name": "Trend call", "index": "NIFTY"}}]
+    ok("fill: best record in the condition now", (fill_choice(P, {"NIFTY": "trend_up"}, set())[0] or {}).get("id") == "p_b")
+    ok("fill: too few trades in that condition watches", fill_choice(P, {"NIFTY": "range"}, set())[0] is None)
+    ok("fill: no record in that condition watches", fill_choice(P, {"NIFTY": "volatile"}, set())[0] is None)
+    ok("fill: a finished strategy is not picked again", fill_choice(P, {"NIFTY": "trend_up"}, {"p_b"})[0] is None)
+
+
 def test_autopilot_off_clears():
     """16 Nov 2026: after autopilot is turned off the summary no longer shows its last market reading."""
     from trader import summary
@@ -789,7 +813,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()

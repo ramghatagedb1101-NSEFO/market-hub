@@ -26,7 +26,7 @@ from pathlib import Path
 
 from hub.holidays import is_session
 
-from .autopilot import CHECKS, choose, match_choice
+from .autopilot import CHECKS, FILL_UNTIL, choose, fill_choice, is_done, match_choice
 from .engine import Engine, default_exits
 from .indicators import completed
 from .regime import classify
@@ -93,6 +93,37 @@ def open_gap(bars: list, now: datetime, prev_close: float | None) -> float | Non
     return (day[0][1] / prev_close - 1) * 100
 
 
+FINISHED: set = set()          # strategies done for the day (cleared each new day)
+
+
+def fill_idle(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
+    """Fill idle time (owner, 17 Nov 2026): when the strategy in charge is done for the day, the strategy that passed
+    testing with the best record in the market condition read now takes over (autopilot only; never after FILL_UNTIL,
+    never when stopped)."""
+    if eng.guard.killed or now.strftime("%H:%M") > FILL_UNTIL or not b.get("passed"):
+        return
+    if not is_done(eng.strategy, eng.book.open_legs(), now.strftime("%H:%M")):
+        return
+    cur = getattr(eng.strategy, "id", None)
+    if cur:
+        FINISHED.add(cur)
+    if getattr(eng, "_fill_tried", None) == (cur, now.strftime("%H")):
+        return                                     # nothing qualified for this one this hour; look again next hour
+    eng._fill_tried = (cur, now.strftime("%H"))
+    regimes, words = {}, {}
+    for idx in sorted({(p.get("strategy") or {}).get("index") or "NIFTY" for p in b["passed"]}):
+        bars = completed(br.index_bars(idx), now)
+        exp = pick_expiry(br.expiries(idx), now.date(), "nearest")
+        regimes[idx], words[idx] = classify(bars, now, exp)
+    item, why = fill_choice(b["passed"], regimes, FINISHED | ({cur} if cur else set()))
+    if not item:
+        return
+    use(eng, item)
+    eng.j.write(now, "autopilot", regime=regimes.get("NIFTY") or next(iter(regimes.values()), None),
+                regime_why=words.get("NIFTY"), regimes=regimes, strategy=item.get("name"), strategy_id=item.get("id"),
+                why=why, scores={})
+
+
 def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
     items = b.get("items") or []
     regimes, words, gap = {}, {}, None
@@ -111,6 +142,9 @@ def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
         scores = {}
     else:
         item, why, scores = choose(items, regimes, b.get("backtests") or {}, paper, b.get("fallback"))
+    if item and item.get("id") in FINISHED:          # done for the day already: the strategy filling the time stays
+        eng.j.write(now, "note", text=f"autopilot: {item.get('name')} is done for the day; keeping the current strategy")
+        return
     use(eng, item)
     main = "NIFTY" if "NIFTY" in regimes else next(iter(regimes))
     eng.j.write(now, "autopilot", regime=regimes.get(main), regime_why=words.get(main), regimes=regimes,
@@ -192,6 +226,7 @@ def main() -> int:
         now = datetime.now()
         if now.date() != day:                      # new day: fresh journal, fresh limits, autopilot checks again
             day, s, done = now.date(), settings(), set()
+            FINISHED.clear()
             eng = start(br, s, day)
             stamp = builder_stamp()
         elif builder_stamp() != stamp:
@@ -208,6 +243,11 @@ def main() -> int:
                     autopilot_check(br, eng, now, b)
                 except Exception as e:             # a failed check keeps whatever was running; journalled
                     eng.j.write(now, "note", text=f"autopilot check failed ({type(e).__name__}); keeping the current choice")
+            elif now.strftime("%H:%M") > CHECKS[0]:
+                try:
+                    fill_idle(br, eng, now, b)
+                except Exception as e:             # noqa: BLE001 -- the strategy in charge stays
+                    eng.j.write(now, "note", text=f"fill check failed ({type(e).__name__})")
         try:
             # 16 Nov 2026: a gateway restart (06:30 daily, or a repair) dropped the link silently outside market hours;
             # reconnect as soon as it is gone, not at the first step after 09:15

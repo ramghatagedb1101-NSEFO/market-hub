@@ -33,6 +33,26 @@ def describe(c: list, j: int) -> list:
     return [round((c[j] / c[j - LOOK] - 1) * 100, 2), round(st.pstdev(r) * 100, 2), round((c[j] / ma50 - 1) * 100, 2)]
 
 
+def by_regime(trades: list) -> dict:
+    """A strategy's tested record in each market condition (the condition at entry, as the trading program reads it)."""
+    out = {}
+    for t in trades:
+        r = out.setdefault(t.get("regime") or "unknown", {"trades": 0, "profit": 0.0, "won": 0})
+        r["trades"] += 1
+        r["profit"] += t.get("pnl") or 0.0
+        r["won"] += (t.get("pnl") or 0) > 0
+    return {k: dict(v, profit=round(v["profit"])) for k, v in out.items()}
+
+
+def passed(ideas: dict) -> list:
+    """Every idea that passed the research bot's full test (development months, nearby settings, unseen months), with its
+    settings and record by condition: the trading program fills idle time with these (owner, 17 Nov 2026: "Fill idle
+    time. only with strategies that passed testing based on latest market condition at that time")."""
+    return [{"key": k, "name": v["name"], "by_regime": v["by_regime"],
+             "strategy": dict(v["strategy"], id="p_" + k, name=v["name"])}
+            for k, v in ideas.items() if v.get("stage") == "recommended" and v.get("strategy")]
+
+
 def load_ideas(results_dir: str) -> dict:
     ideas = {}
     for f in glob.glob(os.path.join(results_dir, "*.json.gz")):
@@ -40,11 +60,13 @@ def load_ideas(results_dir: str) -> dict:
             x = json.loads(gzip.decompress(open(f, "rb").read()))
         except (OSError, ValueError):
             continue
-        days = []
+        days, trades = [], []
         for part in ("dev", "vault"):
             days += ((x.get(part) or {}).get("summary") or {}).get("days") or []
+            trades += ((x.get(part) or {}).get("summary") or {}).get("trades") or []
         if days:
             ideas[x["key"]] = {"name": x.get("name"), "stage": x.get("stage"), "family": x.get("family"), "strategy": x.get("strategy"),
+                               "by_regime": by_regime(trades),
                                "pnl": {d["date"]: d["pnl"] for d in days}, "first": min(d["date"] for d in days),
                                "last": max(d["date"] for d in days)}
     return ideas
@@ -81,7 +103,7 @@ def build(closes: dict, ideas: dict) -> dict:
     return {"generated": datetime.now(config.IST).isoformat(timespec="minutes"), "asof": nd[-1],
             "now": {"move": now[0], "swing": now[1], "vs_ma50": now[2]},
             "stretches": [{"end": nd[j], "move": feats[j][0], "swing": feats[j][1], "vs_ma50": feats[j][2]} for j in chosen],
-            "top": rows[:TOP], "pick": pick, "pick_rule": f"highest total among those that made money after {PICK_WON}+ of the {STRETCHES}",
+            "top": rows[:TOP], "pick": pick, "passed": passed(ideas), "pick_rule": f"highest total among those that made money after {PICK_WON}+ of the {STRETCHES}",
             "ideas": len(ideas), "after_sessions": AFTER, "look_sessions": LOOK}
 
 

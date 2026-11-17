@@ -2,6 +2,20 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~07:30 IST: autopilot fills idle time with strategies that passed testing
+- Owner: "if automode also takes only one trade at a time then whats the point? will it shift to new trade once the
+  older one stops"; chose "A. Fill idle time. only with strategies that passed testing based on latest market condition
+  at that time". Before, autopilot looked only at 09:30 / 11:00 / 13:00 and never moved on when its strategy was done.
+- `hub/match.py`: site/match.json lists every idea that passed the research bot's full test, with its settings and its
+  tested record in each market condition (from its trades); the relay sends it to the machine as `passed`.
+- `trader/live.py` `fill_idle` (autopilot only, 09:30-14:30, not while stopped): when the strategy in charge is done for
+  the day (nothing open, and its trades used or its entry window over; or nothing in charge), the market condition is read
+  then and `trader/autopilot.py` `fill_choice` hands over to the passed strategy with the best tested profit per trade in
+  that condition (at least 5 trades there, in profit); none, and it watches (looks again each hour). The 11:00 / 13:00
+  checks never hand back to a strategy already done for the day. Journalled as an autopilot line with the reason.
+- Today one idea has passed (the expiry-day strangle, 62 tested trades, all on expiry days): it can only fill an expiry
+  day; other days stay idle until more pass. Autopilot box says so. Selftest 217/217.
+
 ## Tue 17 Nov 2026, ~07:40 IST: "Use this" ends in a start button; no duplicate copies
 - Owner: "i dont see a final button to start trade"; "what if there is nothing new to save?"; "make this change
   immediately". Before: Use this opened the form, Save stored it ("the trading machine gets it in a minute or two",

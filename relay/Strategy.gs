@@ -22,15 +22,17 @@ function stratMode_() { return PropertiesService.getScriptProperties().getProper
 // default one"): 'match' = the evening's market-match pick (hub/match.py, site/match.json), the default; 'tagged' = the
 // strategies tagged for today's market condition, by their back-test record there.
 function stratMethod_() { return PropertiesService.getScriptProperties().getProperty('STRAT_METHOD') === 'tagged' ? 'tagged' : 'match'; }
-function stratMatchPick_() {
+function stratMatchFile_() {
   const readToken = PropertiesService.getScriptProperties().getProperty('ADMIN_READ_TOKEN') || '';
   if (!readToken) return null;
   try {
     const r = privateRaw_(readToken, 'site/match.json');
-    if (r.getResponseCode() !== 200) return null;
-    const m = JSON.parse(r.getContentText());
-    return m.pick ? { asof: m.asof, key: m.pick.key, name: m.pick.name, total: m.pick.total, won: m.pick.won, strategy: m.pick.strategy } : null;
+    return r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : null;
   } catch (e) { return null; }
+}
+function stratMatchPick_(m) {
+  m = m === undefined ? stratMatchFile_() : m;
+  return m && m.pick ? { asof: m.asof, key: m.pick.key, name: m.pick.name, total: m.pick.total, won: m.pick.won, strategy: m.pick.strategy } : null;
 }
 function adminStrategyMethod(token, method) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
@@ -387,9 +389,9 @@ function adminOptionChart(token, index, expiry) {
 function strategiesForBatch_(p) {
   const relayKey = PropertiesService.getScriptProperties().getProperty('RELAY_KEY') || '';
   if (!relayKey || p.key !== relayKey) return { error: 'key does not match RELAY_KEY' };
-  const bt = stratBacktests_(), slim = {};
+  const bt = stratBacktests_(), slim = {}, mf = stratMatchFile_();
   Object.keys(bt).forEach(k => { slim[k] = { by_regime: bt[k].by_regime || {} }; });   // autopilot needs only the records by condition
   return { active: stratActive_() || null, items: stratList_(), limits: stratLimits_(), mode: stratMode_(),
-           fallback: stratFallback_() || null, backtests: slim, method: stratMethod_(), match_pick: stratMatchPick_(), kill: stratKill_() || null,
+           fallback: stratFallback_() || null, backtests: slim, method: stratMethod_(), match_pick: stratMatchPick_(mf), passed: (mf && mf.passed) || [], kill: stratKill_() || null,
            changed: PropertiesService.getScriptProperties().getProperty('STRAT_CHANGED') || null };
 }

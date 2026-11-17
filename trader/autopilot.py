@@ -59,6 +59,44 @@ def choose(items: list, regimes: dict, backtests: dict, paper: dict, fallback: s
 GAP_SKIP = 0.8
 
 
+FILL_UNTIL = "14:30"        # no fresh strategy after this (time left to enter and exit the same day)
+FILL_MIN_TRADES = 5          # a condition with fewer tested trades than this is not a record
+
+
+def is_done(strategy, open_legs: int, hhmm: str) -> bool:
+    """The strategy in charge is done for the day (17 Nov 2026, owner: "A. Fill idle time"): nothing open, and either its
+    trades for the day are used or its entry window is over. No strategy at all (watching) counts as done."""
+    if open_legs:
+        return False
+    if strategy is None:
+        return True
+    d = getattr(strategy, "d", None) or {}
+    w = d.get("window") or {}
+    return getattr(strategy, "trades", 0) >= (d.get("max_trades_day") or 1) or hhmm > (w.get("until") or "15:30")
+
+
+def fill_choice(passed: list, regimes: dict, exclude: set) -> tuple[dict | None, str]:
+    """Owner, 17 Nov 2026: "only with strategies that passed testing based on latest market condition at that time". Of the
+    strategies that passed the research bot's full test, the one with the best tested profit per trade in the market
+    condition read now (its own index), at least FILL_MIN_TRADES trades there and in profit; none, and it watches."""
+    best, why = None, None
+    for p in passed or []:
+        s = p.get("strategy") or {}
+        if not s or s.get("id") in exclude:
+            continue
+        reg = regimes.get(s.get("index") or "NIFTY")
+        r = (p.get("by_regime") or {}).get(reg or "") or {}
+        if r.get("trades", 0) < FILL_MIN_TRADES or r.get("profit", 0) <= 0:
+            continue
+        per = r["profit"] / r["trades"]
+        if best is None or per > best[0]:
+            best, why = (per, s), (f"fills the rest of the day: tested {r['trades']} trades in this market ({reg}), "
+                                   f"{r['profit']} per lot, {r.get('won', 0)} won")
+    if best is None:
+        return None, "nothing that passed testing has a record in this market; watching"
+    return best[1], why
+
+
 def match_choice(b: dict, today: date, gap: float | None = None) -> tuple[dict | None, str]:
     """Autopilot by market match (16 Nov 2026, owner: "Matches today's market should be one of the option for auto mode.
     actually the default one"): the evening's pick (hub/match.py -> relay -> strategies.json "match_pick"). None, and a
