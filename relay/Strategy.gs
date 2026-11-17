@@ -123,6 +123,7 @@ function stratClean_(s) {
     put_groups: structure ? [] : putGroups, put_groups_match: s.put_groups_match === 'all' ? 'all' : 'any',
     id: /^s_[a-z0-9]{6,20}$/.test(s.id || '') ? s.id : 's_' + Utilities.getUuid().replace(/-/g, '').slice(0, 10),
     name: String(s.name || 'Unnamed strategy').slice(0, 80), notes: String(s.notes || '').slice(0, 500),
+    idea: /^[A-Za-z0-9_-]{1,64}$/.test(s.idea || '') ? s.idea : undefined,     // 17 Nov 2026: the research idea it came from
     index: pick(s.index, ['NIFTY', 'BANKNIFTY'], 'NIFTY'), side: putGroups.length ? 'BUY' : pick(s.side, ['BUY', 'SELL'], 'BUY'), right: putGroups.length ? 'C' : pick(s.right, ['C', 'P'], 'C'),
     strike: st.mode === 'premium' ? { mode: 'premium', near: stratNum_(st.near, 1, 5000, 100) } : { mode: 'atm', steps: Math.round(stratNum_(st.steps, -10, 20, 0)) },
     expiry: pick(s.expiry, ['nearest', 'next', 'monthly'], 'nearest'), lots: Math.round(stratNum_(s.lots, 1, 50, 1)),

@@ -2,6 +2,21 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~07:40 IST: "Use this" ends in a start button; no duplicate copies
+- Owner: "i dont see a final button to start trade"; "what if there is nothing new to save?"; "make this change
+  immediately". Before: Use this opened the form, Save stored it ("the trading machine gets it in a minute or two",
+  which read as if it were trading), and the start button (Trade this) was on a card further down; using the same idea
+  again made a second copy.
+- The strategy form: **Save and trade** (asks the Trade this question, "in place of <current>; autopilot turns off",
+  saves, switches on, waits for the trading machine's confirmation) and **Save only** ("Saved, not trading. Press Trade
+  this on its card to start it.", scrolls to and highlights the card). The strategy trading now keeps just Save. A line
+  under the buttons gives its back-test result, or "Not back-tested on these settings yet".
+- A strategy saved from a research idea remembers it (`idea`, relay `stratClean_`). Use this, Start from and the
+  Back-tests page's Add to my strategies find an idea already saved (by idea, or name and settings for older saves)
+  and show its card ("Already in your strategies") instead of copying it.
+- Strategy cards show Trade this in autopilot mode too (it asks, and says autopilot turns off); before, the cards had no
+  start button while autopilot was on.
+
 ## Tue 17 Nov 2026, ~07:10 IST: before the session the strip showed every change as 0.00
 - Seen on the dashboard after the morning Kite login: NIFTY, BANK NIFTY, SENSEX, VIX, GOLD, CRUDE, USD/INR all "0.00"
   under "Close · Mon 16 Nov 2026". Before the session (and all day on a holiday) Kite gives the last close as both price
