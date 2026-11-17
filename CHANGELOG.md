@@ -2,6 +2,12 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~06:50 IST: every switch shows the one in force in blue
+- Owner (screenshot of the price strip's % / Pts): "must have the same blue highlighted style as to show which one is
+  active. its on many pages to change everywhere". The shared switch style (`.seg`) on the dashboard and the phone, and the
+  target / stop presets, now mark the selected option in blue with white text, as the Manual / Autopilot switch did.
+  Phone v73.
+
 ## Tue 17 Nov 2026, ~06:40 IST: turning autopilot off brings back the strategy you had
 - Cause of last night's lost strangle, from the dashboard's change log: "Autopilot on" 23:55, "Autopilot off" 23:56 (who
   clicked is not certain; Claude was driving the owner's dashboard around then). Turning autopilot on cleared the active
