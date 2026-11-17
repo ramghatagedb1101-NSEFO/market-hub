@@ -74,6 +74,9 @@ jobs:
             if [ "$NEW" != "$OLD" ]; then
               $SSH 'cat > /opt/trader/strategies.json.tmp && mv /opt/trader/strategies.json.tmp /opt/trader/strategies.json' < s2.json
               echo "strategies: updated on the machine"
+              # 17 Nov 2026: the program checks the file every 20 seconds; wait for its switch line so the dashboard
+              # can confirm it from this run's summary (the copy below was taken before the switch)
+              sleep 45
             else
               echo "strategies: unchanged"
             fi

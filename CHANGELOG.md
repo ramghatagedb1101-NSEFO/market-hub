@@ -2,6 +2,15 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~06:25 IST: a switch now shows the trading machine's confirmation
+- Owner, on "Switched on. The trading machine follows in a minute or two.": "seems like a stale message with no clarity
+  on the status". The page now says "Waiting for the trading machine to confirm…", reads the machine's own record every
+  15 seconds, and shows "Trading machine confirmed · trading <name> · HH:MM IST" (or watching only / autopilot); after
+  5 minutes without it, says so.
+- `algo-sync.yml`: after writing new strategies it waits 45 seconds before copying the machine's record back, so the
+  switch line is in that run's summary (outside market hours no later sync would carry it).
+- The "Turn on autopilot?" box describes the method in force (Matches today's market by default, with the gap rule).
+
 ## Tue 17 Nov 2026, ~06:20 IST: the strangle had been switched off; email on every switch-off
 - The relay's active strategy was cleared at 23:56 on 16 Nov (5 minutes after a relay deploy; cause not certain, possibly
   a stray click during dashboard checks), so the machine would have only watched on today's expiry. Found by the new

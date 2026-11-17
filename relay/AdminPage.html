@@ -1954,11 +1954,26 @@ async function stDelete(id){
   if (!await mhDialog({ title: 'Delete "' + s.name + '"?', body: 'This cannot be undone.', ok: 'Delete', danger: true })) return;
   stDo('adminStrategyDelete', [id], 'Deleting…', () => 'Deleted.');
 }
+// 17 Nov 2026 (owner: "seems like a stale message with no clarity on the status"): after a switch the page reads the
+// trading machine's own record every 15 seconds until it reports the new strategy, then says so with the time.
+let ST_WAIT = null;
+function stWait(want){ ST_WAIT = { want: want, t0: Date.now() }; setTimeout(stPoll, 15000); }
+function stPoll(){
+  if (!ST_WAIT) return;
+  const st = (S.algo && !S.algo.error && S.algo.status) || {};
+  if (st.strategy === ST_WAIT.want && Date.now() - ST_WAIT.t0 > 10000) {
+    const w = ST_WAIT.want; ST_WAIT = null;
+    ST_MSG = 'Trading machine confirmed · ' + (w === 'watch only' ? 'watching only' : w === 'autopilot' ? 'autopilot' : 'trading ' + w) + ' · ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST';
+    rerender(); return;
+  }
+  if (Date.now() - ST_WAIT.t0 > 300000) { ST_WAIT = null; ST_MSG = 'Saved. The trading machine has not confirmed in 5 minutes; reopen this page later to see it.'; rerender(); return; }
+  algoLoad(); setTimeout(stPoll, 15000);
+}
 async function stOn(id){
   const s = (S.strat.items || []).find(x => x.id === id);
   if (!await mhDialog(id ? { title: 'Trade "' + s.name + '"?', body: 'On the IBKR paper account, in place of the strategy trading now. Open trades keep their stops.', ok: 'Trade this' }
                          : { title: 'Stop trading?', body: 'No new trades. Open trades keep their stops.', ok: 'Switch off' })) return;
-  stDo('adminStrategyActivate', [id || ''], 'Switching…', d => (id ? 'Switched on.' : 'Switched off.') + (d.sent ? ' The trading machine follows in a minute or two.' : ' The trading machine follows within 10 minutes in market hours.'));
+  stDo('adminStrategyActivate', [id || ''], 'Switching…', d => { stWait(id ? s.name : 'watch only'); return (id ? 'Switched on' : 'Switched off') + '. Waiting for the trading machine to confirm…'; });
 }
 async function stLimits(){
   const L = S.strat.limits || {};
@@ -2821,10 +2836,10 @@ function stBtPanel(){
 async function stMode(mode){
   if (mode === S.strat.mode || (mode === 'manual' && S.strat.mode !== 'autopilot')) return;
   const ok = await mhDialog(mode === 'autopilot'
-    ? { title: 'Turn on autopilot?', body: 'At 09:30, 11:00 and 13:00 the program reads the market and picks, from the strategies tagged for that condition, the one with the best record there (at least 10 trades, in profit after charges). If none qualifies it runs your fallback, or watches. The safety limits stay.', ok: 'Turn on' }
+    ? { title: 'Turn on autopilot?', body: (S.strat.method || 'match') === 'match' ? 'From 09:30 the program runs the evening\'s pick from Matches today\'s market, and sits out days NIFTY opens 0.8% or more from the previous close. The safety limits stay.' : 'At 09:30, 11:00 and 13:00 the program reads the market and picks, from the strategies tagged for that condition, the one with the best record there (at least 10 trades, in profit after charges). If none qualifies it runs your fallback, or watches. The safety limits stay.', ok: 'Turn on' }
     : { title: 'Turn autopilot off?', body: 'No new trades until you press Trade this on a strategy. Open trades keep their stops.', ok: 'Turn off' });
   if (!ok) return;
-  stDo('adminStrategyMode', [mode, S.strat.fallback || ''], 'Switching…', d => (mode === 'autopilot' ? 'Autopilot on.' : 'Autopilot off: nothing trades until you press Trade this.') + (d.sent ? ' The trading machine follows in a minute or two.' : ''));
+  stDo('adminStrategyMode', [mode, S.strat.fallback || ''], 'Switching…', d => { stWait(mode === 'autopilot' ? 'autopilot' : 'watch only'); return (mode === 'autopilot' ? 'Autopilot on' : 'Autopilot off') + '. Waiting for the trading machine to confirm…'; });
 }
 // 16 Nov 2026: confirmed first, and only while autopilot is on (a keystroke landing on this list could change what trades)
 async function stFallback(id){
