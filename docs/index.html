@@ -1293,6 +1293,20 @@
     const ap = st.autopilot ? `Autopilot · ${esc(COND[st.autopilot.regime] || "reading the market")} · ` : "";
     return st.strategy && !["watch only", "autopilot"].includes(st.strategy) ? `<span class="up">${ap}${esc(st.strategy.replace(/_/g, " "))}</span>` : ap + "Watching only";
   }
+  // 17 Nov 2026 (owner: "Unrealized gains and losses are not being reflected as this month's gain and this day's gain,
+  // etc. ... Even the unrealized needs to be considered"): open positions count at their current value in today's row,
+  // this month's row and figure, and the all-time figure (A.today.open, live every minute in market hours).
+  function algoAdj(A){
+    const OP = (A.today || {}).open || 0, day = String(A.asof || '').slice(0, 10), mon = day.slice(0, 7);
+    const D = (A.days || []).map(d => Object.assign({}, d)), M = (A.months || []).map(m => Object.assign({}, m));
+    if (OP && day) {
+      let t = D.find(d => d.date === day); if (!t) { t = { date: day, pnl: 0, trades: 0, wins: 0, losses: 0 }; D.push(t); }
+      t.pnl = Math.round((t.pnl + OP) * 100) / 100; t.open = OP;
+      let m = M.find(x => x.month === mon); if (!m) { m = { month: mon, pnl: 0, trades: 0, days_up: 0, days_down: 0 }; M.push(m); }
+      m.pnl = Math.round((m.pnl + OP) * 100) / 100; m.open = OP;
+    }
+    return { OP: OP, D: D, M: M, month: ((A.month || {}).booked || 0) + OP, all: ((A.totals || {}).booked || 0) + OP };
+  }
   function drawAlgoCard(){
     const el = $("#fno-algo"); if (!el) return;
     const A = ALGO, T = (A && A.totals) || {}, TD = (A && A.today) || {}, MO = (A && A.month) || {};
@@ -1300,8 +1314,8 @@
       A.error ? `<div class="mut">${A.error === "not published yet" ? "Appears after the program first runs." : esc(A.error)}</div>` :
       `<div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut">IBKR paper</span></div>` +
       `<div class="row"><span class="l">Today${(A.open || []).length ? " · " + A.open.length + " open" : ""}${(A.pending || []).length ? " · " + A.pending.length + " pending" : ""}</span><span class="r">${pSigned((TD.booked || 0) + (TD.open || 0))}</span></div>` +
-      `<div class="row"><span class="l">This month · ${MO.trades || 0} trade${(MO.trades || 0) === 1 ? "" : "s"}</span><span class="r">${pSigned(MO.booked || 0)}</span></div>` +
-      `<div class="row"><span class="l">All time · ${T.trades || 0} trade${(T.trades || 0) === 1 ? "" : "s"}</span><span class="r">${pSigned(T.booked || 0)}</span></div>`;
+      `<div class="row"><span class="l">This month · ${MO.trades || 0} trade${(MO.trades || 0) === 1 ? "" : "s"}${algoAdj(A).OP ? " · incl. open" : ""}</span><span class="r">${pSigned(algoAdj(A).month)}</span></div>` +
+      `<div class="row"><span class="l">All time · ${T.trades || 0} trade${(T.trades || 0) === 1 ? "" : "s"}${algoAdj(A).OP ? " · incl. open" : ""}</span><span class="r">${pSigned(algoAdj(A).all)}</span></div>`;
     el.innerHTML = `<div class="sec">Auto trading</div><div class="panel"><div class="pb">${body}` +
       `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="openAlgo()">Open auto trading</button></div></div>`;
   }
@@ -1406,14 +1420,14 @@
     const A = ALGO;
     if (!A) return `<div class="mut" style="padding:12px">Loading…</div>`;
     if (A.error) return `<div class="mut" style="padding:12px">${A.error === "not published yet" ? "Nothing yet: the summary appears after the program first runs." : esc(A.error)}</div>`;
-    const T = A.totals || {}, D = (A.days || []).slice().reverse(), M = (A.months || []).slice().reverse(), TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
+    const AJ = algoAdj(A), T = A.totals || {}, D = AJ.D.slice().reverse(), M = AJ.M.slice().reverse(), TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
     const stat = (k, v, s) => `<div style="padding:6px 0"><div class="mut" style="font-size:11px">${k}</div><div style="font-weight:700">${v}</div>${s ? `<div class="mut" style="font-size:11px">${s}</div>` : ""}</div>`;
     const asof = A.asof ? (A.live && marketOpenIst() ? `Live · ${String(A.asof).slice(11, 16)} IST` : `As of ${String(A.asof).slice(11, 16)} IST · ${dayTxt(parseDay(A.asof))}`) : "";
     let h = `<div class="panel"><div class="pb"><div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut" style="font-size:11px">${esc(asof)}</span></div>` +
       `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 10px;margin-top:4px">` +
       stat("Today", pSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + " closed") +
-      stat("This month", pSigned(MO.booked || 0), (MO.trades || 0) + " trades") +
-      stat("All time", pSigned(T.booked || 0), (T.trades || 0) + " trades") +
+      stat("This month", pSigned(AJ.month), (MO.trades || 0) + " trades" + (AJ.OP ? " · incl. open" : "")) +
+      stat("All time", pSigned(AJ.all), (T.trades || 0) + " trades" + (AJ.OP ? " · incl. open" : "")) +
       stat("Won", T.trades ? Math.round(100 * T.wins / T.trades) + "%" : "–", (T.wins || 0) + " of " + (T.trades || 0)) +
       stat("Avg win / loss", `<span style="white-space:nowrap;font-size:12px">${T.avg_win != null ? pSigned(T.avg_win) : "–"} / ${T.avg_loss != null ? pSigned(T.avg_loss) : "–"}</span>`, "per trade") +
       stat("Worst fall", pSigned(T.worst_drop || 0), "from a high") + `</div>` + algoKillBox(A) + `</div></div>`;
@@ -1421,7 +1435,7 @@
       return h + `<div class="panel" style="margin-top:12px"><div class="pb" style="text-align:center;padding:28px 12px"><div style="font-weight:700">No trades yet</div>` +
         `<div class="mut" style="margin-top:6px">They appear here once a strategy is switched on (dashboard › Paper trading › Strategies).</div></div></div>`;
     }
-    h += pnlBlockP("algo", A.days);
+    h += pnlBlockP("algo", AJ.D);
     // Strategy-wise profit (owner, 14 Nov 2026): largest profit first; a bar from the middle line, profit right, loss left.
     const BS = A.by_strategy || [];
     if (BS.length) {

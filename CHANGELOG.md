@@ -2,6 +2,14 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~10:40 IST: open positions count in today's, this month's and all-time profit
+- Owner: "Unrealized gains and losses are not being reflected as this month's gain and this day's gain, etc. Needs to be
+  fixed. Even the unrealized needs to be considered." Today already added open positions; This month and All time,
+  the Daily and Monthly tables and the profit charts counted closed trades only.
+- `algoAdj` (dashboard Auto trading, phone F&O card and Auto trading, v75): the open positions' current value (today.open,
+  live every minute) is added to today's row, this month's row and figure and the all-time figure, marked "incl. open".
+  Footnote: a closed trade counts on the day it closes; open positions count today at their current value.
+
 ## Tue 17 Nov 2026, ~10:20 IST: an unintended put at 10:00 (fill-idle bug) and its fix
 - Autopilot's strangle sent its two sell orders at 10:00:01 (25650 CE at 1.85, 25050 PE at 3.00, filled 10:00:02-03).
   In that second the new fill-idle check saw "1 trade used, nothing held" (the orders were not filled yet), called the
