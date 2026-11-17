@@ -2,6 +2,17 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~10:05 IST: research bot tries entry times every 15 minutes, not three
+- Owner, on why the strangle enters at 10:00: "nothing should be hard coded is all i am worried about". The research
+  bot had tried only 10:00, 11:30 and 13:00 for the expiry-day strangle (10:00 won at every width; 11:30 and 13:00 broke
+  even or lost; only "6 out, 10:00" passed the unseen months), 09:45 / 11:00 / 13:00 for the volatility condor and
+  09:30 / 11:00 for the cheap straddle. `trader/research.py` ENTRY_TIMES: 09:20, 09:30, 09:45, 10:00, 10:15, 10:30,
+  10:45, 11:00, 11:30, 12:00, 12:30, 13:00 for all three, so the data picks the time. More ideas tried also raises the
+  bot's bar for "better than luck", as it should.
+- Still judgement, to be tested next against the stored results: autopilot's check times (09:30 / 11:00 / 13:00), no
+  new strategy after 14:30, the 5-trade minimum per market condition, the market match's 10 sessions / 5 stretches /
+  3 of 5. The 0.8% opening-gap rule came from the 16-17 Nov tests (best of 0.5 / 0.8 / 1.0%).
+
 ## Tue 17 Nov 2026, ~07:40 IST: autopilot puts strategies that passed testing first; US close logged
 - Owner: "Today is expiry, so why not turn on the autopilot now? ... shouldn't the autopilot also pick up the same one?"
   It would not have: autopilot ran the evening's market-match pick (an idea that failed the bot's tests) and the strangle

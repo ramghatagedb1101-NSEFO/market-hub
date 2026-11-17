@@ -192,15 +192,19 @@ def f_flows_follow(p):
     return d
 
 
+# Entry times tried (owner, 17 Nov 2026: "nothing should be hard coded"; until then only 10:00 / 11:30 / 13:00 were tried,
+# so "10:00" was the best of three, not chosen by the data): every 15 minutes to 11:00, then every 30 to 13:00.
+ENTRY_TIMES = ["09:20", "09:30", "09:45", "10:00", "10:15", "10:30", "10:45", "11:00", "11:30", "12:00", "12:30", "13:00"]
+
 FAMILIES = {
     "vol_condor": ("Option buyers overpay for insurance: implied volatility is usually above the movement that follows. "
                    "Selling a hedged iron condor when volatility is rich collects that premium near expiry.",
                    f_vol_condor, {"ivp": [40, 60, 75], "dte": [1, 2, 3], "width": [2, 3, 4], "wing": [2, 4],
-                                  "entry": ["09:45", "11:00", "13:00"], "target": [40, 60], "sl": [100, 150],
+                                  "entry": ENTRY_TIMES, "target": [40, 60], "sl": [100, 150],
                                   "vix_cap": [0, 90]}),
     "expiry_strangle": ("Time decay is fastest on expiry day: out-of-the-money options lose most of what is left by the "
                         "close, so sellers are paid for the hours of risk.",
-                        f_expiry_strangle, {"width": [2, 3, 4, 6], "entry": ["10:00", "11:30", "13:00"],
+                        f_expiry_strangle, {"width": [2, 3, 4, 6], "entry": ENTRY_TIMES,
                                             "target": [50, 70], "sl": [50, 100]}),
     "gap_fade": ("Large opening gaps often partly reverse once the overnight orders are absorbed.",
                  f_gap_fade, {"dir": ["down", "up"], "gap": [0.5, 0.8, 1.2], "spread": [0, 2, 4],
@@ -210,7 +214,7 @@ FAMILIES = {
                   f_trend_orb, {"dir": ["up", "down"], "minutes": [15, 30], "adx": [20, 25, 30], "wing": [2, 4],
                                 "target": [50, 100], "sl": [40, 60]}),
     "cheap_straddle": ("When implied volatility is unusually low, a big move is under-priced, so owning both sides can "
-                       "pay.", f_cheap_straddle, {"ivp": [10, 20, 30], "dte": [2, 4], "entry": ["09:30", "11:00"],
+                       "pay.", f_cheap_straddle, {"ivp": [10, 20, 30], "dte": [2, 4], "entry": ENTRY_TIMES,
                                                    "target": [20, 40], "sl": [25, 40]}),
     "fii_bear": ("Foreign institutions are the best-informed large traders; heavy net shorts in index futures often "
                  "come before weakness.", f_fii_bear, {"fii": [-20, -35, -50], "drop": [0.2, 0.5], "wing": [2, 4],
