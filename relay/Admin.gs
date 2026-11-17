@@ -193,6 +193,7 @@ function appApi_(mode, body) {
   if (mode === 'app_breeze_status') return breezeStatus_(p.token);
   if (mode === 'app_kite_status') return sessionValid_(p.token) ? kiteStatus_() : { error: 'session_expired' };   // 16 Nov 2026: Settings
   if (mode === 'app_strategy_kill') return adminStrategyKill(p.token);   // 17 Nov 2026: Stop trading on the phone
+  if (mode === 'app_strategy_mode') return appStrategyMode_(p.token, p.set);   // 17 Nov 2026: Manual / Autopilot on the phone
   if (mode === 'app_paper') return adminPaper(p.token);
   if (mode === 'app_paper_add') return adminPaperAdd(p.token, p.trade);
   if (mode === 'app_paper_close') return adminPaperClose(p.token, p.id, p.price, p.all);

@@ -269,7 +269,7 @@
   <div class="stock-body" id="pp-body"></div>
 </div>
 <div class="stock-bg" id="algo" role="dialog" aria-modal="true">
-  <div class="stock-top"><button class="btn" type="button" onclick="closeAlgo()">Back</button><span class="nm">Auto trading</span><button class="btn" type="button" onclick="loadAlgo()">Refresh</button></div>
+  <div class="stock-top"><button class="btn" type="button" onclick="closeAlgo()">Back</button><span class="nm">Auto trading</span><button class="btn" type="button" onclick="loadAlgo();loadAlgoMode()">Refresh</button></div>
   <div class="stock-body" id="algo-body"></div>
 </div>
 <div class="stock-bg" id="stock" role="dialog" aria-modal="true">
@@ -1319,7 +1319,7 @@
     el.innerHTML = `<div class="sec">Auto trading</div><div class="panel"><div class="pb">${body}` +
       `<button class="btn" type="button" style="width:100%;margin-top:8px" onclick="openAlgo()">Open auto trading</button></div></div>`;
   }
-  function openAlgo(){ $("#algo").classList.add("on"); document.body.style.overflow = "hidden"; drawAlgoP(); loadAlgo(); }
+  function openAlgo(){ $("#algo").classList.add("on"); document.body.style.overflow = "hidden"; drawAlgoP(); loadAlgo(); loadAlgoMode(); }
   function closeAlgo(){ $("#algo").classList.remove("on"); document.body.style.overflow = ""; drawAlgoCard(); }
   function algoTab(k){ ALGO_TAB = k; ALGO_ALL = false; drawAlgoP(); }
   function algoAll(){ ALGO_ALL = true; drawAlgoP(); }
@@ -1390,18 +1390,64 @@
   // Stop trading (owner, 17 Nov 2026: "its like the kill all switch for emergencies"; "it must be on phone also"): closes
   // every open position at market and takes no new trades until a strategy is switched back on (dashboard, Trade this).
   let ALGO_KILL_MSG = "", ALGO_KILL_T0 = 0;
+  // Manual / Autopilot (owner, 17 Nov 2026: "can we turn on and off autopilot from phone"): the same switch as the
+  // dashboard's Strategies page; the message waits for the trading machine's own confirmation, as there.
+  let ALGO_MODE = null, ALGO_MODE_MSG = "", ALGO_MODE_WAIT = null, ALGO_MODE_BUSY = false;
+  async function loadAlgoMode(){
+    try { const d = await relayOnce("app_strategy_mode", { token: SESSION }); if (!d.error) { ALGO_MODE = d; drawAlgoP(); } } catch(e){}
+  }
+  function algoModeBox(){
+    const M = ALGO_MODE; if (!M) return "";
+    const hint = M.mode === "autopilot" ? "From 09:30 it trades a tested strategy that suits the market." : M.active ? "Trading " + M.active + "." : "Watching only: no new trades.";
+    return `<div class="seg" style="margin:8px 0 4px">` + [["manual", "Manual"], ["autopilot", "Autopilot"]].map(([k, l]) =>
+      `<button type="button" class="${M.mode === k ? "on" : ""}" onclick="algoMode('${k}')">${l}</button>`).join("") + `</div>` +
+      `<div class="mut" style="font-size:11px;margin-bottom:6px">${esc(ALGO_MODE_MSG || hint)}</div>`;
+  }
+  async function algoMode(k){
+    const M = ALGO_MODE; if (!M || M.mode === k || ALGO_MODE_BUSY) return;
+    const back = M.prev;
+    if (!confirm(k === "autopilot" ? "Turn autopilot on?\n\nFrom 09:30 it trades a tested strategy that suits the market. The safety limits stay."
+                                   : "Turn autopilot off?\n\n" + (back ? "Goes back to " + back + "." : "Takes no new trades until a strategy is switched on."))) return;
+    ALGO_MODE_BUSY = true; ALGO_MODE_MSG = "Switching…"; drawAlgoP();
+    const ap0 = (((ALGO && ALGO.status) || {}).autopilot || {}).t || "";
+    try {
+      const d = await relayOnce("app_strategy_mode", { token: SESSION, set: k });
+      if (d.error) ALGO_MODE_MSG = d.error === "session_expired" ? "Signed out: sign in again, then switch." : d.error;
+      else {
+        ALGO_MODE = d;
+        const said = k === "autopilot" ? "Autopilot on" : "Autopilot off" + (back ? ", back to " + back : "");
+        if (marketOpenIst()) { ALGO_MODE_MSG = said + ". Waiting for the trading machine to confirm…"; ALGO_MODE_WAIT = { want: k, name: back, t0: Date.now(), apT: ap0 }; setTimeout(algoModePoll, 15000); }
+        else ALGO_MODE_MSG = said + ". " + (k === "autopilot" ? "It starts at 09:30 on the next market day." : "From the next market day.");
+      }
+    } catch(e){ ALGO_MODE_MSG = "No answer. Check your connection and switch again."; }
+    ALGO_MODE_BUSY = false; drawAlgoP();
+  }
+  async function algoModePoll(){
+    const W = ALGO_MODE_WAIT; if (!W) return;
+    await loadAlgo();
+    const st = (ALGO && ALGO.status) || {}, ap = st.autopilot || {};
+    const at = t => (t ? String(t).slice(11, 16) : new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })) + " IST";
+    if (W.want === "autopilot" && ap.t && ap.t !== W.apT) {
+      ALGO_MODE_WAIT = null; ALGO_MODE_MSG = "Trading machine confirmed autopilot · " + (ap.strategy ? "trading " + ap.strategy : "watching: " + (ap.why || "nothing suits the market now")) + " · " + at(ap.t);
+    } else if (W.want === "manual" && !ap.t && st.strategy === (W.name || "watch only")) {
+      ALGO_MODE_WAIT = null; ALGO_MODE_MSG = "Trading machine confirmed · " + (W.name ? "trading " + W.name : "watching only") + " · " + at(st.last);
+    } else if (Date.now() - W.t0 > 1200000) { ALGO_MODE_WAIT = null; ALGO_MODE_MSG = ""; }      // the status line above shows the machine's state
+    else setTimeout(algoModePoll, 15000);
+    drawAlgoP();
+  }
   function algoKillBox(A){
     const killed = /emergency stop/.test(((A && A.status) || {}).killed || "");
     return (killed ? "" : `<button class="btn" type="button" style="width:100%;margin-top:10px;background:#c4320a;border-color:#c4320a;color:#fff" onclick="algoKill()">Stop trading</button>`) +
       (ALGO_KILL_MSG ? `<div class="note" style="margin-top:6px">${esc(ALGO_KILL_MSG)}</div>` : "");
   }
   async function algoKill(){
-    if (!confirm("Stop trading?\n\nCloses every open position now at market price and takes no new trades until a strategy is switched back on (dashboard › Strategies › Trade this).")) return;
+    if (!confirm("Stop trading?\n\nCloses every open position now at market price and takes no new trades until autopilot is turned on or a strategy is switched on (dashboard › Strategies).")) return;
     ALGO_KILL_MSG = "Stopping…"; drawAlgoP();
+    ALGO_MODE_WAIT = null; ALGO_MODE_MSG = "";
     try {
       const d = await relayOnce("app_strategy_kill", { token: SESSION });
       if (d.error) { ALGO_KILL_MSG = d.error === "session_expired" ? "Signed out: sign in again, then press Stop trading." : d.error; drawAlgoP(); return; }
-      ALGO_KILL_MSG = "Stop sent. Waiting for the trading machine to confirm…"; ALGO_KILL_T0 = Date.now(); drawAlgoP(); setTimeout(algoKillPoll, 15000);
+      ALGO_KILL_MSG = "Stop sent. Waiting for the trading machine to confirm…"; ALGO_KILL_T0 = Date.now(); ALGO_MODE = Object.assign({}, ALGO_MODE || {}, { mode: "manual", active: "", prev: "" }); drawAlgoP(); setTimeout(algoKillPoll, 15000);
     } catch(e){ ALGO_KILL_MSG = "No answer. Check your connection and press Stop trading again."; drawAlgoP(); }
   }
   async function algoKillPoll(){
@@ -1411,8 +1457,8 @@
     if (/emergency stop/.test(st.killed || "")) {
       ALGO_KILL_MSG = "Trading machine confirmed the stop · " + (n ? n + " position" + (n > 1 ? "s" : "") + " still closing" : "no open positions") + " · " + at + " IST";
       drawAlgoP(); if (!n) return;
-    } else if (Date.now() - ALGO_KILL_T0 > 300000) {
-      ALGO_KILL_MSG = "The trading machine has not confirmed in 5 minutes; open this page again later to see it."; drawAlgoP(); return;
+    } else if (Date.now() - ALGO_KILL_T0 > 1200000) {
+      ALGO_KILL_MSG = ""; drawAlgoP(); return;      // the status line above shows the machine's state
     }
     if (Date.now() - ALGO_KILL_T0 < 900000) setTimeout(algoKillPoll, 15000);
   }
@@ -1423,7 +1469,7 @@
     const AJ = algoAdj(A), T = A.totals || {}, D = AJ.D.slice().reverse(), M = AJ.M.slice().reverse(), TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
     const stat = (k, v, s) => `<div style="padding:6px 0"><div class="mut" style="font-size:11px">${k}</div><div style="font-weight:700">${v}</div>${s ? `<div class="mut" style="font-size:11px">${s}</div>` : ""}</div>`;
     const asof = A.asof ? (A.live && marketOpenIst() ? `Live · ${String(A.asof).slice(11, 16)} IST` : `As of ${String(A.asof).slice(11, 16)} IST · ${dayTxt(parseDay(A.asof))}`) : "";
-    let h = `<div class="panel"><div class="pb"><div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut" style="font-size:11px">${esc(asof)}</span></div>` +
+    let h = `<div class="panel"><div class="pb"><div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut" style="font-size:11px">${esc(asof)}</span></div>` + algoModeBox() +
       `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 10px;margin-top:4px">` +
       stat("Today", pSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + " closed") +
       stat("This month", pSigned(AJ.month), (MO.trades || 0) + " trades" + (AJ.OP ? " · incl. open" : "")) +
@@ -2182,7 +2228,7 @@
   if (SESSION) start(); else { showGate(); ticking = true; liveTick(); setInterval(politeTick, 60000); }
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
   // Handlers used by inline onclick attributes in the Ideas, Today and stock-sheet markup.
-  Object.assign(window, { openStock, closeStock, openPaper, closePaper, loadPaper, openAlgo, closeAlgo, loadAlgo, algoTab, algoAll, pqSet, pqIn, previewP, placeP, exitP, cancelP, trailP, drawPaperP, PQ, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
+  Object.assign(window, { openStock, closeStock, openPaper, closePaper, loadPaper, openAlgo, closeAlgo, loadAlgo, loadAlgoMode, algoMode, algoTab, algoAll, pqSet, pqIn, previewP, placeP, exitP, cancelP, trailP, drawPaperP, PQ, setIdeasTab, toggleStar, setStRange, summariseStock, openDigest, closeDigest,
                           openSearch, closeSearch, drawSearch, sxToggle, setResMode, refreshSummary });
 })();
 </script>

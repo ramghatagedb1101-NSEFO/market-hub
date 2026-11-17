@@ -301,6 +301,21 @@ function adminStrategyMode(token, mode, fallback) {
   const v = stratView_(); v.sent = stratPushNow_(); return v;
 }
 
+/** Phone switch (owner, 17 Nov 2026: "can we turn on and off autopilot from phone"): reads the mode, or switches it (the
+ *  autopilot fallback stays as set on the dashboard), and answers with the little the phone shows. */
+function appStrategyMode_(token, set) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  let sent = null;
+  if ((set === 'autopilot' || set === 'manual') && set !== stratMode_()) {
+    const v = adminStrategyMode(token, set, stratFallback_());
+    if (v.error) return v;
+    sent = v.sent;
+  }
+  const items = stratList_(), nm = id => id ? ((items.find(x => x.id === id) || {}).name || '') : '';
+  return { mode: stratMode_(), active: nm(stratActive_()), prev: nm(PropertiesService.getScriptProperties().getProperty('STRAT_PREV') || ''),
+           kill: stratKill_(), sent: sent };
+}
+
 /** Starts a back-test of one saved strategy on GitHub (strategy-backtest.yml). */
 function adminBacktestStart(token, id) {
   if (!sessionValid_(token)) return { error: 'session_expired' };

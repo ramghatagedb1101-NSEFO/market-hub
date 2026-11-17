@@ -2,6 +2,16 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~16:15 IST: Manual / Autopilot switch on the phone (v76)
+- Owner: "can we turn on and off autopilot from phone". Until now only the dashboard's Strategies page could.
+- Phone, Auto trading page: a Manual / Autopilot switch at the top (selected one in blue), asking for confirmation. In
+  market hours the line under it waits for the trading machine's own confirmation, as the dashboard does; outside them it
+  says when the change takes effect. Turning autopilot off goes back to the strategy in force before (STRAT_PREV).
+- Relay `app_strategy_mode` (`appStrategyMode_`): reads the mode or switches it through `adminStrategyMode`, keeping the
+  autopilot fallback set on the dashboard.
+- Sibling fix: the phone's Stop trading no longer ends on "has not confirmed in 5 minutes" (removed from the dashboard
+  earlier today); its confirm text says autopilot also lifts the stop.
+
 ## Tue 17 Nov 2026, ~10:40 IST: open positions count in today's, this month's and all-time profit
 - Owner: "Unrealized gains and losses are not being reflected as this month's gain and this day's gain, etc. Needs to be
   fixed. Even the unrealized needs to be considered." Today already added open positions; This month and All time,

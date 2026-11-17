@@ -30,7 +30,7 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
   trailing after a gain; targets, exit-by time, day / good-till-cancelled stops; safety limits (1 lot an order, ₹10,000
   day's loss, 4 open legs, 20 orders a day, stale-price and wide-spread refusals; changeable on the page); paper only
   (refuses accounts not starting "DU"); charges = full Indian table (brokerage, STT, exchange, stamp, SEBI, GST).
-- **Screens**: phone F&O tab > "Auto trading" card; dashboard F&O > Paper trading > Auto trading (figures, two profit
+- **Screens**: phone F&O tab > "Auto trading" card (Manual / Autopilot switch and Stop trading on its page, 17 Nov 2026); dashboard F&O > Paper trading > Auto trading (figures, two profit
   charts, Daily / Monthly / By strategy / Trades / Open / Pending orders) and Strategies (builder, back-tests,
   Manual / Autopilot). Data: `site/algo.json` in the private repo, from `algo-sync.yml`.
 - **Strategy builder**: signals (seven quick ones + "compare any two data points": index, today / yesterday,
