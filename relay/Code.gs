@@ -184,8 +184,21 @@ function quoteData_() {
     try { const h = kiteHeaders_(); if (h) refs = giftRefs_(h); } catch (e) {}
     out.gift = { last: d['NSEIX:GIFT NIFTY'][0], refs: refs };
   }
+  // 17 Nov 2026: after the morning Kite login and before the session (and all day on a holiday) Kite gives the last
+  // close as both price and previous close, so every change read 0.00 under "Close · Mon 16 Nov". Until the session
+  // starts, show the last session's quotes with their real changes (labelled by their own time); GIFT Nifty stays live
+  // for the phone's pre-open estimate.
+  if (sessionNotStarted_(out)) {
+    const last = quoteLast_();
+    if (last) return Object.assign(last, { stale: true, gift: out.gift || last.gift || null });
+    return out;
+  }
   quoteKeep_(out);
   return out;
+}
+function sessionNotStarted_(q) {
+  const ix = (q && q.indices) || {}, v = [ix.NIFTY, ix.BANKNIFTY, ix.SENSEX].filter(Boolean);
+  return v.length > 0 && v.every(x => x.change === 0);
 }
 
 // The last good strip, kept in a script property (written at most every 5 minutes) for quoteData_'s fallback.
@@ -195,7 +208,7 @@ function quoteKeep_(out) {
   try { PropertiesService.getScriptProperties().setProperty('LAST_QUOTES', JSON.stringify(out)); cache.put('quote_kept', '1', 300); } catch (e) {}
 }
 function quoteLast_() {
-  try { const v = JSON.parse(PropertiesService.getScriptProperties().getProperty('LAST_QUOTES') || 'null'); if (v) return v; } catch (e) {}
+  try { const v = JSON.parse(PropertiesService.getScriptProperties().getProperty('LAST_QUOTES') || 'null'); if (v && !sessionNotStarted_(v)) return v; } catch (e) {}
   try {                                                     // not kept yet: the live job's last public copy (same shape)
     const r = UrlFetchApp.fetch('https://raw.githubusercontent.com/ramghatagedb1101-NSEFO/market-hub/main/docs/data/live.json', { muteHttpExceptions: true });
     if (r.getResponseCode() === 200) { const v = JSON.parse(r.getContentText()); if (v && v.indices) return v; }

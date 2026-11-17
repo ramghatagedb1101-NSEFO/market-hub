@@ -2,6 +2,13 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~07:10 IST: before the session the strip showed every change as 0.00
+- Seen on the dashboard after the morning Kite login: NIFTY, BANK NIFTY, SENSEX, VIX, GOLD, CRUDE, USD/INR all "0.00"
+  under "Close · Mon 16 Nov 2026". Before the session (and all day on a holiday) Kite gives the last close as both price
+  and previous close. `quoteData_` now spots that (all three indices exactly unchanged) and shows the last session's
+  quotes with their real changes, labelled by their own time; GIFT Nifty stays live for the phone's pre-open estimate.
+  Such quotes are no longer kept as the "last good" copy. Same feed for the dashboard strip, Today's tiles and the phone.
+
 ## Tue 17 Nov 2026, ~07:25 IST: no sideways scrolling in the price strips
 - Owner: "i dont like this scrolling to see the area on the right, show in 2 rows"; "its on multiple pages".
 - Top price strip (every page but Today): wraps into rows instead of scrolling (two at a 1536-px screen with all 11
