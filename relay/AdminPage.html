@@ -1692,11 +1692,26 @@ function algoToday(A){
   }
   return '<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>Today\'s trade</h3><a href="javascript:void 0" onclick="go(\'strategies\')" style="font-size:12.5px">Strategies</a></div><div class="panel-b">' + body + '</div></div>';
 }
+// 17 Nov 2026 (owner: "Unrealized gains and losses are not being reflected as this month's gain and this day's gain,
+// etc. ... Even the unrealized needs to be considered"): open positions count at their current value in today's row,
+// this month's row and figure, and the all-time figure (A.today.open, live every minute in market hours).
+function algoAdj(A){
+  const OP = (A.today || {}).open || 0, day = String(A.asof || '').slice(0, 10), mon = day.slice(0, 7);
+  const D = (A.days || []).map(d => Object.assign({}, d)), M = (A.months || []).map(m => Object.assign({}, m));
+  if (OP && day) {
+    let t = D.find(d => d.date === day); if (!t) { t = { date: day, pnl: 0, trades: 0, wins: 0, losses: 0 }; D.push(t); }
+    t.pnl = Math.round((t.pnl + OP) * 100) / 100; t.open = OP;
+    let m = M.find(x => x.month === mon); if (!m) { m = { month: mon, pnl: 0, trades: 0, days_up: 0, days_down: 0 }; M.push(m); }
+    m.pnl = Math.round((m.pnl + OP) * 100) / 100; m.open = OP;
+  }
+  return { OP: OP, D: D, M: M, month: ((A.month || {}).booked || 0) + OP, all: ((A.totals || {}).booked || 0) + OP };
+}
 function pageAlgo(){
   const v = $('view');
   if (!S.algo) { if (!S.algoLoading) algoLoad(); v.innerHTML = loadingBlock('Loading…'); return; }
   if (S.algo.error) { v.innerHTML = errBlock(S.algo.error === 'not published yet' ? 'Nothing yet: the summary appears after the program first runs.' : S.algo.error); return; }
-  const A = S.algo, T = A.totals || {}, D = A.days || [], M = A.months || [], TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
+  const A = S.algo, T = A.totals || {}, TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
+  const AJ = algoAdj(A), D = AJ.D, M = AJ.M, inc = AJ.OP ? ' · incl. open' : '';
   const stat = (k, val, sub) => '<div><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="w">' + sub + '</div></div>';
   const asof = A.asof ? (A.live && marketHoursIst() ? 'Live · ' + String(A.asof).slice(11, 16) + ' IST' : 'As of ' + String(A.asof).slice(11, 16) + ' IST · ' + bDay(dayOf(A.asof))) : '';
   let html = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-8px 0 12px">' + algoStatus(A) +
@@ -1705,8 +1720,8 @@ function pageAlgo(){
   const wr = T.trades ? Math.round(100 * T.wins / T.trades) + '% won' : 'no trades yet';
   html += '<div class="strip" style="margin-bottom:16px">' +
     stat('Today', ppSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + ' closed' + (O.length ? ' · ' + O.length + ' open' : '')) +
-    stat('This month', ppSigned(MO.booked || 0), (MO.trades || 0) + ((MO.trades || 0) === 1 ? ' trade' : ' trades')) +
-    stat('All time', ppSigned(T.booked || 0), (T.trades || 0) + ((T.trades || 0) === 1 ? ' trade · ' : ' trades · ') + wr) +
+    stat('This month', ppSigned(AJ.month), (MO.trades || 0) + ((MO.trades || 0) === 1 ? ' trade' : ' trades') + inc) +
+    stat('All time', ppSigned(AJ.all), (T.trades || 0) + ((T.trades || 0) === 1 ? ' trade · ' : ' trades · ') + wr + inc) +
     stat('Average win / loss', '<span style="white-space:nowrap;font-size:.78em">' + (T.avg_win != null ? ppSigned(T.avg_win) : '–') + ' / ' + (T.avg_loss != null ? ppSigned(T.avg_loss) : '–') + '</span>', 'per trade, after charges') +
     stat('Worst fall', ppSigned(T.worst_drop || 0), 'from a high, day by day') + '</div>';
   if (!T.trades && !O.length && !P.length) {
@@ -1728,7 +1743,7 @@ function pageAlgo(){
   else if (ALGO_TAB === 'trades') html += TR.length ? tbl(['Option', 'Strategy', 'Closed', 'Side', 'Qty', 'Entry', 'Exit', 'Profit', 'Why'], TR.map(t => '<tr><td class="l">' + algoName(t.contract) + '</td><td class="num">' + esc(t.strategy || '') + (t.regime ? '<div class="faint" style="font-size:11px">' + esc(COND[t.regime] || '') + '</div>' : '') + '</td><td class="num" style="white-space:nowrap">' + esc(algoWhen(t.exit_t)) + '</td><td class="num">' + (t.dir === 'long' ? 'Bought' : 'Sold') + '</td><td class="num">' + num(t.qty, 0) + '</td><td class="num">' + num(t.entry, 2) + '</td><td class="num">' + num(t.exit, 2) + '</td><td class="num">' + ppSigned(t.pnl) + '</td><td class="num">' + esc(t.why) + '</td></tr>')) : none('No closed trades yet.');
   else if (ALGO_TAB === 'pending') html += P.length ? tbl(['Option', 'Order', 'Side', 'Qty', 'Price'], P.map(o => '<tr><td class="l">' + algoName(o.contract) + '</td><td class="num">' + esc(o.type) + (o.waiting_for_entry ? ' <span class="faint">(after the buy fills)</span>' : '') + '</td><td class="num">' + (o.side === 'BUY' ? 'Buy' : 'Sell') + '</td><td class="num">' + num(o.qty, 0) + '</td><td class="num">' + (o.price != null ? num(o.price, 2) : o.trail_pct ? o.trail_pct + '% under the high' : '–') + '</td></tr>')) + (A.pending_at ? '<div class="faint" style="font-size:11px;margin-top:6px">As of ' + esc(algoWhen(A.pending_at)) + '</div>' : '') : none('No pending orders.');
   else html += O.length ? tbl(['Option', 'Qty', 'Entry', 'Last', 'Open profit', 'Protection'], O.map(o => '<tr><td class="l">' + algoName(o.contract) + '</td><td class="num">' + num(o.qty, 0) + '</td><td class="num">' + num(o.entry, 2) + '</td><td class="num">' + (o.mark != null ? num(o.mark, 2) : '–') + '</td><td class="num">' + ppSigned(o.pnl) + '</td><td class="num">' + esc(o.protection || (o.qty < 0 ? 'Sold; loss capped by a bought option' : '–')) + '</td></tr>')) : none('No open positions.');
-  html += '<div class="faint" style="font-size:11px;margin-top:12px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A trade counts on the day it closes.</div>';
+  html += '<div class="faint" style="font-size:11px;margin-top:12px">Profit is after brokerage, STT, exchange charges, stamp duty, SEBI fee and GST. A closed trade counts on the day it closes; open positions count today at their current value.</div>';
   v.innerHTML = html;
   pnlDraw();
 }
