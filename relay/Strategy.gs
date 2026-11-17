@@ -177,7 +177,8 @@ function stratView_() {
   const bt = {}; items.forEach(s => { const v = cache.get('bt_' + s.id); if (v) bt[s.id] = v; });
   // the latest back-test of each strategy (trader/backtest.py keeps state/backtests/_index.json), for the cards
   return { items: items, active: stratActive_(), limits: stratLimits_(), backtest_started: bt, backtests: stratBacktests_(),
-           mode: stratMode_(), fallback: stratFallback_(), log: stratLogRead_(), method: stratMethod_() };
+           mode: stratMode_(), fallback: stratFallback_(), log: stratLogRead_(), method: stratMethod_(),
+           prev: PropertiesService.getScriptProperties().getProperty('STRAT_PREV') || '' };
 }
 
 function adminStrategies(token) {
@@ -253,7 +254,16 @@ function adminStrategyMode(token, mode, fallback) {
     } catch (e) {}
   }
   props.setProperty('STRAT_FALLBACK', fallback || '');
+  // 17 Nov 2026: autopilot on at 23:55 and off at 23:56 left nothing active, so the expiry-day strangle would not have
+  // traded. The hand-picked strategy is kept while autopilot runs and comes back when it is turned off.
+  if (mode === 'autopilot' && !wasAuto) props.setProperty('STRAT_PREV', stratActive_());
   if (mode === 'autopilot') props.setProperty('STRAT_ACTIVE', '');
+  if (mode !== 'autopilot' && wasAuto) {
+    const prev = props.getProperty('STRAT_PREV') || '';
+    const pv = prev && stratList_().find(x => x.id === prev);
+    if (pv) { props.setProperty('STRAT_ACTIVE', prev); stratLog_('Back to: ' + pv.name); }
+    props.deleteProperty('STRAT_PREV');
+  }
   props.setProperty('STRAT_CHANGED', Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm"));
   const v = stratView_(); v.sent = stratPushNow_(); return v;
 }

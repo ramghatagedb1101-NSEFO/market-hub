@@ -2833,13 +2833,15 @@ function stBtPanel(){
   else b += '<div class="muted">No trades: the signals never lined up on these sessions.</div>';
   return '<div class="panel" style="margin-bottom:14px">' + head + '<div class="panel-b">' + b + '</div></div>';
 }
+function stPrev(){ return S.strat.prev ? (S.strat.items || []).find(x => x.id === S.strat.prev) : null; }
 async function stMode(mode){
   if (mode === S.strat.mode || (mode === 'manual' && S.strat.mode !== 'autopilot')) return;
   const ok = await mhDialog(mode === 'autopilot'
     ? { title: 'Turn on autopilot?', body: (S.strat.method || 'match') === 'match' ? 'From 09:30 the program runs the evening\'s pick from Matches today\'s market, and sits out days NIFTY opens 0.8% or more from the previous close. The safety limits stay.' : 'At 09:30, 11:00 and 13:00 the program reads the market and picks, from the strategies tagged for that condition, the one with the best record there (at least 10 trades, in profit after charges). If none qualifies it runs your fallback, or watches. The safety limits stay.', ok: 'Turn on' }
-    : { title: 'Turn autopilot off?', body: 'No new trades until you press Trade this on a strategy. Open trades keep their stops.', ok: 'Turn off' });
+    : { title: 'Turn autopilot off?', body: (stPrev() ? 'Goes back to ' + stPrev().name + '.' : 'No new trades until you press Trade this on a strategy.') + ' Open trades keep their stops.', ok: 'Turn off' });
   if (!ok) return;
-  stDo('adminStrategyMode', [mode, S.strat.fallback || ''], 'Switching…', d => { stWait(mode === 'autopilot' ? 'autopilot' : 'watch only'); return (mode === 'autopilot' ? 'Autopilot on' : 'Autopilot off') + '. Waiting for the trading machine to confirm…'; });
+  const pv = stPrev();   // read before the answer replaces the page's copy (it no longer holds prev)
+  stDo('adminStrategyMode', [mode, S.strat.fallback || ''], 'Switching…', d => { stWait(mode === 'autopilot' ? 'autopilot' : (pv ? pv.name : 'watch only')); return (mode === 'autopilot' ? 'Autopilot on' : 'Autopilot off' + (pv ? ', back to ' + pv.name : '')) + '. Waiting for the trading machine to confirm…'; });
 }
 // 16 Nov 2026: confirmed first, and only while autopilot is on (a keystroke landing on this list could change what trades)
 async function stFallback(id){

@@ -2,6 +2,13 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~06:40 IST: turning autopilot off brings back the strategy you had
+- Cause of last night's lost strangle, from the dashboard's change log: "Autopilot on" 23:55, "Autopilot off" 23:56 (who
+  clicked is not certain; Claude was driving the owner's dashboard around then). Turning autopilot on cleared the active
+  strategy and turning it off did not restore it, so nothing was switched on for the expiry day.
+- `adminStrategyMode`: autopilot on keeps the hand-picked strategy (STRAT_PREV); autopilot off switches it back on and logs
+  "Back to: <name>". The "Turn autopilot off?" box says "Goes back to <name>."; the confirmation waits for that name.
+
 ## Tue 17 Nov 2026, ~06:25 IST: a switch now shows the trading machine's confirmation
 - Owner, on "Switched on. The trading machine follows in a minute or two.": "seems like a stale message with no clarity
   on the status". The page now says "Waiting for the trading machine to confirm…", reads the machine's own record every
