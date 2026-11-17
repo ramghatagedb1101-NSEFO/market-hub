@@ -2,6 +2,14 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~07:25 IST: no sideways scrolling in the price strips
+- Owner: "i dont like this scrolling to see the area on the right, show in 2 rows"; "its on multiple pages".
+- Top price strip (every page but Today): wraps into rows instead of scrolling (two at a 1536-px screen with all 11
+  quotes; three on narrower screens, never hidden). Short names there (USD/INR, FTSE, S&P FUT, NASDAQ FUT), text 11 px,
+  search box 190 px ("Search a company…"); the "Live · HH:MM IST" / "Last quote · …" label sits under the % / Pts switch.
+- Tile strips (Today's quotes and the other four `.strip` rows): split into even rows (two when they fit), with dividing
+  lines where tiles meet (`fitStrips`, re-run whenever the page or window changes).
+
 ## Tue 17 Nov 2026, ~07:00 IST: "Stop trading" is the emergency stop
 - Owner: "the stop trading button needs to square off all positions and take no fresh trades, its like the kill all switch
   for emergencies". Before, it only switched the strategy off and open trades kept running to their stops.

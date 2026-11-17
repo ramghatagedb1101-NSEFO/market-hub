@@ -120,15 +120,15 @@ textarea.field{padding:8px 10px}
 .main{min-width:0;display:flex;flex-direction:column}
 .top{position:sticky;top:0;z-index:5;min-height:var(--top-h);display:flex;align-items:center;gap:16px;padding:0 24px;background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--border)}
 .top .crumb{display:none}
-.tape{display:flex;gap:18px;align-items:baseline;font-size:12px;white-space:nowrap;overflow-x:auto;overflow-y:hidden;flex:1;min-width:0;scrollbar-width:thin;padding-bottom:2px}
+.tape{display:flex;flex-wrap:wrap;column-gap:10px;row-gap:2px;align-items:baseline;font-size:11px;flex:1;min-width:0;padding:5px 0}   /* 17 Nov 2026 (owner): rows, never a sideways scroll */
 /* 16 Nov 2026: was overflow hidden + a fade, so CRUDE and everything after it sat under the search box out of reach */
-.tape-sw{display:flex;align-items:center;flex:none}.tape-sw .seg button{padding:2px 7px;font-size:11px}
+.tape-sw{display:flex;flex-direction:column;align-items:flex-start;gap:2px;flex:none}.tape-sw .t{font-size:10.5px;line-height:1.25;color:var(--text-4);max-width:118px}.tape-sw .seg button{padding:2px 7px;font-size:11px}
 .tape:empty{visibility:hidden}
 .tape > span{white-space:nowrap}
 .tape .q{font-variant-numeric:tabular-nums;font-weight:500}
 .tape .n{color:var(--text-3);font-weight:500;margin-right:5px}
 .tape .t{color:var(--text-4);font-size:11px}
-.search{position:relative;width:300px;flex:none;margin-left:auto}
+.search{position:relative;width:190px;flex:none;margin-left:auto}
 .search input{padding-left:32px}
 .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--text-3);fill:none;stroke-width:2}
 .suggest{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-pop);overflow:hidden;display:none;z-index:20}
@@ -154,7 +154,7 @@ textarea.field{padding:8px 10px}
 /* ---------- panels ---------- */
 .stack{display:flex;flex-direction:column;gap:16px;min-width:0}
 .g-main{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
-.strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(132px,1fr);overflow-x:auto;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-1)}
+.strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);box-shadow:var(--shadow-1)}
 .strip > div{padding:10px 12px;border-right:1px solid var(--border-subtle)} .strip > div:last-child{border-right:0}
 .strip .k{font-size:11px;color:var(--text-3);font-weight:500;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 .strip .v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:2px}
@@ -365,7 +365,7 @@ pre.raw{white-space:pre-wrap;font-size:12px;background:var(--surface-2);border-r
         <div class="tape" id="tape"></div>
         <div class="search">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input id="q" class="field" placeholder="Search a company or symbol…" autocomplete="off"
+          <input id="q" class="field" placeholder="Search a company…" autocomplete="off"
                  oninput="suggest()" onkeydown="suggestKey(event)" onblur="setTimeout(()=>hideSuggest(),150)">
           <div class="suggest" id="suggest"></div>
         </div>
@@ -763,6 +763,23 @@ function openStock(sym){ go('stock/' + encodeURIComponent(sym)); }
 const TITLES = { watch:'Watchlist', health:'Data health', emails:'Email alerts', portfolio:'My portfolio', heatmap:'Heatmap', insider:'Insider trades', calendar:'Results calendar', filings:'Filings', spikes:'Volume spikes', positions:'Positions and option prices', fnostocks:'NIFTY 50 stock options', paper:'Paper trades', algo:'Auto trading', strategies:'Strategies', backtests:'Back-tests', overview:'Overview', shortlist:'Shortlist', multibagger:'Early multibaggers', compounders:'Proven compounders', library:'Stock library',
                  registry:'Investor registry', bulk:'Bulk deals', params:'Parameters', tests:'Studies', stock:'Stock report',
                  screener:'Build a screen', factors:'Rankings', explore:'Compare measures', sectors:'Sectors', signals:"What's new", expiry:'Expiry meter' };
+// 17 Nov 2026 (owner: "i dont like this scrolling to see the area on the right, show in 2 rows"; "its on multiple pages"):
+// every tile strip splits into even rows (two when that fits), with the dividing lines where the tiles meet
+function fitStrips(){
+  document.querySelectorAll('.strip').forEach(s => {
+    const k = [...s.children], n = k.length; if (!n || !s.clientWidth) return;
+    const per = Math.max(1, Math.floor(s.clientWidth / 132)), cols = n <= per ? n : Math.min(per, Math.ceil(n / 2));
+    s.style.gridTemplateColumns = 'repeat(' + cols + ',minmax(0,1fr))';
+    const lastRow = n - (n % cols || cols);
+    k.forEach((c, i) => { c.style.borderRight = (i % cols === cols - 1 || i === n - 1) ? '0' : ''; c.style.borderBottom = i < lastRow ? '1px solid var(--border-subtle)' : ''; });
+  });
+}
+let _fsR = 0;
+document.addEventListener('DOMContentLoaded', () => {
+  const v = document.getElementById('view'); if (!v) return;
+  new MutationObserver(() => { cancelAnimationFrame(_fsR); _fsR = requestAnimationFrame(fitStrips); }).observe(v, { childList: true, subtree: true });
+  window.addEventListener('resize', () => { cancelAnimationFrame(_fsR); _fsR = requestAnimationFrame(fitStrips); });
+});
 function rerender(){
   $('crumb').textContent = TITLES[current.page] || '';
   renderNav(); renderHead();
@@ -4538,7 +4555,7 @@ function tapeTick(){
     const item = (name, q) => q && q.change_pct != null ? '<span><span class="n">' + name + '</span><span class="q">' + fmt(q.last, 2) + '</span> <span class="q" style="color:' +
       (q.change_pct >= 0 ? 'var(--up)' : 'var(--down)') + '">' + chgTxt(q) + '</span></span>' : '';
     S.tapeData = d;
-    const sw = $('tape-sw'); if (sw) sw.innerHTML = '<span class="seg"><button class="' + (S.chgAbs ? '' : 'on') + '" onclick="setChgAbs(false)" title="Change in %">%</button><button class="' + (S.chgAbs ? 'on' : '') + '" onclick="setChgAbs(true)" title="Change in points">Pts</button></span>';
+    const sw = $('tape-sw'); if (sw) sw.innerHTML = '<span class="seg"><button class="' + (S.chgAbs ? '' : 'on') + '" onclick="setChgAbs(false)" title="Change in %">%</button><button class="' + (S.chgAbs ? 'on' : '') + '" onclick="setChgAbs(true)" title="Change in points">Pts</button></span>' + '<span class="t" id="tape-t"></span>';
     const x = d.extra || {};
     const ts = String(d.ts || ''), hm = ts.slice(11, 16), day = ts.slice(0, 10);
     const ist = new Date(Date.now() + 5.5 * 3600e3), today = ist.toISOString().slice(0, 10), mins = ist.getUTCHours() * 60 + ist.getUTCMinutes();
@@ -4546,9 +4563,9 @@ function tapeTick(){
     const dd = day ? new Date(day + 'T00:00:00Z') : null;
     const dayTxt = dd ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dd.getUTCDay()] + ' ' + dd.getUTCDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dd.getUTCMonth()] + ' ' + dd.getUTCFullYear() : '';
     el.innerHTML = TAPE_NAMES.map(([k, n]) => item(n, (d.indices || {})[k])).join('') + item('VIX', d.india_vix) +
-      item('GOLD', x.gold) + item('CRUDE', x.crude) + item('USD/INR fut', x.usd_inr) +
-      ((d.overseas && d.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym)).map(o => item(esc(o.name).toUpperCase(), o)).join('') +
-      '<span class="t">' + (open ? 'Live · ' + hm + ' IST' : bQuote(d.ts)) + '</span>';
+      item('GOLD', x.gold) + item('CRUDE', x.crude) + item('USD/INR', x.usd_inr) +
+      ((d.overseas && d.overseas.items) || []).filter(o => ['^GDAXI', '^FTSE', 'ES=F', 'NQ=F'].includes(o.sym)).map(o => item(({ '^GDAXI': 'DAX', '^FTSE': 'FTSE', 'ES=F': 'S&amp;P FUT', 'NQ=F': 'NASDAQ FUT' })[o.sym] || esc(o.name).toUpperCase(), o)).join('');   // short names: two rows (17 Nov 2026)
+    if ($('tape-t')) $('tape-t').textContent = open ? 'Live · ' + hm + ' IST' : bQuote(d.ts);
   }).catch(() => {});
 }
 
