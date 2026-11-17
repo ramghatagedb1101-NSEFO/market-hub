@@ -2,6 +2,17 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~10:08 IST: switch confirmations fixed; the trading machine's state always under the switch
+- Owner, on "Saved. The trading machine has not confirmed in 5 minutes; reopen this page later to see it." after turning
+  autopilot on at 09:42: "dont like this". The machine had switched at 09:43:26 and picked the strangle; the page waited
+  for it to report "autopilot" as its strategy, but it reports the strategy autopilot picked, so it never matched.
+- Autopilot is now confirmed by the machine's own autopilot decision ("Trading machine confirmed autopilot · trading
+  <name> · HH:MM IST"); no negative message at the end (after 20 minutes the wait just ends).
+- A line under the Manual / Autopilot switch always shows the machine's state from its own record: "Trading machine:
+  trading <name> (autopilot) · N open positions · HH:MM IST" (or watching / stopped), refreshed every 30 seconds in
+  market hours, in both modes.
+- Released at 10:08 in market hours on the owner's word ("release all changes now"); dashboard only.
+
 ## Tue 17 Nov 2026, ~10:05 IST: research bot tries entry times every 15 minutes, not three
 - Owner, on why the strangle enters at 10:00: "nothing should be hard coded is all i am worried about". The research
   bot had tried only 10:00, 11:30 and 13:00 for the expiry-day strangle (10:00 won at every width; 11:30 and 13:00 broke

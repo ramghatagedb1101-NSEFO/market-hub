@@ -1637,7 +1637,7 @@ function algoLoad(){ S.algoLoading = true; call('adminAlgo', token).then(d => { 
 // 16 Nov 2026: also the Autopilot box on Strategies (it showed "Not read yet" from a copy loaded before 09:30), but not
 // while a strategy is being edited, so a refresh never interrupts typing
 setInterval(() => { if (!document.hidden && marketHoursIst() && !S.algoLoading && S.algo &&
-  (current.page === 'algo' || (current.page === 'strategies' && !ST_EDIT && S.strat && S.strat.mode === 'autopilot'))) algoLoad(); }, 30000);
+  (current.page === 'algo' || (current.page === 'strategies' && !ST_EDIT))) algoLoad(); }, 30000);
 const algoWhen = t => t ? bDay(dayOf(t)) + ', ' + String(t).slice(11, 16) + ' IST' : '';
 function algoName(k){
   const p = String(k || '').split(' '); if (p.length < 3) return esc(k);
@@ -2015,22 +2015,35 @@ async function stDelete(id){
 // 17 Nov 2026 (owner: "seems like a stale message with no clarity on the status"): after a switch the page reads the
 // trading machine's own record every 15 seconds until it reports the new strategy, then says so with the time.
 let ST_WAIT = null;
-function stWait(want){ ST_WAIT = { want: want, t0: Date.now() }; setTimeout(stPoll, 15000); }
+function stMachineLine(){
+  const A = S.algo; if (!A || A.error || !A.status || !A.status.last) return '';
+  const st = A.status, ap = st.autopilot || {}, n = (A.open || []).length;
+  const what = st.killed ? '<span class="neg">stopped</span>' : st.strategy && !['watch only', 'autopilot'].includes(st.strategy) ? 'trading <b>' + esc(st.strategy) + '</b>' + (ap.strategy ? ' (autopilot)' : '') : 'watching';
+  return '<div class="mode-lim">Trading machine: ' + what + (n ? ' · ' + n + ' open position' + (n > 1 ? 's' : '') : '') + ' · ' + esc(String(st.last).slice(11, 16)) + ' IST</div>';
+}
+function stWait(want){
+  const st = (S.algo && !S.algo.error && S.algo.status) || {};
+  ST_WAIT = { want: want, t0: Date.now(), apT: (st.autopilot || {}).t || '' }; setTimeout(stPoll, 15000);
+}
+// 17 Nov 2026 (owner, on "Saved. The trading machine has not confirmed in 5 minutes": "dont like this"): autopilot was on
+// at the machine within a minute, but the page waited for it to report "autopilot" as its strategy, while it reports the
+// strategy autopilot picked. Now autopilot is confirmed by the machine's own autopilot decision, with what it picked.
 function stPoll(){
   if (!ST_WAIT) return;
-  const st = (S.algo && !S.algo.error && S.algo.status) || {};
-  if (ST_WAIT.want === 'kill' && /emergency stop/.test(st.killed || '') && Date.now() - ST_WAIT.t0 > 10000) {
-    const n = ((S.algo && S.algo.open) || []).length, at = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
-    ST_MSG = 'Trading machine confirmed the stop · ' + (n ? n + ' position' + (n > 1 ? 's' : '') + ' still closing' : 'no open positions') + ' · ' + at + ' IST';
+  const st = (S.algo && !S.algo.error && S.algo.status) || {}, W = ST_WAIT, ap = st.autopilot || {};
+  const at = t => t ? String(t).slice(11, 16) + ' IST' : new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST';
+  if (W.want === 'kill' && /emergency stop/.test(st.killed || '')) {
+    const n = ((S.algo && S.algo.open) || []).length;
+    ST_MSG = 'Trading machine confirmed the stop · ' + (n ? n + ' position' + (n > 1 ? 's' : '') + ' still closing' : 'no open positions') + ' · ' + at(st.last);
     if (!n) { ST_WAIT = null; rerender(); return; }
-    rerender(); algoLoad(); setTimeout(stPoll, 15000); return;
-  }
-  if (ST_WAIT.want !== 'kill' && st.strategy === ST_WAIT.want && Date.now() - ST_WAIT.t0 > 10000) {
-    const w = ST_WAIT.want; ST_WAIT = null;
-    ST_MSG = 'Trading machine confirmed · ' + (w === 'watch only' ? 'watching only' : w === 'autopilot' ? 'autopilot' : 'trading ' + w) + ' · ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST';
+  } else if (W.want === 'autopilot' && ap.t && ap.t !== W.apT) {
+    ST_WAIT = null; ST_MSG = 'Trading machine confirmed autopilot · ' + (ap.strategy ? 'trading ' + ap.strategy : 'watching: ' + (ap.why || 'nothing suits the market now')) + ' · ' + at(ap.t);
+    rerender(); return;
+  } else if (W.want !== 'kill' && W.want !== 'autopilot' && st.strategy === W.want && !ap.t) {
+    ST_WAIT = null; ST_MSG = 'Trading machine confirmed · ' + (W.want === 'watch only' ? 'watching only' : 'trading ' + W.want) + ' · ' + at(st.last);
     rerender(); return;
   }
-  if (Date.now() - ST_WAIT.t0 > 300000) { ST_WAIT = null; ST_MSG = 'Saved. The trading machine has not confirmed in 5 minutes; reopen this page later to see it.'; rerender(); return; }
+  if (Date.now() - W.t0 > 1200000) { ST_WAIT = null; ST_MSG = ''; rerender(); return; }     // the machine line keeps showing its state
   algoLoad(); setTimeout(stPoll, 15000);
 }
 function stLogAll(){
@@ -3250,7 +3263,7 @@ function pageStrategies(){
   if (ST_EDIT) { v.innerHTML = stForm(); stcDraw(); return; }
   const items = (S.strat.items || []).filter(x => !x.bt), act = items.find(x => x.id === S.strat.active), L = S.strat.limits || {};   // back-test-only ones live on the Back-tests page
   const auto = S.strat.mode === 'autopilot';
-  if (auto && !S.algo && !S.algoLoading) algoLoad();
+  if (!S.algo && !S.algoLoading) algoLoad();          // 17 Nov 2026: the machine line under the switch, in both modes
   // Trading mode (owner, 14 Nov 2026: "The autopilot switch, make it more explicit"): two cards, the one in force
   // marked ON with what it is doing now; pressing the other asks first.
   const apNow = ((S.algo && !S.algo.error && S.algo.status) || {}).autopilot;
@@ -3267,7 +3280,7 @@ function pageStrategies(){
     '<button type="button" class="' + (auto ? 'on' : '') + '"' + (auto ? ' aria-pressed="true"' : ' onclick="stMode(\'autopilot\')"') + '>Autopilot</button></span>';
   let h = '<div class="panel mode-row"><div class="panel-b">' + sw + '<span class="mode-text">' + (killed || line) + '</span>' +
     (!killed ? '<button class="btn sm" type="button" style="background:var(--neg);border-color:var(--neg);color:#fff" onclick="stKill()">Stop trading</button>' : '') + '</div>' +
-    '<div class="mode-lim">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div></div>';
+    stMachineLine() + '<div class="mode-lim">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div></div>';
   // 16 Nov 2026: who switched what, when (relay STRAT_LOG); autopilot came back on at 11:16 that day with no trace
   const LG = S.strat.log || [], lgT = x => esc(bDay(dayOf(x.t)) + ', ' + String(x.t).slice(11, 16) + ' IST');
   // 17 Nov 2026 (owner: "over a period of time, it will occupy the entire screen"; "if someone needs full log it should
