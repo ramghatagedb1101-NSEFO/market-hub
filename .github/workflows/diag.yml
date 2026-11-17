@@ -42,6 +42,8 @@ jobs:
           if [ -n "$TOKEN" ]; then echo "::add-mask::$TOKEN"; echo "KITE_ACCESS_TOKEN=$TOKEN" >> "$GITHUB_ENV"; else echo "No Kite token (fine unless the probe reads Kite)"; fi
       - run: python -m "hub.${{ inputs.module }}"
         env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}                         # diag_strategies
+          RELAY_KEY: ${{ secrets.RELAY_KEY }}
           BHARATSTOCK_API_KEY: ${{ secrets.BHARATSTOCK_API_KEY }}     # needed by diag_library_sample, diag_shareholding, diag_roce_fields
           KITE_API_KEY: ${{ secrets.KITE_API_KEY }}                   # diag_gift, diag_expiry_close
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}               # diag_nvidia
