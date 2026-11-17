@@ -2,7 +2,7 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
-## Tue 17 Nov 2026, ~16:15 IST: Manual / Autopilot switch on the phone (v76)
+## Tue 17 Nov 2026, ~22:50 IST: Manual / Autopilot switch on the phone (v76)
 - Owner: "can we turn on and off autopilot from phone". Until now only the dashboard's Strategies page could.
 - Phone, Auto trading page: a Manual / Autopilot switch at the top (selected one in blue), asking for confirmation. In
   market hours the line under it waits for the trading machine's own confirmation, as the dashboard does; outside them it
