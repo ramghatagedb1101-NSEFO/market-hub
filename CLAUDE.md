@@ -121,6 +121,13 @@ business; the chart's range buttons did nothing before the Kite login). Every au
 - tests a fix in BOTH states, before and after the morning Kite login (13 Nov 2026: a chart-range fix tested only before
   the login broke 1D / 5D / 1M after it), and checks the same figure agrees wherever it is shown (Titan's 1-year return
   differed between the page header and its Peers table; the Screens list kept figures the company page had corrected).
+- (owner, 17 Nov 2026: "how so many errors are present after your audit") runs every switch forward, back and in
+  sequence (manual → autopilot → manual) and reads back what the trading machine actually runs (`hub/diag_strategies`
+  via diag.yml, and the machine's journal); autopilot on then off had silently dropped the expiry-day strangle.
+- checks what the screen says AFTER each action until the outcome is confirmed, not only that the button works.
+- looks at every list as it will be after months of use (logs, histories): one line on the page, the rest behind "See all".
+- applies every style or wording fix to all its siblings on the dashboard AND the phone in the same change (the blue
+  active switch was fixed on one switch while a dozen others kept the old look).
 
 ## How the owner wants things
 - Analyse like a seasoned analyst, not a yes-man: say when something is wrong, including your own work.
