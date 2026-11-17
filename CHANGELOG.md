@@ -2,6 +2,23 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~07:40 IST: autopilot puts strategies that passed testing first; US close logged
+- Owner: "Today is expiry, so why not turn on the autopilot now? ... shouldn't the autopilot also pick up the same one?"
+  It would not have: autopilot ran the evening's market-match pick (an idea that failed the bot's tests) and the strangle
+  could only fill time after it. Owner on the proposed order: "fix this too".
+- `trader/autopilot.py` `first_choice` (match method, at each check and whenever the strategy in charge is done): first a
+  strategy that passed the research bot's full test with a record in the market condition now (`fill_choice`); only when
+  none qualifies, the evening pick with the opening-gap rule; never one already done for the day. On an expiry day that
+  is the strangle. Tagged method unchanged (its fill still uses only passed strategies).
+- US close test (owner: "US last close is relevant, we cant ignore completely"; 332 sessions, Dec 2024 - Apr 2026):
+  correlation with NIFTY's opening gap 0.41; on normal-gap days the research ideas did no better or worse after a US
+  move of 1%+ (t -0.98 / +0.58), against t -2.36 for a big gap; the strangle did best after US falls of 1%+ (7 trades,
+  +2,731, 6 won). Skipping the match pick after US falls of 1%+ looked better (+14,256 vs +8,898 over 10 months) but on
+  13 extra days, the best of four rules tried, and against the across-ideas result: not adopted. GIFT Nifty: the 27 Oct
+  test already found the open holds ~90% of its move and nothing beyond it from 09:30. Every autopilot decision now logs
+  the opening gap and the last US close (S&P 500, Nasdaq) so paper results can settle it; re-test in Feb 2027.
+- Dashboard: the Autopilot box, mode line and the "Turn on autopilot?" box describe the order. Selftest 223/223.
+
 ## Tue 17 Nov 2026, ~07:30 IST: autopilot fills idle time with strategies that passed testing
 - Owner: "if automode also takes only one trade at a time then whats the point? will it shift to new trade once the
   older one stops"; chose "A. Fill idle time. only with strategies that passed testing based on latest market condition

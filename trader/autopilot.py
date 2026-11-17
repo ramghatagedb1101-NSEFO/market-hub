@@ -75,7 +75,7 @@ def is_done(strategy, open_legs: int, hhmm: str) -> bool:
     return getattr(strategy, "trades", 0) >= (d.get("max_trades_day") or 1) or hhmm > (w.get("until") or "15:30")
 
 
-def fill_choice(passed: list, regimes: dict, exclude: set) -> tuple[dict | None, str]:
+def fill_choice(passed: list, regimes: dict, exclude: set, lead: str = "fills the rest of the day") -> tuple[dict | None, str]:
     """Owner, 17 Nov 2026: "only with strategies that passed testing based on latest market condition at that time". Of the
     strategies that passed the research bot's full test, the one with the best tested profit per trade in the market
     condition read now (its own index), at least FILL_MIN_TRADES trades there and in profit; none, and it watches."""
@@ -90,11 +90,36 @@ def fill_choice(passed: list, regimes: dict, exclude: set) -> tuple[dict | None,
             continue
         per = r["profit"] / r["trades"]
         if best is None or per > best[0]:
-            best, why = (per, s), (f"fills the rest of the day: tested {r['trades']} trades in this market ({reg}), "
+            best, why = (per, s), (f"{lead}: tested {r['trades']} trades in this market ({reg}), "
                                    f"{r['profit']} per lot, {r.get('won', 0)} won")
     if best is None:
         return None, "nothing that passed testing has a record in this market; watching"
     return best[1], why
+
+
+def first_choice(b: dict, regimes: dict, gap: float | None, today: date, exclude: set) -> tuple[dict | None, str]:
+    """Autopilot's order (owner, 17 Nov 2026: "fix this too", on "The strangle is the only strategy with proof on unseen
+    data ... Autopilot should put it first"): first a strategy that passed the research bot's full test and has a record
+    in the market condition now; only when none qualifies, the evening's market-match pick (with the opening-gap rule).
+    Strategies already done for the day (exclude) are never picked again."""
+    item, why = fill_choice(b.get("passed"), regimes, exclude, lead="passed testing")
+    if item:
+        return item, why
+    item, why = match_choice(b, today, gap)
+    if item and item.get("id") in exclude:
+        return None, f"market match: {item.get('name')} is done for the day; nothing that passed testing suits this market; watching"
+    return item, why
+
+
+def us_close(flows: dict, today: date) -> dict:
+    """The last US session before today's (official closes, the market diary's figures): recorded with every autopilot
+    decision (owner, 17 Nov 2026: "US last close is relevant, we cant ignore completely"), so paper results can show
+    whether it should steer the choice; the 17 Nov test found it adds nothing beyond the opening gap yet."""
+    days = sorted(d for d in (flows or {}) if d < today.isoformat())
+    if not days:
+        return {}
+    f = flows[days[-1]] or {}
+    return {"session": days[-1], "sp500": f.get("sp500_chg"), "nasdaq": f.get("nasdaq_chg")}
 
 
 def match_choice(b: dict, today: date, gap: float | None = None) -> tuple[dict | None, str]:

@@ -26,7 +26,7 @@ from pathlib import Path
 
 from hub.holidays import is_session
 
-from .autopilot import CHECKS, FILL_UNTIL, choose, fill_choice, is_done, match_choice
+from .autopilot import CHECKS, FILL_UNTIL, choose, fill_choice, first_choice, is_done, us_close
 from .engine import Engine, default_exits
 from .indicators import completed
 from .regime import classify
@@ -94,13 +94,23 @@ def open_gap(bars: list, now: datetime, prev_close: float | None) -> float | Non
 
 
 FINISHED: set = set()          # strategies done for the day (cleared each new day)
+FLOWS = HOME / "flows.json"   # the market diary's figures (algo-sync): US closes for the autopilot log
+
+
+def flows_now() -> dict:
+    try:
+        return json.loads(FLOWS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
 
 
 def fill_idle(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
     """Fill idle time (owner, 17 Nov 2026): when the strategy in charge is done for the day, the strategy that passed
     testing with the best record in the market condition read now takes over (autopilot only; never after FILL_UNTIL,
     never when stopped)."""
-    if eng.guard.killed or now.strftime("%H:%M") > FILL_UNTIL or not b.get("passed"):
+    if eng.guard.killed or now.strftime("%H:%M") > FILL_UNTIL:
+        return
+    if not b.get("passed") and (b.get("method") or "match") != "match":
         return
     if not is_done(eng.strategy, eng.book.open_legs(), now.strftime("%H:%M")):
         return
@@ -110,24 +120,30 @@ def fill_idle(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
     if getattr(eng, "_fill_tried", None) == (cur, now.strftime("%H")):
         return                                     # nothing qualified for this one this hour; look again next hour
     eng._fill_tried = (cur, now.strftime("%H"))
-    regimes, words = {}, {}
-    for idx in sorted({(p.get("strategy") or {}).get("index") or "NIFTY" for p in b["passed"]}):
+    regimes, words, gap = {}, {}, None
+    for idx in sorted({(p.get("strategy") or {}).get("index") or "NIFTY" for p in b["passed"]} | {"NIFTY"}):
         bars = completed(br.index_bars(idx), now)
         exp = pick_expiry(br.expiries(idx), now.date(), "nearest")
         regimes[idx], words[idx] = classify(bars, now, exp)
-    item, why = fill_choice(b["passed"], regimes, FINISHED | ({cur} if cur else set()))
+        if idx == "NIFTY":
+            gap = open_gap(bars, now, br.prev_close("NIFTY"))
+    excl = FINISHED | ({cur} if cur else set())
+    if (b.get("method") or "match") == "match":
+        item, why = first_choice(b, regimes, gap, now.date(), excl)
+    else:
+        item, why = fill_choice(b["passed"], regimes, excl)
     if not item:
         return
     use(eng, item)
     eng.j.write(now, "autopilot", regime=regimes.get("NIFTY") or next(iter(regimes.values()), None),
                 regime_why=words.get("NIFTY"), regimes=regimes, strategy=item.get("name"), strategy_id=item.get("id"),
-                why=why, scores={})
+                why=why, scores={}, gap=round(gap, 2) if gap is not None else None, us_close=us_close(flows_now(), now.date()))
 
 
 def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
     items = b.get("items") or []
     regimes, words, gap = {}, {}, None
-    for idx in sorted({it.get("index") or "NIFTY" for it in items} | {"NIFTY"}):
+    for idx in sorted({it.get("index") or "NIFTY" for it in items} | {(p.get("strategy") or {}).get("index") or "NIFTY" for p in b.get("passed") or []} | {"NIFTY"}):
         bars = completed(br.index_bars(idx), now)
         if idx == "NIFTY":
             gap = open_gap(bars, now, br.prev_close("NIFTY"))
@@ -138,7 +154,7 @@ def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
     except Exception:
         paper = {}
     if (b.get("method") or "match") == "match":
-        item, why = match_choice(b, now.date(), gap)
+        item, why = first_choice(b, regimes, gap, now.date(), FINISHED)
         scores = {}
     else:
         item, why, scores = choose(items, regimes, b.get("backtests") or {}, paper, b.get("fallback"))
@@ -149,7 +165,7 @@ def autopilot_check(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
     main = "NIFTY" if "NIFTY" in regimes else next(iter(regimes))
     eng.j.write(now, "autopilot", regime=regimes.get(main), regime_why=words.get(main), regimes=regimes,
                 strategy=item.get("name") if item else None, strategy_id=item.get("id") if item else None,
-                why=why, scores=scores)
+                why=why, scores=scores, gap=round(gap, 2) if gap is not None else None, us_close=us_close(flows_now(), now.date()))
 
 
 def builder_stamp():

@@ -2919,7 +2919,7 @@ function stPrev(){ return S.strat.prev ? (S.strat.items || []).find(x => x.id ==
 async function stMode(mode){
   if (mode === S.strat.mode || (mode === 'manual' && S.strat.mode !== 'autopilot')) return;
   const ok = await mhDialog(mode === 'autopilot'
-    ? { title: 'Turn on autopilot?', body: (S.strat.method || 'match') === 'match' ? 'From 09:30 the program runs the evening\'s pick from Matches today\'s market, and sits out days NIFTY opens 0.8% or more from the previous close. The safety limits stay.' : 'At 09:30, 11:00 and 13:00 the program reads the market and picks, from the strategies tagged for that condition, the one with the best record there (at least 10 trades, in profit after charges). If none qualifies it runs your fallback, or watches. The safety limits stay.', ok: 'Turn on' }
+    ? { title: 'Turn on autopilot?', body: (S.strat.method || 'match') === 'match' ? 'From 09:30 the program runs a strategy that passed testing when one suits the market at that moment; otherwise the evening\'s pick from Matches today\'s market, sitting out days NIFTY opens 0.8% or more from the previous close. When one is done for the day, the next takes over. The safety limits stay.' : 'At 09:30, 11:00 and 13:00 the program reads the market and picks, from the strategies tagged for that condition, the one with the best record there (at least 10 trades, in profit after charges). If none qualifies it runs your fallback, or watches. The safety limits stay.', ok: 'Turn on' }
     : { title: 'Turn autopilot off?', body: (stPrev() ? 'Goes back to ' + stPrev().name + '.' : 'No new trades until you press Trade this on a strategy.') + ' Open trades keep their stops.', ok: 'Turn off' });
   if (!ok) return;
   const pv = stPrev();   // read before the answer replaces the page's copy (it no longer holds prev)
@@ -2946,7 +2946,7 @@ function stAutoPanel(items){
       ': ' + botRupee(P.total) + ' per lot in the 30 days after ' + P.won + ' of ' + ((S.match.stretches || []).length) + ' similar stretches. Runs from 09:30; sits out days NIFTY opens 0.8% or more from the previous close.</div>'
       : '<div class="muted">No pick from the evening run yet: autopilot watches.</div>') +
       (ap0 ? '<div class="muted" style="font-size:12px;margin-top:8px">Last check ' + esc(algoWhen(ap0.t)) + ': ' + esc(ap0.why || '') + '</div>' : '') +
-      '<div class="muted" style="font-size:12px;margin-top:8px">When it is done for the day, a strategy that passed testing takes over if it has a record in the market at that moment (until 14:30)' + ((S.match && S.match.passed) ? ': ' + S.match.passed.length + ' passed so far.' : '.') + '</div>' +
+      '<div class="muted" style="font-size:12px;margin-top:8px">First choice, at 09:30 and whenever one is done for the day (until 14:30): a strategy that passed testing, if it has a record in the market at that moment' + ((S.match && S.match.passed) ? ' (' + S.match.passed.length + ' passed so far: ' + esc(S.match.passed.map(p => p.name).join(', ')) + ')' : '') + '. Otherwise the pick above.</div>' +
       '<div class="faint" style="font-size:11.5px;margin-top:6px">Test, Jun 2025 - Apr 2026: +₹9,343 per lot, picking blindly −₹7,255; too few months to be sure.</div>';
     return '<div class="panel" style="margin-bottom:14px"><div class="panel-h"><h3>Autopilot</h3></div><div class="panel-b">' + body + '</div></div>';
   }
@@ -3259,7 +3259,7 @@ function pageStrategies(){
   // depending on where the switch is"): one row, a Manual | Autopilot switch and one line for the mode in force. Moving
   // the switch still asks first (stMode); only the switch's other half acts, never a click elsewhere.
   const line = auto
-    ? ((S.strat.method || 'match') === 'match' ? 'Runs the evening\'s pick from Matches today\'s market, from 09:30; details below.' : 'Picks a tagged strategy by market condition at 09:30, 11:00 and 13:00; details below.')
+    ? ((S.strat.method || 'match') === 'match' ? 'From 09:30: a tested strategy that suits the market, else the evening\'s pick; details below.' : 'Picks a tagged strategy by market condition at 09:30, 11:00 and 13:00; details below.')
     : (act ? 'Trading now: <b>' + esc(act.name) + '</b>' : 'Nothing switched on: watching only. Press Trade this on a strategy.');
   const killed = S.strat.kill ? '<span class="neg" style="font-weight:600">Stopped at ' + esc(String(S.strat.kill).slice(11, 16)) + ' IST</span>: everything closed, no new trades. Press Trade this on a strategy to trade again.' : '';
   const sw = '<span class="seg mode-sw" role="group" aria-label="Trading mode">' +

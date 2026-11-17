@@ -767,6 +767,25 @@ def test_fill_idle():
     ok("fill: a finished strategy is not picked again", fill_choice(P, {"NIFTY": "trend_up"}, {"p_b"})[0] is None)
 
 
+def test_first_choice():
+    """17 Nov 2026: autopilot puts a strategy that passed testing and suits the market now first; only when none does,
+    the evening's market-match pick (with the gap rule); never one already done for the day. The US close is logged."""
+    from datetime import date as _d
+    from trader.autopilot import first_choice, us_close
+    P = [{"key": "a", "name": "Strangle", "by_regime": {"expiry_day": {"trades": 62, "profit": 11172, "won": 49}},
+          "strategy": {"id": "p_a", "name": "Strangle", "index": "NIFTY"}}]
+    b = {"passed": P, "match_pick": {"asof": "2026-11-16", "key": "m", "name": "Put buy", "total": 25204, "won": 4,
+                                     "strategy": {"name": "Put buy", "index": "NIFTY"}}}
+    t = _d(2026, 11, 17)
+    ok("first: passed and suited goes first", (first_choice(b, {"NIFTY": "expiry_day"}, 0.1, t, set())[0] or {}).get("id") == "p_a")
+    ok("first: else the evening pick", (first_choice(b, {"NIFTY": "range"}, 0.1, t, set())[0] or {}).get("id") == "m_m")
+    ok("first: evening pick still sits out a big gap", first_choice(b, {"NIFTY": "range"}, -1.1, t, set())[0] is None)
+    ok("first: passed one done for the day -> evening pick", (first_choice(b, {"NIFTY": "expiry_day"}, 0.1, t, {"p_a"})[0] or {}).get("id") == "m_m")
+    ok("first: both done -> watch", first_choice(b, {"NIFTY": "expiry_day"}, 0.1, t, {"p_a", "m_m"})[0] is None)
+    u = us_close({"2026-11-14": {"sp500_chg": 0.4}, "2026-11-16": {"sp500_chg": -1.92, "nasdaq_chg": -2.1}, "2026-11-17": {"sp500_chg": 9}}, t)
+    ok("first: US close is the last session before today", u == {"session": "2026-11-16", "sp500": -1.92, "nasdaq": -2.1}, u)
+
+
 def test_autopilot_off_clears():
     """16 Nov 2026: after autopilot is turned off the summary no longer shows its last market reading."""
     from trader import summary
@@ -813,7 +832,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()
