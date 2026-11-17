@@ -239,7 +239,7 @@ function algoLivePut_(key, body) {
   if (!body || body.length > 95000) return { error: 'empty or too large' };
   try { JSON.parse(body); } catch (e) { return { error: 'not valid JSON' }; }
   CacheService.getScriptCache().put(ALGO_LIVE_KEY_, body, 21600);
-  return { ok: true };
+  return { ok: true, kill: stratKill_() || null };      // the emergency stop reaches the machine within a minute
 }
 function algoWithLive_(algo) {
   let live = null;

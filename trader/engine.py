@@ -54,6 +54,9 @@ def _move(entry: float, kind: str, size: float) -> float:
     return entry * size / 100 if kind == "pct" else size
 
 
+KILL_REASON = "emergency stop from the dashboard"
+
+
 class Engine:
     MARK_EVERY = 60                    # seconds between profit lines in the journal
 
@@ -65,6 +68,18 @@ class Engine:
         self.protect: dict[Contract, dict] = {}     # protected positions: entry, direction, exits, "stop" / "trail"
         self.exits_of: dict[str, dict] = {}         # order id -> exits for the position it will open
         self.groups: dict[str, dict] = {}           # multi-leg positions by group id (see _manage_groups)
+
+    def dash_kill(self, now: datetime, on: bool) -> None:
+        """Emergency stop from the dashboard (owner, 17 Nov 2026: "the stop trading button needs to square off all
+        positions and take no fresh trades, its like the kill all switch for emergencies"). On: trips the kill switch, so
+        the next step closes every position and nothing new opens. Off (a strategy switched back on): lifts only this
+        stop, never the day's loss limit or the STOP file."""
+        if on and not self.guard.killed:
+            self.guard.kill(KILL_REASON)
+            self.j.write(now, "kill", reason=KILL_REASON)
+        elif not on and self.guard.killed == KILL_REASON:
+            self.guard.killed = None
+            self.j.write(now, "resume", reason="a strategy was switched back on")
 
     def step(self, now: datetime) -> None:
         self.guard.new_day(now, self.book)

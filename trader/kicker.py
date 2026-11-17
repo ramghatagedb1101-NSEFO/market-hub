@@ -106,7 +106,23 @@ def push_live(timeout: int = 30) -> str:
                                  headers={"User-Agent": "market-hub-kicker", "Content-Type": "text/plain"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         res = json.loads(r.read().decode("utf-8", "replace"))
+    if res.get("ok"):
+        apply_kill(res.get("kill"))
     return "" if res.get("ok") else str(res.get("error") or res)[:120]
+
+
+KILL_FILE = "/opt/trader/KILL"
+
+
+def apply_kill(kill, path: str = KILL_FILE) -> None:
+    """The dashboard's emergency stop (17 Nov 2026), from the relay's answer each minute: the file is there while the stop
+    is on; the trading program closes everything and opens nothing while it is."""
+    if kill:
+        if not os.path.exists(path):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(str(kill))
+    elif os.path.exists(path):
+        os.remove(path)
 
 
 def main() -> int:

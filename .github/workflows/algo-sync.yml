@@ -68,7 +68,9 @@ jobs:
           SSH="ssh -i $RUNNER_TEMP/k -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 -o BatchMode=yes ubuntu@$HOST"
           # strategies: written only when they changed, so the machine switches only on a real change
           if curl -sfL --get "$RELAY_URL" --data-urlencode "mode=strategies" --data-urlencode "key=$RELAY_KEY" -o s.json \
-             && python -c "import json; d=json.load(open('s.json')); assert 'items' in d; d.pop('changed', None); json.dump(d, open('s2.json','w'), sort_keys=True)"; then
+             && python -c "import json; d=json.load(open('s.json')); assert 'items' in d; d.pop('changed', None); json.dump(d, open('s2.json','w'), sort_keys=True); open('kill.txt','w').write(d.get('kill') or '')"; then
+            # the dashboard's emergency stop (17 Nov 2026): /opt/trader/KILL while it is on
+            if [ -s kill.txt ]; then $SSH 'test -f /opt/trader/KILL || cat > /opt/trader/KILL' < kill.txt; else $SSH 'rm -f /opt/trader/KILL'; fi
             NEW=$(sha256sum s2.json | cut -c1-64)
             OLD=$($SSH 'sha256sum /opt/trader/strategies.json 2>/dev/null | cut -c1-64' || true)
             if [ "$NEW" != "$OLD" ]; then
@@ -83,7 +85,7 @@ jobs:
           else
             echo "::warning::could not read the strategies from the relay; the machine keeps its copy"
           fi
-          rm -f s.json s2.json
+          rm -f s.json s2.json kill.txt
           # market figures for the VIX / IV / put-call ratio / FII signals (trader/market.py): the last 30 sessions
           if curl -sfL -H "Authorization: Bearer $PRIVATE_REPO_TOKEN" -H "Accept: application/vnd.github.raw"                "https://api.github.com/repos/ramghatagedb1101-NSEFO/market-hub-private/contents/state/market/daily.json" -o m.json              && python -c "import json; d=json.load(open('m.json')); k=sorted(d)[-30:]; json.dump({x: d[x] for x in k}, open('m2.json','w'), sort_keys=True)"; then
             NEW=$(sha256sum m2.json | cut -c1-64)

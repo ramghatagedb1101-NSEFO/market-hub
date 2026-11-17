@@ -178,7 +178,7 @@ function stratView_() {
   // the latest back-test of each strategy (trader/backtest.py keeps state/backtests/_index.json), for the cards
   return { items: items, active: stratActive_(), limits: stratLimits_(), backtest_started: bt, backtests: stratBacktests_(),
            mode: stratMode_(), fallback: stratFallback_(), log: stratLogRead_(), method: stratMethod_(),
-           prev: PropertiesService.getScriptProperties().getProperty('STRAT_PREV') || '' };
+           prev: PropertiesService.getScriptProperties().getProperty('STRAT_PREV') || '', kill: stratKill_() };
 }
 
 function adminStrategies(token) {
@@ -222,10 +222,39 @@ function adminStrategyActivate(token, id) {
     } catch (e) {}
   }
   if (id) props.setProperty('STRAT_MODE', 'manual');           // picking one by hand turns autopilot off
+  if (id) stratKillOff_(props, 'trading ' + ((stratList_().find(x => x.id === id) || {}).name || id));
   props.setProperty('STRAT_CHANGED', Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm"));
   const nm = id ? ((stratList_().find(x => x.id === id) || {}).name || id) : '';
   stratLog_(id ? 'Trading: ' + nm : 'Switched off: watching only');
   const v = stratView_(); v.sent = stratPushNow_(); return v;
+}
+
+/** Emergency stop (owner, 17 Nov 2026: "the stop trading button needs to square off all positions and take no fresh
+ *  trades, its like the kill all switch for emergencies"): the trading program closes every position at market and opens
+ *  nothing until a strategy is switched back on (Trade this) or autopilot is turned on. Reaches the machine within a
+ *  minute in market hours (the per-minute helper's answer, algoLivePut_) and through algo-sync at once. */
+function stratKill_() { return PropertiesService.getScriptProperties().getProperty('STRAT_KILL') || ''; }
+function adminStrategyKill(token) {
+  if (!sessionValid_(token)) return { error: 'session_expired' };
+  const props = PropertiesService.getScriptProperties();
+  const at = Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ss");
+  props.setProperty('STRAT_KILL', at);
+  props.setProperty('STRAT_ACTIVE', '');
+  props.setProperty('STRAT_MODE', 'manual');
+  props.deleteProperty('STRAT_PREV');
+  props.setProperty('STRAT_CHANGED', at.slice(0, 16));
+  stratLog_('Emergency stop: close everything, no new trades');
+  try {
+    MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Market Hub: emergency stop',
+      'Emergency stop at ' + at.slice(11, 16) + ' IST: the trading program closes every open position and opens nothing new.' +
+      String.fromCharCode(10, 10) + 'To trade again: dashboard, Paper trading > Strategies, Trade this on a strategy.');
+  } catch (e) {}
+  const v = stratView_(); v.sent = stratPushNow_(); return v;
+}
+function stratKillOff_(props, why) {
+  if (!props.getProperty('STRAT_KILL')) return;
+  props.deleteProperty('STRAT_KILL');
+  stratLog_('Emergency stop lifted: ' + why);
 }
 
 function adminStrategyLimits(token, l) {
@@ -258,6 +287,7 @@ function adminStrategyMode(token, mode, fallback) {
   // traded. The hand-picked strategy is kept while autopilot runs and comes back when it is turned off.
   if (mode === 'autopilot' && !wasAuto) props.setProperty('STRAT_PREV', stratActive_());
   if (mode === 'autopilot') props.setProperty('STRAT_ACTIVE', '');
+  if (mode === 'autopilot') stratKillOff_(props, 'autopilot on');
   if (mode !== 'autopilot' && wasAuto) {
     const prev = props.getProperty('STRAT_PREV') || '';
     const pv = prev && stratList_().find(x => x.id === prev);
@@ -359,6 +389,6 @@ function strategiesForBatch_(p) {
   const bt = stratBacktests_(), slim = {};
   Object.keys(bt).forEach(k => { slim[k] = { by_regime: bt[k].by_regime || {} }; });   // autopilot needs only the records by condition
   return { active: stratActive_() || null, items: stratList_(), limits: stratLimits_(), mode: stratMode_(),
-           fallback: stratFallback_() || null, backtests: slim, method: stratMethod_(), match_pick: stratMatchPick_(),
+           fallback: stratFallback_() || null, backtests: slim, method: stratMethod_(), match_pick: stratMatchPick_(), kill: stratKill_() || null,
            changed: PropertiesService.getScriptProperties().getProperty('STRAT_CHANGED') || null };
 }

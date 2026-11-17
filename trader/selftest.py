@@ -718,6 +718,31 @@ def test_no_ceiling_when_trailing():
     ok("no ceiling: a target below the trailing start still closes", f2[-1]["tag"] == "target", f2[-1])
 
 
+def test_emergency_stop():
+    """17 Nov 2026: the dashboard's emergency stop closes everything and opens nothing; switching a strategy back on lifts
+    only that stop; the per-minute helper keeps the KILL file in step with the relay."""
+    import os as _os
+    import tempfile
+    from datetime import datetime as _dt
+    from trader import kicker
+    from trader.engine import KILL_REASON, Engine
+    eng = Engine(None, None, None, Settings(), Journal())
+    if True:
+        eng.dash_kill(_dt(2026, 11, 17, 10, 5), True)
+        ok("stop: kill switch on", eng.guard.killed == KILL_REASON)
+        eng.dash_kill(_dt(2026, 11, 17, 10, 6), False)
+        ok("stop: resume lifts it", eng.guard.killed is None)
+        eng.guard.kill("day's loss limit")
+        eng.dash_kill(_dt(2026, 11, 17, 10, 7), False)
+        ok("stop: resume never lifts the loss limit", eng.guard.killed == "day's loss limit")
+    with tempfile.TemporaryDirectory() as d:
+        p = d + "/KILL"
+        kicker.apply_kill("2026-11-17T10:05", p)
+        on = _os.path.exists(p)
+        kicker.apply_kill(None, p)
+        ok("stop: KILL file follows the relay", on and not _os.path.exists(p))
+
+
 def test_autopilot_off_clears():
     """16 Nov 2026: after autopilot is turned off the summary no longer shows its last market reading."""
     from trader import summary
@@ -764,7 +789,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()

@@ -140,6 +140,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
             status["strategy"] = r.get("strategy") or "watch only"
         elif k == "kill":
             status["killed"] = r.get("reason")
+        elif k == "resume":
+            status["killed"] = None
         if k == "order":
             if r.get("stop"):
                 stop_of[r["contract"]] = r["stop"]

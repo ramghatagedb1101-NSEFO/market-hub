@@ -2,6 +2,17 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~07:00 IST: "Stop trading" is the emergency stop
+- Owner: "the stop trading button needs to square off all positions and take no fresh trades, its like the kill all switch
+  for emergencies". Before, it only switched the strategy off and open trades kept running to their stops.
+- Same button, same place, now red and shown in both modes: asks first ("Close all and stop"), then the relay records the
+  stop (STRAT_KILL, `adminStrategyKill`; strategy off, autopilot off, logged, emailed). It reaches the machine within a
+  minute in market hours (the per-minute helper's relay answer, `trader/kicker.py` `apply_kill` -> /opt/trader/KILL) and
+  at once through algo-sync. `Engine.dash_kill` trips the kill switch: every position closed at market, nothing new.
+- Lifted only by Trade this on a strategy or turning autopilot on; never lifts the day's loss limit or the STOP file.
+- The page waits for the machine: "Trading machine confirmed the stop · N positions still closing", then "no open
+  positions". "Switch off" on a strategy card still stops new trades only. Selftest 208/208.
+
 ## Tue 17 Nov 2026, ~06:50 IST: every switch shows the one in force in blue
 - Owner (screenshot of the price strip's % / Pts): "must have the same blue highlighted style as to show which one is
   active. its on many pages to change everywhere". The shared switch style (`.seg`) on the dashboard and the phone, and the

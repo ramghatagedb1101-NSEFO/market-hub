@@ -1961,7 +1961,13 @@ function stWait(want){ ST_WAIT = { want: want, t0: Date.now() }; setTimeout(stPo
 function stPoll(){
   if (!ST_WAIT) return;
   const st = (S.algo && !S.algo.error && S.algo.status) || {};
-  if (st.strategy === ST_WAIT.want && Date.now() - ST_WAIT.t0 > 10000) {
+  if (ST_WAIT.want === 'kill' && /emergency stop/.test(st.killed || '') && Date.now() - ST_WAIT.t0 > 10000) {
+    const n = ((S.algo && S.algo.open) || []).length, at = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+    ST_MSG = 'Trading machine confirmed the stop · ' + (n ? n + ' position' + (n > 1 ? 's' : '') + ' still closing' : 'no open positions') + ' · ' + at + ' IST';
+    if (!n) { ST_WAIT = null; rerender(); return; }
+    rerender(); algoLoad(); setTimeout(stPoll, 15000); return;
+  }
+  if (ST_WAIT.want !== 'kill' && st.strategy === ST_WAIT.want && Date.now() - ST_WAIT.t0 > 10000) {
     const w = ST_WAIT.want; ST_WAIT = null;
     ST_MSG = 'Trading machine confirmed · ' + (w === 'watch only' ? 'watching only' : w === 'autopilot' ? 'autopilot' : 'trading ' + w) + ' · ' + new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) + ' IST';
     rerender(); return;
@@ -1980,6 +1986,12 @@ function stLogAll(){
   bg.onclick = e => { if (e.target === bg) done(); };
   bg.querySelector('button').onclick = done;
   document.body.append(bg); document.addEventListener('keydown', key);
+}
+// Stop trading = the emergency stop (owner, 17 Nov 2026: "the stop trading button needs to square off all positions and
+// take no fresh trades, its like the kill all switch for emergencies"). "Switch off" on a strategy card keeps open trades.
+async function stKill(){
+  if (!await mhDialog({ title: 'Stop trading?', body: 'Closes every open position now at market price and takes no new trades until you press Trade this on a strategy.', ok: 'Close all and stop', danger: true })) return;
+  stDo('adminStrategyKill', [], 'Stopping…', d => { stWait('kill'); return 'Stop sent. Waiting for the trading machine to confirm…'; });
 }
 async function stOn(id){
   const s = (S.strat.items || []).find(x => x.id === id);
@@ -3188,11 +3200,12 @@ function pageStrategies(){
   const line = auto
     ? ((S.strat.method || 'match') === 'match' ? 'Runs the evening\'s pick from Matches today\'s market, from 09:30; details below.' : 'Picks a tagged strategy by market condition at 09:30, 11:00 and 13:00; details below.')
     : (act ? 'Trading now: <b>' + esc(act.name) + '</b>' : 'Nothing switched on: watching only. Press Trade this on a strategy.');
+  const killed = S.strat.kill ? '<span class="neg" style="font-weight:600">Stopped at ' + esc(String(S.strat.kill).slice(11, 16)) + ' IST</span>: everything closed, no new trades. Press Trade this on a strategy to trade again.' : '';
   const sw = '<span class="seg mode-sw" role="group" aria-label="Trading mode">' +
     '<button type="button" class="' + (!auto ? 'on' : '') + '"' + (!auto ? ' aria-pressed="true"' : ' onclick="stMode(\'manual\')"') + '>Manual</button>' +
     '<button type="button" class="' + (auto ? 'on' : '') + '"' + (auto ? ' aria-pressed="true"' : ' onclick="stMode(\'autopilot\')"') + '>Autopilot</button></span>';
-  let h = '<div class="panel mode-row"><div class="panel-b">' + sw + '<span class="mode-text">' + line + '</span>' +
-    (!auto && act ? '<button class="btn sm" type="button" onclick="stOn(\'\')">Stop trading</button>' : '') + '</div>' +
+  let h = '<div class="panel mode-row"><div class="panel-b">' + sw + '<span class="mode-text">' + (killed || line) + '</span>' +
+    (!killed ? '<button class="btn sm" type="button" style="background:var(--neg);border-color:var(--neg);color:#fff" onclick="stKill()">Stop trading</button>' : '') + '</div>' +
     '<div class="mode-lim">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div></div>';
   // 16 Nov 2026: who switched what, when (relay STRAT_LOG); autopilot came back on at 11:16 that day with no trace
   const LG = S.strat.log || [], lgT = x => esc(bDay(dayOf(x.t)) + ', ' + String(x.t).slice(11, 16) + ' IST');

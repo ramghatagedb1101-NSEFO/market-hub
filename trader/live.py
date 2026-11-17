@@ -39,6 +39,7 @@ from .strategies import make
 
 HOME = Path("/opt/trader")
 SETTINGS, JOURNALS, STOP, STRATS = HOME / "settings.json", HOME / "journal", HOME / "STOP", HOME / "strategies.json"
+KILL = HOME / "KILL"          # the dashboard's emergency stop (kicker each minute, algo-sync on every change)
 PROTECT = HOME / "protect.json"            # each open position's exits, so a restart keeps them
 EVERY = 2.0
 OPEN, CLOSE = "09:15", "15:30"
@@ -197,6 +198,7 @@ def main() -> int:
             stamp = builder_stamp()
             switch(eng, now)
             done = set()                           # autopilot: a change on the dashboard means a fresh look now
+        eng.dash_kill(now, KILL.exists())
         b = builder()
         if b.get("mode") == "autopilot" and market_open(now):
             due = [c for c in CHECKS if now.strftime("%H:%M") >= c and c not in done]
