@@ -3184,8 +3184,8 @@ function pageStrategies(){
     '<div class="mode-lim">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div></div>';
   // 16 Nov 2026: who switched what, when (relay STRAT_LOG); autopilot came back on at 11:16 that day with no trace
   const LG = S.strat.log || [], lgT = x => esc(bDay(dayOf(x.t)) + ', ' + String(x.t).slice(11, 16) + ' IST');
-  if (LG.length) h += '<details style="font-size:12px;margin:-6px 0 12px"><summary class="muted" style="cursor:pointer">Last change: ' + esc(LG[0].what) + ' · ' + lgT(LG[0]) + (LG.length > 1 ? ' · see all ' + LG.length : '') + '</summary>' +
-    '<table class="t" style="margin-top:6px">' + LG.map(x => '<tr><td class="l" style="white-space:nowrap">' + lgT(x) + '</td><td class="l">' + esc(x.what) + '</td></tr>').join('') + '</table></details>';
+  if (LG.length) h += '<details style="font-size:12px;margin:-6px 0 12px"><summary class="muted" style="cursor:pointer">Last change: ' + esc(LG[0].what) + ' · ' + lgT(LG[0]) + (LG.length > 1 ? ' · earlier changes' : '') + '</summary>' +
+    '<table class="t" style="margin-top:6px">' + LG.slice(1, 6).map(x => '<tr><td class="l" style="white-space:nowrap">' + lgT(x) + '</td><td class="l">' + esc(x.what) + '</td></tr>').join('') + '</table></details>';
   if (ST_MSG) h += '<div class="notice" style="margin-bottom:12px">' + esc(ST_MSG) + '</div>';
   h += stMatchBox();
   if (auto) h += stAutoPanel(items);
