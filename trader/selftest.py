@@ -756,6 +756,11 @@ def test_fill_idle():
     ok("fill: window over is done", is_done(_S(0, "10:10"), 0, "11:00"))
     ok("fill: still in its window is not done", not is_done(_S(0, "14:30"), 0, "11:00"))
     ok("fill: watching is done", is_done(None, 0, "11:00"))
+    from datetime import datetime as _dt
+    s1 = _S(1, "10:10"); s1.last_entry = _dt(2026, 11, 17, 10, 0, 1)
+    ok("fill: orders sent but not filled is not done (17 Nov 10:00)", not is_done(s1, 0, "10:00", pending=2, now=_dt(2026, 11, 17, 10, 0, 2)))
+    ok("fill: within 2 minutes of an entry is not done", not is_done(s1, 0, "10:01", pending=0, now=_dt(2026, 11, 17, 10, 1, 0)))
+    ok("fill: done once filled, closed and 2 minutes on", is_done(s1, 0, "10:30", pending=0, now=_dt(2026, 11, 17, 10, 30)))
     P = [{"key": "a", "name": "Strangle", "by_regime": {"expiry_day": {"trades": 62, "profit": 11172, "won": 46}},
           "strategy": {"id": "p_a", "name": "Strangle", "index": "NIFTY"}},
          {"key": "b", "name": "Trend call", "by_regime": {"trend_up": {"trades": 30, "profit": 9000, "won": 18},

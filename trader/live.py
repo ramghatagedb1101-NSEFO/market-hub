@@ -112,7 +112,7 @@ def fill_idle(br: IBKR, eng: Engine, now: datetime, b: dict) -> None:
         return
     if not b.get("passed") and (b.get("method") or "match") != "match":
         return
-    if not is_done(eng.strategy, eng.book.open_legs(), now.strftime("%H:%M")):
+    if not is_done(eng.strategy, eng.book.open_legs(), now.strftime("%H:%M"), pending=len(eng.broker.working()), now=now):
         return
     cur = getattr(eng.strategy, "id", None)
     if cur:

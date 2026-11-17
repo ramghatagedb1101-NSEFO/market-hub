@@ -63,10 +63,17 @@ FILL_UNTIL = "14:30"        # no fresh strategy after this (time left to enter a
 FILL_MIN_TRADES = 5          # a condition with fewer tested trades than this is not a record
 
 
-def is_done(strategy, open_legs: int, hhmm: str) -> bool:
-    """The strategy in charge is done for the day (17 Nov 2026, owner: "A. Fill idle time"): nothing open, and either its
-    trades for the day are used or its entry window is over. No strategy at all (watching) counts as done."""
-    if open_legs:
+def is_done(strategy, open_legs: int, hhmm: str, pending: int = 0, now=None) -> bool:
+    """The strategy in charge is done for the day (17 Nov 2026, owner: "A. Fill idle time"): nothing open, nothing waiting
+    to fill, its last entry at least 2 minutes ago, and either its trades for the day are used or its entry window is over.
+    No strategy at all (watching) counts as done.
+    17 Nov 2026, 10:00: the strangle's two sell orders were sent at 10:00:01 and filled at 10:00:02-03; in that second the
+    check saw one trade used and nothing held, called it done, and the evening pick bought a put at 10:00:04. Orders not
+    yet filled (pending) and a fresh entry now count as busy."""
+    if open_legs or pending:
+        return False
+    last = getattr(strategy, "last_entry", None) if strategy is not None else None
+    if last is not None and now is not None and (now - last).total_seconds() < 120:
         return False
     if strategy is None:
         return True

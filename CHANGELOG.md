@@ -2,6 +2,17 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~10:20 IST: an unintended put at 10:00 (fill-idle bug) and its fix
+- Autopilot's strangle sent its two sell orders at 10:00:01 (25650 CE at 1.85, 25050 PE at 3.00, filled 10:00:02-03).
+  In that second the new fill-idle check saw "1 trade used, nothing held" (the orders were not filled yet), called the
+  strangle done for the day and handed over to the evening match pick, which bought 1 lot of the 25350 PE at 43.55 at
+  10:00:04 (an idea that failed the bot's tests; at most about 2,830 at risk). The selftests had no case for orders
+  sent but not filled.
+- `trader/autopilot.py` `is_done`: busy while any order is waiting to fill (`broker.working()`) or within 2 minutes of the
+  strategy's last entry, besides open positions. Three new selftests (226/226). Owner: "do the fix now".
+- Not restarted in market hours: a restart re-reads the IBKR-held stops but not the strangle's combined stop / target,
+  which live in the program. The machine restarts with the fix after 15:30, once everything is closed at 15:15.
+
 ## Tue 17 Nov 2026, ~10:08 IST: switch confirmations fixed; the trading machine's state always under the switch
 - Owner, on "Saved. The trading machine has not confirmed in 5 minutes; reopen this page later to see it." after turning
   autopilot on at 09:42: "dont like this". The machine had switched at 09:43:26 and picked the strangle; the page waited
