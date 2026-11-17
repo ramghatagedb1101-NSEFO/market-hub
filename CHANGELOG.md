@@ -8,8 +8,9 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   strategy and turning it off did not restore it, so nothing was switched on for the expiry day.
 - `adminStrategyMode`: autopilot on keeps the hand-picked strategy (STRAT_PREV); autopilot off switches it back on and logs
   "Back to: <name>". The "Turn autopilot off?" box says "Goes back to <name>."; the confirmation waits for that name.
-- Strategies change log (owner: "over a period of time, it will occupy the entire screen"): one folded line (the last
-  change); opened, it lists only the 5 changes before it.
+- Strategies change log (owner: "over a period of time, it will occupy the entire screen"; "if someone needs full log it
+  should show the option which opens in a separate window"): one line, the last change, with "See all", which opens the
+  log in its own window (scrolls; the relay keeps the last 60 changes).
 
 ## Tue 17 Nov 2026, ~06:25 IST: a switch now shows the trading machine's confirmation
 - Owner, on "Switched on. The trading machine follows in a minute or two.": "seems like a stale message with no clarity

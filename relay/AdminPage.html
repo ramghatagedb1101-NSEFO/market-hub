@@ -1969,6 +1969,18 @@ function stPoll(){
   if (Date.now() - ST_WAIT.t0 > 300000) { ST_WAIT = null; ST_MSG = 'Saved. The trading machine has not confirmed in 5 minutes; reopen this page later to see it.'; rerender(); return; }
   algoLoad(); setTimeout(stPoll, 15000);
 }
+function stLogAll(){
+  const LG = S.strat.log || [], lgT = x => esc(bDay(dayOf(x.t)) + ', ' + String(x.t).slice(11, 16) + ' IST');
+  const bg = document.createElement('div'); bg.className = 'mdl-bg';
+  bg.innerHTML = '<div class="mdl" role="dialog" aria-modal="true" style="max-width:560px"><h3>Strategy changes</h3>' +
+    '<div style="max-height:60vh;overflow:auto;margin-top:8px"><table class="t">' + LG.map(x => '<tr><td class="l" style="white-space:nowrap">' + lgT(x) + '</td><td class="l" style="white-space:normal">' + esc(x.what) + '</td></tr>').join('') + '</table></div>' +
+    '<div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn" type="button">Close</button></div></div>';
+  const done = () => { bg.remove(); document.removeEventListener('keydown', key); };
+  const key = e => { if (e.key === 'Escape') done(); };
+  bg.onclick = e => { if (e.target === bg) done(); };
+  bg.querySelector('button').onclick = done;
+  document.body.append(bg); document.addEventListener('keydown', key);
+}
 async function stOn(id){
   const s = (S.strat.items || []).find(x => x.id === id);
   if (!await mhDialog(id ? { title: 'Trade "' + s.name + '"?', body: 'On the IBKR paper account, in place of the strategy trading now. Open trades keep their stops.', ok: 'Trade this' }
@@ -3184,8 +3196,10 @@ function pageStrategies(){
     '<div class="mode-lim">IBKR paper · at most ' + (L.max_lots_per_order || 1) + ' lot' + ((L.max_lots_per_order || 1) > 1 ? 's' : '') + ' an order · day\'s loss limit ' + ppMoney(L.max_daily_loss || 10000) + ' · <a href="javascript:void 0" onclick="stLimits()">Change</a></div></div>';
   // 16 Nov 2026: who switched what, when (relay STRAT_LOG); autopilot came back on at 11:16 that day with no trace
   const LG = S.strat.log || [], lgT = x => esc(bDay(dayOf(x.t)) + ', ' + String(x.t).slice(11, 16) + ' IST');
-  if (LG.length) h += '<details style="font-size:12px;margin:-6px 0 12px"><summary class="muted" style="cursor:pointer">Last change: ' + esc(LG[0].what) + ' · ' + lgT(LG[0]) + (LG.length > 1 ? ' · earlier changes' : '') + '</summary>' +
-    '<table class="t" style="margin-top:6px">' + LG.slice(1, 6).map(x => '<tr><td class="l" style="white-space:nowrap">' + lgT(x) + '</td><td class="l">' + esc(x.what) + '</td></tr>').join('') + '</table></details>';
+  // 17 Nov 2026 (owner: "over a period of time, it will occupy the entire screen"; "if someone needs full log it should
+  // show the option which opens in a separate window"): one line, the last change; "See all" opens the log in a window
+  if (LG.length) h += '<div class="muted" style="font-size:12px;margin:-6px 0 12px">Last change: ' + esc(LG[0].what) + ' · ' + lgT(LG[0]) +
+    (LG.length > 1 ? ' · <a href="javascript:void 0" onclick="stLogAll()">See all</a>' : '') + '</div>';
   if (ST_MSG) h += '<div class="notice" style="margin-bottom:12px">' + esc(ST_MSG) + '</div>';
   h += stMatchBox();
   if (auto) h += stAutoPanel(items);

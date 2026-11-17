@@ -165,7 +165,7 @@ function stratLog_(what) {
   let log = [];
   try { log = JSON.parse(props.getProperty('STRAT_LOG') || '[]'); } catch (e) { log = []; }
   log.unshift({ t: Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm:ss"), what: what });
-  props.setProperty('STRAT_LOG', JSON.stringify(log.slice(0, 20)));
+  props.setProperty('STRAT_LOG', JSON.stringify(log.slice(0, 60)));
 }
 function stratLogRead_() {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('STRAT_LOG') || '[]'); } catch (e) { return []; }
