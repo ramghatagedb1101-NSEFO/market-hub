@@ -1284,7 +1284,8 @@
   function algoStatus(A){
     const st = A.status || {};
     if (!st.last) return "Not started yet";
-    if (st.killed) return `<span class="dn">Stopped for the day: ${esc(st.killed)}</span>`;
+    if (st.killed) return /emergency stop/.test(st.killed) ? `<span class="dn">Stopped: everything closed, no new trades</span>`
+      : `<span class="dn">Stopped for the day: ${esc(st.killed)}</span>`;
     const ist = new Date(Date.now() + 5.5 * 3600e3), m = ist.getUTCHours() * 60 + ist.getUTCMinutes();
     const open = ist.getUTCDay() >= 1 && ist.getUTCDay() <= 5 && m >= 555 && m <= 930;
     if (open && (Date.now() - new Date(st.last + "+05:30").getTime()) / 60000 > 15) return `<span class="dn">Not heard from since ${esc(algoWhen(st.last))}</span>`;
@@ -1372,6 +1373,35 @@
       el.onpointerleave = () => { tip.style.display = "none"; if (xl) xl.setAttribute("opacity", 0); };
     });
   }
+  // Stop trading (owner, 17 Nov 2026: "its like the kill all switch for emergencies"; "it must be on phone also"): closes
+  // every open position at market and takes no new trades until a strategy is switched back on (dashboard, Trade this).
+  let ALGO_KILL_MSG = "", ALGO_KILL_T0 = 0;
+  function algoKillBox(A){
+    const killed = /emergency stop/.test(((A && A.status) || {}).killed || "");
+    return (killed ? "" : `<button class="btn" type="button" style="width:100%;margin-top:10px;background:#c4320a;border-color:#c4320a;color:#fff" onclick="algoKill()">Stop trading</button>`) +
+      (ALGO_KILL_MSG ? `<div class="note" style="margin-top:6px">${esc(ALGO_KILL_MSG)}</div>` : "");
+  }
+  async function algoKill(){
+    if (!confirm("Stop trading?\n\nCloses every open position now at market price and takes no new trades until a strategy is switched back on (dashboard › Strategies › Trade this).")) return;
+    ALGO_KILL_MSG = "Stopping…"; drawAlgoP();
+    try {
+      const d = await relayOnce("app_strategy_kill", { token: SESSION });
+      if (d.error) { ALGO_KILL_MSG = d.error === "session_expired" ? "Signed out: sign in again, then press Stop trading." : d.error; drawAlgoP(); return; }
+      ALGO_KILL_MSG = "Stop sent. Waiting for the trading machine to confirm…"; ALGO_KILL_T0 = Date.now(); drawAlgoP(); setTimeout(algoKillPoll, 15000);
+    } catch(e){ ALGO_KILL_MSG = "No answer. Check your connection and press Stop trading again."; drawAlgoP(); }
+  }
+  async function algoKillPoll(){
+    await loadAlgo();
+    const st = (ALGO && ALGO.status) || {}, n = ((ALGO && ALGO.open) || []).length;
+    const at = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
+    if (/emergency stop/.test(st.killed || "")) {
+      ALGO_KILL_MSG = "Trading machine confirmed the stop · " + (n ? n + " position" + (n > 1 ? "s" : "") + " still closing" : "no open positions") + " · " + at + " IST";
+      drawAlgoP(); if (!n) return;
+    } else if (Date.now() - ALGO_KILL_T0 > 300000) {
+      ALGO_KILL_MSG = "The trading machine has not confirmed in 5 minutes; open this page again later to see it."; drawAlgoP(); return;
+    }
+    if (Date.now() - ALGO_KILL_T0 < 900000) setTimeout(algoKillPoll, 15000);
+  }
   function algoPage(){
     const A = ALGO;
     if (!A) return `<div class="mut" style="padding:12px">Loading…</div>`;
@@ -1386,7 +1416,7 @@
       stat("All time", pSigned(T.booked || 0), (T.trades || 0) + " trades") +
       stat("Won", T.trades ? Math.round(100 * T.wins / T.trades) + "%" : "–", (T.wins || 0) + " of " + (T.trades || 0)) +
       stat("Avg win / loss", `<span style="white-space:nowrap;font-size:12px">${T.avg_win != null ? pSigned(T.avg_win) : "–"} / ${T.avg_loss != null ? pSigned(T.avg_loss) : "–"}</span>`, "per trade") +
-      stat("Worst fall", pSigned(T.worst_drop || 0), "from a high") + `</div></div></div>`;
+      stat("Worst fall", pSigned(T.worst_drop || 0), "from a high") + `</div>` + algoKillBox(A) + `</div></div>`;
     if (!T.trades && !O.length && !P.length) {
       return h + `<div class="panel" style="margin-top:12px"><div class="pb" style="text-align:center;padding:28px 12px"><div style="font-weight:700">No trades yet</div>` +
         `<div class="mut" style="margin-top:6px">They appear here once a strategy is switched on (dashboard › Paper trading › Strategies).</div></div></div>`;

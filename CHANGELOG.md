@@ -12,6 +12,9 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
 - Lifted only by Trade this on a strategy or turning autopilot on; never lifts the day's loss limit or the STOP file.
 - The page waits for the machine: "Trading machine confirmed the stop · N positions still closing", then "no open
   positions". "Switch off" on a strategy card still stops new trades only. Selftest 208/208.
+- Phone v74 (owner: "it must be on phone also"): a red Stop trading under the figures on Auto trading (relay
+  `app_strategy_kill`), asks first, then waits for the machine's confirmation the same way; the status line reads
+  "Stopped: everything closed, no new trades".
 
 ## Tue 17 Nov 2026, ~06:50 IST: every switch shows the one in force in blue
 - Owner (screenshot of the price strip's % / Pts): "must have the same blue highlighted style as to show which one is
