@@ -209,7 +209,17 @@ function adminStrategyActivate(token, id) {
   if (!sessionValid_(token)) return { error: 'session_expired' };
   if (id && !stratList_().some(x => x.id === id)) return { error: 'No such strategy.' };
   const props = PropertiesService.getScriptProperties();
+  const was = props.getProperty('STRAT_ACTIVE') || '';
   props.setProperty('STRAT_ACTIVE', id || '');
+  // 17 Nov 2026: the strangle was switched off at 23:56 unnoticed, the night before its expiry-day trade; say so by email
+  if (!id && was) {
+    try {
+      const wn = (stratList_().find(x => x.id === was) || {}).name || was;
+      MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'Market Hub: ' + wn + ' switched off',
+        wn + ' was switched off at ' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'HH:mm') + ' IST; the trading program now watches only.' +
+        String.fromCharCode(10, 10) + 'Not you? Open the dashboard, Paper trading > Strategies, and press Trade this.');
+    } catch (e) {}
+  }
   if (id) props.setProperty('STRAT_MODE', 'manual');           // picking one by hand turns autopilot off
   props.setProperty('STRAT_CHANGED', Utilities.formatDate(new Date(), 'Asia/Kolkata', "yyyy-MM-dd'T'HH:mm"));
   const nm = id ? ((stratList_().find(x => x.id === id) || {}).name || id) : '';

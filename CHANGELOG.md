@@ -2,6 +2,13 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 17 Nov 2026, ~06:20 IST: the strangle had been switched off; email on every switch-off
+- The relay's active strategy was cleared at 23:56 on 16 Nov (5 minutes after a relay deploy; cause not certain, possibly
+  a stray click during dashboard checks), so the machine would have only watched on today's expiry. Found by the new
+  `hub/diag_strategies` (diag.yml: what the relay sends the machine). The owner pressed Trade this at 06:14; the machine
+  switched to the strangle at 06:15:03.
+- `adminStrategyActivate`: switching a strategy off now emails the owner (like turning autopilot on).
+
 ## Tue 17 Nov 2026, ~00:40 IST: market match tested; big opening gap = sit out
 - Owner: "signal at pre open is also very very relevant. so strategy selected at 4.30 pm yesterday may not work".
 - Research bot: of 4,180 ideas only one passed its hold-back test (expiry-day short strangle, 6 out, the one running);
