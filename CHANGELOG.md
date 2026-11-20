@@ -2,7 +2,7 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
-## Fri 20 Nov 2026, ~07:30 IST: trading program asks for prices afresh after a reconnect
+## Fri 20 Nov 2026, ~06:50 IST: trading program asks for prices afresh after a reconnect
 - Found while checking autopilot's first days: on Thu 19 Nov 2026 the program read NIFTY at one unchanging price all day
   (autopilot's 11:00 and 13:00 checks: "+0.00% since the open, efficiency 0.00") and BANK NIFTY not at all, so the
   day's strategy (FII Cash Inflow Gap Continuation Call) could never see its signal, and the opening-gap rule could not
