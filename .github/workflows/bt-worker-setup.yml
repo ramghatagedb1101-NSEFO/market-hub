@@ -36,6 +36,10 @@ on:
         description: "start a job once at an IST time via the machine's clock, e.g. 2026-11-15 00:10 breeze.yml"
         required: false
         default: ""
+      order_test:
+        description: "send two PAPER test orders that cannot fill (NIFTY option at 0.05, RELIANCE at 1), show IBKR's answer, cancel them"
+        type: boolean
+        default: false
       recorder:
         description: "day recorder: probe (quick IBKR check, writes nothing) or past days YYYY-MM-DD separated by spaces to record (runs on in the background)"
         required: false
@@ -82,6 +86,11 @@ jobs:
             else
               $SSH 'cd /opt/trader && sudo docker compose restart ib-gateway && sleep 120 && sudo docker logs --since 3m market-hub-trader-ib-gateway-1 2>&1 | grep -iE "login|logged|disclaimer|warning|error" | tail -10 | sed -E "s/DU[0-9]+/DU****/g"; cd /opt/trader/app && git pull -q --ff-only; TZ=Asia/Kolkata timeout 90 /opt/trader/venv/bin/python -m trader.ibcheck' || true
             fi
+            rm -f "$RUNNER_TEMP/k"; exit 0
+          fi
+          if [ "${{ inputs.order_test }}" = "true" ]; then
+            # 20 Nov 2026: IBKR refused autopilot's order ("API orders for NSE instruments are not allowed"); paper only
+            $SSH 'cd /opt/trader/app && git pull -q --ff-only && TZ=Asia/Kolkata timeout 120 /opt/trader/venv/bin/python -u -m trader.ordertest 2>&1 | sed -E "s/DU[0-9]+/DU****/g"' || true
             rm -f "$RUNNER_TEMP/k"; exit 0
           fi
           if [ "${{ inputs.log_only }}" = "true" ]; then

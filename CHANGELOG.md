@@ -2,6 +2,12 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Fri 20 Nov 2026, ~21:00 IST: a paper test order, to see what IBKR refuses (owner: "We can try a manual order")
+- `trader/ordertest.py` (run by `bt-worker-setup.yml -f order_test=true`): on its own connection, paper account only,
+  sends two orders that cannot fill (a far NIFTY call at Rs 0.05, one RELIANCE share at Rs 1), prints IBKR's answer and
+  cancels them. Tells whether IBKR now refuses every order from the program, or only options. The trading program is not
+  touched.
+
 ## Fri 20 Nov 2026, ~20:30 IST: an order IBKR refuses shows on the phone and dashboard (phone v78)
 - Found in the evening check: autopilot's first trade (BUY NIFTY 23 Nov 25550 CE at 11:56, FII Cash Inflow Gap
   Continuation Call) was refused by IBKR: "API orders for NSE instruments are not allowed" (error 201). The journal had
