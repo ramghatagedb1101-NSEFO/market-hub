@@ -772,6 +772,20 @@ def test_fill_idle():
     ok("fill: a finished strategy is not picked again", fill_choice(P, {"NIFTY": "trend_up"}, {"p_b"})[0] is None)
 
 
+def test_feed_frozen():
+    """20 Nov 2026: an index price that stands still for 3 minutes in market hours (or never arrives) is a dead feed."""
+    from datetime import datetime as _dt, timedelta as _td
+    from trader.indicators import feed_frozen
+    t0, s = _dt(2026, 11, 19, 9, 20), {}
+    ok("feed: first price is fine", not feed_frozen(s, 25500.0, t0))
+    ok("feed: same price 2 minutes on is fine", not feed_frozen(s, 25500.0, t0 + _td(minutes=2)))
+    ok("feed: same price 3 minutes on is dead", feed_frozen(s, 25500.0, t0 + _td(minutes=3)))
+    ok("feed: a move resets it", not feed_frozen(s, 25501.0, t0 + _td(minutes=4)) and not feed_frozen(s, 25501.0, t0 + _td(minutes=6)))
+    s2 = {}
+    ok("feed: no price yet is fine at first", not feed_frozen(s2, None, t0))
+    ok("feed: no price for 3 minutes is dead", feed_frozen(s2, None, t0 + _td(minutes=3)))
+
+
 def test_first_choice():
     """17 Nov 2026: autopilot puts a strategy that passed testing and suits the market now first; only when none does,
     the evening's market-match pick (with the gap rule); never one already done for the day. The US close is logged."""
@@ -837,7 +851,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()

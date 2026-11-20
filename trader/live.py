@@ -271,6 +271,9 @@ def main() -> int:
                 raise ConnectionError("not connected")
             if market_open(now):
                 eng.step(now)
+                for n in getattr(br, "feed_notes", [])[:]:
+                    eng.j.write(now, "note", text=n)
+                    br.feed_notes.remove(n)
                 kept = keep_protect(eng, kept)
                 br.ib.sleep(EVERY)
             else:
@@ -281,6 +284,7 @@ def main() -> int:
             try:
                 br.ib.disconnect()
                 br.connect()
+                br.reset_feed()                    # 20 Nov 2026: the old connection's price feeds are dead
                 br.restore()
             except Exception as e2:                # systemd restarts the program if this fails too
                 eng.j.write(datetime.now(), "note", text=f"reconnect failed ({type(e2).__name__}); restarting")

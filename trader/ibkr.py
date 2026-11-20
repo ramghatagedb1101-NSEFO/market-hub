@@ -20,6 +20,7 @@ from ib_async import IB, Index, LimitOrder, Option, Order, StopOrder
 from hub.holidays import is_session
 from hub.rule_test import charges as table_charges
 
+from .indicators import FROZEN_AFTER, feed_frozen
 from .model import Contract, Fill, OrderRequest, Quote
 
 IB_SYMBOL = {"NIFTY": "NIFTY50", "BANKNIFTY": "BANKNIFTY"}     # confirmed by check.py, Sat 14 Nov 2026
@@ -44,6 +45,8 @@ class IBKR:
         self.tags: dict[int, str] = {}
         self.index_t: dict[str, object] = {}       # index -> live index ticker (for the builder's signals)
         self.bars: dict[str, list] = {}            # index -> one-minute bars (time, o, h, l, c), last three sessions
+        self.moved: dict[str, dict] = {}           # index -> {"px", "t"}: when its price last moved (feed_frozen)
+        self.feed_notes: list[str] = []            # feed renewals, for the journal (live.py writes and clears them)
 
     # ---- connection -------------------------------------------------------------------------------------------
     def connect(self) -> list[str]:
@@ -104,9 +107,28 @@ class IBKR:
             self.index_t[index] = self.ib.reqMktData(und, "", False, False)
         return self.index_t[index]
 
+    def reset_feed(self) -> None:
+        """After a reconnect: the old connection's price feeds never update again (19 Nov 2026), so every index and
+        option price is asked for afresh on the new connection (the one-minute bars come back with the index's)."""
+        self.index_t.clear()
+        self.tickers.clear()
+        self.moved.clear()
+
     def index_bars(self, index: str) -> list:
         t = self._index(index)
         px = t.last if t.last == t.last and t.last and t.last > 0 else None
+        now = datetime.now()
+        if is_session(now.date()) and "09:16" <= now.strftime("%H:%M") <= "15:29" and \
+                feed_frozen(self.moved.setdefault(index, {}), px, now):
+            try:
+                self.ib.cancelMktData(self.index_t[index].contract)
+            except Exception:                      # noqa: BLE001 -- a dead feed may not cancel; it is replaced anyway
+                pass
+            del self.index_t[index]
+            self.moved.pop(index, None)
+            self.feed_notes.append(f"{index} price stood still for {FROZEN_AFTER // 60} minutes; asked for it afresh")
+            t = self._index(index)
+            px = t.last if t.last == t.last and t.last and t.last > 0 else None
         if px:
             m = datetime.now().replace(second=0, microsecond=0)
             bars = self.bars[index]

@@ -41,6 +41,23 @@ from .market import EVENT_KINDS, MARKET, event_today
 Bar = tuple  # (datetime, o, h, l, c)
 
 
+FROZEN_AFTER = 180      # seconds an index price may stand still in market hours before its feed is taken as dead
+
+
+def feed_frozen(seen: dict, px: float | None, now: datetime, limit: int = FROZEN_AFTER) -> bool:
+    """20 Nov 2026: on Thu 19 Nov 2026 the trading program read NIFTY at one unchanging price all day ("+0.00% since the
+    open" at 11:00 and 13:00) and BANK NIFTY not at all: after the gateway's 06:30 restart it kept the old connection's
+    price feeds, which never update. seen = {"px": last price, "t": when it last changed}, kept by the caller. True when
+    the price has not moved (or not arrived) for `limit` seconds; the caller then asks for the feed afresh."""
+    if px is None or px != seen.get("px"):
+        if px is not None:
+            seen["px"], seen["t"] = px, now
+        elif "t" not in seen:
+            seen["t"] = now
+        return px is None and (now - seen["t"]).total_seconds() >= limit
+    return (now - seen["t"]).total_seconds() >= limit
+
+
 def completed(bars: list[Bar], now: datetime) -> list[Bar]:
     """The bars that started at least a minute before now (bars are in time order)."""
     cut, lo, hi = now - timedelta(minutes=1), 0, len(bars)

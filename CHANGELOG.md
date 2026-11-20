@@ -2,6 +2,18 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Fri 20 Nov 2026, ~07:30 IST: trading program asks for prices afresh after a reconnect
+- Found while checking autopilot's first days: on Thu 19 Nov 2026 the program read NIFTY at one unchanging price all day
+  (autopilot's 11:00 and 13:00 checks: "+0.00% since the open, efficiency 0.00") and BANK NIFTY not at all, so the
+  day's strategy (FII Cash Inflow Gap Continuation Call) could never see its signal, and the opening-gap rule could not
+  be checked. Cause: after the IB gateway's daily 06:30 restart the program reconnected but kept the old connection's
+  price feeds, which never update again (journal: "cancelMktData: No reqId found" at 09:15). Wed 18 Nov read prices
+  normally; why one day and not the other is not established, so both fixes below are in.
+- `IBKR.reset_feed()` after every reconnect: index and option prices are asked for afresh (with the index's bars).
+- `feed_frozen` (trader/indicators.py): an index price that stands still for 3 minutes in market hours, or never
+  arrives, is asked for afresh and journalled ("NIFTY price stood still for 3 minutes; asked for it afresh").
+- `bt-worker-setup.yml -f log_only=true -f journal_day=YYYY-MM-DD` shows any day's trading journal (it showed only today).
+
 ## Tue 17 Nov 2026, ~22:50 IST: Manual / Autopilot switch on the phone (v76)
 - Owner: "can we turn on and off autopilot from phone". Until now only the dashboard's Strategies page could.
 - Phone, Auto trading page: a Manual / Autopilot switch at the top (selected one in blue), asking for confirmation. In
