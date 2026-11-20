@@ -99,7 +99,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
     lots = defaultdict(list)          # contract -> open lots [qty signed, price, time, charge per unit, tag, regime]
     trades, marks, protect, stop_of = [], {}, {}, {}
     pending, pending_at = [], None
-    status = {"strategy": None, "killed": None, "last": None, "started": None, "autopilot": None, "feed": {}}
+    status = {"strategy": None, "killed": None, "last": None, "started": None, "autopilot": None, "feed": {}, "refused": None}
+    sent = {}                         # order id -> (contract, time sent): what a refusal was for
     names = {"expiry_condor": "Expiry condor", "other": "Other trades"}
     order_regime = {}                 # order id -> market condition at entry
     order_group = {}                  # order id -> multi-leg position it opened (14 Nov 2026)
@@ -130,7 +131,7 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         if r.get("strategy_id") and r.get("strategy"):
             names[r["strategy_id"]] = r["strategy"]
         if k == "start":
-            status.update(strategy=r.get("strategy"), started=t, killed=None, autopilot=None, feed={})
+            status.update(strategy=r.get("strategy"), started=t, killed=None, autopilot=None, feed={}, refused=None)
         elif k == "switch":
             status["strategy"] = r.get("strategy")
             if r.get("strategy") != "autopilot":      # 16 Nov 2026: autopilot turned off; its last reading is not current
@@ -138,6 +139,9 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         elif k == "autopilot":
             status["autopilot"] = {k2: r.get(k2) for k2 in ("t", "regime", "regime_why", "strategy", "why")}
             status["strategy"] = r.get("strategy") or "watch only"
+        elif k == "refused":                          # 20 Nov 2026: IBKR refused an order (shown on the app)
+            c, ts = sent.get(r.get("order"), (None, t))
+            status["refused"] = {"t": ts, "contract": c, "why": r.get("why")}
         elif k == "feed":                             # 20 Nov 2026: live prices lost (shown on the app) / back
             if r.get("state") == "down":
                 status["feed"][r.get("index")] = r.get("since") or t
@@ -148,6 +152,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         elif k == "resume":
             status["killed"] = None
         if k == "order":
+            if r.get("order"):
+                sent[r["order"]] = (r.get("contract"), t)
             if r.get("stop"):
                 stop_of[r["contract"]] = r["stop"]
             if r.get("order"):

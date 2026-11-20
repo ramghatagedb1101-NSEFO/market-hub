@@ -2,6 +2,15 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Fri 20 Nov 2026, ~20:30 IST: an order IBKR refuses shows on the phone and dashboard (phone v78)
+- Found in the evening check: autopilot's first trade (BUY NIFTY 23 Nov 25550 CE at 11:56, FII Cash Inflow Gap
+  Continuation Call) was refused by IBKR: "API orders for NSE instruments are not allowed" (error 201). The journal had
+  only "order"; the app showed nothing, and the strategy counted as done for the day. Orders on 16 and 17 Nov 2026 went
+  through, so something changed on the IBKR side between 17 and 20 Nov; the cause is not yet established.
+- `IBKR._on_error`: refusals (code 201) go to the journal ("refused": order, reason); `summary` keeps `status.refused`
+  (time, contract, reason) for the day. Phone (F&O card, Auto trading) and dashboard (Auto trading, Strategies' machine
+  line): "IBKR refused the 11:56 IST order (NIFTY 25550 CE 23 Nov): <reason>" in red.
+
 ## Fri 20 Nov 2026, ~07:15 IST: "No live prices" shown on the phone and dashboard (phone v77)
 - Owner: "Email will not work when I am travelling or not, watching the phone. The error should appear on the app."
 - `FeedWatch` (trader/indicators.py): each index's price is asked for afresh after 3 minutes standing still ("feed"

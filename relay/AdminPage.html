@@ -1668,6 +1668,11 @@ function algoFeed(st){
   const t = ks.map(k => String(F[k]).slice(11, 16)).sort()[0];
   return 'No live prices since ' + t + ' IST (' + ks.map(k => k === 'BANKNIFTY' ? 'BANK NIFTY' : k).join(', ') + ') · retrying';
 }
+// 20 Nov 2026: an order IBKR refused today, with its reason (the same words on the phone)
+function algoRefused(st){
+  const r = st && st.refused; if (!r || String(r.t).slice(0, 10) !== String(st.last || '').slice(0, 10)) return '';
+  return 'IBKR refused the ' + String(r.t).slice(11, 16) + ' IST order' + (r.contract ? ' (' + String(algoName(r.contract)).replace(/<[^>]+>/g, '') + ')' : '') + ': ' + (r.why || 'no reason given');
+}
 function algoStatus(A){
   const st = A.status || {};
   if (!st.last) return '<span class="chip">Not started yet</span>';
@@ -1675,6 +1680,7 @@ function algoStatus(A){
   if (st.killed) return '<span class="chip down">Stopped for the day: ' + esc(st.killed) + '</span>';
   if (marketHoursIst() && mins > 15) return '<span class="chip warn">Not heard from since ' + esc(algoWhen(st.last)) + '</span>';
   const fd = algoFeed(st); if (fd) return '<span class="chip down">' + esc(fd) + '</span>';
+  const rf = algoRefused(st); if (rf) return '<span class="chip down">' + esc(rf) + '</span>';
   const on = st.strategy && st.strategy !== 'watch only' && st.strategy !== 'autopilot';
   const ap = st.autopilot ? '<span class="chip brand" title="' + esc(st.autopilot.why || '') + '">Autopilot · ' + esc(COND[st.autopilot.regime] || 'reading the market') + '</span> ' : '';
   return ap + '<span class="chip ' + (on ? 'up' : '') + '">' + (on ? 'Trading · ' + esc(st.strategy.replace(/_/g, ' ')) : 'Watching only') + '</span>';
@@ -2043,7 +2049,7 @@ function stMachineLine(){
   const A = S.algo; if (!A || A.error || !A.status || !A.status.last) return '';
   const st = A.status, ap = st.autopilot || {}, n = (A.open || []).length;
   const what = st.killed ? '<span class="neg">stopped</span>' : st.strategy && !['watch only', 'autopilot'].includes(st.strategy) ? 'trading <b>' + esc(st.strategy) + '</b>' + (ap.strategy ? ' (autopilot)' : '') : 'watching';
-  const fd = algoFeed(st);
+  const fd = algoFeed(st) || algoRefused(st);
   return '<div class="mode-lim">Trading machine: ' + what + (n ? ' · ' + n + ' open position' + (n > 1 ? 's' : '') : '') + ' · ' + esc(String(st.last).slice(11, 16)) + ' IST' + (fd ? ' · <span class="neg">' + esc(fd) + '</span>' : '') + '</div>';
 }
 function stWait(want){

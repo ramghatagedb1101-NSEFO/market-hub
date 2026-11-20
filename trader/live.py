@@ -274,6 +274,9 @@ def main() -> int:
                 for ev in getattr(br, "feed_events", [])[:]:
                     eng.j.write(now, "feed", **ev)
                     br.feed_events.remove(ev)
+                for ev in getattr(br, "refusals", [])[:]:
+                    eng.j.write(now, "refused", **ev)
+                    br.refusals.remove(ev)
                 kept = keep_protect(eng, kept)
                 br.ib.sleep(EVERY)
             else:

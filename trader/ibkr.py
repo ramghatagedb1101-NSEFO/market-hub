@@ -47,6 +47,8 @@ class IBKR:
         self.bars: dict[str, list] = {}            # index -> one-minute bars (time, o, h, l, c), last three sessions
         self.watch = FeedWatch()                   # each index's price, watched for a dead feed (20 Nov 2026)
         self.feed_events: list[dict] = []          # for the journal ("feed" rows; live.py writes and clears them)
+        self.refusals: list[dict] = []             # orders IBKR refused (20 Nov 2026), for the journal and the app
+        self._hooked = False
 
     # ---- connection -------------------------------------------------------------------------------------------
     def connect(self) -> list[str]:
@@ -56,7 +58,17 @@ class IBKR:
             self.ib.disconnect()
             raise SystemExit("not a paper account (paper account numbers start with DU): stopped, nothing sent")
         self.ib.reqMarketDataType(1)
+        if not self._hooked:                       # once: the IB object, and its events, outlive a reconnect
+            self.ib.errorEvent += self._on_error
+            self._hooked = True
         return accts
+
+    def _on_error(self, req_id, code, text, *rest) -> None:
+        """20 Nov 2026: IBKR refused the day's order ("API orders for NSE instruments are not allowed") and the program
+        recorded only that it had sent it. A refusal now goes to the journal and the app."""
+        text = str(text or "")
+        if code == 201 and "Parent order is being cancelled" not in text:
+            self.refusals.append({"order": str(req_id), "why": text.split("reason:", 1)[-1].strip() or text})
 
     def chain(self, index: str):
         if index not in self.params:

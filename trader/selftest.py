@@ -786,6 +786,19 @@ def test_feed_frozen():
     ok("feed: no price for 3 minutes is dead", feed_frozen(s2, None, t0 + _td(minutes=3)))
 
 
+def test_refused():
+    """20 Nov 2026: an order IBKR refused shows on the app (status.refused, with what and why) until the next day."""
+    from trader.summary import build
+    rows = [{"t": "2026-11-20T00:00:00", "kind": "start", "strategy": "autopilot"},
+            {"t": "2026-11-20T11:56:00", "kind": "order", "contract": "NIFTY 2026-11-23 25550C", "side": "BUY", "lots": 1, "order": "538"},
+            {"t": "2026-11-20T11:56:01", "kind": "refused", "order": "538", "why": "API orders for NSE instruments are not allowed"}]
+    r = build(rows)["status"]["refused"]
+    ok("refused: shown with the order's contract and time", r == {"t": "2026-11-20T11:56:00", "contract": "NIFTY 2026-11-23 25550C",
+                                                                 "why": "API orders for NSE instruments are not allowed"}, r)
+    rows.append({"t": "2026-11-21T00:00:00", "kind": "start", "strategy": "autopilot"})
+    ok("refused: gone the next day", build(rows)["status"]["refused"] is None)
+
+
 def test_feed_watch():
     """20 Nov 2026 (owner: "The error should appear on the app"): a dead index price is renewed; still dead after a
     second renewal it is "down" (the app shows it); moving again it is "ok" and the summary drops the warning."""
@@ -877,7 +890,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()
