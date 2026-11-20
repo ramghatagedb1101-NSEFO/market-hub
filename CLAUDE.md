@@ -125,6 +125,11 @@ business; the chart's range buttons did nothing before the Kite login). Every au
   sequence (manual → autopilot → manual) and reads back what the trading machine actually runs (`hub/diag_strategies`
   via diag.yml, and the machine's journal); autopilot on then off had silently dropped the expiry-day strangle.
 - checks what the screen says AFTER each action until the outcome is confirmed, not only that the button works.
+- (owner, 20 Nov 2026: "How was this not picked in your audit", after the trading program read a frozen NIFTY price all
+  of Thu 19 Nov) checks the trading program's INPUTS on a live market day, not only its switches: read that day's journal
+  (`bt-worker-setup.yml -f log_only=true -f journal_day=YYYY-MM-DD`) and confirm the autopilot readings move (regime not
+  null, a non-zero move since the open, a gap value), and after every change to the program, every restart and every
+  autopilot day until it has traded, read the next session's journal by 11:00. "Alive" is not "seeing prices".
 - looks at every list as it will be after months of use (logs, histories): one line on the page, the rest behind "See all".
 - applies every style or wording fix to all its siblings on the dashboard AND the phone in the same change (the blue
   active switch was fixed on one switch while a dozen others kept the old look).
