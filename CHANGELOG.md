@@ -7,6 +7,9 @@ Newest first. Dates are IST. "Login" covers how the Kite access token gets from 
   sends two orders that cannot fill (a far NIFTY call at Rs 0.05, one RELIANCE share at Rs 1), prints IBKR's answer and
   cancels them. Tells whether IBKR now refuses every order from the program, or only options. The trading program is not
   touched.
+- Result, 21:37 IST: BOTH refused, "API orders for NSE instruments are not allowed" (error 201), before IBKR even
+  queued them for Monday's open. So IBKR now blocks every order the program sends for NSE, shares as well as options,
+  and limit orders as well as the earlier one; nothing was left open.
 
 ## Fri 20 Nov 2026, ~20:30 IST: an order IBKR refuses shows on the phone and dashboard (phone v78)
 - Found in the evening check: autopilot's first trade (BUY NIFTY 23 Nov 25550 CE at 11:56, FII Cash Inflow Gap
