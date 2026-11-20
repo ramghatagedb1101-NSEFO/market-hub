@@ -2,6 +2,14 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Fri 20 Nov 2026, ~07:15 IST: "No live prices" shown on the phone and dashboard (phone v77)
+- Owner: "Email will not work when I am travelling or not, watching the phone. The error should appear on the app."
+- `FeedWatch` (trader/indicators.py): each index's price is asked for afresh after 3 minutes standing still ("feed"
+  journal rows: retry, then down after a second try, ok when it moves again). `summary` keeps `status.feed` (index ->
+  since when) while it is down; it reaches the app within a minute through the live summary.
+- Phone (F&O card and Auto trading) and dashboard (Auto trading, Strategies' machine line): "No live prices since HH:MM
+  IST (NIFTY) · retrying" in red, ahead of the strategy line; it goes by itself when prices return.
+
 ## Fri 20 Nov 2026, ~06:50 IST: trading program asks for prices afresh after a reconnect
 - Found while checking autopilot's first days: on Thu 19 Nov 2026 the program read NIFTY at one unchanging price all day
   (autopilot's 11:00 and 13:00 checks: "+0.00% since the open, efficiency 0.00") and BANK NIFTY not at all, so the

@@ -1660,12 +1660,21 @@ function byStratChart(rows){
       return rows.map(r => '<tr><td class="l"><b>' + esc(r.name) + '</b></td><td>' + bar(r) + '</td><td class="num">' + ppSigned(r.pnl) + '</td><td class="num">' + Math.round(100 * Math.abs(r.pnl) / gross) + '%</td><td class="num">' + r.trades + '</td><td class="num">' + Math.round(100 * r.wins / r.trades) + '%</td><td class="num">' + ppSigned(r.best) + '</td><td class="num">' + ppSigned(r.worst) + '</td></tr>').join(''); })() +
     '</tbody></table><div class="faint" style="font-size:11px;margin-top:6px">Share: each strategy\'s part of all profit and loss moved, by size.</div></div></div>';
 }
+// 20 Nov 2026 (owner: "The error should appear on the app"): live prices lost on the trading machine and not back after
+// two fresh requests; it goes by itself when prices return. The same words as the phone.
+function algoFeed(st){
+  const F = (st && st.feed) || {}, ks = Object.keys(F).filter(k => String(F[k]).slice(0, 10) === String(st.last || '').slice(0, 10));
+  if (!ks.length) return '';
+  const t = ks.map(k => String(F[k]).slice(11, 16)).sort()[0];
+  return 'No live prices since ' + t + ' IST (' + ks.map(k => k === 'BANKNIFTY' ? 'BANK NIFTY' : k).join(', ') + ') · retrying';
+}
 function algoStatus(A){
   const st = A.status || {};
   if (!st.last) return '<span class="chip">Not started yet</span>';
   const mins = (Date.now() - new Date(st.last + '+05:30').getTime()) / 60000;
   if (st.killed) return '<span class="chip down">Stopped for the day: ' + esc(st.killed) + '</span>';
   if (marketHoursIst() && mins > 15) return '<span class="chip warn">Not heard from since ' + esc(algoWhen(st.last)) + '</span>';
+  const fd = algoFeed(st); if (fd) return '<span class="chip down">' + esc(fd) + '</span>';
   const on = st.strategy && st.strategy !== 'watch only' && st.strategy !== 'autopilot';
   const ap = st.autopilot ? '<span class="chip brand" title="' + esc(st.autopilot.why || '') + '">Autopilot · ' + esc(COND[st.autopilot.regime] || 'reading the market') + '</span> ' : '';
   return ap + '<span class="chip ' + (on ? 'up' : '') + '">' + (on ? 'Trading · ' + esc(st.strategy.replace(/_/g, ' ')) : 'Watching only') + '</span>';
@@ -2034,7 +2043,8 @@ function stMachineLine(){
   const A = S.algo; if (!A || A.error || !A.status || !A.status.last) return '';
   const st = A.status, ap = st.autopilot || {}, n = (A.open || []).length;
   const what = st.killed ? '<span class="neg">stopped</span>' : st.strategy && !['watch only', 'autopilot'].includes(st.strategy) ? 'trading <b>' + esc(st.strategy) + '</b>' + (ap.strategy ? ' (autopilot)' : '') : 'watching';
-  return '<div class="mode-lim">Trading machine: ' + what + (n ? ' · ' + n + ' open position' + (n > 1 ? 's' : '') : '') + ' · ' + esc(String(st.last).slice(11, 16)) + ' IST</div>';
+  const fd = algoFeed(st);
+  return '<div class="mode-lim">Trading machine: ' + what + (n ? ' · ' + n + ' open position' + (n > 1 ? 's' : '') : '') + ' · ' + esc(String(st.last).slice(11, 16)) + ' IST' + (fd ? ' · <span class="neg">' + esc(fd) + '</span>' : '') + '</div>';
 }
 function stWait(want){
   const st = (S.algo && !S.algo.error && S.algo.status) || {};

@@ -58,6 +58,32 @@ def feed_frozen(seen: dict, px: float | None, now: datetime, limit: int = FROZEN
     return (now - seen["t"]).total_seconds() >= limit
 
 
+class FeedWatch:
+    """Each index's live price, watched (20 Nov 2026, owner: "The error should appear on the app"). check() answers what
+    to do: "renew" (ask for the price afresh: it stood still for 3 minutes or never came), with an event for the journal
+    when the state changes: "retry" (first renewal), "down" (still dead after a second one: shown on the app), "ok"
+    (moving again after a renewal: the app's warning goes)."""
+
+    def __init__(self, limit: int = FROZEN_AFTER):
+        self.limit, self.seen, self.tries, self.stuck, self.since = limit, {}, {}, {}, {}
+
+    def check(self, index: str, px: float | None, now: datetime) -> tuple[bool, dict | None]:
+        if self.tries.get(index) and px is not None and px != self.stuck.get(index):
+            self.tries[index] = 0
+            self.seen[index] = {"px": px, "t": now}
+            return False, {"index": index, "state": "ok", "since": self.since.pop(index, None)}
+        if not feed_frozen(self.seen.setdefault(index, {}), px, now, self.limit):
+            return False, None
+        n = self.tries[index] = self.tries.get(index, 0) + 1
+        self.stuck[index] = px
+        self.since.setdefault(index, (self.seen[index].get("t") or now).strftime("%Y-%m-%dT%H:%M:%S"))
+        self.seen[index] = {}
+        return True, ({"index": index, "state": "down" if n == 2 else "retry", "since": self.since[index]} if n <= 2 else None)
+
+    def clear(self) -> None:
+        self.seen.clear()                          # a fresh connection: timers start again; a warning stays until prices move
+
+
 def completed(bars: list[Bar], now: datetime) -> list[Bar]:
     """The bars that started at least a minute before now (bars are in time order)."""
     cut, lo, hi = now - timedelta(minutes=1), 0, len(bars)

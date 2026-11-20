@@ -271,9 +271,9 @@ def main() -> int:
                 raise ConnectionError("not connected")
             if market_open(now):
                 eng.step(now)
-                for n in getattr(br, "feed_notes", [])[:]:
-                    eng.j.write(now, "note", text=n)
-                    br.feed_notes.remove(n)
+                for ev in getattr(br, "feed_events", [])[:]:
+                    eng.j.write(now, "feed", **ev)
+                    br.feed_events.remove(ev)
                 kept = keep_protect(eng, kept)
                 br.ib.sleep(EVERY)
             else:

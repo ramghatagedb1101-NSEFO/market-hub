@@ -786,6 +786,32 @@ def test_feed_frozen():
     ok("feed: no price for 3 minutes is dead", feed_frozen(s2, None, t0 + _td(minutes=3)))
 
 
+def test_feed_watch():
+    """20 Nov 2026 (owner: "The error should appear on the app"): a dead index price is renewed; still dead after a
+    second renewal it is "down" (the app shows it); moving again it is "ok" and the summary drops the warning."""
+    from datetime import datetime as _dt, timedelta as _td
+    from trader.indicators import FeedWatch
+    from trader.summary import build
+    w, t0, m = FeedWatch(), _dt(2026, 11, 19, 9, 20), lambda k: _dt(2026, 11, 19, 9, 20) + _td(minutes=k)
+    ok("watch: live price, nothing", w.check("NIFTY", 25500.0, t0) == (False, None) and w.check("NIFTY", 25501.0, m(1)) == (False, None))
+    r1 = w.check("NIFTY", 25501.0, m(4))
+    ok("watch: 3 minutes still -> renew, retry", r1[0] and r1[1]["state"] == "retry", r1)
+    ok("watch: same dead price just after -> nothing yet", w.check("NIFTY", 25501.0, m(5)) == (False, None))
+    r2 = w.check("NIFTY", 25501.0, m(8))
+    ok("watch: still dead after the renewal -> down", r2[0] and r2[1]["state"] == "down" and r2[1]["since"] == "2026-11-19T09:21:00", r2)
+    ok("watch: dead price just after the second renewal -> nothing", w.check("NIFTY", 25501.0, m(11)) == (False, None))
+    r3 = w.check("NIFTY", 25501.0, m(14))
+    ok("watch: third renewal, no new event", r3 == (True, None), r3)
+    r4 = w.check("NIFTY", 25512.5, m(15))
+    ok("watch: moving again -> ok", r4[1] and r4[1]["state"] == "ok", r4)
+    ok("watch: no price ever -> renew after 3 minutes", w.check("BANKNIFTY", None, t0) == (False, None) and w.check("BANKNIFTY", None, m(3))[0])
+    rows = [{"t": "2026-11-19T00:00:00", "kind": "start", "strategy": "autopilot"},
+            {"t": "2026-11-19T09:28:00", "kind": "feed", "index": "NIFTY", "state": "down", "since": "2026-11-19T09:21:00"}]
+    ok("watch: summary shows the warning", build(rows)["status"]["feed"] == {"NIFTY": "2026-11-19T09:21:00"})
+    rows.append({"t": "2026-11-19T09:32:00", "kind": "feed", "index": "NIFTY", "state": "ok"})
+    ok("watch: summary drops it when prices return", build(rows)["status"]["feed"] == {})
+
+
 def test_first_choice():
     """17 Nov 2026: autopilot puts a strategy that passed testing and suits the market now first; only when none does,
     the evening's market-match pick (with the gap rule); never one already done for the day. The US close is logged."""
@@ -851,7 +877,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()

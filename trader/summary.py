@@ -99,7 +99,7 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
     lots = defaultdict(list)          # contract -> open lots [qty signed, price, time, charge per unit, tag, regime]
     trades, marks, protect, stop_of = [], {}, {}, {}
     pending, pending_at = [], None
-    status = {"strategy": None, "killed": None, "last": None, "started": None, "autopilot": None}
+    status = {"strategy": None, "killed": None, "last": None, "started": None, "autopilot": None, "feed": {}}
     names = {"expiry_condor": "Expiry condor", "other": "Other trades"}
     order_regime = {}                 # order id -> market condition at entry
     order_group = {}                  # order id -> multi-leg position it opened (14 Nov 2026)
@@ -130,7 +130,7 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         if r.get("strategy_id") and r.get("strategy"):
             names[r["strategy_id"]] = r["strategy"]
         if k == "start":
-            status.update(strategy=r.get("strategy"), started=t, killed=None, autopilot=None)
+            status.update(strategy=r.get("strategy"), started=t, killed=None, autopilot=None, feed={})
         elif k == "switch":
             status["strategy"] = r.get("strategy")
             if r.get("strategy") != "autopilot":      # 16 Nov 2026: autopilot turned off; its last reading is not current
@@ -138,6 +138,11 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         elif k == "autopilot":
             status["autopilot"] = {k2: r.get(k2) for k2 in ("t", "regime", "regime_why", "strategy", "why")}
             status["strategy"] = r.get("strategy") or "watch only"
+        elif k == "feed":                             # 20 Nov 2026: live prices lost (shown on the app) / back
+            if r.get("state") == "down":
+                status["feed"][r.get("index")] = r.get("since") or t
+            elif r.get("state") == "ok":
+                status["feed"].pop(r.get("index"), None)
         elif k == "kill":
             status["killed"] = r.get("reason")
         elif k == "resume":
