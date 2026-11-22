@@ -331,6 +331,11 @@ class IBKR:
                 n += 1
         return n
 
+    def avg_costs(self) -> dict[Contract, float]:
+        """Average price of each open position at IBKR (per unit), for the exits after a restart."""
+        return {self._ours(p.contract): p.avgCost / float(p.contract.multiplier or 1) for p in self.ib.positions()
+                if self._ours(p.contract)}
+
     def held(self) -> dict[Contract, int]:
         """Open positions at IBKR in units (used on a restart, so the program never forgets what it holds)."""
         out = {}

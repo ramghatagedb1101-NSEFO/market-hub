@@ -2,6 +2,19 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Sun 22 Nov 2026: trades simulated on IBKR's live prices (IBKR switched off program orders for India) (phone v79)
+- IBKR's notice to the owner: API trading for IBKR India accounts is disabled while IBKR reviews SEBI's revised framework
+  for API trading by retail clients (IP restrictions, order rate limits); no date to return. That explains the 20 Nov
+  refusals (error 201). Prices still come through the API; only orders are blocked.
+- Owner's choice (of: simulate / pause / another broker with real money): simulate. `trader/sim.py` (`SimIBKR`): the
+  program fills its own orders on IBKR's live quotes, by the back-tests' rules: entries at the ask / bid (quote at most
+  30 s old; a limit waits), stops at the bid / ask once reached, trailing stops follow the best middle price, options
+  held at 15:30 on expiry day settled at their value against the index (or the next morning from IBKR's daily close),
+  full Indian charges. The book is kept in `/opt/trader/sim_book.json`, so a restart forgets nothing.
+- `trader/live.py` uses it unless `/opt/trader/ORDERS_AT_IBKR` exists (one file to go back when IBKR allows API orders
+  again); the journal's "start" row says `orders: simulated`; the phone and dashboard show "Simulated" next to the
+  trading status.
+
 ## Fri 20 Nov 2026, ~21:00 IST: a paper test order, to see what IBKR refuses (owner: "We can try a manual order")
 - `trader/ordertest.py` (run by `bt-worker-setup.yml -f order_test=true`): on its own connection, paper account only,
   sends two orders that cannot fill (a far NIFTY call at Rs 0.05, one RELIANCE share at Rs 1), prints IBKR's answer and

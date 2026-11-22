@@ -3,12 +3,14 @@
 As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, then the dated notes (newest first),
 `CHANGELOG.md` (newest first) and `CLAUDE.md`.
 
-## OPEN -- Fri 20 Nov 2026: IBKR refuses every order from the trading program
-- Since some time between Tue 17 and Fri 20 Nov 2026, IBKR answers every API order with error 201 "API orders for NSE
-  instruments are not allowed". Paper test at 21:37 IST 20 Nov (`bt-worker-setup.yml -f order_test=true`,
-  `trader/ordertest.py`): a NIFTY option AND a plain RELIANCE share, both limit orders, both refused; nothing left open.
-  Our order code did not change (orders on 16-17 Nov filled). Cause not established; the owner is asking IBKR. Until it
-  is fixed, autopilot can pick a trade but cannot place it (the app shows the refusal in red).
+## Sun 22 Nov 2026: trading program on SIMULATED orders (IBKR switched off API orders for India accounts)
+- IBKR's notice (owner, 22 Nov 2026): API trading for IBKR India accounts disabled while it reviews SEBI's framework for
+  retail API trading; no return date. Every order from the program had been refused since ~18-20 Nov (error 201; paper
+  test 20 Nov: options and shares alike). Prices still flow.
+- Since 22 Nov the program fills its own orders on IBKR's live prices (`trader/sim.py`, book in
+  `/opt/trader/sim_book.json`); app shows "Simulated". To go back to IBKR paper orders when IBKR re-enables the API:
+  `touch /opt/trader/ORDERS_AT_IBKR` and restart trader.service.
+- Check: Mon 23 Nov 2026 journal by 11:00 (start row `orders: simulated`, prices moving, autopilot picks, any fill).
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
 

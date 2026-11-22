@@ -99,7 +99,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
     lots = defaultdict(list)          # contract -> open lots [qty signed, price, time, charge per unit, tag, regime]
     trades, marks, protect, stop_of = [], {}, {}, {}
     pending, pending_at = [], None
-    status = {"strategy": None, "killed": None, "last": None, "started": None, "autopilot": None, "feed": {}, "refused": None}
+    status = {"strategy": None, "killed": None, "last": None, "started": None, "autopilot": None, "feed": {}, "refused": None,
+              "simulated": False}
     sent = {}                         # order id -> (contract, time sent): what a refusal was for
     names = {"expiry_condor": "Expiry condor", "other": "Other trades"}
     order_regime = {}                 # order id -> market condition at entry
@@ -131,7 +132,8 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         if r.get("strategy_id") and r.get("strategy"):
             names[r["strategy_id"]] = r["strategy"]
         if k == "start":
-            status.update(strategy=r.get("strategy"), started=t, killed=None, autopilot=None, feed={}, refused=None)
+            status.update(strategy=r.get("strategy"), started=t, killed=None, autopilot=None, feed={}, refused=None,
+                          simulated=r.get("orders") == "simulated")   # 22 Nov 2026: IBKR stopped program orders
         elif k == "switch":
             status["strategy"] = r.get("strategy")
             if r.get("strategy") != "autopilot":      # 16 Nov 2026: autopilot turned off; its last reading is not current

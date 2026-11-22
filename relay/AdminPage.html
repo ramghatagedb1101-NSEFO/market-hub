@@ -1683,7 +1683,9 @@ function algoStatus(A){
   const rf = algoRefused(st); if (rf) return '<span class="chip down">' + esc(rf) + '</span>';
   const on = st.strategy && st.strategy !== 'watch only' && st.strategy !== 'autopilot';
   const ap = st.autopilot ? '<span class="chip brand" title="' + esc(st.autopilot.why || '') + '">Autopilot · ' + esc(COND[st.autopilot.regime] || 'reading the market') + '</span> ' : '';
-  return ap + '<span class="chip ' + (on ? 'up' : '') + '">' + (on ? 'Trading · ' + esc(st.strategy.replace(/_/g, ' ')) : 'Watching only') + '</span>';
+  // 22 Nov 2026: IBKR stopped taking orders from programs (India); trades are simulated on its live prices
+  const sim = st.simulated ? ' <span class="chip" title="IBKR has paused program orders for India accounts. Trades are filled at its live prices.">Simulated</span>' : '';
+  return ap + '<span class="chip ' + (on ? 'up' : '') + '">' + (on ? 'Trading · ' + esc(st.strategy.replace(/_/g, ' ')) : 'Watching only') + '</span>' + sim;
 }
 // Today's trade (16 Nov 2026, replaces the untested Index options page): what the program is running today and how that
 // strategy did in its latest back-test, so a trade is never shown without its record.
@@ -2050,7 +2052,7 @@ function stMachineLine(){
   const st = A.status, ap = st.autopilot || {}, n = (A.open || []).length;
   const what = st.killed ? '<span class="neg">stopped</span>' : st.strategy && !['watch only', 'autopilot'].includes(st.strategy) ? 'trading <b>' + esc(st.strategy) + '</b>' + (ap.strategy ? ' (autopilot)' : '') : 'watching';
   const fd = algoFeed(st) || algoRefused(st);
-  return '<div class="mode-lim">Trading machine: ' + what + (n ? ' · ' + n + ' open position' + (n > 1 ? 's' : '') : '') + ' · ' + esc(String(st.last).slice(11, 16)) + ' IST' + (fd ? ' · <span class="neg">' + esc(fd) + '</span>' : '') + '</div>';
+  return '<div class="mode-lim">Trading machine: ' + what + (n ? ' · ' + n + ' open position' + (n > 1 ? 's' : '') : '') + ' · ' + esc(String(st.last).slice(11, 16)) + ' IST' + (st.simulated ? ' · Simulated' : '') + (fd ? ' · <span class="neg">' + esc(fd) + '</span>' : '') + '</div>';
 }
 function stWait(want){
   const st = (S.algo && !S.algo.error && S.algo.status) || {};

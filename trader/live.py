@@ -13,6 +13,9 @@ The paper trading program as it runs on market-hub-trader (a systemd service, tr
   journal    /opt/trader/journal/YYYY-MM-DD.jsonl, one line per decision, order, fill, refusal and profit mark
   stop       create /opt/trader/STOP to close everything and stop new entries for the day
 
+orders     simulated on IBKR's live prices since 22 Nov 2026 (trader/sim.py; IBKR switched off program orders for India
+             accounts); /opt/trader/ORDERS_AT_IBKR sends them to IBKR's paper account again.
+
 Steps every 2 seconds while the exchange is open (09:15-15:30 IST on a trading day); quiet otherwise. On a start or
 restart it first reads what IBKR already holds and the stops IBKR is still keeping, so nothing is forgotten (profit
 for the day restarts from those positions' current value; the journal says so).
@@ -33,6 +36,7 @@ from .regime import classify
 from .strategies.rules import pick_expiry
 from . import summary as summary_mod
 from .ibkr import IBKR
+from .sim import SimIBKR, ibkr_orders
 from .journal import Journal
 from .model import Settings
 from .strategies import make
@@ -214,8 +218,7 @@ def start(br: IBKR, s: Settings, day: date) -> Engine:
     for c, q in held.items():
         eng.book.qty[c] = q
     kept = br.restore()
-    avg = {br._ours(p.contract): p.avgCost / float(p.contract.multiplier or 1) for p in br.ib.positions()
-           if br._ours(p.contract)}
+    avg = br.avg_costs()
     try:
         saved = json.loads(PROTECT.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -227,13 +230,15 @@ def start(br: IBKR, s: Settings, day: date) -> Engine:
                           "state": "stop" if ch["kind"] in ("stop", "ratchet") else "trail"}
     j.write(datetime.now(), "start", strategy=getattr(eng.strategy, "name", None) or s.strategy or "watch only",
             settings={k: v for k, v in asdict(s).items() if k != "params"},
-            positions_found=len(held), stops_found=kept)
+            positions_found=len(held), stops_found=kept, orders="simulated" if getattr(br, "simulated", False) else "ibkr")
     return eng
 
 
 def main() -> int:
     s = settings()
-    br = IBKR()
+    # 22 Nov 2026: IBKR switched off program orders for India accounts; orders are simulated on IBKR's live prices
+    # (trader/sim.py) until the file ORDERS_AT_IBKR is created on the machine
+    br = IBKR() if ibkr_orders(HOME) else SimIBKR(str(HOME / "sim_book.json"))
     br.connect()
     day = date.today()
     eng = start(br, s, day)

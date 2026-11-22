@@ -786,6 +786,67 @@ def test_feed_frozen():
     ok("feed: no price for 3 minutes is dead", feed_frozen(s2, None, t0 + _td(minutes=3)))
 
 
+def test_sim_broker():
+    """22 Nov 2026 (IBKR switched off program orders for India): orders are filled by the program on live quotes; the
+    stop, the trailing stop and expiry settlement work, and the book survives a restart."""
+    import os
+    import tempfile
+    from datetime import datetime as _dt
+    import sys as _sys
+    import types
+    from trader.model import Contract, OrderRequest, Quote
+    try:
+        import ib_async  # noqa: F401
+    except ImportError:                                        # the laptop: no IBKR library; nothing here talks to IBKR
+        stub = types.ModuleType("ib_async")
+        for n in ("Index", "LimitOrder", "Option", "Order", "StopOrder", "Stock"):
+            setattr(stub, n, object)
+        stub.IB = lambda: None
+        _sys.modules["ib_async"] = stub
+    from trader import sim as simmod
+    path = os.path.join(tempfile.mkdtemp(), "sim_book.json")
+    c = Contract("NIFTY", "2026-11-24", 25800.0, "C")
+    now = [_dt(2026, 11, 23, 10, 0)]
+    Q = {}
+    simmod.datetime = type("D", (), {"now": staticmethod(lambda: now[0])})
+    try:
+        def broker():
+            b = simmod.SimIBKR(path)
+            b.quotes = lambda: Q
+            b._index_close = lambda idx, day, n: 25900.0
+            return b
+        b = broker()
+        Q[c] = Quote(100.0, 101.0, 100.5, now[0])
+        oid = b.submit(OrderRequest(c, "BUY", 1, None, "test"), Q[c], now[0], stop=75.0)
+        f = b.poll_fills()
+        ok("sim: entry fills at the ask", len(f) == 1 and f[0].price == 101.0 and f[0].qty == 65 and f[0].order_id == oid, f)
+        ok("sim: the stop is live after the entry", b.stops[c]["live"] and b.held() == {c: 65})
+        Q[c] = Quote(140.0, 141.0, 140.5, now[0])
+        ok("sim: trailing stop starts", bool(b.trail(c, 10, now[0])) and b.stops[c]["stop"] == 126.45, b.stops.get(c))
+        Q[c] = Quote(160.0, 161.0, 160.5, now[0]); b.poll_fills()
+        ok("sim: trailing stop follows the best price", b.stops[c]["stop"] == 144.45, b.stops[c])
+        b2 = broker()                                          # a restart
+        ok("sim: book and stop survive a restart", b2.held() == {c: 65} and b2.restore() == 1 and b2.avg_costs() == {c: 101.0})
+        Q[c] = Quote(144.0, 145.0, 144.5, now[0])
+        f = b2.poll_fills()
+        ok("sim: trailing stop hit, sells at the bid", len(f) == 1 and f[0].side == "SELL" and f[0].price == 144.0 and f[0].tag == "trail", f)
+        ok("sim: position closed", b2.held() == {} and not b2.stops)
+        Q[c] = Quote(100.0, 101.0, 100.5, _dt(2026, 11, 23, 9, 58))
+        b2.submit(OrderRequest(c, "BUY", 1, None, "test"), Q[c], now[0])
+        ok("sim: an old quote does not fill", b2.poll_fills() == [])
+        Q[c] = Quote(99.0, 102.0, 100.5, now[0])
+        b2.waiting = [(o, r) for o, r in b2.waiting]; b2.waiting[0][1].limit = 101.0
+        ok("sim: a limit below the ask waits", b2.poll_fills() == [])
+        Q[c] = Quote(99.0, 100.0, 99.5, now[0])
+        ok("sim: fills once the ask reaches the limit", [x.price for x in b2.poll_fills()] == [100.0])
+        now[0] = _dt(2026, 11, 24, 15, 30)
+        f = b2.poll_fills()
+        ok("sim: settled at 15:30 on expiry day at its value", len(f) == 1 and f[0].price == 100.0 and f[0].tag == "expiry"
+           and f[0].side == "SELL" and b2.held() == {}, f)
+    finally:
+        simmod.datetime = _dt
+
+
 def test_refused():
     """20 Nov 2026: an order IBKR refused shows on the app (status.refused, with what and why) until the next day."""
     from trader.summary import build
@@ -890,7 +951,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_sim_broker, test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()

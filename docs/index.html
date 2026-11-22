@@ -1306,7 +1306,9 @@
     const rf = algoRefused(st); if (rf) return `<span class="dn">${esc(rf)}</span>`;
     const COND = { trend_up: "Trend up", trend_down: "Trend down", range: "Range-bound", volatile: "Volatile", expiry_day: "Expiry day" };
     const ap = st.autopilot ? `Autopilot · ${esc(COND[st.autopilot.regime] || "reading the market")} · ` : "";
-    return st.strategy && !["watch only", "autopilot"].includes(st.strategy) ? `<span class="up">${ap}${esc(st.strategy.replace(/_/g, " "))}</span>` : ap + "Watching only";
+    // 22 Nov 2026: IBKR stopped taking orders from programs (India); trades are simulated on its live prices
+    const sim = st.simulated ? ` <span class="mut">· Simulated</span>` : "";
+    return (st.strategy && !["watch only", "autopilot"].includes(st.strategy) ? `<span class="up">${ap}${esc(st.strategy.replace(/_/g, " "))}</span>` : ap + "Watching only") + sim;
   }
   // 17 Nov 2026 (owner: "Unrealized gains and losses are not being reflected as this month's gain and this day's gain,
   // etc. ... Even the unrealized needs to be considered"): open positions count at their current value in today's row,
