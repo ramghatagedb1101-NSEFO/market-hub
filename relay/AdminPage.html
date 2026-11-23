@@ -1689,6 +1689,26 @@ function algoStatus(A){
 }
 // Today's trade (16 Nov 2026, replaces the untested Index options page): what the program is running today and how that
 // strategy did in its latest back-test, so a trade is never shown without its record.
+// 23 Nov 2026 (owner: "till the problem with IBKR does not solve, suggest trades on the dashboard"): while IBKR takes
+// no orders from the program, its simulated trades as steps to copy by hand, newest first, live every minute.
+function algoSuggest(A){
+  const st = A.status || {}; if (!st.simulated) return '';
+  const G = A.suggest || [], day = String(A.asof || '').slice(0, 10);
+  const row = g => {
+    const act = g.opens ? (g.side === 'BUY' ? 'Buy' : 'Sell') : (g.side === 'BUY' ? 'Buy back' : 'Sell');
+    const lots = g.lots + (g.lots === 1 ? ' lot' : ' lots') + ' (' + num(g.qty, 0) + ')';
+    const tail = g.opens ? (g.stop ? 'stop-loss ₹' + num(g.stop, 2) : '') : esc(g.why || '');
+    const chip = g.opens ? (g.held ? '<span class="chip up">Open</span>' : '<span class="chip">Closed</span>') : '';
+    return '<tr><td class="l" style="white-space:nowrap">' + esc(String(g.t).slice(11, 16)) + '</td><td class="l"><b>' + act + '</b> ' + algoName(g.contract) +
+      '</td><td class="num">' + lots + '</td><td class="num">₹' + num(g.price, 2) + '</td><td class="num">' + tail + '</td><td class="num">' + chip + '</td></tr>';
+  };
+  const body = G.length
+    ? '<div style="overflow-x:auto"><table class="t"><thead><tr><th>Time</th><th>Trade</th><th class="num">Quantity</th><th class="num">At about</th><th class="num">Stop-loss / why</th><th class="num"></th></tr></thead><tbody>' + G.map(row).join('') + '</tbody></table></div>'
+    : '<div class="muted">No trades today yet. New ones show here within a minute.</div>';
+  return '<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>Trades to place yourself' + (day ? ' · ' + esc(bDay(dayOf(day))) : '') + '</h3>' +
+    '<span class="muted" style="font-size:12px">IBKR is not taking orders from the program</span></div><div class="panel-b">' + body +
+    '<div class="faint" style="font-size:11.5px;margin-top:8px">Place them in the IBKR app. Your prices may differ a little.</div></div></div>';
+}
 function algoToday(A){
   if (!S.strat && !S.stratLoading) stLoad();
   const st = A.status || {}, SS = (S.strat && !S.strat.error) ? S.strat : null;
@@ -1732,8 +1752,8 @@ function pageAlgo(){
   const stat = (k, val, sub) => '<div><div class="k">' + k + '</div><div class="v">' + val + '</div><div class="w">' + sub + '</div></div>';
   const asof = A.asof ? (A.live && marketHoursIst() ? 'Live · ' + String(A.asof).slice(11, 16) + ' IST' : 'As of ' + String(A.asof).slice(11, 16) + ' IST · ' + bDay(dayOf(A.asof))) : '';
   let html = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-8px 0 12px">' + algoStatus(A) +
-    '<span class="muted" style="font-size:12px">IBKR paper account · ' + esc(asof) + ' · <a href="javascript:void 0" onclick="S.algo=null;rerender()">Refresh</a></span></div>';
-  html += algoToday(A);
+    '<span class="muted" style="font-size:12px">' + ((A.status || {}).simulated ? 'Simulated on IBKR prices' : 'IBKR paper account') + ' · ' + esc(asof) + ' · <a href="javascript:void 0" onclick="S.algo=null;rerender()">Refresh</a></span></div>';
+  html += algoSuggest(A) + algoToday(A);
   const wr = T.trades ? Math.round(100 * T.wins / T.trades) + '% won' : 'no trades yet';
   html += '<div class="strip" style="margin-bottom:16px">' +
     stat('Today', ppSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + ' closed' + (O.length ? ' · ' + O.length + ' open' : '')) +
