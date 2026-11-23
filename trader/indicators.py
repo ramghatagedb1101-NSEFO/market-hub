@@ -58,6 +58,12 @@ def feed_frozen(seen: dict, px: float | None, now: datetime, limit: int = FROZEN
     return (now - seen["t"]).total_seconds() >= limit
 
 
+def prev_session_close(bars: list, today) -> float | None:
+    """The close of the last one-minute bar before today (bars: (time, o, h, l, c))."""
+    before = [b for b in bars if b[0].date() < today]
+    return before[-1][4] if before else None
+
+
 class FeedWatch:
     """Each index's live price, watched (20 Nov 2026, owner: "The error should appear on the app"). check() answers what
     to do: "renew" (ask for the price afresh: it stood still for 3 minutes or never came), with an event for the journal

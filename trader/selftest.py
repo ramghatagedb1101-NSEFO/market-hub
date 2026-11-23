@@ -786,6 +786,19 @@ def test_feed_frozen():
     ok("feed: no price for 3 minutes is dead", feed_frozen(s2, None, t0 + _td(minutes=3)))
 
 
+def test_morning_inputs():
+    """23 Nov 2026: the 09:30 autopilot reading had no opening gap (IBKR's previous close not in yet) and no US close
+    (FRED a day late); both now come from the last data that has them."""
+    from datetime import date as _d, datetime as _dt
+    from trader.autopilot import us_close
+    from trader.indicators import prev_session_close
+    bars = [(_dt(2026, 11, 19, 15, 29), 25510, 25515, 25509, 25514.3), (_dt(2026, 11, 20, 9, 15), 25367.9, 25418.4, 25353.85, 25371.3)]
+    ok("inputs: previous close from yesterday's last minute", prev_session_close(bars, _d(2026, 11, 20)) == 25514.3)
+    ok("inputs: no bars, no close", prev_session_close([], _d(2026, 11, 20)) is None)
+    f = {"2026-11-18": {"sp500_chg": -0.23, "nasdaq_chg": 0.42}, "2026-11-19": {"fii_cash": 5993.34}}
+    ok("inputs: US close from the last session that has one", us_close(f, _d(2026, 11, 20)) == {"session": "2026-11-18", "sp500": -0.23, "nasdaq": 0.42})
+
+
 def test_sim_broker():
     """22 Nov 2026 (IBKR switched off program orders for India): orders are filled by the program on live quotes; the
     stop, the trailing stop and expiry settlement work, and the book survives a restart."""
@@ -951,7 +964,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_sim_broker, test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_morning_inputs, test_sim_broker, test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()

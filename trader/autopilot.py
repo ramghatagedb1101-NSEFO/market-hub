@@ -122,7 +122,10 @@ def us_close(flows: dict, today: date) -> dict:
     """The last US session before today's (official closes, the market diary's figures): recorded with every autopilot
     decision (owner, 17 Nov 2026: "US last close is relevant, we cant ignore completely"), so paper results can show
     whether it should steer the choice; the 17 Nov test found it adds nothing beyond the opening gap yet."""
-    days = sorted(d for d in (flows or {}) if d < today.isoformat())
+    # 23 Nov 2026: FRED publishes a US close a day late, so the latest session row often has none yet at 09:30 (20 and
+    # 23 Nov recorded blanks); the last session that has one is used, with its date
+    days = sorted(d for d in (flows or {}) if d < today.isoformat()
+                  and ((flows[d] or {}).get("sp500_chg") is not None or (flows[d] or {}).get("nasdaq_chg") is not None))
     if not days:
         return {}
     f = flows[days[-1]] or {}

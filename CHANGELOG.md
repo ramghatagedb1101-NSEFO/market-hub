@@ -2,6 +2,18 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 23 Nov 2026, ~11:20 IST: autopilot's 09:30 reading had no opening gap and no US close
+- First simulated day worked: autopilot read "expiry day" at 09:30, picked the expiry-day short strangle, sold NIFTY
+  25950 CE at 17.15 and 25350 PE at 13.90 at 10:00 (stops recorded); +Rs 671 open at 10:50; prices live; app shows
+  "Simulated".
+- The morning input check found two blanks in every 09:30 reading (20 and 23 Nov): the opening gap (IBKR's previous
+  close had not arrived; by 11:00 on 20 Nov it read -0.57%, which matches the recorded minutes: 25,514.30 close on 19
+  Nov, 25,367.90 open on 20 Nov) and the US close (FRED publishes a day late, so the newest session row had none). The
+  gap steers which tested strategy autopilot picks, so the 09:30 choice was made without it.
+- Fixed: the previous close falls back to the last minute of the previous session; the US close is the last session
+  that has one (with its date). Machine log (`log_only`) now prints the autopilot readings in full. Takes effect on the
+  after-close restart (no restart in market hours).
+
 ## Sun 22 Nov 2026: trades simulated on IBKR's live prices (IBKR switched off program orders for India) (phone v79)
 - IBKR's notice to the owner: API trading for IBKR India accounts is disabled while IBKR reviews SEBI's revised framework
   for API trading by retail clients (IP restrictions, order rate limits); no date to return. That explains the 20 Nov

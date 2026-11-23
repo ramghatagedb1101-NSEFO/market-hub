@@ -20,7 +20,7 @@ from ib_async import IB, Index, LimitOrder, Option, Order, StopOrder
 from hub.holidays import is_session
 from hub.rule_test import charges as table_charges
 
-from .indicators import FeedWatch
+from .indicators import FeedWatch, prev_session_close
 from .model import Contract, Fill, OrderRequest, Quote
 
 IB_SYMBOL = {"NIFTY": "NIFTY50", "BANKNIFTY": "BANKNIFTY"}     # confirmed by check.py, Sat 14 Nov 2026
@@ -163,8 +163,12 @@ class IBKR:
         return self._mkt.prev(index, day)
 
     def prev_close(self, index: str) -> float | None:
+        """Yesterday's close. 23 Nov 2026: IBKR's own figure had not arrived by the 09:30 check on 20 and 23 Nov (the
+        opening gap was blank then, right by 11:00), so the last minute of the previous session stands in."""
         t = self._index(index)
-        return t.close if t.close == t.close and t.close and t.close > 0 else None
+        if t.close == t.close and t.close and t.close > 0:
+            return t.close
+        return prev_session_close(self.bars.get(index) or [], datetime.now().date())
 
     def is_day_before(self, expiry: str) -> bool:
         """True when the next trading session after today is that expiry."""
