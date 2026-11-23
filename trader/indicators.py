@@ -42,6 +42,9 @@ Bar = tuple  # (datetime, o, h, l, c)
 
 
 FROZEN_AFTER = 180      # seconds an index price may stand still in market hours before its feed is taken as dead
+# 23 Nov 2026: IBKR's NIFTY price stands still from 15:15 to 15:30 every day (all of 17-20 Nov recorded flat from 15:15;
+# on 23 Nov the watch called it "feed down" on the app at 15:21). The watch stops at 15:15.
+WATCH_UNTIL = "15:15"
 
 
 def feed_frozen(seen: dict, px: float | None, now: datetime, limit: int = FROZEN_AFTER) -> bool:

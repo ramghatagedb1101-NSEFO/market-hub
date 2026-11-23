@@ -10,7 +10,10 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
 - Since 22 Nov the program fills its own orders on IBKR's live prices (`trader/sim.py`, book in
   `/opt/trader/sim_book.json`); app shows "Simulated". To go back to IBKR paper orders when IBKR re-enables the API:
   `touch /opt/trader/ORDERS_AT_IBKR` and restart trader.service.
-- Check: Mon 23 Nov 2026 journal by 11:00 (start row `orders: simulated`, prices moving, autopilot picks, any fill).
+- Mon 23 Nov 2026, first simulated day: expiry-day strangle sold 10:00, both legs bought back on target 11:31,
+  +Rs 912 after charges; shown as "Trades to place yourself" on the dashboard and phone. Restarted 15:45 (gap / US-close
+  fix live; price watch stops at 15:15).
+- Check: Tue 24 Nov 2026 journal by 11:00: the 09:30 autopilot reading has a gap and a US close; no "feed down" after 15:15.
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
 

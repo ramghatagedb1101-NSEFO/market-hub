@@ -2,6 +2,12 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 23 Nov 2026, ~16:00 IST: no false "price feed down" at the close
+- On 23 Nov the app showed NIFTY's price feed as down from 15:15. Not a fault: IBKR's NIFTY price stands still from
+  15:15 to 15:30 every day (all of 17-20 Nov are recorded flat from 15:15); the price watch added on 20 Nov first ran a
+  full day today. The watch now stops at 15:15 (`indicators.WATCH_UNTIL`); it still catches a dead price 09:16-15:15.
+- Trading program restarted after the close (15:45), so this morning's opening-gap / US-close fix is live from Tue 24 Nov.
+
 ## Mon 23 Nov 2026, ~12:45 IST: "Trades to place yourself" on the dashboard while IBKR takes no program orders
 - Owner: "till the problem with IBKR does not solve, suggest trades on the dashboard". `trader/summary.py`
   `suggestions()`: today's simulated fills as steps (time, buy / sell / buy back, option, lots, price, the stop-loss sent

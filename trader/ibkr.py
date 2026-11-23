@@ -20,7 +20,7 @@ from ib_async import IB, Index, LimitOrder, Option, Order, StopOrder
 from hub.holidays import is_session
 from hub.rule_test import charges as table_charges
 
-from .indicators import FeedWatch, prev_session_close
+from .indicators import WATCH_UNTIL, FeedWatch, prev_session_close
 from .model import Contract, Fill, OrderRequest, Quote
 
 IB_SYMBOL = {"NIFTY": "NIFTY50", "BANKNIFTY": "BANKNIFTY"}     # confirmed by check.py, Sat 14 Nov 2026
@@ -130,7 +130,7 @@ class IBKR:
         t = self._index(index)
         px = t.last if t.last == t.last and t.last and t.last > 0 else None
         now = datetime.now()
-        renew, ev = (self.watch.check(index, px, now) if is_session(now.date()) and "09:16" <= now.strftime("%H:%M") <= "15:29"
+        renew, ev = (self.watch.check(index, px, now) if is_session(now.date()) and "09:16" <= now.strftime("%H:%M") < WATCH_UNTIL
                      else (False, None))
         if ev:
             self.feed_events.append(ev)

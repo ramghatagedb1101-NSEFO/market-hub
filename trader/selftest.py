@@ -784,6 +784,11 @@ def test_feed_frozen():
     s2 = {}
     ok("feed: no price yet is fine at first", not feed_frozen(s2, None, t0))
     ok("feed: no price for 3 minutes is dead", feed_frozen(s2, None, t0 + _td(minutes=3)))
+    import inspect
+    from trader import ibkr as _ib
+    from trader.indicators import WATCH_UNTIL
+    ok("feed: not watched from 15:15 (IBKR's index stands still to the close)", WATCH_UNTIL == "15:15"
+       and '< WATCH_UNTIL' in inspect.getsource(_ib.IBKR.index_bars))
 
 
 def test_suggest():
