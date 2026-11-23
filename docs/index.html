@@ -1324,12 +1324,29 @@
     }
     return { OP: OP, D: D, M: M, month: ((A.month || {}).booked || 0) + OP, all: ((A.totals || {}).booked || 0) + OP };
   }
+  // 23 Nov 2026 (owner: "suggest trades" while IBKR takes no orders from the program; "yes add" for the phone): today's
+  // simulated trades as steps to copy by hand, newest first, live every minute. The same list as the dashboard.
+  function algoSuggestP(A){
+    const st = (A && A.status) || {}; if (!st.simulated) return "";
+    const G = A.suggest || [];
+    const row = g => {
+      const act = g.opens ? (g.side === "BUY" ? "Buy" : "Sell") : (g.side === "BUY" ? "Buy back" : "Sell");
+      const tail = g.opens ? (g.stop ? "stop-loss ₹" + f(g.stop, 2) : "") : esc(g.why || "");
+      const chip = g.opens ? (g.held ? ` · <span class="up">Open</span>` : ` · <span class="mut">Closed</span>`) : "";
+      return `<div style="padding:8px 0;border-top:1px solid var(--ln)"><div class="row"><span class="l"><b>${act}</b> ${algoName(g.contract)}</span><span class="r">₹${f(g.price, 2)}</span></div>` +
+        `<div class="mut" style="font-size:11px">${esc(String(g.t).slice(11, 16))} IST · ${g.lots} lot${g.lots === 1 ? "" : "s"} (${g.qty})${tail ? " · " + tail : ""}${chip}</div></div>`;
+    };
+    return `<div class="panel" style="margin-bottom:12px"><div class="pb"><div style="font-weight:700">Trades to place yourself</div>` +
+      `<div class="mut" style="font-size:11px;margin-bottom:4px">IBKR is not taking orders from the program. Place these in the IBKR app.</div>` +
+      (G.length ? G.map(row).join("") : `<div class="mut" style="padding-top:6px">No trades today yet. New ones show here within a minute.</div>`) + `</div></div>`;
+  }
   function drawAlgoCard(){
     const el = $("#fno-algo"); if (!el) return;
     const A = ALGO, T = (A && A.totals) || {}, TD = (A && A.today) || {}, MO = (A && A.month) || {};
     const body = !A ? `<div class="mut">Loading…</div>` :
       A.error ? `<div class="mut">${A.error === "not published yet" ? "Appears after the program first runs." : esc(A.error)}</div>` :
-      `<div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut">IBKR paper</span></div>` +
+      `<div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut">${(A.status || {}).simulated ? "" : "IBKR paper"}</span></div>` +
+      ((A.status || {}).simulated && (A.suggest || []).length ? `<div class="row"><span class="l"><b>Trades to place yourself</b></span><span class="r">${A.suggest.length} today</span></div>` : "") +
       `<div class="row"><span class="l">Today${(A.open || []).length ? " · " + A.open.length + " open" : ""}${(A.pending || []).length ? " · " + A.pending.length + " pending" : ""}</span><span class="r">${pSigned((TD.booked || 0) + (TD.open || 0))}</span></div>` +
       `<div class="row"><span class="l">This month · ${MO.trades || 0} trade${(MO.trades || 0) === 1 ? "" : "s"}${algoAdj(A).OP ? " · incl. open" : ""}</span><span class="r">${pSigned(algoAdj(A).month)}</span></div>` +
       `<div class="row"><span class="l">All time · ${T.trades || 0} trade${(T.trades || 0) === 1 ? "" : "s"}${algoAdj(A).OP ? " · incl. open" : ""}</span><span class="r">${pSigned(algoAdj(A).all)}</span></div>`;
@@ -1486,7 +1503,7 @@
     const AJ = algoAdj(A), T = A.totals || {}, D = AJ.D.slice().reverse(), M = AJ.M.slice().reverse(), TR = A.trades || [], O = A.open || [], P = A.pending || [], TD = A.today || {}, MO = A.month || {};
     const stat = (k, v, s) => `<div style="padding:6px 0"><div class="mut" style="font-size:11px">${k}</div><div style="font-weight:700">${v}</div>${s ? `<div class="mut" style="font-size:11px">${s}</div>` : ""}</div>`;
     const asof = A.asof ? (A.live && marketOpenIst() ? `Live · ${String(A.asof).slice(11, 16)} IST` : `As of ${String(A.asof).slice(11, 16)} IST · ${dayTxt(parseDay(A.asof))}`) : "";
-    let h = `<div class="panel"><div class="pb"><div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut" style="font-size:11px">${esc(asof)}</span></div>` + algoModeBox() +
+    let h = algoSuggestP(A) + `<div class="panel"><div class="pb"><div class="row"><span class="l">${algoStatus(A)}</span><span class="r mut" style="font-size:11px">${esc(asof)}</span></div>` + algoModeBox() +
       `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 10px;margin-top:4px">` +
       stat("Today", pSigned((TD.booked || 0) + (TD.open || 0)), (TD.trades || 0) + " closed") +
       stat("This month", pSigned(AJ.month), (MO.trades || 0) + " trades" + (AJ.OP ? " · incl. open" : "")) +

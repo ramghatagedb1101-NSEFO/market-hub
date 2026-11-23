@@ -786,6 +786,22 @@ def test_feed_frozen():
     ok("feed: no price for 3 minutes is dead", feed_frozen(s2, None, t0 + _td(minutes=3)))
 
 
+def test_suggest():
+    """23 Nov 2026: simulated trades listed as steps to copy by hand (open, stop, close and why, still held)."""
+    from trader.summary import build
+    rows = [{"t": "2026-11-23T00:00:12", "kind": "start", "strategy": "autopilot", "orders": "simulated"},
+            {"t": "2026-11-23T10:00:01", "kind": "order", "contract": "NIFTY 2026-11-23 25950C", "side": "SELL", "lots": 1, "order": "S1", "stop": 52.2},
+            {"t": "2026-11-23T10:00:03", "kind": "fill", "contract": "NIFTY 2026-11-23 25950C", "side": "SELL", "qty": 65, "price": 17.15, "tag": "s:x", "order": "S1"},
+            {"t": "2026-11-23T10:00:03", "kind": "fill", "contract": "NIFTY 2026-11-23 25350P", "side": "SELL", "qty": 65, "price": 13.9, "tag": "s:x", "order": "S3"},
+            {"t": "2026-11-23T11:40:00", "kind": "fill", "contract": "NIFTY 2026-11-23 25950C", "side": "BUY", "qty": 65, "price": 5.1, "tag": "target", "order": "S5"}]
+    s = build(rows, _dt_now := __import__("datetime").datetime(2026, 11, 23, 12, 0))["suggest"]
+    ok("suggest: newest first, close with its reason", s[0]["side"] == "BUY" and not s[0]["opens"] and s[0]["why"] == "Target", s[0])
+    ok("suggest: opening sell with its stop, now closed", s[2]["opens"] and s[2]["stop"] == 52.2 and s[2]["held"] is False and s[2]["lots"] == 1, s[2])
+    ok("suggest: the put still held", s[1]["opens"] and s[1]["held"] is True, s[1])
+    rows[0]["orders"] = "ibkr"
+    ok("suggest: none when orders go to IBKR", build(rows, _dt_now)["suggest"] == [])
+
+
 def test_morning_inputs():
     """23 Nov 2026: the 09:30 autopilot reading had no opening gap (IBKR's previous close not in yet) and no US close
     (FRED a day late); both now come from the last data that has them."""
@@ -964,7 +980,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_morning_inputs, test_sim_broker, test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_suggest, test_morning_inputs, test_sim_broker, test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()

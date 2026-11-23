@@ -2,6 +2,18 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Mon 23 Nov 2026, ~12:45 IST: "Trades to place yourself" on the dashboard while IBKR takes no program orders
+- Owner: "till the problem with IBKR does not solve, suggest trades on the dashboard". `trader/summary.py`
+  `suggestions()`: today's simulated fills as steps (time, buy / sell / buy back, option, lots, price, the stop-loss sent
+  with an opening trade, why a closing one closed, still open or closed); only while orders are simulated. Sent to the
+  relay every minute with the live figures (`kicker.LIVE_KEYS`), so the dashboard (refreshing every 30 s in market
+  hours) shows a new trade within about a minute.
+- Dashboard › Auto trading: a "Trades to place yourself" panel at the top; the header says "Simulated on IBKR prices"
+  instead of "IBKR paper account". Released after the close (no relay push in market hours).
+- Phone (owner: "yes add", v80): the same list at the top of Auto trading (one line a trade: action, option, price; time,
+  lots, stop-loss or reason, open / closed underneath); the F&O card says "Trades to place yourself · N today".
+  Checked at 375 px: no sideways scroll.
+
 ## Mon 23 Nov 2026, ~11:20 IST: autopilot's 09:30 reading had no opening gap and no US close
 - First simulated day worked: autopilot read "expiry day" at 09:30, picked the expiry-day short strangle, sold NIFTY
   25950 CE at 17.15 and 25350 PE at 13.90 at 10:00 (stops recorded); +Rs 671 open at 10:50; prices live; app shows

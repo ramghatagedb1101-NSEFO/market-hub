@@ -84,7 +84,7 @@ def call_relay(wfs: list[str], timeout: int = 90) -> dict:
 
 
 JOURNALS = "/opt/trader/journal"
-LIVE_KEYS = ("asof", "account", "status", "today", "month", "totals", "open", "pending", "pending_at")
+LIVE_KEYS = ("asof", "account", "status", "today", "month", "totals", "open", "pending", "pending_at", "suggest")
 
 
 def live_due(now: dt.datetime) -> bool:

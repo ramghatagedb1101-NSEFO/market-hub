@@ -27,7 +27,35 @@ IST = timezone(timedelta(hours=5, minutes=30))
 from pathlib import Path
 
 WHY = {"stop": "Stop-loss", "trail": "Trailing stop", "close-all": "Closed: day stopped", "settle": "Expiry",
-       "target": "Target", "time-exit": "Exit time"}
+       "target": "Target", "time-exit": "Exit time", "expiry": "Expiry"}
+
+
+def suggestions(rows: list[dict], today: str) -> list[dict]:
+    """Today's trades as steps to copy by hand (owner, 23 Nov 2026: "till the problem with IBKR does not solve, suggest
+    trades on the dashboard"), newest first: every fill, whether it opens or closes a position, at what price, the
+    stop-loss sent with an opening one, why a closing one closed, and whether an opened position is still held."""
+    from .model import LOT
+    pos, stop, out = defaultdict(int), {}, []
+    for r in rows:
+        k, c = r.get("kind"), r.get("contract")
+        if k == "order" and c and r.get("stop"):
+            stop[c] = r["stop"]
+        if k != "fill" or not c:
+            continue
+        q = r["qty"] if r["side"] == "BUY" else -r["qty"]
+        before = pos[c]
+        pos[c] += q
+        if str(r.get("t", ""))[:10] != today:
+            continue
+        opening = before == 0 or (before > 0) == (q > 0)
+        tag = r.get("tag") or ""
+        out.append({"t": r["t"], "side": r["side"], "contract": c, "qty": abs(q),
+                    "lots": abs(q) // LOT.get(c.split()[0], 1) or 1, "price": r["price"], "opens": opening,
+                    "stop": stop.get(c) if opening else None,
+                    "why": None if opening else WHY.get(tag, "Strategy exit")})
+    for it in out:
+        it["held"] = bool(pos[it["contract"]]) if it["opens"] else None
+    return list(reversed(out))
 
 
 def read(dirpath: str) -> list[dict]:
@@ -271,6 +299,7 @@ def build(rows: list[dict], now: datetime | None = None) -> dict:
         "days": day_list,
         "months": month_list,
         "trades": list(reversed(trades)),        # newest first; every trade, no cut-off
+        "suggest": suggestions(rows, today) if status.get("simulated") else [],
         "by_strategy": by_strategy,
         "by_strategy_regime": by_strategy_regime,
     }
