@@ -791,6 +791,27 @@ def test_feed_frozen():
        and '< WATCH_UNTIL' in inspect.getsource(_ib.IBKR.index_bars))
 
 
+def test_holidays_reload():
+    """24 Nov 2026: the machine had no holiday list and traded-as-usual on Guru Nanak Jayanti; algo-sync now copies it,
+    and a running program picks up a new or changed list without a restart."""
+    import json as _j, os as _os, tempfile
+    from datetime import date as _d
+    from pathlib import Path as _P
+    import hub.holidays as h
+    old_file, old_cache, old_stamp = h.FILE, h._cache, h._stamp
+    try:
+        f = _P(tempfile.mkdtemp()) / "holidays.json"
+        h.FILE, h._cache, h._stamp = f, None, None
+        ok("holidays: no list -> weekdays are sessions", h.is_session(_d(2026, 11, 24)))
+        f.write_text(_j.dumps({"days": ["2026-11-24"]}), encoding="utf-8")
+        ok("holidays: a list arriving later is read at once", not h.is_session(_d(2026, 11, 24)))
+        f.write_text(_j.dumps({"days": ["2026-11-24", "2026-12-25"]}), encoding="utf-8")
+        _os.utime(f, (f.stat().st_atime, f.stat().st_mtime + 5))
+        ok("holidays: a changed list is read again", not h.is_session(_d(2026, 12, 25)) and h.is_session(_d(2026, 11, 23)))
+    finally:
+        h.FILE, h._cache, h._stamp = old_file, old_cache, old_stamp
+
+
 def test_suggest():
     """23 Nov 2026: simulated trades listed as steps to copy by hand (open, stop, close and why, still held)."""
     from trader.summary import build
@@ -985,7 +1006,7 @@ def test_live_push():
 
 
 def main() -> int:
-    for t in [test_suggest, test_morning_inputs, test_sim_broker, test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
+    for t in [test_holidays_reload, test_suggest, test_morning_inputs, test_sim_broker, test_refused, test_feed_watch, test_feed_frozen, test_first_choice, test_fill_idle, test_emergency_stop, test_indicators, test_rules, test_compare_and_groups, test_regime_autopilot_by_strategy, test_summary, test_stop_hit, test_trail, test_no_trail_without_gain, test_hedge_has_no_stop,
               test_kill_switch_no_double_sell, test_refusals, test_stale_price, test_settlement, test_condor, test_week, test_range_filter, test_both_directions,
               test_kicker_matches_crons, test_fast_signals, test_recorder_merge, test_market_signals, test_packages, test_session_rules, test_live_push, test_no_ceiling_when_trailing, test_autopilot_off_clears, test_match_choice]:
         t()

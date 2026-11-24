@@ -2,6 +2,15 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Tue 24 Nov 2026, ~11:30 IST: the trading machine now knows the exchange holidays
+- Today (Guru Nanak Jayanti) is an NSE holiday, but the trading program made its 09:30 autopilot choice and showed BANK
+  NIFTY's price as "down": the holiday list lives in `state/`, which is not in this repo, so the machine never had one
+  and took every weekday for a session (the same for its expiry-day and next-session checks). algo-sync now copies
+  `state/holidays.json` from the private repo to the machine, and `hub/holidays.load()` reads it again when it changes,
+  so a running program needs no restart. No trade was placed today (IBKR sent no prices).
+- `trader.ibcheck --minutes` (run by bt-worker-setup log_only): what one-minute NIFTY history and live price IBKR gives
+  now -- it showed none for today, which is how the holiday was confirmed.
+
 ## Mon 23 Nov 2026, ~16:00 IST: no false "price feed down" at the close
 - On 23 Nov the app showed NIFTY's price feed as down from 15:15. Not a fault: IBKR's NIFTY price stands still from
   15:15 to 15:30 every day (all of 17-20 Nov are recorded flat from 15:15); the price watch added on 20 Nov first ran a

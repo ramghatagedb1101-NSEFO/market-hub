@@ -47,13 +47,22 @@ def refresh() -> dict:
     return out
 
 
+_stamp: float | None = None
+
+
 def load() -> set:
-    global _cache
-    if _cache is None:
+    """24 Nov 2026: read again when the file changes (the trading machine runs for days; algo-sync copies the list)."""
+    global _cache, _stamp
+    try:
+        st = FILE.stat().st_mtime
+    except OSError:
+        st = None
+    if _cache is None or st != _stamp:
         try:
             _cache = set(json.loads(FILE.read_text(encoding="utf-8")).get("days", []))
         except (OSError, ValueError):
-            _cache = set()
+            _cache = _cache or set()
+        _stamp = st
     return _cache
 
 

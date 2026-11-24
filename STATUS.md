@@ -13,7 +13,8 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
 - Mon 23 Nov 2026, first simulated day: expiry-day strangle sold 10:00, both legs bought back on target 11:31,
   +Rs 912 after charges; shown as "Trades to place yourself" on the dashboard and phone. Restarted 15:45 (gap / US-close
   fix live; price watch stops at 15:15).
-- Check: Tue 24 Nov 2026 journal by 11:00: the 09:30 autopilot reading has a gap and a US close; no "feed down" after 15:15.
+- Tue 24 Nov 2026 was an NSE holiday the machine did not know about (fixed: algo-sync copies the holiday list).
+- Check: Wed 25 Nov 2026 journal by 11:00: the 09:30 autopilot reading has a gap and a US close; no "feed down" after 15:15.
 
 ## HANDOVER -- Sat 14 Nov 2026 (read this first)
 

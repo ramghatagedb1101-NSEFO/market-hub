@@ -110,6 +110,19 @@ jobs:
             fi
           fi
           rm -f f.json f2.json
+          # 24 Nov 2026: the exchange holidays (state/ is not in this repo, so the machine had none and took Guru Nanak
+          # Jayanti, Tue 24 Nov 2026, for a trading day); hub/holidays.py reads them from the app's state/ folder
+          if curl -sfL -H "Authorization: Bearer $PRIVATE_REPO_TOKEN" -H "Accept: application/vnd.github.raw"                "https://api.github.com/repos/ramghatagedb1101-NSEFO/market-hub-private/contents/state/holidays.json" -o h.json              && python -c "import json; assert len(json.load(open('h.json'))['days']) > 10"; then
+            NEW=$(sha256sum h.json | cut -c1-64)
+            OLD=$($SSH 'sha256sum /opt/trader/app/state/holidays.json 2>/dev/null | cut -c1-64' || true)
+            if [ "$NEW" != "$OLD" ]; then
+              $SSH 'mkdir -p /opt/trader/app/state && cat > /opt/trader/app/state/holidays.json.tmp && mv /opt/trader/app/state/holidays.json.tmp /opt/trader/app/state/holidays.json' < h.json
+              echo "exchange holidays: updated on the machine"
+            fi
+          else
+            echo "::warning::could not read the exchange holidays; the machine keeps its copy"
+          fi
+          rm -f h.json
           $SSH 'tar czf - -C /opt/trader journal' | tar xzf -
           rm -f "$RUNNER_TEMP/k"
           echo "journal days: $(ls journal | wc -l)"
