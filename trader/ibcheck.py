@@ -25,6 +25,17 @@ def check() -> int:
     acc = ib.managedAccounts()
     paper = bool(acc) and all(a.startswith("DU") for a in acc)
     bars = ib.reqHistoricalData(Index("NIFTY50", "NSE", "INR"), "", "3 D", "1 day", "TRADES", True, timeout=30)
+    if "--minutes" in sys.argv:                                  # 24 Nov 2026: what one-minute history IBKR gives now
+        und = Index("NIFTY50", "NSE", "INR")
+        ib.qualifyContracts(und)
+        t0 = time.time()
+        mins = ib.reqHistoricalData(und, "", "6 D", "1 min", "TRADES", True, formatDate=1, timeout=60)
+        today = [b for b in mins or [] if str(b.date)[:10] == time.strftime("%Y-%m-%d")]
+        print(f"IBKR minutes: {len(mins or [])} bars in {time.time() - t0:.1f}s; today {len(today)}"
+              + (f" ({today[0].date} .. {today[-1].date}, open {today[0].open})" if today else ""))
+        tk = ib.reqMktData(und, "", False, False)
+        ib.sleep(5)
+        print(f"IBKR live NIFTY: last {tk.last} close {tk.close} at {tk.time}")
     ib.disconnect()
     if not paper:
         print("IBKR: signed in, but NOT a paper account")
