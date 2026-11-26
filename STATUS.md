@@ -25,8 +25,7 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
   EVERY session 1 Jan 2024 - 30 Oct 2026 under its nearest expiry (`state/breeze/expiry_weeks/`, 373 MB), strikes
   within ~2% of the index (2025-26) / 5% (2024); identical to the download on all 434,909 overlapping minutes; the
   download's wider strikes merged in where both exist. Download (two days per expiry, `state/breeze/expiry_days/`):
-  236 of 409 done; 173 to go = 21,254 requests (~5 sign-in days): NIFTY / BANK NIFTY Oct-Dec 2023 first (13 each,
-  2,212 requests), then SENSEX 147 (research only: IBKR has no SENSEX F&O).
+  COMPLETE (checked 26 Nov 2026: 413 expiries downloaded, 0 to go; NIFTY weeks to 23 Nov 2026 filled).
   Shared allowance 4,900 a day (`state/breeze/usage.json`). `breeze.yml` runs at 16:00 and 21:00 IST, only on days
   with that day's ICICI sign-in (phone, Settings); check its scheduled runs fire. The every-day option download is no
   longer needed for NIFTY / BANK NIFTY up to 30 Oct 2026. Then `diag.yml -f module=rule_real_fill`.
@@ -66,7 +65,8 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
 | Screens | `relay/AdminPage.html` (Auto trading, Strategies), `docs/index.html` (phone) | relay / GitHub Pages |
 
 ### Routine (owner)
-- ICICI sign-in on the phone every day until the downloads finish (weekends too).
+- ICICI sign-in no longer needed (26 Nov 2026: the download finished, 413 expiries, 0 to go; new days come from the
+  trading machine's IBKR recorder). A sign-in on any day still tops up that month's index minutes; optional.
 - No daily IBKR login: the machine signs in with the stored paper login (06:30 restart); `ibguard.timer` checks at
   06:50 / 08:20 / 08:50 IST on weekdays and restarts the gateway if it is signed out (16 Nov 2026, after the Sunday reset).
 - During market hours do not log in to IBKR (main or paper) on the web or the app: IBKR allows one session, and a
