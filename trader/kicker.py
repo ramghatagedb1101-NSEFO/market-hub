@@ -61,7 +61,7 @@ SCHEDULE: dict[str, list[tuple[tuple[int, ...], list[str]]]] = {
     "close-estimate.yml": [(WEEKDAYS, ["09:20", "11:00", "13:00", "14:45"])],
     "expiry-theta.yml": [((0, 1), ["10:00", "12:30", "14:45"])],
     "algo-sync.yml": [(WEEKDAYS, _every(10, "08:30", "15:20") + ["15:35", "16:10"])],
-    "breeze.yml": [(EVERY_DAY, ["16:00", "21:00"])],
+    # breeze.yml: no longer started (27 Nov 2026): the ICICI history download finished; manual runs only.
     "daily.yml": [(WEEKDAYS, ["18:05", "20:30"])],
 }
 

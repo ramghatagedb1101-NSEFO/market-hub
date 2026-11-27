@@ -26,9 +26,7 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
   within ~2% of the index (2025-26) / 5% (2024); identical to the download on all 434,909 overlapping minutes; the
   download's wider strikes merged in where both exist. Download (two days per expiry, `state/breeze/expiry_days/`):
   COMPLETE (checked 26 Nov 2026: 413 expiries downloaded, 0 to go; NIFTY weeks to 23 Nov 2026 filled).
-  Shared allowance 4,900 a day (`state/breeze/usage.json`). `breeze.yml` runs at 16:00 and 21:00 IST, only on days
-  with that day's ICICI sign-in (phone, Settings); check its scheduled runs fire. The every-day option download is no
-  longer needed for NIFTY / BANK NIFTY up to 30 Oct 2026. Then `diag.yml -f module=rule_real_fill`.
+  `breeze.yml` is manual only since 27 Nov 2026 (schedule off, ICICI sign-in removed from the phone). Then `diag.yml -f module=rule_real_fill`.
 - **Strategy chart**: Buy / Sell labels on by default for Supertrend (others per indicator, button "Buy/Sell off").
 - **Trading machine** `market-hub-trader` (Oracle Always Free Arm, 2 cores / 12 GB, Mumbai, Ubuntu 24.04): IBKR gateway
   in Docker (`/opt/trader/docker-compose.yml`, IBC, paper mode, API on 127.0.0.1:4002 only) logged in to the paper
@@ -56,7 +54,7 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
 ### How it fits together
 | Piece | Where | Runs |
 |---|---|---|
-| ICICI download | `hub/breeze_history.py`, `hub/breeze_index.py`, `breeze.yml` (SSH tunnel via `market-hub-trader`, fixed address) | 16:00 / 21:00 IST, needs the day's ICICI sign-in |
+| ICICI download | `hub/breeze_history.py`, `hub/breeze_index.py`, `breeze.yml` (SSH tunnel via `market-hub-trader`, fixed address) | manual only (27 Nov 2026); needs that day's ICICI sign-in |
 | Trading program | `trader/` on `market-hub-trader`, `trader.service` | always; steps in market hours |
 | Strategies to the machine, journals back | `algo-sync.yml` (relay `?mode=strategies`; machine address via `infra/oci_ip.py`) | every 10 min 08:30-15:20 weekdays, 15:35, 16:10, and at once after any switch on the page |
 | On-time starts | `trader/kicker.py`, `kicker.timer` on `market-hub-trader` -> relay `?mode=kick` (`relay/Kick.gs`) | every minute; starts each scheduled job at its time |
@@ -65,8 +63,8 @@ As of Sun 15 Nov 2026, ~23:00 IST. Start with the 14 Nov HANDOVER just below, th
 | Screens | `relay/AdminPage.html` (Auto trading, Strategies), `docs/index.html` (phone) | relay / GitHub Pages |
 
 ### Routine (owner)
-- ICICI sign-in no longer needed (26 Nov 2026: the download finished, 413 expiries, 0 to go; new days come from the
-  trading machine's IBKR recorder). A sign-in on any day still tops up that month's index minutes; optional.
+- No ICICI sign-in (27 Nov 2026: download finished, sign-in removed from the phone; new days come from the trading
+  machine's IBKR recorder).
 - No daily IBKR login: the machine signs in with the stored paper login (06:30 restart); `ibguard.timer` checks at
   06:50 / 08:20 / 08:50 IST on weekdays and restarts the gateway if it is signed out (16 Nov 2026, after the Sunday reset).
 - During market hours do not log in to IBKR (main or paper) on the web or the app: IBKR allows one session, and a

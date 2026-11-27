@@ -2,6 +2,14 @@
 
 Newest first. Dates are IST. "Login" covers how the Kite access token gets from your morning login into the daily job.
 
+## Fri 27 Nov 2026, ~07:45 IST: ICICI sign-in removed from the phone
+- Owner: remove the ICICI sign-in button. The ICICI history download finished on Thu 26 Nov 2026 (413 expiries, none
+  left); each new day's prices come from the trading machine's IBKR recorder, so the daily ICICI sign-in has no use.
+- Phone Settings: the ICICI section, its status check and the sign-in return handling are gone (cache v81).
+- `breeze.yml`: the 16:00 / 21:00 schedule is off, and the trading machine no longer starts it (`trader/kicker.py`).
+  Without a sign-in each run failed and GitHub emailed an error. Manual runs still work after an ICICI sign-in; the
+  relay's ICICI handling (`relay/Breeze.gs`) stays unused, not deployed again (no relay change).
+
 ## Tue 24 Nov 2026, ~11:30 IST: the trading machine now knows the exchange holidays
 - Today (Guru Nanak Jayanti) is an NSE holiday, but the trading program made its 09:30 autopilot choice and showed BANK
   NIFTY's price as "down": the holiday list lives in `state/`, which is not in this repo, so the machine never had one

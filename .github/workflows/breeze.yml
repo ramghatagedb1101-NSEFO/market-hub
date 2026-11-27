@@ -6,9 +6,8 @@ name: breeze
 # Secrets: BREEZE_API_KEY, BREEZE_API_SECRET, ORACLE_SSH_KEY, RELAY_URL, RELAY_KEY, PRIVATE_REPO_TOKEN.
 # Public log: counts and dates only, never prices or keys.
 on:
-  schedule:                          # the history download runs itself after the day's ICICI sign-in (owner, 13 Nov 2026)
-    - cron: "30 10 * * *"            # 16:00 IST
-    - cron: "30 15 * * *"            # 21:00 IST
+  # 27 Nov 2026 (owner): the 16:00 / 21:00 schedule is off. The history download finished on 26 Nov 2026 and the daily
+  # ICICI sign-in was removed from the phone; new days come from the trading machine's IBKR recorder. Manual runs only.
   workflow_dispatch:
     inputs:
       module:
